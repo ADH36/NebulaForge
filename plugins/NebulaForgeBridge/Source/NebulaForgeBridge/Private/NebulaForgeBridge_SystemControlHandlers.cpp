@@ -1,5 +1,7 @@
 #include "NebulaForgeBridgeGlobals.h"
 #include "Dom/JsonObject.h"
+#include "Async/Async.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "NebulaForgeBridgeHelpers.h"
 #include "NebulaForgeBridgeSubsystem.h"
 
@@ -8,6 +10,7 @@
 #include "HAL/FileManager.h"
 #include "HAL/PlatformFileManager.h"
 #include "HAL/PlatformProcess.h"
+#include "HAL/PlatformTime.h"
 #include "Misc/Paths.h"
 #include "Misc/App.h"
 #include "Misc/MonitoredProcess.h"
@@ -31,8 +34,87 @@
 #include "Subsystems/LocalPlayerSubsystem.h"
 #include "Subsystems/Subsystem.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "Engine/LatentActionManager.h"
+#include "LatentActions.h"
 #include "Tickable.h"
 #include "UObject/UObjectIterator.h"
+#include "UObject/UObjectGlobals.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
+#endif
+
+#if WITH_EDITOR
+namespace {
+
+void SendManagedLifecycleEvent(UNebulaForgeBridgeSubsystem *Owner,
+                               const FString &EventName,
+                               const FString &OperationId,
+                               const TSharedPtr<FJsonObject> &Data) {
+  if (!Owner) return;
+  TSharedRef<FJsonObject> Event = MakeShared<FJsonObject>();
+  Event->SetStringField(TEXT("type"), TEXT("automation_event"));
+  Event->SetStringField(TEXT("event"), EventName);
+  Event->SetStringField(TEXT("operationId"), OperationId);
+  if (Data.IsValid()) Event->SetObjectField(TEXT("result"), Data.ToSharedRef());
+
+  FString Serialized;
+  const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Serialized);
+  FJsonSerializer::Serialize(Event, Writer);
+  Owner->SendRawMessage(Serialized);
+}
+
+class FMcpBridgeLatentAction final : public FPendingLatentAction {
+public:
+  FMcpBridgeLatentAction(UNebulaForgeBridgeSubsystem *InOwner,
+                         const FString &InLatentId, float InDuration,
+                         const FLatentActionInfo &InLatentInfo)
+      : Owner(InOwner), LatentId(InLatentId), Remaining(InDuration),
+        CallbackTarget(InLatentInfo.CallbackTarget),
+        ExecutionFunction(InLatentInfo.ExecutionFunction),
+        Linkage(InLatentInfo.Linkage) {}
+
+  void Cancel() { bCancelled = true; }
+
+  FString GetDescription() override {
+    return FString::Printf(TEXT("MCP latent action '%s': %.3f seconds remaining"),
+                           *LatentId, FMath::Max(0.0f, Remaining));
+  }
+
+  void UpdateOperation(FLatentResponse &Response) override {
+    if (!bCancelled) Remaining -= Response.ElapsedTime();
+    const bool bDone = bCancelled || Remaining <= 0.0f;
+    if (bDone && !bReported) {
+      bReported = true;
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("latentId"), LatentId);
+      Result->SetBoolField(TEXT("cancelled"), bCancelled);
+      SendManagedLifecycleEvent(Owner.Get(),
+                                bCancelled ? TEXT("latent_action_cancelled")
+                                           : TEXT("latent_action_completed"),
+                                LatentId, Result);
+    }
+
+    if (bDone && !bCancelled && CallbackTarget.IsValid() &&
+        !ExecutionFunction.IsNone()) {
+      Response.FinishAndTriggerIf(true, ExecutionFunction, Linkage,
+                                  CallbackTarget);
+    } else {
+      Response.DoneIf(bDone);
+    }
+  }
+
+private:
+  TWeakObjectPtr<UNebulaForgeBridgeSubsystem> Owner;
+  FString LatentId;
+  float Remaining = 0.0f;
+  FWeakObjectPtr CallbackTarget;
+  FName ExecutionFunction;
+  int32 Linkage = 0;
+  bool bCancelled = false;
+  bool bReported = false;
+};
+
+} // namespace
 #endif
 
 // Subsystem actions resolve Unreal-managed lifetime scopes. They intentionally
@@ -256,6 +338,655 @@ bool UNebulaForgeBridgeSubsystem::HandleSubsystemAction(
 #endif
 }
 
+void UNebulaForgeBridgeSubsystem::ShutdownManagedAsyncOperations() {
+#if WITH_EDITOR
+  for (TPair<FString, FMcpTimerRecord> &Pair : ManagedTimers) {
+    FMcpTimerRecord &Record = Pair.Value;
+    if (Record.World.IsValid()) {
+      Record.World->GetTimerManager().ClearTimer(Record.Handle);
+    }
+  }
+  ManagedTimers.Empty();
+
+  for (const TPair<FString, FMcpLatentRecord> &Pair : ManagedLatentActions) {
+    if (Pair.Value.World.IsValid()) {
+      Pair.Value.World->GetLatentActionManager().RemoveActionsForObject(this);
+    }
+  }
+  ManagedLatentActions.Empty();
+
+  for (TPair<FString, FMcpAsyncRecord> &Pair : ManagedAsyncActions) {
+    if (Pair.Value.State.IsValid()) Pair.Value.State->bCancelled.store(true);
+  }
+  ManagedAsyncActions.Empty();
+
+  for (TPair<FString, TObjectPtr<UMcpManagedGameplayTask>> &Pair : ManagedGameplayTasks) {
+    if (Pair.Value) Pair.Value->EndTask();
+  }
+#endif
+  ManagedGameplayTasks.Empty();
+  ManagedGameplayTaskOwners.Empty();
+  ManagedGameplayTaskPriorities.Empty();
+  ManagedGameplayTaskAutoActivate.Empty();
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleAsyncTimerAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket) {
+#if WITH_EDITOR
+  if (!Payload.IsValid()) {
+    SendAutomationError(RequestingSocket, RequestId,
+                        TEXT("Async/timer payload missing"),
+                        TEXT("INVALID_PAYLOAD"));
+    return true;
+  }
+
+  auto SendInvalid = [&](const FString &Message) {
+    SendAutomationResponse(RequestingSocket, RequestId, false, Message,
+                            nullptr, TEXT("INVALID_ARGUMENT"));
+  };
+  auto ResolveWorld = [&]() -> UWorld * {
+    FString WorldContext;
+    Payload->TryGetStringField(TEXT("worldContext"), WorldContext);
+    WorldContext = WorldContext.TrimStartAndEnd().ToLower();
+    if ((WorldContext == TEXT("pie") || WorldContext == TEXT("play")) &&
+        GEditor && GEditor->PlayWorld) {
+      return GEditor->PlayWorld.Get();
+    }
+    if (WorldContext == TEXT("editor") && GEditor) {
+      return GEditor->GetEditorWorldContext().World();
+    }
+    if (GEditor && GEditor->PlayWorld) return GEditor->PlayWorld.Get();
+    return GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+  };
+  auto GetId = [&](const TCHAR *Field) -> FString {
+    FString Value;
+    Payload->TryGetStringField(Field, Value);
+    Value.TrimStartAndEndInline();
+    return Value;
+  };
+  auto ResolveCallback = [&](const FString &ObjectPath,
+                             const FString &FunctionName,
+                             TWeakObjectPtr<UObject> &OutObject,
+                             FName &OutFunction) -> bool {
+    if (ObjectPath.IsEmpty() != FunctionName.IsEmpty()) {
+      SendInvalid(TEXT("callbackObject and callbackFunction must be provided together."));
+      return false;
+    }
+    if (ObjectPath.IsEmpty()) return true;
+    UObject *Object = FindObject<UObject>(nullptr, *ObjectPath);
+    if (!Object) {
+      SendInvalid(TEXT("callbackObject must reference a loaded UObject."));
+      return false;
+    }
+    UFunction *Function = Object->FindFunction(FName(*FunctionName));
+    if (!Function || Function->ParmsSize != 0) {
+      SendInvalid(TEXT("callbackFunction must resolve to a zero-argument UFunction."));
+      return false;
+    }
+    OutObject = Object;
+    OutFunction = Function->GetFName();
+    return true;
+  };
+  auto AddTimerData = [&](const FMcpTimerRecord &Record,
+                          TSharedPtr<FJsonObject> &Result) {
+    const bool bExists = Record.World.IsValid() &&
+                         Record.World->GetTimerManager().TimerExists(Record.Handle);
+    Result->SetStringField(TEXT("timerId"), Record.TimerId);
+    Result->SetStringField(TEXT("world"), Record.World.IsValid()
+                                               ? Record.World->GetPathName()
+                                               : TEXT(""));
+    Result->SetNumberField(TEXT("rate"), Record.Rate);
+    Result->SetNumberField(TEXT("firstDelay"), Record.FirstDelay);
+    Result->SetBoolField(TEXT("looping"), Record.bLooping);
+    Result->SetNumberField(TEXT("fireCount"), Record.FireCount);
+    Result->SetBoolField(TEXT("completed"), Record.bCompleted || !bExists);
+    Result->SetBoolField(TEXT("exists"), bExists);
+    if (bExists) {
+      const FTimerManager &TimerManager = Record.World->GetTimerManager();
+      Result->SetBoolField(TEXT("active"), TimerManager.IsTimerActive(Record.Handle));
+      Result->SetBoolField(TEXT("paused"), TimerManager.IsTimerPaused(Record.Handle));
+      Result->SetBoolField(TEXT("pending"), TimerManager.IsTimerPending(Record.Handle));
+      Result->SetNumberField(TEXT("elapsed"), TimerManager.GetTimerElapsed(Record.Handle));
+      Result->SetNumberField(TEXT("remaining"), TimerManager.GetTimerRemaining(Record.Handle));
+    }
+    if (!Record.CallbackObjectPath.IsEmpty()) {
+      Result->SetStringField(TEXT("callbackObject"), Record.CallbackObjectPath);
+      Result->SetStringField(TEXT("callbackFunction"), Record.CallbackFunction);
+    }
+  };
+
+  if (Action == TEXT("set_timer")) {
+    const FString TimerId = GetId(TEXT("timerId"));
+    if (TimerId.IsEmpty()) { SendInvalid(TEXT("timerId is required.")); return true; }
+    if (ManagedTimers.Contains(TimerId)) {
+      SendInvalid(TEXT("timerId is already registered; clear it before reusing the id."));
+      return true;
+    }
+    double RateValue = 0.0;
+    if (!Payload->TryGetNumberField(TEXT("rate"), RateValue)) {
+      Payload->TryGetNumberField(TEXT("duration"), RateValue);
+    }
+    if (RateValue <= 0.0 || RateValue > 86400.0) {
+      SendInvalid(TEXT("rate or duration must be greater than 0 and at most 86400 seconds."));
+      return true;
+    }
+    double FirstDelayValue = RateValue;
+    Payload->TryGetNumberField(TEXT("firstDelay"), FirstDelayValue);
+    if (FirstDelayValue < 0.0 || FirstDelayValue > 86400.0) {
+      SendInvalid(TEXT("firstDelay must be between 0 and 86400 seconds."));
+      return true;
+    }
+    bool bLooping = false;
+    Payload->TryGetBoolField(TEXT("looping"), bLooping);
+    const FString CallbackObjectPath = GetId(TEXT("callbackObject"));
+    const FString CallbackFunction = GetId(TEXT("callbackFunction"));
+    TWeakObjectPtr<UObject> CallbackObject;
+    FName CallbackFunctionName;
+    if (!ResolveCallback(CallbackObjectPath, CallbackFunction,
+                         CallbackObject, CallbackFunctionName)) return true;
+    UWorld *World = ResolveWorld();
+    if (!World) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("World context is unavailable"), nullptr,
+                             TEXT("WORLD_NOT_FOUND"));
+      return true;
+    }
+
+    FMcpTimerRecord Record;
+    Record.World = World;
+    Record.TimerId = TimerId;
+    Record.Rate = static_cast<float>(RateValue);
+    Record.FirstDelay = static_cast<float>(FirstDelayValue);
+    Record.bLooping = bLooping;
+    Record.CallbackObjectPath = CallbackObjectPath;
+    Record.CallbackFunction = CallbackFunction;
+    TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+    FTimerDelegate Delegate = FTimerDelegate::CreateLambda(
+        [WeakThis, TimerId, CallbackObject, CallbackFunctionName]() {
+          UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get();
+          if (!Owner) return;
+          FMcpTimerRecord *Found = Owner->ManagedTimers.Find(TimerId);
+          if (!Found) return;
+          ++Found->FireCount;
+          Found->bCompleted = !Found->bLooping;
+          if (CallbackObject.IsValid() && !CallbackFunctionName.IsNone()) {
+            if (UFunction *Function = CallbackObject->FindFunction(CallbackFunctionName)) {
+              CallbackObject->ProcessEvent(Function, nullptr);
+            }
+          }
+          TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
+          EventResult->SetStringField(TEXT("timerId"), TimerId);
+          EventResult->SetNumberField(TEXT("fireCount"), Found->FireCount);
+          EventResult->SetBoolField(TEXT("looping"), Found->bLooping);
+          SendManagedLifecycleEvent(Owner, TEXT("timer_fired"), TimerId, EventResult);
+        });
+    World->GetTimerManager().SetTimer(Record.Handle, Delegate, Record.Rate,
+                                      Record.bLooping, Record.FirstDelay);
+    ManagedTimers.Add(TimerId, MoveTemp(Record));
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    AddTimerData(ManagedTimers[TimerId], Result);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Timer scheduled"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("list_timers")) {
+    TArray<TSharedPtr<FJsonValue>> Items;
+    for (const TPair<FString, FMcpTimerRecord> &Pair : ManagedTimers) {
+      TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+      AddTimerData(Pair.Value, Item);
+      Items.Add(MakeShared<FJsonValueObject>(Item));
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetArrayField(TEXT("timers"), Items);
+    Result->SetNumberField(TEXT("count"), Items.Num());
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Timers listed"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("clear_timer") || Action == TEXT("pause_timer") ||
+      Action == TEXT("resume_timer") || Action == TEXT("get_timer")) {
+    const FString TimerId = GetId(TEXT("timerId"));
+    FMcpTimerRecord *Record = ManagedTimers.Find(TimerId);
+    if (TimerId.IsEmpty() || !Record) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Managed timer was not found"), nullptr,
+                             TEXT("TIMER_NOT_FOUND"));
+      return true;
+    }
+    if (!Record->World.IsValid()) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Timer world is no longer valid"), nullptr,
+                             TEXT("WORLD_NOT_FOUND"));
+      return true;
+    }
+    FTimerManager &TimerManager = Record->World->GetTimerManager();
+    if (Action == TEXT("clear_timer")) {
+      TimerManager.ClearTimer(Record->Handle);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("timerId"), TimerId);
+      Result->SetBoolField(TEXT("cleared"), true);
+      ManagedTimers.Remove(TimerId);
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Timer cleared"), Result, FString());
+      return true;
+    }
+    if (Action == TEXT("pause_timer")) TimerManager.PauseTimer(Record->Handle);
+    if (Action == TEXT("resume_timer")) TimerManager.UnPauseTimer(Record->Handle);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    AddTimerData(*Record, Result);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           Action == TEXT("get_timer") ? TEXT("Timer inspected")
+                                                        : TEXT("Timer updated"),
+                           Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("create_latent_action")) {
+    const FString LatentId = GetId(TEXT("latentId"));
+    if (LatentId.IsEmpty()) { SendInvalid(TEXT("latentId is required.")); return true; }
+    if (ManagedLatentActions.Contains(LatentId)) {
+      SendInvalid(TEXT("latentId is already registered.")); return true;
+    }
+    double DurationValue = 0.0;
+    Payload->TryGetNumberField(TEXT("duration"), DurationValue);
+    if (DurationValue < 0.0 || DurationValue > 86400.0) {
+      SendInvalid(TEXT("duration must be between 0 and 86400 seconds.")); return true;
+    }
+    UWorld *World = ResolveWorld();
+    if (!World) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("World context is unavailable"), nullptr,
+                             TEXT("WORLD_NOT_FOUND"));
+      return true;
+    }
+    static int32 NextLatentUUID = 1000000;
+    double UUIDValue = 0.0;
+    const bool bHasUUID = Payload->TryGetNumberField(TEXT("uuid"), UUIDValue);
+    const int32 UUID = bHasUUID ? FMath::RoundToInt(UUIDValue) : NextLatentUUID++;
+    if (UUID <= 0) { SendInvalid(TEXT("uuid must be a positive integer.")); return true; }
+    if (World->GetLatentActionManager().FindExistingAction<FMcpBridgeLatentAction>(this, UUID)) {
+      SendInvalid(TEXT("uuid is already registered for the bridge latent-action owner.")); return true;
+    }
+    const FString CallbackObjectPath = GetId(TEXT("callbackObject"));
+    const FString CallbackFunction = GetId(TEXT("callbackFunction"));
+    TWeakObjectPtr<UObject> CallbackObject;
+    FName CallbackFunctionName;
+    if (!ResolveCallback(CallbackObjectPath, CallbackFunction,
+                         CallbackObject, CallbackFunctionName)) return true;
+    FLatentActionInfo LatentInfo;
+    LatentInfo.Linkage = 0;
+    double LinkageValue = 0.0;
+    if (Payload->TryGetNumberField(TEXT("linkage"), LinkageValue)) {
+      LatentInfo.Linkage = FMath::RoundToInt(LinkageValue);
+    }
+    LatentInfo.ExecutionFunction = CallbackFunctionName;
+    LatentInfo.CallbackTarget = CallbackObject.Get();
+    World->GetLatentActionManager().AddNewAction(
+        this, UUID, new FMcpBridgeLatentAction(this, LatentId,
+                                               static_cast<float>(DurationValue),
+                                               LatentInfo));
+    FMcpLatentRecord Record;
+    Record.World = World;
+    Record.LatentId = LatentId;
+    Record.UUID = UUID;
+    Record.Duration = static_cast<float>(DurationValue);
+    ManagedLatentActions.Add(LatentId, Record);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("latentId"), LatentId);
+    Result->SetNumberField(TEXT("uuid"), UUID);
+    Result->SetNumberField(TEXT("duration"), DurationValue);
+    Result->SetBoolField(TEXT("managedByWorldLatentActionManager"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Latent action created"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("list_latent_actions") || Action == TEXT("get_latent_action") ||
+      Action == TEXT("clear_latent_action")) {
+    const FString LatentId = GetId(TEXT("latentId"));
+    if (Action != TEXT("list_latent_actions") && LatentId.IsEmpty()) {
+      SendInvalid(TEXT("latentId is required.")); return true;
+    }
+    if (Action == TEXT("list_latent_actions")) {
+      TArray<TSharedPtr<FJsonValue>> Items;
+      for (const TPair<FString, FMcpLatentRecord> &Pair : ManagedLatentActions) {
+        const FMcpLatentRecord &Record = Pair.Value;
+        if (!Record.World.IsValid()) continue;
+        TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+        Item->SetStringField(TEXT("latentId"), Record.LatentId);
+        Item->SetNumberField(TEXT("uuid"), Record.UUID);
+        Item->SetNumberField(TEXT("duration"), Record.Duration);
+        Item->SetBoolField(TEXT("active"),
+          Record.World->GetLatentActionManager().FindExistingAction<FMcpBridgeLatentAction>(this, Record.UUID) != nullptr);
+        Item->SetStringField(TEXT("description"),
+          Record.World->GetLatentActionManager().GetDescription(this, Record.UUID));
+        Items.Add(MakeShared<FJsonValueObject>(Item));
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetArrayField(TEXT("latentActions"), Items);
+      Result->SetNumberField(TEXT("count"), Items.Num());
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Latent actions listed"), Result, FString());
+      return true;
+    }
+    FMcpLatentRecord *Record = ManagedLatentActions.Find(LatentId);
+    if (!Record || !Record->World.IsValid()) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Managed latent action was not found"), nullptr,
+                             TEXT("LATENT_ACTION_NOT_FOUND"));
+      return true;
+    }
+    FMcpBridgeLatentAction *LatentAction =
+        Record->World->GetLatentActionManager().FindExistingAction<FMcpBridgeLatentAction>(this, Record->UUID);
+    if (Action == TEXT("clear_latent_action")) {
+      if (LatentAction) LatentAction->Cancel();
+      ManagedLatentActions.Remove(LatentId);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("latentId"), LatentId);
+      Result->SetBoolField(TEXT("cancelled"), LatentAction != nullptr);
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Latent action cancellation requested"), Result, FString());
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("latentId"), LatentId);
+    Result->SetNumberField(TEXT("uuid"), Record->UUID);
+    Result->SetNumberField(TEXT("duration"), Record->Duration);
+    Result->SetBoolField(TEXT("active"), LatentAction != nullptr);
+    Result->SetStringField(TEXT("description"),
+                           Record->World->GetLatentActionManager().GetDescription(this, Record->UUID));
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Latent action inspected"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("create_async_action")) {
+    const FString AsyncId = GetId(TEXT("asyncId"));
+    if (AsyncId.IsEmpty()) { SendInvalid(TEXT("asyncId is required.")); return true; }
+    if (ManagedAsyncActions.Contains(AsyncId)) {
+      SendInvalid(TEXT("asyncId is already registered.")); return true;
+    }
+    double DurationValue = 0.0;
+    Payload->TryGetNumberField(TEXT("duration"), DurationValue);
+    if (DurationValue < 0.0 || DurationValue > 3600.0) {
+      SendInvalid(TEXT("duration must be between 0 and 3600 seconds.")); return true;
+    }
+    FString Execution = GetId(TEXT("execution"));
+    Execution = Execution.IsEmpty() ? TEXT("thread_pool") : Execution.ToLower();
+    EAsyncExecution ExecutionMode = EAsyncExecution::ThreadPool;
+    bool bSleepDuringWork = true;
+    if (Execution == TEXT("task_graph")) { ExecutionMode = EAsyncExecution::TaskGraph; bSleepDuringWork = false; }
+    else if (Execution == TEXT("task_graph_main_thread")) { ExecutionMode = EAsyncExecution::TaskGraphMainThread; bSleepDuringWork = false; }
+    else if (Execution == TEXT("task_graph_main_tick")) { ExecutionMode = EAsyncExecution::TaskGraphMainTick; bSleepDuringWork = false; }
+    else if (Execution == TEXT("thread")) ExecutionMode = EAsyncExecution::Thread;
+    else if (Execution == TEXT("thread_if_fork_safe")) ExecutionMode = EAsyncExecution::ThreadIfForkSafe;
+    else if (Execution == TEXT("thread_pool")) ExecutionMode = EAsyncExecution::ThreadPool;
+    else if (Execution == TEXT("large_thread_pool")) ExecutionMode = EAsyncExecution::LargeThreadPool;
+    else { SendInvalid(TEXT("execution must be task_graph, task_graph_main_thread, task_graph_main_tick, thread, thread_if_fork_safe, thread_pool, or large_thread_pool.")); return true; }
+    FMcpAsyncRecord Record;
+    Record.AsyncId = AsyncId;
+    Record.Execution = Execution;
+    Record.Label = GetId(TEXT("label"));
+    Record.Duration = static_cast<float>(DurationValue);
+    Record.State = MakeShared<FMcpAsyncState>();
+    const TSharedPtr<FMcpAsyncState> State = Record.State;
+    ManagedAsyncActions.Add(AsyncId, Record);
+    TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+    Async(ExecutionMode, [State, Duration = static_cast<float>(DurationValue),
+                          bSleepDuringWork, WeakThis, AsyncId]() {
+      if (bSleepDuringWork) {
+        const double EndTime = FPlatformTime::Seconds() + Duration;
+        while (!State->bCancelled.load() && FPlatformTime::Seconds() < EndTime) {
+          FPlatformProcess::Sleep(FMath::Min(0.01f, FMath::Max(0.0f, Duration)));
+        }
+      }
+      State->bSucceeded.store(!State->bCancelled.load());
+      State->bCompleted.store(true);
+      AsyncTask(ENamedThreads::GameThread, [WeakThis, AsyncId, State]() {
+        UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get();
+        if (!Owner) return;
+        if (!Owner->ManagedAsyncActions.Contains(AsyncId)) return;
+        TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
+        EventResult->SetStringField(TEXT("asyncId"), AsyncId);
+        EventResult->SetBoolField(TEXT("cancelled"), State->bCancelled.load());
+        EventResult->SetBoolField(TEXT("succeeded"), State->bSucceeded.load());
+        SendManagedLifecycleEvent(Owner, TEXT("async_action_completed"), AsyncId, EventResult);
+      });
+    });
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("asyncId"), AsyncId);
+    Result->SetStringField(TEXT("execution"), Execution);
+    Result->SetNumberField(TEXT("duration"), DurationValue);
+    Result->SetStringField(TEXT("label"), Record.Label);
+    Result->SetStringField(TEXT("state"), TEXT("running"));
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Async action started"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("list_async_actions") || Action == TEXT("get_async_action") ||
+      Action == TEXT("cancel_async_action")) {
+    const FString AsyncId = GetId(TEXT("asyncId"));
+    if (Action != TEXT("list_async_actions") && AsyncId.IsEmpty()) {
+      SendInvalid(TEXT("asyncId is required.")); return true;
+    }
+    auto AddAsyncData = [&](const FMcpAsyncRecord &Record,
+                            TSharedPtr<FJsonObject> &Result) {
+      const bool bComplete = Record.State.IsValid() && Record.State->bCompleted.load();
+      const bool bCancelled = Record.State.IsValid() && Record.State->bCancelled.load();
+      Result->SetStringField(TEXT("asyncId"), Record.AsyncId);
+      Result->SetStringField(TEXT("execution"), Record.Execution);
+      Result->SetStringField(TEXT("label"), Record.Label);
+      Result->SetNumberField(TEXT("duration"), Record.Duration);
+      Result->SetStringField(TEXT("state"), bComplete ? (bCancelled ? TEXT("cancelled") : TEXT("completed")) : TEXT("running"));
+      Result->SetBoolField(TEXT("completed"), bComplete);
+      Result->SetBoolField(TEXT("cancelled"), bCancelled);
+      Result->SetBoolField(TEXT("succeeded"), Record.State.IsValid() && Record.State->bSucceeded.load());
+    };
+    if (Action == TEXT("list_async_actions")) {
+      TArray<TSharedPtr<FJsonValue>> Items;
+      for (const TPair<FString, FMcpAsyncRecord> &Pair : ManagedAsyncActions) {
+        TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+        AddAsyncData(Pair.Value, Item);
+        Items.Add(MakeShared<FJsonValueObject>(Item));
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetArrayField(TEXT("asyncActions"), Items);
+      Result->SetNumberField(TEXT("count"), Items.Num());
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Async actions listed"), Result, FString());
+      return true;
+    }
+    FMcpAsyncRecord *Record = ManagedAsyncActions.Find(AsyncId);
+    if (!Record) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Managed async action was not found"), nullptr,
+                             TEXT("ASYNC_ACTION_NOT_FOUND"));
+      return true;
+    }
+    if (Action == TEXT("cancel_async_action")) {
+      if (Record->State.IsValid()) Record->State->bCancelled.store(true);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      AddAsyncData(*Record, Result);
+      Result->SetBoolField(TEXT("cancellationRequested"), true);
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Async action cancellation requested"), Result, FString());
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    AddAsyncData(*Record, Result);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Async action inspected"), Result, FString());
+    return true;
+  }
+
+  auto AddGameplayTaskData = [&](UMcpManagedGameplayTask *Task,
+                                 const FString &TaskId,
+                                 TSharedPtr<FJsonObject> &Result) {
+    Result->SetStringField(TEXT("taskId"), TaskId);
+    if (!Task) { Result->SetStringField(TEXT("state"), TEXT("missing")); return; }
+    Result->SetStringField(TEXT("taskClass"), Task->GetClass()->GetPathName());
+    Result->SetStringField(TEXT("objectPath"), Task->GetPathName());
+    Result->SetStringField(TEXT("state"), Task->GetTaskStateName());
+    Result->SetBoolField(TEXT("active"), Task->IsActive());
+    Result->SetBoolField(TEXT("finished"), Task->IsFinished());
+    Result->SetNumberField(TEXT("priority"), Task->GetPriority());
+    if (const TWeakObjectPtr<UObject> *Owner = ManagedGameplayTaskOwners.Find(TaskId)) {
+      Result->SetStringField(TEXT("ownerObject"), Owner->IsValid() ? Owner->Get()->GetPathName() : TEXT(""));
+    }
+  };
+
+  if (Action == TEXT("create_gameplay_task")) {
+    const FString TaskId = GetId(TEXT("taskId"));
+    const FString OwnerPath = GetId(TEXT("ownerObject"));
+    if (TaskId.IsEmpty() || OwnerPath.IsEmpty()) {
+      SendInvalid(TEXT("taskId and ownerObject are required.")); return true;
+    }
+    if (ManagedGameplayTasks.Contains(TaskId)) {
+      SendInvalid(TEXT("taskId is already registered.")); return true;
+    }
+    FString TaskType = GetId(TEXT("taskType")).ToLower();
+    if (TaskType.IsEmpty()) TaskType = TEXT("generic");
+    if (TaskType != TEXT("generic")) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Only the managed generic gameplay task is supported; concrete task classes need their own factory API."), nullptr,
+                             TEXT("TASK_TYPE_NOT_SUPPORTED"));
+      return true;
+    }
+    UObject *OwnerObject = FindObject<UObject>(nullptr, *OwnerPath);
+    if (!OwnerObject) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("ownerObject must reference a loaded UObject"), nullptr,
+                             TEXT("TASK_OWNER_NOT_FOUND"));
+      return true;
+    }
+    IGameplayTaskOwnerInterface *TaskOwner = UGameplayTask::ConvertToTaskOwner(*OwnerObject);
+    if (!TaskOwner) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("ownerObject does not implement a gameplay-task owner interface"), nullptr,
+                             TEXT("TASK_OWNER_INVALID"));
+      return true;
+    }
+    double PriorityValue = 0.0;
+    Payload->TryGetNumberField(TEXT("priority"), PriorityValue);
+    if (PriorityValue < 0.0 || PriorityValue > 255.0) {
+      SendInvalid(TEXT("priority must be between 0 and 255.")); return true;
+    }
+    bool bActivate = true;
+    Payload->TryGetBoolField(TEXT("activate"), bActivate);
+    FString InstanceNameValue = GetId(TEXT("instanceName"));
+    if (InstanceNameValue.IsEmpty()) InstanceNameValue = TaskId;
+    UMcpManagedGameplayTask *Task = NewObject<UMcpManagedGameplayTask>(OwnerObject);
+    Task->InitializeForMcp(*TaskOwner, static_cast<uint8>(FMath::RoundToInt(PriorityValue)));
+    if (bActivate) Task->ReadyForActivation();
+    ManagedGameplayTasks.Add(TaskId, Task);
+    ManagedGameplayTaskOwners.Add(TaskId, OwnerObject);
+    ManagedGameplayTaskPriorities.Add(TaskId, static_cast<uint8>(FMath::RoundToInt(PriorityValue)));
+    ManagedGameplayTaskAutoActivate.Add(TaskId, bActivate);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    AddGameplayTaskData(Task, TaskId, Result);
+    Result->SetStringField(TEXT("instanceName"), InstanceNameValue);
+    Result->SetBoolField(TEXT("managedLifecycle"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Gameplay task created"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("list_gameplay_tasks") || Action == TEXT("get_gameplay_task") ||
+      Action == TEXT("end_gameplay_task") || Action == TEXT("configure_task_priority")) {
+    const FString TaskId = GetId(TEXT("taskId"));
+    if (Action != TEXT("list_gameplay_tasks") && TaskId.IsEmpty()) {
+      SendInvalid(TEXT("taskId is required.")); return true;
+    }
+    if (Action == TEXT("list_gameplay_tasks")) {
+      TArray<TSharedPtr<FJsonValue>> Items;
+      for (const TPair<FString, TObjectPtr<UMcpManagedGameplayTask>> &Pair : ManagedGameplayTasks) {
+        TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+        AddGameplayTaskData(Pair.Value, Pair.Key, Item);
+        Items.Add(MakeShared<FJsonValueObject>(Item));
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetArrayField(TEXT("gameplayTasks"), Items);
+      Result->SetNumberField(TEXT("count"), Items.Num());
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Gameplay tasks listed"), Result, FString());
+      return true;
+    }
+    TObjectPtr<UMcpManagedGameplayTask> *TaskPtr = ManagedGameplayTasks.Find(TaskId);
+    if (!TaskPtr || !*TaskPtr) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Managed gameplay task was not found"), nullptr,
+                             TEXT("GAMEPLAY_TASK_NOT_FOUND"));
+      return true;
+    }
+    UMcpManagedGameplayTask *Task = *TaskPtr;
+    if (Action == TEXT("end_gameplay_task")) {
+      Task->EndTask();
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      AddGameplayTaskData(Task, TaskId, Result);
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Gameplay task ended"), Result, FString());
+      return true;
+    }
+    if (Action == TEXT("configure_task_priority")) {
+      double PriorityValue = -1.0;
+      if (!Payload->TryGetNumberField(TEXT("priority"), PriorityValue) ||
+          PriorityValue < 0.0 || PriorityValue > 255.0) {
+        SendInvalid(TEXT("priority between 0 and 255 is required.")); return true;
+      }
+      if (Task->IsActive()) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("End the active task before changing its priority; the managed task will be recreated."), nullptr,
+                               TEXT("TASK_ACTIVE"));
+        return true;
+      }
+      const TWeakObjectPtr<UObject> *OwnerObject = ManagedGameplayTaskOwners.Find(TaskId);
+      if (!OwnerObject || !OwnerObject->IsValid()) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Gameplay task owner is no longer valid"), nullptr,
+                               TEXT("TASK_OWNER_NOT_FOUND"));
+        return true;
+      }
+      IGameplayTaskOwnerInterface *TaskOwner = UGameplayTask::ConvertToTaskOwner(*OwnerObject->Get());
+      if (!TaskOwner) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Gameplay task owner is no longer usable"), nullptr,
+                               TEXT("TASK_OWNER_INVALID"));
+        return true;
+      }
+      const bool bActivate = ManagedGameplayTaskAutoActivate.FindRef(TaskId);
+      Task->EndTask();
+      UMcpManagedGameplayTask *Replacement = NewObject<UMcpManagedGameplayTask>(OwnerObject->Get());
+      Replacement->InitializeForMcp(*TaskOwner, static_cast<uint8>(FMath::RoundToInt(PriorityValue)));
+      if (bActivate) Replacement->ReadyForActivation();
+      ManagedGameplayTasks[TaskId] = Replacement;
+      ManagedGameplayTaskPriorities[TaskId] = static_cast<uint8>(FMath::RoundToInt(PriorityValue));
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      AddGameplayTaskData(Replacement, TaskId, Result);
+      Result->SetBoolField(TEXT("recreated"), true);
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Gameplay task priority configured"), Result, FString());
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    AddGameplayTaskData(Task, TaskId, Result);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Gameplay task inspected"), Result, FString());
+    return true;
+  }
+
+  return false;
+#else
+  SendAutomationError(RequestingSocket, RequestId,
+                      TEXT("Editor build required"), TEXT("NOT_SUPPORTED"));
+  return true;
+#endif
+}
+
 bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     const FString &RequestId, const FString &Action,
     const TSharedPtr<FJsonObject> &Payload,
@@ -276,6 +1007,17 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("get_subsystem") ||
       Lower == TEXT("inspect_subsystem") ||
       Lower == TEXT("list_subsystems");
+  const bool bAsyncTimerAction =
+      Lower == TEXT("set_timer") || Lower == TEXT("clear_timer") ||
+      Lower == TEXT("pause_timer") || Lower == TEXT("resume_timer") ||
+      Lower == TEXT("get_timer") || Lower == TEXT("list_timers") ||
+      Lower == TEXT("create_latent_action") || Lower == TEXT("clear_latent_action") ||
+      Lower == TEXT("get_latent_action") || Lower == TEXT("list_latent_actions") ||
+      Lower == TEXT("create_async_action") || Lower == TEXT("cancel_async_action") ||
+      Lower == TEXT("get_async_action") || Lower == TEXT("list_async_actions") ||
+      Lower == TEXT("create_gameplay_task") || Lower == TEXT("end_gameplay_task") ||
+      Lower == TEXT("get_gameplay_task") || Lower == TEXT("list_gameplay_tasks") ||
+      Lower == TEXT("configure_task_priority");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -286,7 +1028,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("start_session") &&
       Lower != TEXT("validate_assets") &&
       Lower != TEXT("execute_python") &&
-      !bSubsystemAction) {
+      !bSubsystemAction && !bAsyncTimerAction) {
     return false; // Not handled by this function
   }
 
@@ -300,6 +1042,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
 
   if (bSubsystemAction) {
     return HandleSubsystemAction(RequestId, Lower, Payload, RequestingSocket);
+  }
+
+  if (bAsyncTimerAction) {
+    return HandleAsyncTimerAction(RequestId, Lower, Payload, RequestingSocket);
   }
 
   if (Lower == TEXT("start_session")) {

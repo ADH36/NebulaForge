@@ -14,7 +14,8 @@ public:
 	FString GetDescription() const override
 	{
 		return TEXT("Run profiling, set quality/CVars, execute console commands, "
-			"execute Python scripts, manage Unreal subsystems, run UBT, manage widgets, and take screenshots.");
+			"execute Python scripts, manage Unreal subsystems, timers, async work, and gameplay tasks, "
+			"run UBT, manage widgets, and take screenshots.");
 	}
 
 	FString GetCategory() const override { return TEXT("core"); }
@@ -86,6 +87,24 @@ public:
 			.Number(TEXT("playerIndex"), TEXT("Local player index for local-player subsystems."))
 			.String(TEXT("tickType"), TEXT("conditional, always, or never for tickable world subsystems."))
 			.Bool(TEXT("tickEnabled"), TEXT("Enable or disable ticking for a tickable world subsystem."))
+			.String(TEXT("timerId"), TEXT("Managed timer identifier."))
+			.Number(TEXT("rate"), TEXT("Timer interval in seconds."))
+			.Number(TEXT("firstDelay"), TEXT("Initial timer delay in seconds."))
+			.Bool(TEXT("looping"), TEXT("Repeat the timer after each interval."))
+			.String(TEXT("callbackObject"), TEXT("Loaded UObject path for an optional zero-argument callback."))
+			.String(TEXT("callbackFunction"), TEXT("Optional zero-argument UFunction to invoke when a timer or latent action completes."))
+			.String(TEXT("latentId"), TEXT("Managed latent-action identifier."))
+			.Number(TEXT("uuid"), TEXT("Latent action UUID; generated when omitted."))
+			.Number(TEXT("linkage"), TEXT("Latent callback linkage value."))
+			.String(TEXT("asyncId"), TEXT("Managed async-action identifier."))
+			.String(TEXT("execution"), TEXT("Async execution mode: task_graph, task_graph_main_thread, task_graph_main_tick, thread, thread_pool, or large_thread_pool."))
+			.String(TEXT("label"), TEXT("Optional label for an async action."))
+			.String(TEXT("taskId"), TEXT("Managed gameplay-task identifier."))
+			.String(TEXT("ownerObject"), TEXT("Loaded UObject path implementing a gameplay-task owner."))
+			.String(TEXT("instanceName"), TEXT("Gameplay task instance name."))
+			.Number(TEXT("priority"), TEXT("Gameplay task priority from 0 to 255."))
+			.Bool(TEXT("activate"), TEXT("Activate the gameplay task immediately; defaults to true."))
+			.String(TEXT("taskType"), TEXT("Managed task type; currently generic is supported."))
 			.Required({TEXT("action")})
 			.Build();
 	}

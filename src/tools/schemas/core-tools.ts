@@ -552,7 +552,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
   {
     name: 'system_control',
     category: 'core',
-    description: 'Control the project runtime: profiling, benchmarks, scalability/LOD/Nanite settings, CVars, console commands, Python scripts, Unreal subsystems, UBT, tests, logs, and widgets.',
+    description: 'Control the project runtime: profiling, benchmarks, scalability/LOD/Nanite settings, CVars, console commands, Python scripts, Unreal subsystems, timers, latent actions, async work, gameplay tasks, UBT, tests, logs, and widgets.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -567,7 +567,12 @@ export const coreToolDefinitions: ToolDefinition[] = [
             'create_game_instance_subsystem', 'create_world_subsystem',
             'create_local_player_subsystem', 'create_engine_subsystem',
             'configure_subsystem_tick', 'get_subsystem', 'inspect_subsystem',
-            'list_subsystems'
+            'list_subsystems',
+            'set_timer', 'clear_timer', 'pause_timer', 'resume_timer', 'get_timer', 'list_timers',
+            'create_latent_action', 'clear_latent_action', 'get_latent_action', 'list_latent_actions',
+            'create_async_action', 'cancel_async_action', 'get_async_action', 'list_async_actions',
+            'create_gameplay_task', 'end_gameplay_task', 'get_gameplay_task', 'list_gameplay_tasks',
+            'configure_task_priority'
           ],
           description: 'Action'
         },
@@ -600,7 +605,25 @@ export const coreToolDefinitions: ToolDefinition[] = [
         worldContext: commonSchemas.stringProp,
         playerIndex: commonSchemas.numberProp,
         tickType: commonSchemas.stringProp,
-        tickEnabled: commonSchemas.booleanProp
+        tickEnabled: commonSchemas.booleanProp,
+        timerId: commonSchemas.stringProp,
+        rate: commonSchemas.numberProp,
+        firstDelay: commonSchemas.numberProp,
+        looping: commonSchemas.booleanProp,
+        callbackObject: commonSchemas.stringProp,
+        callbackFunction: commonSchemas.stringProp,
+        latentId: commonSchemas.stringProp,
+        uuid: commonSchemas.numberProp,
+        linkage: commonSchemas.numberProp,
+        asyncId: commonSchemas.stringProp,
+        execution: commonSchemas.stringProp,
+        label: commonSchemas.stringProp,
+        taskId: commonSchemas.stringProp,
+        ownerObject: commonSchemas.stringProp,
+        instanceName: commonSchemas.stringProp,
+        priority: commonSchemas.numberProp,
+        activate: commonSchemas.booleanProp,
+        taskType: commonSchemas.stringProp
       },
       required: ['action']
     },

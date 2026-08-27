@@ -142,6 +142,7 @@ public class NebulaForgeBridge : ModuleRules
             "Core","CoreUObject","Engine","Json","JsonUtilities",
             "LevelSequence", "MovieScene", "MovieSceneTracks", "GameplayTags",
             "AIModule",  // Required for UEnvQueryTest_Distance and other EQS classes
+            "GameplayTasks",  // Required for managed gameplay task scheduling
             "Landscape"  // Required for FGrassVariety and other landscape classes
         });
 

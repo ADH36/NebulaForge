@@ -314,6 +314,14 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `get_subsystem` / `inspect_subsystem` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSubsystemAction` | Returns subsystem class, object, owner, scope, and tick metadata |
 | `list_subsystems` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSubsystemAction` | Enumerates live subsystem instances with optional scope/class filters |
 | `configure_subsystem_tick` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSubsystemAction` | Configures tick mode for `UTickableWorldSubsystem` |
+| `set_timer` / `clear_timer` / `pause_timer` / `resume_timer` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Manages world `FTimerManager` timers |
+| `get_timer` / `list_timers` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Reports timer active, paused, pending, elapsed, and remaining state |
+| `create_latent_action` / `clear_latent_action` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Registers UUID-backed latent delays with optional callback links |
+| `get_latent_action` / `list_latent_actions` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Inspects bridge-owned latent actions |
+| `create_async_action` / `cancel_async_action` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Runs cooperative work through Unreal `Async` execution modes |
+| `get_async_action` / `list_async_actions` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Reports async execution and completion state |
+| `create_gameplay_task` / `end_gameplay_task` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Creates and ends managed generic gameplay tasks |
+| `get_gameplay_task` / `list_gameplay_tasks` / `configure_task_priority` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Inspects task state and recreates inactive managed tasks with a new priority |
 | `create_hud` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |
 | `set_widget_text` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |
 | `set_widget_image` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |

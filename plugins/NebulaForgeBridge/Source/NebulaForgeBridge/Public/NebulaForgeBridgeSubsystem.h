@@ -4,11 +4,16 @@
 #include "CoreMinimal.h"
 #include "Dom/JsonObject.h"
 #include "EditorSubsystem.h"
+#include "GameplayTask.h"
 #include "HAL/CriticalSection.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "TimerManager.h"
 #include "Templates/SharedPointer.h"
 #include "Engine/DataAsset.h"
+#include <atomic>
 class FMcpNativeTransport;
+class UObject;
+class UWorld;
 
 #include "NebulaForgeBridgeSubsystem.generated.h"
 
@@ -26,6 +31,19 @@ class FMcpNativeTransport;
 
 // Forward declare USkeleton to avoid including heavy animation headers
 class USkeleton;
+
+/** Concrete generic gameplay task used by the MCP task lifecycle actions. */
+UCLASS()
+class NEBULAFORGEBRIDGE_API UMcpManagedGameplayTask : public UGameplayTask
+{
+    GENERATED_BODY()
+
+public:
+    void InitializeForMcp(IGameplayTaskOwnerInterface& TaskOwner, uint8 InPriority)
+    {
+        InitTask(TaskOwner, InPriority);
+    }
+};
 
 /**
  * Concrete data asset class for MCP inventory/item operations.
@@ -274,6 +292,49 @@ public:
   TSharedPtr<FOutputDevice> LogCaptureDevice;
 
 private:
+  struct FMcpTimerRecord {
+    FTimerHandle Handle;
+    TWeakObjectPtr<UWorld> World;
+    FString TimerId;
+    float Rate = 0.0f;
+    float FirstDelay = 0.0f;
+    int32 FireCount = 0;
+    bool bLooping = false;
+    bool bCompleted = false;
+    FString CallbackObjectPath;
+    FString CallbackFunction;
+  };
+
+  struct FMcpLatentRecord {
+    TWeakObjectPtr<UWorld> World;
+    FString LatentId;
+    int32 UUID = 0;
+    float Duration = 0.0f;
+  };
+
+  struct FMcpAsyncState {
+    std::atomic<bool> bCancelled{false};
+    std::atomic<bool> bCompleted{false};
+    std::atomic<bool> bSucceeded{false};
+  };
+
+  struct FMcpAsyncRecord {
+    FString AsyncId;
+    FString Execution;
+    FString Label;
+    float Duration = 0.0f;
+    TSharedPtr<FMcpAsyncState> State;
+  };
+
+  TMap<FString, FMcpTimerRecord> ManagedTimers;
+  TMap<FString, FMcpLatentRecord> ManagedLatentActions;
+  TMap<FString, FMcpAsyncRecord> ManagedAsyncActions;
+  UPROPERTY(Transient)
+  TMap<FString, TObjectPtr<UMcpManagedGameplayTask>> ManagedGameplayTasks;
+  TMap<FString, TWeakObjectPtr<UObject>> ManagedGameplayTaskOwners;
+  TMap<FString, uint8> ManagedGameplayTaskPriorities;
+  TMap<FString, bool> ManagedGameplayTaskAutoActivate;
+
   TMap<FString, FAutomationHandler> AutomationHandlers;
   void InitializeHandlers();
 
@@ -702,6 +763,10 @@ private:
   bool HandleSubsystemAction(const FString &RequestId, const FString &Action,
                              const TSharedPtr<FJsonObject> &Payload,
                              TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  bool HandleAsyncTimerAction(const FString &RequestId, const FString &Action,
+                              const TSharedPtr<FJsonObject> &Payload,
+                              TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  void ShutdownManagedAsyncOperations();
   bool
   HandleConsoleCommandAction(const FString &RequestId, const FString &Action,
                              const TSharedPtr<FJsonObject> &Payload,

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * system_control Tool Integration Tests
- * Covers the core system-control actions, including Phase 34.6 subsystem operations,
+ * Covers the core system-control actions, including Phase 34.6 subsystem and Phase 34.7
+ * async/timer operations,
  * with proper setup/teardown sequencing.
  */
 
@@ -84,6 +85,30 @@ const testCases = [
   { scenario: 'INFO: get_subsystem', toolName: 'system_control', arguments: { action: 'get_subsystem', subsystemClass: '/Script/Engine.WorldPartitionSubsystem', subsystemScope: 'world', worldContext: 'editor' }, expected: 'success|not initialized|not found|class not found' },
   { scenario: 'INFO: inspect_subsystem', toolName: 'system_control', arguments: { action: 'inspect_subsystem', subsystemName: 'WorldPartitionSubsystem', subsystemScope: 'world', worldContext: 'editor' }, expected: 'success|not initialized|not found|class not found' },
   { scenario: 'CONFIG: configure_subsystem_tick', toolName: 'system_control', arguments: { action: 'configure_subsystem_tick', subsystemClass: '/Script/Engine.WorldPartitionSubsystem', subsystemScope: 'world', worldContext: 'editor', tickType: 'never', tickEnabled: false }, expected: 'success|not initialized|not found|class not found|tick not supported' },
+
+  // === ASYNC & TIMERS (PHASE 34.7) ===
+  { scenario: 'TIMER: set_timer', toolName: 'system_control', arguments: { action: 'set_timer', timerId: 'system-control-timer', rate: 60, firstDelay: 60, looping: false, worldContext: 'editor' }, expected: 'success|world context is unavailable' },
+  { scenario: 'TIMER: get_timer', toolName: 'system_control', arguments: { action: 'get_timer', timerId: 'system-control-timer' }, expected: 'success|not found|world is no longer valid' },
+  { scenario: 'TIMER: pause_timer', toolName: 'system_control', arguments: { action: 'pause_timer', timerId: 'system-control-timer' }, expected: 'success|not found|world is no longer valid' },
+  { scenario: 'TIMER: resume_timer', toolName: 'system_control', arguments: { action: 'resume_timer', timerId: 'system-control-timer' }, expected: 'success|not found|world is no longer valid' },
+  { scenario: 'INFO: list_timers', toolName: 'system_control', arguments: { action: 'list_timers' }, expected: 'success' },
+  { scenario: 'TIMER: clear_timer', toolName: 'system_control', arguments: { action: 'clear_timer', timerId: 'system-control-timer' }, expected: 'success|not found|world is no longer valid' },
+  { scenario: 'TIMER: callback validation', toolName: 'system_control', arguments: { action: 'set_timer', timerId: 'system-control-callback-timer', rate: 1, callbackObject: '/Game/MCPTest/MissingObject', callbackFunction: 'OnTimer' }, expected: 'invalid|callback|not found' },
+  { scenario: 'LATENT: create_latent_action', toolName: 'system_control', arguments: { action: 'create_latent_action', latentId: 'system-control-latent', duration: 0, worldContext: 'editor' }, expected: 'success|world context is unavailable' },
+  { scenario: 'INFO: get_latent_action', toolName: 'system_control', arguments: { action: 'get_latent_action', latentId: 'system-control-latent' }, expected: 'success|not found' },
+  { scenario: 'INFO: list_latent_actions', toolName: 'system_control', arguments: { action: 'list_latent_actions' }, expected: 'success' },
+  { scenario: 'LATENT: clear_latent_action', toolName: 'system_control', arguments: { action: 'clear_latent_action', latentId: 'system-control-latent' }, expected: 'success|not found' },
+  { scenario: 'ASYNC: create_async_action', toolName: 'system_control', arguments: { action: 'create_async_action', asyncId: 'system-control-async', duration: 0.1, execution: 'thread_pool', label: 'system-control-test' }, expected: 'success' },
+  { scenario: 'INFO: get_async_action', toolName: 'system_control', arguments: { action: 'get_async_action', asyncId: 'system-control-async' }, expected: 'success|not found' },
+  { scenario: 'ASYNC: cancel_async_action', toolName: 'system_control', arguments: { action: 'cancel_async_action', asyncId: 'system-control-async' }, expected: 'success|not found' },
+  { scenario: 'INFO: list_async_actions', toolName: 'system_control', arguments: { action: 'list_async_actions' }, expected: 'success' },
+  { scenario: 'TASK: create_gameplay_task missing owner', toolName: 'system_control', arguments: { action: 'create_gameplay_task', taskId: 'system-control-task', ownerObject: '/Game/MCPTest/MissingOwner' }, expected: 'task owner not found|invalid|success' },
+  { scenario: 'LATENT: callback and UUID validation', toolName: 'system_control', arguments: { action: 'create_latent_action', latentId: 'system-control-callback-latent', duration: 0, uuid: 19001, linkage: 2, callbackObject: '/Game/MCPTest/MissingObject', callbackFunction: 'OnLatentComplete' }, expected: 'invalid|callback|not found' },
+  { scenario: 'TASK: optional task configuration', toolName: 'system_control', arguments: { action: 'create_gameplay_task', taskId: 'system-control-task-options', ownerObject: '/Game/MCPTest/MissingOwner', instanceName: 'SystemControlTask', priority: 10, activate: false, taskType: 'generic' }, expected: 'task owner not found|invalid|success' },
+  { scenario: 'TASK: get_gameplay_task', toolName: 'system_control', arguments: { action: 'get_gameplay_task', taskId: 'system-control-task' }, expected: 'success|not found' },
+  { scenario: 'INFO: list_gameplay_tasks', toolName: 'system_control', arguments: { action: 'list_gameplay_tasks' }, expected: 'success' },
+  { scenario: 'TASK: end_gameplay_task', toolName: 'system_control', arguments: { action: 'end_gameplay_task', taskId: 'system-control-task' }, expected: 'success|not found' },
+  { scenario: 'CONFIG: configure_task_priority', toolName: 'system_control', arguments: { action: 'configure_task_priority', taskId: 'system-control-task', priority: 10 }, expected: 'success|not found' },
 
   // === ACTION ===
   { scenario: 'ACTION: profile', toolName: 'system_control', arguments: { action: 'profile', profileType: 'cpu' }, expected: 'success' },

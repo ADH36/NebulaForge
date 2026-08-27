@@ -950,6 +950,24 @@ export interface SystemArgs extends HandlerArgs {
     playerIndex?: number;
     tickType?: string;
     tickEnabled?: boolean;
+    timerId?: string;
+    rate?: number;
+    firstDelay?: number;
+    looping?: boolean;
+    callbackObject?: string;
+    callbackFunction?: string;
+    latentId?: string;
+    uuid?: number;
+    linkage?: number;
+    asyncId?: string;
+    execution?: string;
+    label?: string;
+    taskId?: string;
+    ownerObject?: string;
+    instanceName?: string;
+    priority?: number;
+    activate?: boolean;
+    taskType?: string;
 }
 
 // ============================================================================

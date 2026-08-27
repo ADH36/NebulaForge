@@ -503,7 +503,16 @@ inline const TArray<FString>& SystemControlCore()
 		TEXT("create_game_instance_subsystem"), TEXT("create_world_subsystem"),
 		TEXT("create_local_player_subsystem"), TEXT("create_engine_subsystem"),
 		TEXT("configure_subsystem_tick"), TEXT("get_subsystem"),
-		TEXT("inspect_subsystem"), TEXT("list_subsystems")
+		TEXT("inspect_subsystem"), TEXT("list_subsystems"),
+		TEXT("set_timer"), TEXT("clear_timer"), TEXT("pause_timer"),
+		TEXT("resume_timer"), TEXT("get_timer"), TEXT("list_timers"),
+		TEXT("create_latent_action"), TEXT("clear_latent_action"),
+		TEXT("get_latent_action"), TEXT("list_latent_actions"),
+		TEXT("create_async_action"), TEXT("cancel_async_action"),
+		TEXT("get_async_action"), TEXT("list_async_actions"),
+		TEXT("create_gameplay_task"), TEXT("end_gameplay_task"),
+		TEXT("get_gameplay_task"), TEXT("list_gameplay_tasks"),
+		TEXT("configure_task_priority")
 	};
 	return Actions;
 }

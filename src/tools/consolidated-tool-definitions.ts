@@ -113,6 +113,15 @@ export const SUBSYSTEM_ACTIONS = [
   'list_subsystems',
 ] as const;
 
+/** Phase 34.7: timers, latent actions, async work, and gameplay tasks. */
+export const ASYNC_TIMER_ACTIONS = [
+  'set_timer', 'clear_timer', 'pause_timer', 'resume_timer', 'get_timer', 'list_timers',
+  'create_latent_action', 'clear_latent_action', 'get_latent_action', 'list_latent_actions',
+  'create_async_action', 'cancel_async_action', 'get_async_action', 'list_async_actions',
+  'create_gameplay_task', 'end_gameplay_task', 'get_gameplay_task', 'list_gameplay_tasks',
+  'configure_task_priority',
+] as const;
+
 export const SPLINE_ACTIONS = [
   'create_spline_actor', 'add_spline_point', 'remove_spline_point', 'set_spline_point_position',
   'insert_spline_point', 'update_spline_point', 'set_spline_point_tangents', 'set_spline_point_rotation', 'set_spline_point_scale', 'set_spline_point_roll', 'set_spline_type',
@@ -1707,7 +1716,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
   {
     name: 'system_control',
     category: 'core',
-    description: 'Control the project runtime: profiling, benchmarks, scalability/LOD/Nanite settings, CVars, console commands, Python scripts, Unreal subsystems, UBT, tests, logs, and widgets.',
+    description: 'Control the project runtime: profiling, benchmarks, scalability/LOD/Nanite settings, CVars, console commands, Python scripts, Unreal subsystems, timers, latent actions, async work, gameplay tasks, UBT, tests, logs, and widgets.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1720,7 +1729,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python'
           ,
-            ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS],
+            ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS],
           description: 'Action'
         },
         profileType: commonSchemas.stringProp,
@@ -1755,6 +1764,24 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         playerIndex: commonSchemas.numberProp,
         tickType: commonSchemas.stringProp,
         tickEnabled: commonSchemas.booleanProp,
+        timerId: commonSchemas.stringProp,
+        rate: commonSchemas.numberProp,
+        firstDelay: commonSchemas.numberProp,
+        looping: commonSchemas.booleanProp,
+        callbackObject: commonSchemas.stringProp,
+        callbackFunction: commonSchemas.stringProp,
+        latentId: commonSchemas.stringProp,
+        uuid: commonSchemas.numberProp,
+        linkage: commonSchemas.numberProp,
+        asyncId: commonSchemas.stringProp,
+        execution: commonSchemas.stringProp,
+        label: commonSchemas.stringProp,
+        taskId: commonSchemas.stringProp,
+        ownerObject: commonSchemas.stringProp,
+        instanceName: commonSchemas.stringProp,
+        priority: commonSchemas.numberProp,
+        activate: commonSchemas.booleanProp,
+        taskType: commonSchemas.stringProp,
         type: { type: 'string', enum: ['CPU', 'GPU', 'Memory', 'RenderThread', 'GameThread', 'All'] },
         duration: commonSchemas.numberProp,
         outputPath: commonSchemas.outputPath,

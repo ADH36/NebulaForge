@@ -1643,6 +1643,25 @@ Tick configuration is deliberately limited to `UTickableWorldSubsystem`, whose p
 
 ---
 
+### Async, Timers, Latent Actions, and Gameplay Tasks (34.7)
+
+Phase 34.7 exposes managed asynchronous primitives through `system_control`. Timer records are owned by the selected editor/PIE world's `FTimerManager`; latent records are registered with that world's `FLatentActionManager`; async records use Unreal's `Async` execution modes; and gameplay records use a concrete bridge-owned `UGameplayTask` wrapper initialized against a loaded `IGameplayTaskOwnerInterface` object.
+
+| Unreal API | Bridge coverage |
+|------|------|
+| `FTimerManager::SetTimer` / `ClearTimer` | Schedule a one-shot or looping timer with a rate and first delay |
+| `FTimerManager::PauseTimer` / `UnPauseTimer` | Pause and resume a managed timer |
+| `FTimerManager::IsTimerActive`, `IsTimerPaused`, `IsTimerPending`, `GetTimerElapsed`, `GetTimerRemaining` | Inspect timer lifecycle and timing state |
+| `FLatentActionManager::AddNewAction` / `FindExistingAction` | Register and inspect UUID-addressed managed latent delays |
+| `FLatentActionManager::RemoveActionsForObject` | Remove bridge-owned latent actions during subsystem shutdown |
+| `FPendingLatentAction` / `FLatentResponse` | Complete a delay and optionally trigger a supplied latent callback link |
+| `Async` / `EAsyncExecution` | Run cooperative async work on task graph, threads, or thread pools |
+| `UGameplayTask` / `UGameplayTasksComponent` | Create, activate, inspect, end, and prioritize a managed gameplay task |
+
+Callbacks are restricted to loaded zero-argument `UFunction`s, and asynchronous cancellation is cooperative because Unreal's generic `Async` API does not expose a universal cancellation handle. Gameplay-task priority is configured before activation; changing an inactive managed task's priority recreates that bridge-owned task so the scheduler receives the new priority. See Epic's [`FTimerManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FTimerManager?lang=en-US), [Gameplay Timers](https://dev.epicgames.com/documentation/en-us/unreal-engine/gameplay-timers-in-unreal-engine?lang=en-US), [`FLatentActionManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FLatentActionManager?lang=en-US), [`FPendingLatentAction`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FPendingLatentAction), [`Async`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/Async?lang=en-US), [`EAsyncExecution`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/EAsyncExecution), [`UGameplayTask`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/GameplayTasks/UGameplayTask?lang=en-US), and [`UGameplayTasksComponent`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/GameplayTasks/UGameplayTasksComponent).
+
+---
+
 ## Phase 35: Additional Gameplay Systems
 
 ### Key Headers

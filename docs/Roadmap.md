@@ -1542,11 +1542,15 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Official Unreal references**: [`USubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/USubsystem), [`UGameInstanceSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UGameInstanceSubsystem), [`UWorldSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UWorldSubsystem), [`ULocalPlayerSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ULocalPlayerSubsystem), [`UEngine::GetEngineSubsystemBase`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UEngine), [`UWorld::GetSubsystemBase`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/Engine/UWorld?application_version=5.5), [`FTickableGameObject::SetTickableTickType`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FTickableGameObject/SetTickableTickType), and [`ETickableTickType`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ETickableTickType?lang=en-US).
 
 ### 34.7 Async & Timers
-- [ ] `set_timer`, `clear_timer`, `pause_timer`
-- [ ] `create_latent_action`
-- [ ] `create_async_action`
-- [ ] `create_gameplay_task`
-- [ ] `configure_task_priority`
+- [x] `set_timer`, `clear_timer`, `pause_timer`, `resume_timer`, `get_timer`, `list_timers`
+- [x] `create_latent_action`, `clear_latent_action`, `get_latent_action`, `list_latent_actions`
+- [x] `create_async_action`, `cancel_async_action`, `get_async_action`, `list_async_actions`
+- [x] `create_gameplay_task`, `end_gameplay_task`, `get_gameplay_task`, `list_gameplay_tasks`
+- [x] `configure_task_priority`
+
+**Implemented feature coverage**: world-scoped `FTimerManager` scheduling with looping, first-delay, pause/resume, clear, and elapsed/remaining/active/pending inspection; UUID-backed `FLatentActionManager` delay actions with optional zero-argument callback links and cooperative cancellation; asynchronous work on Unreal task-graph, thread, and thread-pool execution modes with lifecycle events and cooperative cancellation; and managed generic `UGameplayTask` creation, activation, inspection, ending, and priority reconfiguration by task recreation when inactive. Operation identifiers make each managed item independently inspectable and safe to clean up when the editor subsystem deinitializes.
+
+**Official Unreal references**: [`FTimerManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FTimerManager?lang=en-US), [Gameplay Timers](https://dev.epicgames.com/documentation/en-us/unreal-engine/gameplay-timers-in-unreal-engine?lang=en-US), [`FLatentActionManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FLatentActionManager?lang=en-US), [`FPendingLatentAction`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FPendingLatentAction), [`Async`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/Async?lang=en-US), [`EAsyncExecution`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/EAsyncExecution), [`UGameplayTask`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/GameplayTasks/UGameplayTask?lang=en-US), and [`UGameplayTasksComponent`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/GameplayTasks/UGameplayTasksComponent).
 
 ### 34.8 Delegates & Interfaces
 - [ ] `create_event_dispatcher`

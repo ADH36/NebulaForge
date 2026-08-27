@@ -398,6 +398,8 @@ void UNebulaForgeBridgeSubsystem::Initialize(
  * may not have fully initialized, so cleanup checks are defensive.
  */
 void UNebulaForgeBridgeSubsystem::Deinitialize() {
+  ShutdownManagedAsyncOperations();
+
   // Remove ticker if it was registered (won't be valid if we skipped init
   // during commandlet)
   if (TickHandle.IsValid()) {

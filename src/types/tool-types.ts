@@ -353,7 +353,11 @@ export type EnvironmentAction = 'create_landscape' | 'sculpt' | 'add_foliage' | 
 export type SystemAction = 'profile' | 'show_fps' | 'set_quality' | 'play_sound' | 'create_widget' | 'show_widget' | 'screenshot' | 'engine_start' | 'engine_quit' | 'read_log' |
   'create_game_instance_subsystem' | 'create_world_subsystem' | 'create_local_player_subsystem' |
   'create_engine_subsystem' | 'configure_subsystem_tick' | 'get_subsystem' |
-  'inspect_subsystem' | 'list_subsystems';
+  'inspect_subsystem' | 'list_subsystems' | 'set_timer' | 'clear_timer' | 'pause_timer' |
+  'resume_timer' | 'get_timer' | 'list_timers' | 'create_latent_action' |
+  'clear_latent_action' | 'get_latent_action' | 'list_latent_actions' | 'create_async_action' |
+  'cancel_async_action' | 'get_async_action' | 'list_async_actions' | 'create_gameplay_task' |
+  'end_gameplay_task' | 'get_gameplay_task' | 'list_gameplay_tasks' | 'configure_task_priority';
 export type VerificationAction = 'foliage_type_exists' | 'foliage_instances_near' | 'landscape_exists' | 'quality_level';
 
 // Consolidated tool parameter types
@@ -608,6 +612,24 @@ export interface ConsolidatedToolParams {
     playerIndex?: number;
     tickType?: string;
     tickEnabled?: boolean;
+    timerId?: string;
+    rate?: number;
+    firstDelay?: number;
+    looping?: boolean;
+    callbackObject?: string;
+    callbackFunction?: string;
+    latentId?: string;
+    uuid?: number;
+    linkage?: number;
+    asyncId?: string;
+    execution?: string;
+    label?: string;
+    taskId?: string;
+    ownerObject?: string;
+    instanceName?: string;
+    priority?: number;
+    activate?: boolean;
+    taskType?: string;
   };
 
   console_command: {

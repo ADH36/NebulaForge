@@ -651,6 +651,9 @@ private:
   bool HandleEditLandscape(const FString &RequestId, const FString &Action,
                            const TSharedPtr<FJsonObject> &Payload,
                            TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  bool HandleLandscapeEditLayers(const FString &RequestId, const FString &Action,
+                                 const TSharedPtr<FJsonObject> &Payload,
+                                 TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
   // Specific landscape edit operations
   bool HandleModifyHeightmap(const FString &RequestId, const FString &Action,
                              const TSharedPtr<FJsonObject> &Payload,

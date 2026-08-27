@@ -235,7 +235,9 @@ function getScreenshotMode(args: EditorArgs): { mode?: string; error?: string } 
   return { mode };
 }
 
-const MAX_PLAYTEST_TIMEOUT_MS = 300_000;
+// A playtest is an automation probe, not a long-running game session. Keep
+// the hard deadline at one minute so cleanup is deterministic.
+const MAX_PLAYTEST_TIMEOUT_MS = 60_000;
 
 function getBoundedTimeoutMs(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 60_000;
@@ -333,10 +335,12 @@ async function runPlaytestSequence(args: EditorArgs, tools: ITools): Promise<Rec
 
   try {
     for (let index = 0; index < sequence.length; index += 1) {
+      const remainingMs = timeoutMs - (Date.now() - startedAt);
+      if (remainingMs <= 0) throw new Error('PLAYTEST_TIMEOUT: bounded 60-second deadline exceeded');
       const step = sequence[index];
       const action = typeof step.action === 'string' ? step.action : '';
       if (!action) throw new Error(`Play-test step ${index + 1} is missing action`);
-      const stepArgs: EditorArgs = { ...args, ...step, action, timeoutMs: getBoundedTimeoutMs(step.timeoutMs ?? timeoutMs) };
+      const stepArgs: EditorArgs = { ...args, ...step, action, timeoutMs: Math.min(getBoundedTimeoutMs(step.timeoutMs ?? timeoutMs), remainingMs) };
       delete stepArgs.sequence;
       delete stepArgs.autoStop;
       const startedStepAt = Date.now();
@@ -359,22 +363,33 @@ async function runPlaytestSequence(args: EditorArgs, tools: ITools): Promise<Rec
   }
 
   const passed = failure === undefined;
+  const cleanupStep = steps.find(step => step.action === 'stop' && step.cleanup === true);
+  const cleanupPassed = cleanupStep?.passed === true;
+  const status = passed && cleanupPassed ? 'PASS' : (steps.some(step => step.passed === true) ? 'PARTIAL' : 'FAIL');
   const report = {
-    passed,
+    status,
+    passed: status === 'PASS',
     startedAt: new Date(startedAt).toISOString(),
     durationMs: Date.now() - startedAt,
     autoStop,
     savedRuntimeChanges: false,
     steps,
-    failure
+    failure,
+    evidence: {
+      completedSteps: steps.filter(step => step.cleanup !== true && step.passed === true).length,
+      failedSteps: steps.filter(step => step.cleanup !== true && step.passed !== true).length,
+      cleanupAttempted: cleanupStep !== undefined,
+      cleanupPassed
+    }
   };
   return {
-    success: passed,
+    success: status === 'PASS',
+    status,
     report,
-    summary: passed
-      ? `Play-test passed (${steps.filter(step => step.passed === true).length} steps; PIE stopped).`
-      : `Play-test failed: ${failure}. PIE cleanup was requested.`,
-    ...(passed ? {} : { error: 'PLAYTEST_FAILED', message: failure })
+    summary: status === 'PASS'
+      ? `Play-test PASS (${steps.filter(step => step.cleanup !== true && step.passed === true).length} steps; PIE stopped).`
+      : `${status}: ${failure ?? 'one or more checks did not pass'}. PIE cleanup was requested.`,
+    ...(status === 'PASS' ? {} : { error: status === 'PARTIAL' ? 'PLAYTEST_PARTIAL' : 'PLAYTEST_FAILED', message: failure })
   };
 }
 
@@ -475,6 +490,12 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       if (typeof args.captureMode === 'string') payload.captureMode = args.captureMode;
 
       const targetAction = mode === 'game_viewport' ? 'system_control' : 'control_editor';
+      if (mode === 'game_viewport') {
+        const preparation = await executeAutomationRequest(tools, 'manage_level_structure', {
+          action: 'prepare_pie_capture'
+        }, undefined, { timeoutMs: getBoundedTimeoutMs(args.timeoutMs) }) as Record<string, unknown>;
+        if (!isSuccessful(preparation)) return cleanObject({ success: false, status: 'FAIL', error: 'PIE_CAPTURE_PREPARATION_FAILED', preparation });
+      }
       const res = await executeAutomationRequest(tools, targetAction, payload) as Record<string, unknown>;
       return cleanObject(res);
     }
@@ -698,6 +719,10 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       // Screenshot responses are emitted by the system-control capture path. Routing
       // through it preserves the consolidated action contract while still selecting
       // the PIE game viewport in the payload.
+      const preparation = await executeAutomationRequest(tools, 'manage_level_structure', {
+        action: 'prepare_pie_capture'
+      }, undefined, { timeoutMs: getBoundedTimeoutMs(args.timeoutMs) }) as Record<string, unknown>;
+      if (!isSuccessful(preparation)) return cleanObject({ success: false, status: 'FAIL', error: 'PIE_CAPTURE_PREPARATION_FAILED', preparation });
       return cleanObject(await executeAutomationRequest(tools, 'system_control', {
         action: 'screenshot', filename: editorArgs.filename, resolution: editorArgs.resolution,
         mode: 'game_viewport', returnBase64: editorArgs.returnBase64 ?? true,

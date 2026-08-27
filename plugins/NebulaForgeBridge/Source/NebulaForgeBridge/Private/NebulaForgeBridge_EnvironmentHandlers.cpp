@@ -2399,6 +2399,11 @@ bool UNebulaForgeBridgeSubsystem::HandleBuildEnvironmentAction(
             RequestingSocket);
     }
 
+    if (HandleLandscapeEditLayers(RequestId, LowerSub, Payload, RequestingSocket))
+    {
+        return true;
+    }
+
     // UE 5.8.1 landscape / foliage authoring is deliberately claimed before
     // legacy aliases below. The handler only accepts its explicit actions, so
     // no existing route changes behaviour.

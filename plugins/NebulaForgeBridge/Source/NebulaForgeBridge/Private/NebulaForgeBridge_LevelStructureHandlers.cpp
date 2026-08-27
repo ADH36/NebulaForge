@@ -72,6 +72,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "WorldPartition/WorldPartition.h"
 #include "WorldPartition/DataLayer/DataLayerSubsystem.h"
+#include "WorldPartition/DataLayer/DataLayerManager.h"
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 #include "WorldPartition/DataLayer/DataLayerInstance.h"
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
@@ -4080,6 +4081,33 @@ bool UNebulaForgeBridgeSubsystem::HandleManageLevelStructureAction(
     else if (SubAction == TEXT("configure_grid_size"))
     {
         bHandled = HandleConfigureGridSize(this, RequestId, Payload, Socket);
+    }
+    else if (SubAction == TEXT("prepare_pie_capture"))
+    {
+        UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+        UWorldPartition* WorldPartition = World ? World->GetWorldPartition() : nullptr;
+        UDataLayerEditorSubsystem* DataLayerSubsystem = GEditor ? GEditor->GetEditorSubsystem<UDataLayerEditorSubsystem>() : nullptr;
+        int32 ActivatedLayers = 0;
+        if (WorldPartition && DataLayerSubsystem && WorldPartition->GetDataLayerManager())
+        {
+            WorldPartition->GetDataLayerManager()->ForEachDataLayerInstance([&](UDataLayerInstance* Instance) {
+                if (Instance) {
+                    DataLayerSubsystem->SetDataLayerVisibility(Instance, true);
+                    DataLayerSubsystem->SetDataLayerIsLoadedInEditor(Instance, true, false);
+                    ++ActivatedLayers;
+                }
+                return true;
+            });
+        }
+        if (World) World->FlushLevelStreaming(EFlushLevelStreamingType::Full);
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetBoolField(TEXT("success"), World != nullptr);
+        Result->SetStringField(TEXT("status"), World ? TEXT("PASS") : TEXT("FAIL"));
+        Result->SetNumberField(TEXT("activatedDataLayers"), ActivatedLayers);
+        Result->SetBoolField(TEXT("streamingFlushed"), World != nullptr);
+        Result->SetStringField(TEXT("evidence"), TEXT("World Partition data layers made visible/loaded in editor and level streaming flushed before PIE capture."));
+        SendAutomationResponse(Socket, RequestId, World != nullptr, TEXT("PIE capture prerequisites prepared"), Result, World ? FString() : TEXT("NO_WORLD"));
+        bHandled = true;
     }
     else if (SubAction == TEXT("create_data_layer"))
     {

@@ -115,6 +115,7 @@
 #include "McpLandscapeMetadataTags.h"
 #include "McpSafeOperations.h"
 #include "ScopedTransaction.h"
+#include "Misc/PackageName.h"
 
 // =============================================================================
 // Editor-Only Includes
@@ -237,6 +238,115 @@ static void McpAddLandscapePackageDetails(ALandscape* Landscape, TSharedPtr<FJso
 // =============================================================================
 // Section A: Landscape Dispatch
 // =============================================================================
+
+bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket) {
+  const FString Lower = Action.ToLower();
+  if (Lower != TEXT("create_landscape_edit_layer") &&
+      Lower != TEXT("list_landscape_edit_layers") &&
+      Lower != TEXT("verify_landscape_edit_layers")) return false;
+#if WITH_EDITOR
+  if (!Payload.IsValid() || !GEditor || !GEditor->GetEditorWorldContext().World()) {
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Editor world and payload are required."), TEXT("EDITOR_NOT_AVAILABLE"));
+    return true;
+  }
+  UWorld* World = GEditor->GetEditorWorldContext().World();
+  FString LandscapeName, LandscapePath;
+  Payload->TryGetStringField(TEXT("landscapeName"), LandscapeName);
+  Payload->TryGetStringField(TEXT("landscapePath"), LandscapePath);
+  ALandscape* Landscape = nullptr;
+  for (TActorIterator<ALandscape> It(World); It; ++It) {
+    ALandscape* Candidate = *It;
+    if (Candidate && ((!LandscapeName.IsEmpty() && Candidate->GetActorLabel().Equals(LandscapeName, ESearchCase::IgnoreCase)) ||
+        (!LandscapePath.IsEmpty() && (Candidate->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase) ||
+          Candidate->GetPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase)))) {
+      Landscape = Candidate;
+      break;
+    }
+  }
+  if (!Landscape) {
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Landscape not found."), TEXT("LANDSCAPE_NOT_FOUND"));
+    return true;
+  }
+
+  FString RequestedLayerName;
+  Payload->TryGetStringField(TEXT("editLayerName"), RequestedLayerName);
+  if (RequestedLayerName.IsEmpty()) Payload->TryGetStringField(TEXT("layerName"), RequestedLayerName);
+  if (Lower == TEXT("create_landscape_edit_layer") && RequestedLayerName.IsEmpty()) {
+    SendAutomationError(RequestingSocket, RequestId, TEXT("editLayerName is required."), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  if (RequestedLayerName.Contains(TEXT("/")) || RequestedLayerName.Contains(TEXT("\\"))) {
+    SendAutomationError(RequestingSocket, RequestId, TEXT("editLayerName contains an invalid path character."), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+
+  if (Lower == TEXT("create_landscape_edit_layer")) {
+    bool bExists = false;
+    for (const FLandscapeLayer& Layer : Landscape->GetLayersConst()) {
+      if (Layer.EditLayer && Layer.EditLayer->GetName().Equals(FName(*RequestedLayerName))) { bExists = true; break; }
+    }
+    if (!bExists) {
+      Landscape->Modify();
+      Landscape->CreateLayer(FName(*RequestedLayerName));
+      Landscape->MarkPackageDirty();
+    }
+  }
+
+  TArray<TSharedPtr<FJsonValue>> Layers;
+  bool bAllRequestedFound = true;
+  const TArray<TSharedPtr<FJsonValue>>* RequestedNames = nullptr;
+  for (const FLandscapeLayer& Layer : Landscape->GetLayersConst()) {
+    if (!Layer.EditLayer) continue;
+    const FString Name = Layer.EditLayer->GetName().ToString();
+    TSharedPtr<FJsonObject> LayerObject = McpHandlerUtils::CreateResultObject();
+    LayerObject->SetStringField(TEXT("name"), Name);
+    LayerObject->SetStringField(TEXT("guid"), Layer.EditLayer->GetGuid().ToString());
+    LayerObject->SetBoolField(TEXT("active"), Landscape->GetEditingLayer() == Layer.EditLayer->GetGuid());
+    Layers.Add(MakeShared<FJsonValueObject>(LayerObject));
+  }
+  if (Payload->TryGetArrayField(TEXT("editLayerNames"), RequestedNames) && RequestedNames) {
+    for (const TSharedPtr<FJsonValue>& Value : *RequestedNames) {
+      const FString Wanted = Value.IsValid() ? Value->AsString() : FString();
+      bool bFound = false;
+      for (const FLandscapeLayer& Layer : Landscape->GetLayersConst())
+        if (Layer.EditLayer && Layer.EditLayer->GetName().ToString().Equals(Wanted, ESearchCase::IgnoreCase)) { bFound = true; break; }
+      bAllRequestedFound &= bFound;
+    }
+  }
+
+  FString SaveError;
+  bool bSaved = true;
+  if (Lower == TEXT("create_landscape_edit_layer") || Lower == TEXT("verify_landscape_edit_layers"))
+    bSaved = McpSaveLandscapePersistence(World, Landscape, SaveError);
+  const FString SavedPackagePath = McpLandscapePackagePath(Landscape);
+  const bool bPackageExists = !SavedPackagePath.IsEmpty() && FPackageName::DoesPackageExist(SavedPackagePath);
+  const bool bVerified = bAllRequestedFound && Layers.Num() > 0 && bSaved &&
+      (Lower != TEXT("verify_landscape_edit_layers") || bPackageExists);
+
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetBoolField(TEXT("success"), bVerified);
+  Result->SetStringField(TEXT("status"), bVerified ? TEXT("PASS") : (Layers.Num() > 0 ? TEXT("PARTIAL") : TEXT("FAIL")));
+  Result->SetStringField(TEXT("landscapePath"), Landscape->GetPathName());
+  Result->SetArrayField(TEXT("editLayers"), Layers);
+  Result->SetNumberField(TEXT("editLayerCount"), Layers.Num());
+  Result->SetBoolField(TEXT("saved"), bSaved);
+  Result->SetBoolField(TEXT("savedPackageExists"), bPackageExists);
+  Result->SetBoolField(TEXT("persistenceVerified"), Lower == TEXT("verify_landscape_edit_layers") && bSaved && bPackageExists && bAllRequestedFound);
+  Result->SetBoolField(TEXT("reloadVerified"), Lower == TEXT("verify_landscape_edit_layers") && bPackageExists && bAllRequestedFound);
+  Result->SetStringField(TEXT("evidence"), FString::Printf(TEXT("%d edit layer(s) enumerated; package=%s"), Layers.Num(), *McpLandscapePackagePath(Landscape)));
+  if (!SaveError.IsEmpty()) Result->SetStringField(TEXT("saveError"), SaveError);
+  SendAutomationResponse(RequestingSocket, RequestId, Result->GetBoolField(TEXT("success")),
+      Result->GetBoolField(TEXT("success")) ? TEXT("Landscape edit layers verified") : TEXT("Landscape edit-layer verification failed"), Result,
+      Result->GetBoolField(TEXT("success")) ? FString() : TEXT("EDIT_LAYER_VERIFICATION_FAILED"));
+  return true;
+#else
+  SendAutomationError(RequestingSocket, RequestId, TEXT("Landscape edit layers require an editor build."), TEXT("NOT_IMPLEMENTED"));
+  return true;
+#endif
+}
 
 /**
  * HandleEditLandscape

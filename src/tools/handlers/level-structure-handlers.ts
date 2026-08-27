@@ -116,6 +116,9 @@ export async function handleLevelStructureTools(
     case 'configure_grid_size':
       return sendRequest('configure_grid_size');
 
+    case 'prepare_pie_capture':
+      return sendRequest('prepare_pie_capture');
+
     case 'create_data_layer':
       return sendRequest('create_data_layer');
 

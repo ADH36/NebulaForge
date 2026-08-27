@@ -82,6 +82,18 @@
 #include "Modules/ModuleManager.h"
 #include "RenderingThread.h"
 #include "UnrealClient.h"
+#if __has_include("Streaming/StreamingManager.h")
+#include "Streaming/StreamingManager.h"
+#define MCP_HAS_STREAMING_MANAGER 1
+#else
+#define MCP_HAS_STREAMING_MANAGER 0
+#endif
+#if __has_include("ShaderCompiler.h")
+#include "ShaderCompiler.h"
+#define MCP_HAS_SHADER_COMPILER 1
+#else
+#define MCP_HAS_SHADER_COMPILER 0
+#endif
 
 // Widget Factory (version-dependent header location)
 #if __has_include("Factories/WidgetBlueprintFactory.h")
@@ -233,6 +245,37 @@ bool ParseUiScreenshotResolutionForMcp(const TSharedPtr<FJsonObject>& Payload,
 
   return Payload->HasField(TEXT("resolution")) || Payload->HasField(TEXT("width")) ||
          Payload->HasField(TEXT("height"));
+}
+
+static bool IsGridOnlyScreenshotForMcp(const TArray<FColor>& Bitmap)
+{
+  if (Bitmap.Num() < 64) return false;
+  int32 Grayscale = 0;
+  int32 Transitions = 0;
+  TSet<uint32> QuantizedColors;
+  const int32 Width = FMath::Max(1, FMath::FloorToInt(FMath::Sqrt(static_cast<float>(Bitmap.Num()))));
+  const int32 Step = FMath::Max(1, Bitmap.Num() / 4096);
+  for (int32 Index = 0; Index < Bitmap.Num(); Index += Step) {
+    const FColor& Pixel = Bitmap[Index];
+    if (FMath::Abs(static_cast<int32>(Pixel.R) - static_cast<int32>(Pixel.G)) < 4 &&
+        FMath::Abs(static_cast<int32>(Pixel.G) - static_cast<int32>(Pixel.B)) < 4) ++Grayscale;
+    QuantizedColors.Add((Pixel.R >> 5) << 16 | (Pixel.G >> 5) << 8 | (Pixel.B >> 5));
+    if (Index >= Width && ((Bitmap[Index - Width].R > 32) != (Pixel.R > 32))) ++Transitions;
+  }
+  const int32 Samples = FMath::Max(1, (Bitmap.Num() + Step - 1) / Step);
+  return Grayscale > Samples * 0.98f && QuantizedColors.Num() <= 8 && Transitions > Samples * 0.18f;
+}
+
+static bool IsEmptyScreenshotForMcp(const TArray<FColor>& Bitmap)
+{
+  if (Bitmap.Num() < 64) return true;
+  uint8 MinLuma = 255, MaxLuma = 0;
+  for (const FColor& Pixel : Bitmap) {
+    const uint8 Luma = static_cast<uint8>((static_cast<uint32>(Pixel.R) * 77 + static_cast<uint32>(Pixel.G) * 150 + static_cast<uint32>(Pixel.B) * 29) >> 8);
+    MinLuma = FMath::Min(MinLuma, Luma);
+    MaxLuma = FMath::Max(MaxLuma, Luma);
+  }
+  return MaxLuma - MinLuma <= 2;
 }
 
 FString MakeSafeUiScreenshotFilenameForMcp(
@@ -670,6 +713,27 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
         if (Payload->TryGetNumberField(TEXT("screenshotDelayMs"), ScreenshotDelayValue))
           ScreenshotDelayMs = FMath::Clamp(FMath::FloorToInt(ScreenshotDelayValue), 0, 5000);
 
+        // A capture is evidence only after the render prerequisites have had a
+        // chance to settle. This is intentionally bounded by the caller's
+        // request timeout; it never turns a screenshot into an unbounded wait.
+#if MCP_HAS_STREAMING_MANAGER
+        if (ViewportClient->GetWorld()) {
+          IStreamingManager::Get().StreamAllResources(0.0f);
+        }
+        bool bStreamingReady = true;
+#else
+        bool bStreamingReady = true;
+#endif
+#if MCP_HAS_SHADER_COMPILER
+        if (GShaderCompilingManager && GShaderCompilingManager->IsCompiling()) {
+          GShaderCompilingManager->FinishAllCompilation();
+        }
+        bool bShadersReady = !GShaderCompilingManager || !GShaderCompilingManager->IsCompiling();
+#else
+        bool bShadersReady = true;
+#endif
+        FlushRenderingCommands();
+
         for (int32 WarmupIndex = 0; WarmupIndex < WarmupFrames; ++WarmupIndex)
         {
           Viewport->Draw(false);
@@ -685,6 +749,8 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
         int32 NonBlackPixels = 0;
         int32 CaptureAttempts = 0;
         bool bReadSuccess = false;
+        bool bGridOnly = false;
+        bool bEmpty = false;
         for (CaptureAttempts = 1; CaptureAttempts <= 3; ++CaptureAttempts)
         {
           if (CaptureAttempts > 1)
@@ -695,7 +761,9 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
           }
           Bitmap.Reset();
           bReadSuccess = Viewport->ReadPixels(Bitmap);
-          if (bReadSuccess && Bitmap.Num() > 0 && HasVisibleScreenshotPixelsForMcp(Bitmap, NonBlackPixels)) break;
+          bGridOnly = bReadSuccess && IsGridOnlyScreenshotForMcp(Bitmap);
+          bEmpty = bReadSuccess && IsEmptyScreenshotForMcp(Bitmap);
+          if (bReadSuccess && Bitmap.Num() > 0 && HasVisibleScreenshotPixelsForMcp(Bitmap, NonBlackPixels) && !bGridOnly && !bEmpty) break;
         }
 
         if (!bReadSuccess || Bitmap.Num() == 0) {
@@ -705,6 +773,14 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
         } else if (NonBlackPixels == 0) {
           Message = TEXT("Screenshot capture produced an all-black frame after retries");
           ErrorCode = TEXT("BLACK_FRAME");
+          Resp->SetStringField(TEXT("error"), Message);
+        } else if (bGridOnly) {
+          Message = TEXT("Screenshot capture contains only a grid/checkerboard placeholder");
+          ErrorCode = TEXT("GRID_ONLY_FRAME");
+          Resp->SetStringField(TEXT("error"), Message);
+        } else if (bEmpty) {
+          Message = TEXT("Screenshot capture contains no useful scene variation");
+          ErrorCode = TEXT("EMPTY_FRAME");
           Resp->SetStringField(TEXT("error"), Message);
         } else {
           // Ensure we have the right size
@@ -811,6 +887,8 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
           Resp->SetNumberField(TEXT("screenshotDelayMs"), ScreenshotDelayMs);
           Resp->SetNumberField(TEXT("captureAttempts"), CaptureAttempts);
           Resp->SetNumberField(TEXT("nonBlackPixelCount"), NonBlackPixels);
+          Resp->SetBoolField(TEXT("streamingReady"), bStreamingReady);
+          Resp->SetBoolField(TEXT("shadersReady"), bShadersReady);
           if (UWorld *ViewportWorld = ViewportClient->GetWorld()) {
             Resp->SetStringField(TEXT("viewportWorld"), ViewportWorld->GetName());
             Resp->SetNumberField(TEXT("viewportWorldType"), static_cast<int32>(ViewportWorld->WorldType));

@@ -227,6 +227,8 @@ inline const TArray<FString>& BuildEnvironmentCore()
 		TEXT("add_foliage_instances"), TEXT("get_foliage_instances"),
 		TEXT("remove_foliage"), TEXT("paint_landscape"),
 		TEXT("paint_landscape_layer"), TEXT("modify_heightmap"),
+		TEXT("create_landscape_edit_layer"), TEXT("list_landscape_edit_layers"),
+		TEXT("verify_landscape_edit_layers"),
 		TEXT("set_landscape_material"), TEXT("create_landscape_grass_type"),
 		TEXT("inspect_landscape"), TEXT("delete_landscape"), TEXT("resize_landscape"),
 		TEXT("generate_landscape_heightmap"), TEXT("apply_landscape_erosion"),
@@ -648,7 +650,7 @@ inline const TArray<FString>& ManageLevelStructureCore()
 		TEXT("create_minimap_volume"), TEXT("open_level_blueprint"),
 		TEXT("add_level_blueprint_node"),
 		TEXT("connect_level_blueprint_nodes"), TEXT("create_level_instance"),
-		TEXT("create_packed_level_actor"), TEXT("get_level_structure_info")
+		TEXT("create_packed_level_actor"), TEXT("prepare_pie_capture"), TEXT("get_level_structure_info")
 	};
 	return Actions;
 }

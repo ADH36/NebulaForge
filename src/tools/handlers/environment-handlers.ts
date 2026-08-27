@@ -82,6 +82,9 @@ const ENVIRONMENT_PATH_FIELDS_BY_ACTION: Record<string, readonly string[]> = {
   configure_landscape_splines: ['landscapePath', 'landscapeActorPath'],
   create_landscape_layer_info: ['path', 'physicalMaterialPath'],
   create_landscape_grass_type: ['meshPath', 'path', 'staticMesh'],
+  create_landscape_edit_layer: ['landscapePath'],
+  list_landscape_edit_layers: ['landscapePath'],
+  verify_landscape_edit_layers: ['landscapePath'],
   generate_lods: ['assetPath', 'landscapePath', 'path'],
   configure_landscape_lod: ['assetPath', 'landscapePath', 'path'],
   create_sky_sphere: ['path'],
@@ -406,6 +409,13 @@ export async function handleEnvironmentTools(action: string, args: HandlerArgs, 
         landscapeName: argsTyped.landscapeName || argsTyped.name || '',
         materialPath: argsTyped.materialPath ?? ''
       }) as Record<string, unknown>);
+    case 'create_landscape_edit_layer':
+    case 'list_landscape_edit_layers':
+    case 'verify_landscape_edit_layers':
+      return cleanObject(await executeAutomationRequest(tools, 'build_environment', {
+        ...argsRecord,
+        action: envAction
+      }, 'Automation bridge not available for landscape edit-layer operations')) as Record<string, unknown>;
     case 'configure_landscape_material':
       return cleanObject(await executeAutomationRequest(tools, 'build_environment', {
         ...argsRecord,

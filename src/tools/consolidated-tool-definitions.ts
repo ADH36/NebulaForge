@@ -1162,6 +1162,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'create_procedural_terrain', 'create_procedural_foliage', 'add_foliage_instances',
             'get_foliage_instances', 'remove_foliage', 'paint_landscape', 'paint_landscape_layer',
             'modify_heightmap', 'set_landscape_material', 'create_landscape_grass_type',
+            'create_landscape_edit_layer', 'list_landscape_edit_layers', 'verify_landscape_edit_layers',
             // UE 5.8.1 landscape / foliage authoring. These intentionally stay
             // on the consolidated environment tool so existing clients keep the
             // same tool budget and routing contract.
@@ -1201,6 +1202,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         strength: commonSchemas.numberProp,
         falloff: commonSchemas.numberProp,
         layerName: commonSchemas.stringProp,
+        editLayerName: commonSchemas.stringProp,
+        editLayerNames: commonSchemas.arrayOfStrings,
+        verifyPersistence: commonSchemas.booleanProp,
         actorName: commonSchemas.actorName,
         foliageType: commonSchemas.stringProp,
         foliageTypePath: commonSchemas.assetPath,
@@ -4024,6 +4028,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'create_minimap_volume',
             'open_level_blueprint', 'add_level_blueprint_node', 'connect_level_blueprint_nodes',
             'create_level_instance', 'create_packed_level_actor',
+            'prepare_pie_capture',
             'get_level_structure_info'
           ,
             ...VOLUME_ACTIONS],

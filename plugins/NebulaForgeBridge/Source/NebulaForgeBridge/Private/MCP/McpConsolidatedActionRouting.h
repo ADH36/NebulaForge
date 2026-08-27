@@ -73,7 +73,11 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("source_control_checkout"), TEXT("source_control_submit"),
 		TEXT("add_material_node"), TEXT("connect_material_pins"),
 		TEXT("remove_material_node"), TEXT("break_material_connections"),
-		TEXT("get_material_node_details"), TEXT("rebuild_material")
+		TEXT("get_material_node_details"), TEXT("rebuild_material"),
+		TEXT("create_physical_material"), TEXT("set_friction"), TEXT("set_restitution"),
+		TEXT("set_density"), TEXT("configure_surface_type"), TEXT("assign_physical_material"),
+		TEXT("configure_physical_material"), TEXT("get_physical_material"),
+		TEXT("clear_physical_material_override")
 	};
 	return Actions;
 }

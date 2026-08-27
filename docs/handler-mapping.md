@@ -37,6 +37,13 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `set_search_text` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Sets the Content Browser search text |
 | `create_material` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleAssetAction` | |
 | `create_material_instance` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleAssetAction` | |
+| `create_physical_material` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandlePhysicalMaterialAction` | Creates and configures a `UPhysicalMaterial` asset |
+| `set_friction` / `set_restitution` / `set_density` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandlePhysicalMaterialAction` | Updates validated physical-material surface/object properties |
+| `configure_physical_material` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandlePhysicalMaterialAction` | Batch-updates material properties and combine modes |
+| `get_physical_material` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandlePhysicalMaterialAction` | Returns structured physical-material properties |
+| `configure_surface_type` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandlePhysicalMaterialAction` | Adds/replaces a project physical surface and optionally flushes config |
+| `assign_physical_material` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandlePhysicalMaterialAction` | Applies an override to all or one primitive component |
+| `clear_physical_material_override` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandlePhysicalMaterialAction` | Clears the component physical-material override |
 | `create_render_target` | `NebulaForgeBridge_RenderHandlers.cpp` | `HandleRenderAction` | |
 | `nanite_rebuild_mesh` | `NebulaForgeBridge_RenderHandlers.cpp` | `HandleRenderAction` | |
 | `add_material_node` | `NebulaForgeBridge_MaterialGraphHandlers.cpp` | `HandleAddMaterialExpression` | |

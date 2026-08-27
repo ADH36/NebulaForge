@@ -1610,6 +1610,21 @@ Phase 34.4 routes collision configuration through the engine's collision profile
 
 Custom profile/channel creation is persisted to the documented `/Script/Engine.CollisionProfile` section only when `saveConfig` is enabled. See Epic's [`UCollisionProfile`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UCollisionProfile), [`UCollisionProfile::LoadProfileConfig`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UCollisionProfile/LoadProfileConfig?application_version=5.7), [`FCollisionResponseContainer`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FCollisionResponseContainer), [`UPrimitiveComponent`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent), and [`ECollisionChannel`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ECollisionChannel).
 
+### Physical Materials and Surface Types (34.5)
+
+Phase 34.5 routes physical-material authoring and component overrides through the editor asset factory, PhysicsCore material properties, project physics configuration, and primitive-component APIs:
+
+| Unreal API | Bridge coverage |
+|------|------|
+| `UPhysicalMaterialFactoryNew` / `UPhysicalMaterial` | Create, configure, and inspect physical-material assets |
+| `UPhysicalMaterial::Friction`, `StaticFriction`, `Restitution`, and `Density` | Validate and update surface/object simulation properties |
+| `EFrictionCombineMode::Type` and physical-material override flags | Configure average, min, multiply, or max combine behavior |
+| `UPhysicalMaterial::SurfaceType` | Associate a physical material with a project surface type |
+| `UPrimitiveComponent::SetPhysMaterialOverride` | Assign a material to all primitive components or one named component, and clear the override |
+| `/Script/Engine.PhysicsSettings` `PhysicalSurfaces` | Add or replace named project surface types with optional `DefaultEngine.ini` persistence |
+
+Asset writes are marked dirty and are saved only when `save` is enabled; project surface configuration is flushed only when `saveConfig` is enabled. See Epic's [`UPhysicalMaterial`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/PhysicsCore/PhysicalMaterials/UPhysicalMaterial), [`EFrictionCombineMode::Type`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/PhysicsCore/EFrictionCombineMode__Type?lang=en-US), [`UPhysicalMaterialFactoryNew`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/Factories/UPhysicalMaterialFactoryNew?application_version=5.5), [`UPrimitiveComponent::SetPhysMaterialOverride`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetPhysMaterialOverride), [Physical Materials Reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/physical-materials-reference-for-unreal-engine), and [Physics Settings](https://dev.epicgames.com/documentation/en-us/unreal-engine/physics-settings-in-the-unreal-engine-project-settings?lang=en-US).
+
 ---
 
 ## Phase 35: Additional Gameplay Systems

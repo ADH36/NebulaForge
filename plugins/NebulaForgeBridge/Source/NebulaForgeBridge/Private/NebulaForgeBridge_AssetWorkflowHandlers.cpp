@@ -7,6 +7,9 @@
 //   Asset Operations:
 //     - import, duplicate, rename, move, delete, exists, list, search_assets
 //     - create_folder, create_material, create_material_instance
+//     - create_physical_material, configure_physical_material, get_physical_material
+//     - set_friction, set_restitution, set_density, configure_surface_type
+//     - assign_physical_material, clear_physical_material_override
 //     - get_dependencies, get_asset_graph, set_tags, set_metadata, get_metadata
 //     - validate, generate_report, generate_thumbnail, get_material_stats
 //     - Content Browser navigation, settings, search, collections, colors, Explorer
@@ -126,16 +129,20 @@
 #define MCP_HAS_COLLECTION_MANAGER 0
 #endif
 #include "EditorAssetLibrary.h"
+#include "Engine/EngineTypes.h"
 #include "Engine/StaticMesh.h"
 #include "EngineUtils.h"  // TActorIterator
 #include "Factories/MaterialFactoryNew.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
+#include "Factories/PhysicalMaterialFactoryNew.h"
 #include "FileHelpers.h"
 #include "IAssetTools.h"
 #include "Editor/EditorEngine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/PackageName.h"
 #include "HAL/PlatformProcess.h"
+#include "Components/PrimitiveComponent.h"
+#include "PhysicsSettingsEnums.h"
 
 // -----------------------------------------------------------------------------
 // Editor-only Includes (Source Control)
@@ -151,6 +158,7 @@
 #include "ImageUtils.h"
 #include "MaterialEditingLibrary.h"
 #include "Materials/Material.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 
 // MaterialDomain.h was introduced in UE 5.1 - in UE 5.0 EMaterialDomain is in MaterialShared.h
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
@@ -295,6 +303,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleCreateMaterial(RequestId, Payload, RequestingSocket);
   if (Lower == TEXT("create_material_instance"))
     return HandleCreateMaterialInstance(RequestId, Payload, RequestingSocket);
+  if (Lower == TEXT("create_physical_material") ||
+      Lower == TEXT("set_friction") || Lower == TEXT("set_restitution") ||
+      Lower == TEXT("set_density") || Lower == TEXT("configure_surface_type") ||
+      Lower == TEXT("assign_physical_material") ||
+      Lower == TEXT("configure_physical_material") ||
+      Lower == TEXT("get_physical_material") ||
+      Lower == TEXT("clear_physical_material_override"))
+    return HandlePhysicalMaterialAction(RequestId, Lower, Payload, RequestingSocket);
   if (Lower == TEXT("create_render_target"))
     return HandleManageTextureAction(RequestId, TEXT("manage_texture"), Payload, RequestingSocket);
   if (Lower == TEXT("get_dependencies"))
@@ -3362,6 +3378,195 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateReport(
 // ============================================================================
 // 8. MATERIAL CREATION
 // ============================================================================
+
+bool UNebulaForgeBridgeSubsystem::HandlePhysicalMaterialAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR
+  auto SendInvalid = [&](const FString &Message) {
+    SendAutomationResponse(Socket, RequestId, false, Message, nullptr,
+                            TEXT("INVALID_ARGUMENT"));
+  };
+  auto ParseSurfaceIndex = [](const FString &Value, int32 &OutIndex) {
+    FString Token = Value.TrimStartAndEnd();
+    if (Token.StartsWith(TEXT("SurfaceType"), ESearchCase::IgnoreCase)) {
+      Token = Token.RightChop(11);
+    }
+    if (Token.IsEmpty()) return false;
+    const int32 Index = FCString::Atoi(*Token);
+    if (Index < 0 || Index > 62) return false;
+    OutIndex = Index;
+    return true;
+  };
+  auto ParseCombineMode = [](const FString &Value, EFrictionCombineMode::Type &OutMode) {
+    const FString Token = Value.TrimStartAndEnd().ToLower();
+    if (Token == TEXT("average")) { OutMode = EFrictionCombineMode::Average; return true; }
+    if (Token == TEXT("min") || Token == TEXT("minimum")) { OutMode = EFrictionCombineMode::Min; return true; }
+    if (Token == TEXT("multiply") || Token == TEXT("multiplication")) { OutMode = EFrictionCombineMode::Multiply; return true; }
+    if (Token == TEXT("max") || Token == TEXT("maximum")) { OutMode = EFrictionCombineMode::Max; return true; }
+    return false;
+  };
+  auto CombineModeName = [](EFrictionCombineMode::Type Mode) {
+    switch (Mode) {
+    case EFrictionCombineMode::Min: return FString(TEXT("min"));
+    case EFrictionCombineMode::Multiply: return FString(TEXT("multiply"));
+    case EFrictionCombineMode::Max: return FString(TEXT("max"));
+    default: return FString(TEXT("average"));
+    }
+  };
+  auto ApplyValues = [&](UPhysicalMaterial *Material, FString &Error) {
+    if (!Material) { Error = TEXT("Physical material is unavailable."); return false; }
+    double Number = 0.0;
+    if (Payload->TryGetNumberField(TEXT("friction"), Number)) {
+      if (!FMath::IsFinite(Number) || Number < 0.0) { Error = TEXT("friction must be finite and non-negative."); return false; }
+      Material->Friction = static_cast<float>(Number);
+    }
+    if (Payload->TryGetNumberField(TEXT("staticFriction"), Number)) {
+      if (!FMath::IsFinite(Number) || Number < 0.0) { Error = TEXT("staticFriction must be finite and non-negative."); return false; }
+      Material->StaticFriction = static_cast<float>(Number);
+    }
+    if (Payload->TryGetNumberField(TEXT("restitution"), Number)) {
+      if (!FMath::IsFinite(Number) || Number < 0.0 || Number > 1.0) { Error = TEXT("restitution must be between 0 and 1."); return false; }
+      Material->Restitution = static_cast<float>(Number);
+    }
+    if (Payload->TryGetNumberField(TEXT("density"), Number)) {
+      if (!FMath::IsFinite(Number) || Number < 0.0) { Error = TEXT("density must be finite and non-negative."); return false; }
+      Material->Density = static_cast<float>(Number);
+    }
+    FString SurfaceType;
+    if (Payload->TryGetStringField(TEXT("surfaceType"), SurfaceType)) {
+      int32 SurfaceIndex = 0;
+      if (!ParseSurfaceIndex(SurfaceType, SurfaceIndex)) { Error = TEXT("surfaceType must be SurfaceType0-SurfaceType62 or a numeric index."); return false; }
+      Material->SurfaceType = static_cast<EPhysicalSurface>(SurfaceIndex);
+    }
+    FString CombineMode;
+    EFrictionCombineMode::Type ParsedMode;
+    if (Payload->TryGetStringField(TEXT("frictionCombineMode"), CombineMode)) {
+      if (!ParseCombineMode(CombineMode, ParsedMode)) { Error = TEXT("frictionCombineMode must be average, min, multiply, or max."); return false; }
+      Material->FrictionCombineMode = ParsedMode;
+    }
+    if (Payload->TryGetStringField(TEXT("restitutionCombineMode"), CombineMode)) {
+      if (!ParseCombineMode(CombineMode, ParsedMode)) { Error = TEXT("restitutionCombineMode must be average, min, multiply, or max."); return false; }
+      Material->RestitutionCombineMode = ParsedMode;
+    }
+    bool BoolValue = false;
+    if (Payload->TryGetBoolField(TEXT("overrideFrictionCombineMode"), BoolValue)) Material->bOverrideFrictionCombineMode = BoolValue;
+    if (Payload->TryGetBoolField(TEXT("overrideRestitutionCombineMode"), BoolValue)) Material->bOverrideRestitutionCombineMode = BoolValue;
+    return true;
+  };
+  auto AddMaterialData = [&](UPhysicalMaterial *Material, TSharedPtr<FJsonObject> &Result) {
+    Result->SetStringField(TEXT("assetPath"), Material->GetPathName());
+    Result->SetNumberField(TEXT("friction"), Material->Friction);
+    Result->SetNumberField(TEXT("staticFriction"), Material->StaticFriction);
+    Result->SetNumberField(TEXT("restitution"), Material->Restitution);
+    Result->SetNumberField(TEXT("density"), Material->Density);
+    Result->SetStringField(TEXT("surfaceType"), FString::Printf(TEXT("SurfaceType%d"), Material->SurfaceType.GetValue()));
+    Result->SetStringField(TEXT("frictionCombineMode"), CombineModeName(Material->FrictionCombineMode.GetValue()));
+    Result->SetStringField(TEXT("restitutionCombineMode"), CombineModeName(Material->RestitutionCombineMode.GetValue()));
+    Result->SetBoolField(TEXT("overrideFrictionCombineMode"), Material->bOverrideFrictionCombineMode);
+    Result->SetBoolField(TEXT("overrideRestitutionCombineMode"), Material->bOverrideRestitutionCombineMode);
+  };
+
+  if (Action == TEXT("configure_surface_type")) {
+    FString SurfaceType, SurfaceName;
+    Payload->TryGetStringField(TEXT("surfaceType"), SurfaceType);
+    Payload->TryGetStringField(TEXT("surfaceName"), SurfaceName);
+    if (SurfaceName.IsEmpty()) Payload->TryGetStringField(TEXT("name"), SurfaceName);
+    int32 SurfaceIndex = 0;
+    if (!ParseSurfaceIndex(SurfaceType, SurfaceIndex) || SurfaceName.IsEmpty() ||
+        SurfaceName.Contains(TEXT("\"")) || SurfaceName.Contains(TEXT("\r")) || SurfaceName.Contains(TEXT("\n"))) {
+      SendInvalid(TEXT("surfaceType and a quote-free surfaceName are required.")); return true;
+    }
+    const FString Section = TEXT("/Script/Engine.PhysicsSettings");
+    TArray<FString> Surfaces;
+    GConfig->GetArray(*Section, TEXT("PhysicalSurfaces"), Surfaces, GEngineIni);
+    const FString Entry = FString::Printf(TEXT("(Type=SurfaceType%d,Name=\"%s\")"), SurfaceIndex, *SurfaceName);
+    bool bReplaced = false;
+    const FString Prefix = FString::Printf(TEXT("(Type=SurfaceType%d,"), SurfaceIndex);
+    for (FString &Existing : Surfaces) {
+      if (Existing.StartsWith(Prefix)) { Existing = Entry; bReplaced = true; break; }
+    }
+    if (!bReplaced) Surfaces.Add(Entry);
+    GConfig->SetArray(*Section, TEXT("PhysicalSurfaces"), Surfaces, GEngineIni);
+    if (Payload->HasField(TEXT("saveConfig")) ? GetJsonBoolField(Payload, TEXT("saveConfig"), true) : true) GConfig->Flush(false, GEngineIni);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("surfaceType"), FString::Printf(TEXT("SurfaceType%d"), SurfaceIndex));
+    Result->SetStringField(TEXT("surfaceName"), SurfaceName); Result->SetBoolField(TEXT("replaced"), bReplaced);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Physical surface configured"), Result, FString()); return true;
+  }
+
+  if (Action == TEXT("create_physical_material")) {
+    FString Name, Path;
+    Payload->TryGetStringField(TEXT("name"), Name); Payload->TryGetStringField(TEXT("path"), Path);
+    if (Name.IsEmpty() || Path.IsEmpty()) { SendInvalid(TEXT("name and path are required.")); return true; }
+    Name = SanitizeAssetName(Name); Path = SanitizeProjectRelativePath(Path);
+    if (Name.IsEmpty() || Path.IsEmpty()) { SendInvalid(TEXT("Invalid physical material name or path.")); return true; }
+    const FString FullPath = Path / Name;
+    if (UEditorAssetLibrary::DoesAssetExist(FullPath)) {
+      SendAutomationResponse(Socket, RequestId, false, TEXT("Physical material already exists"), nullptr, TEXT("ALREADY_EXISTS")); return true;
+    }
+    UPhysicalMaterialFactoryNew *Factory = NewObject<UPhysicalMaterialFactoryNew>();
+    UObject *NewAsset = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get().CreateAsset(Name, Path, UPhysicalMaterial::StaticClass(), Factory);
+    UPhysicalMaterial *Material = Cast<UPhysicalMaterial>(NewAsset);
+    if (!Material) { SendAutomationResponse(Socket, RequestId, false, TEXT("Failed to create physical material"), nullptr, TEXT("CREATE_FAILED")); return true; }
+    FString Error; if (!ApplyValues(Material, Error)) { SendInvalid(Error); return true; }
+    Material->PostEditChange();
+    Material->MarkPackageDirty();
+    bool bSaved = false; bool bSave = false; Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave) bSaved = McpSafeAssetSave(Material);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); AddMaterialData(Material, Result); Result->SetBoolField(TEXT("saved"), bSaved);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Physical material created"), Result, FString()); return true;
+  }
+
+  if (Action == TEXT("assign_physical_material") || Action == TEXT("clear_physical_material_override")) {
+    FString ActorName, ComponentName, MaterialPath;
+    Payload->TryGetStringField(TEXT("actorName"), ActorName); Payload->TryGetStringField(TEXT("componentName"), ComponentName); Payload->TryGetStringField(TEXT("physicalMaterialPath"), MaterialPath);
+    if (ActorName.IsEmpty()) { SendInvalid(TEXT("actorName is required.")); return true; }
+    AActor *Actor = FindActorByName(ActorName);
+    if (!Actor) { SendAutomationError(Socket, RequestId, FString::Printf(TEXT("Actor not found: %s"), *ActorName), TEXT("ACTOR_NOT_FOUND")); return true; }
+    UPhysicalMaterial *Material = nullptr;
+    if (Action == TEXT("assign_physical_material")) {
+      MaterialPath = SanitizeProjectRelativePath(MaterialPath);
+      if (MaterialPath.IsEmpty()) { SendInvalid(TEXT("physicalMaterialPath is required and must be a valid asset path.")); return true; }
+      Material = LoadObject<UPhysicalMaterial>(nullptr, *MaterialPath);
+      if (!Material) { SendAutomationResponse(Socket, RequestId, false, TEXT("Physical material not found"), nullptr, TEXT("MATERIAL_NOT_FOUND")); return true; }
+    }
+    TArray<UPrimitiveComponent *> Components;
+    if (!ComponentName.IsEmpty()) {
+      UPrimitiveComponent *Primitive = Cast<UPrimitiveComponent>(FindComponentByName(Actor, ComponentName));
+      if (!Primitive) { SendAutomationError(Socket, RequestId, TEXT("Primitive component not found"), TEXT("COMPONENT_NOT_FOUND")); return true; }
+      Components.Add(Primitive);
+    } else Actor->GetComponents<UPrimitiveComponent>(Components);
+    if (Components.Num() == 0) { SendInvalid(TEXT("Actor has no primitive components.")); return true; }
+    for (UPrimitiveComponent *Component : Components) Component->SetPhysMaterialOverride(Material);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); Result->SetStringField(TEXT("actorName"), ActorName); Result->SetNumberField(TEXT("componentCount"), Components.Num()); Result->SetStringField(TEXT("physicalMaterialPath"), Material ? Material->GetPathName() : TEXT(""));
+    SendAutomationResponse(Socket, RequestId, true, Action == TEXT("assign_physical_material") ? TEXT("Physical material assigned") : TEXT("Physical material override cleared"), Result, FString()); return true;
+  }
+
+  FString AssetPath; Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+  if (AssetPath.IsEmpty()) Payload->TryGetStringField(TEXT("physicalMaterialPath"), AssetPath);
+  AssetPath = SanitizeProjectRelativePath(AssetPath);
+  if (AssetPath.IsEmpty()) { SendInvalid(TEXT("assetPath is required.")); return true; }
+  UPhysicalMaterial *Material = LoadObject<UPhysicalMaterial>(nullptr, *AssetPath);
+  if (!Material) { SendAutomationResponse(Socket, RequestId, false, TEXT("Physical material not found"), nullptr, TEXT("MATERIAL_NOT_FOUND")); return true; }
+  if (Action == TEXT("get_physical_material")) {
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); AddMaterialData(Material, Result);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Physical material retrieved"), Result, FString()); return true;
+  }
+  Material->Modify(); FString Error;
+  if (Action == TEXT("set_friction")) { if (!Payload->HasField(TEXT("friction"))) { SendInvalid(TEXT("friction is required.")); return true; } }
+  if (Action == TEXT("set_restitution")) { if (!Payload->HasField(TEXT("restitution"))) { SendInvalid(TEXT("restitution is required.")); return true; } }
+  if (Action == TEXT("set_density")) { if (!Payload->HasField(TEXT("density"))) { SendInvalid(TEXT("density is required.")); return true; } }
+  if (!ApplyValues(Material, Error)) { SendInvalid(Error); return true; }
+  Material->PostEditChange();
+  Material->MarkPackageDirty(); bool bSaved = false; bool bSave = false; Payload->TryGetBoolField(TEXT("save"), bSave); if (bSave) bSaved = McpSafeAssetSave(Material);
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); AddMaterialData(Material, Result); Result->SetBoolField(TEXT("saved"), bSaved);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Physical material updated"), Result, FString()); return true;
+#else
+  SendAutomationError(Socket, RequestId, TEXT("Editor build required"), TEXT("NOT_SUPPORTED")); return true;
+#endif
+}
 
 bool UNebulaForgeBridgeSubsystem::HandleCreateMaterial(
     const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,

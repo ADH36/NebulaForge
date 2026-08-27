@@ -29,6 +29,10 @@ const VALID_ASSET_ACTIONS = new Set([
   // Material graph operations
   'add_material_node', 'remove_material_node', 'rebuild_material',
   'connect_material_pins', 'break_material_connections', 'get_material_node_details',
+  // Phase 34.5 Physical Materials
+  'create_physical_material', 'set_friction', 'set_restitution', 'set_density',
+  'configure_surface_type', 'assign_physical_material', 'configure_physical_material',
+  'get_physical_material', 'clear_physical_material_override',
   // Source control
   'source_control_checkout', 'source_control_submit', 'source_control_enable', 'get_source_control_state',
   // Graph analysis
@@ -1059,7 +1063,11 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
         }
 
         // Pass all args through to C++ handler for actions that are valid but not explicitly handled
-        const res = await executeAutomationRequest(tools, action || 'manage_asset', { ...args, subAction: action }) as AssetOperationResponse;
+        const physicalMaterialAction = action === 'create_physical_material' || action === 'set_friction' ||
+          action === 'set_restitution' || action === 'set_density' || action === 'configure_surface_type' ||
+          action === 'assign_physical_material' || action === 'configure_physical_material' ||
+          action === 'get_physical_material' || action === 'clear_physical_material_override';
+        const res = await executeAutomationRequest(tools, physicalMaterialAction ? 'manage_asset' : (action || 'manage_asset'), { ...args, subAction: action }) as AssetOperationResponse;
         const result = res ?? {};
         const errorCode = typeof result.error === 'string' ? result.error.toUpperCase() : '';
         const message = typeof result.message === 'string' ? result.message : '';

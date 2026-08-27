@@ -46,6 +46,8 @@ const BULK_DELETE_SOURCE = asset(`M_BulkDeleteSource_${ts}`);
 const TAG_KEY = `MCPAssetTag_${ts}`;
 const TAG_VALUE = 'real-live';
 const CONTENT_BROWSER_COLLECTION = `MCP_ContentBrowser_${ts}`;
+const PHYSICAL_MATERIAL = asset(`PM_Asset_${ts}`);
+const PHYSICAL_ACTOR = `MCP_PhysicalActor_${ts}`;
 
 const createMaterial = (name) => ({
   toolName: 'manage_asset',
@@ -102,6 +104,21 @@ const testCases = [
   { scenario: 'ACTION: fixup_redirectors', toolName: 'manage_asset', arguments: { action: 'fixup_redirectors', directoryPath: TEST_FOLDER, checkoutFiles: false }, expected: 'success' },
   { scenario: 'INFO: find_by_tag', toolName: 'manage_asset', arguments: { action: 'find_by_tag', tag: TAG_KEY }, expected: 'success' },
   { scenario: 'ACTION: generate_report', toolName: 'manage_asset', arguments: { action: 'generate_report', directory: TEST_FOLDER, reportType: 'Summary' }, expected: 'success' },
+
+  // === PHYSICAL MATERIALS (PHASE 34.5) ===
+  { scenario: 'Setup: spawn physical material actor', toolName: 'control_actor', arguments: { action: 'spawn', classPath: '/Engine/BasicShapes/Cube', actorName: PHYSICAL_ACTOR, location: { x: 0, y: 0, z: 100 } }, expected: 'success|already exists' },
+  { scenario: 'CREATE: create_physical_material', toolName: 'manage_asset', arguments: { action: 'create_physical_material', name: `PM_Asset_${ts}`, path: TEST_FOLDER, friction: 0.65, staticFriction: 0.75, restitution: 0.35, density: 2.4, surfaceType: 'SurfaceType1', frictionCombineMode: 'average', restitutionCombineMode: 'max', overrideFrictionCombineMode: true, overrideRestitutionCombineMode: true, save: false }, expected: 'success|already exists' },
+  { scenario: 'CONFIG: set_friction', toolName: 'manage_asset', arguments: { action: 'set_friction', physicalMaterialPath: PHYSICAL_MATERIAL, friction: 0.55, staticFriction: 0.7, save: false }, expected: 'success' },
+  { scenario: 'CONFIG: set_restitution', toolName: 'manage_asset', arguments: { action: 'set_restitution', physicalMaterialPath: PHYSICAL_MATERIAL, restitution: 0.25, save: false }, expected: 'success' },
+  { scenario: 'CONFIG: set_density', toolName: 'manage_asset', arguments: { action: 'set_density', physicalMaterialPath: PHYSICAL_MATERIAL, density: 1.8, save: false }, expected: 'success' },
+  { scenario: 'CONFIG: configure_physical_material', toolName: 'manage_asset', arguments: { action: 'configure_physical_material', physicalMaterialPath: PHYSICAL_MATERIAL, friction: 0.6, staticFriction: 0.8, restitution: 0.4, density: 2.1, surfaceType: 'SurfaceType2', frictionCombineMode: 'multiply', restitutionCombineMode: 'min', overrideFrictionCombineMode: true, overrideRestitutionCombineMode: false, save: false }, expected: 'success' },
+  { scenario: 'INFO: get_physical_material', toolName: 'manage_asset', arguments: { action: 'get_physical_material', physicalMaterialPath: PHYSICAL_MATERIAL }, expected: 'success' },
+  { scenario: 'CONFIG: configure_surface_type', toolName: 'manage_asset', arguments: { action: 'configure_surface_type', surfaceType: 'SurfaceType1', surfaceName: `MCP_Surface_${ts}`, saveConfig: false }, expected: 'success' },
+  { scenario: 'ACTION: assign_physical_material', toolName: 'manage_asset', arguments: { action: 'assign_physical_material', actorName: PHYSICAL_ACTOR, physicalMaterialPath: PHYSICAL_MATERIAL }, expected: 'success' },
+  { scenario: 'ACTION: clear_physical_material_override', toolName: 'manage_asset', arguments: { action: 'clear_physical_material_override', actorName: PHYSICAL_ACTOR, componentName: 'StaticMeshComponent0' }, expected: 'success' },
+
+  { scenario: 'Cleanup: delete physical material actor', toolName: 'control_actor', arguments: { action: 'delete', actorName: PHYSICAL_ACTOR }, expected: 'success|not found' },
+  { scenario: 'Cleanup: delete physical material', toolName: 'manage_asset', arguments: { action: 'delete', path: PHYSICAL_MATERIAL, force: true }, expected: 'success|not found' },
 
   // === CONTENT BROWSER (PHASE 34.2) ===
   { scenario: 'CONTENT BROWSER: set_view_settings', toolName: 'manage_asset', arguments: {

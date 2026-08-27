@@ -14,7 +14,7 @@ public:
 	FString GetDescription() const override
 	{
 		return TEXT("Create, import, duplicate, rename, delete assets. "
-			"Edit Material graphs and instances. Analyze dependencies.");
+			"Edit Material graphs and instances, physical materials, and physics surfaces. Analyze dependencies.");
 	}
 
 	FString GetCategory() const override { return TEXT("core"); }
@@ -115,6 +115,19 @@ public:
 			.String(TEXT("pinName"), TEXT("Name of the pin."))
 			.String(TEXT("desc"), TEXT(""))
 			.String(TEXT("materialPath"), TEXT("Material asset path."))
+			.String(TEXT("physicalMaterialPath"), TEXT("Physical material asset path."))
+			.String(TEXT("actorName"), TEXT("Actor to receive or inspect a physical material override."))
+			.String(TEXT("componentName"), TEXT("Optional primitive component name."))
+			.Number(TEXT("friction"), TEXT("Dynamic friction coefficient."))
+			.Number(TEXT("staticFriction"), TEXT("Static friction coefficient."))
+			.Number(TEXT("restitution"), TEXT("Restitution/bounciness from 0 to 1."))
+			.Number(TEXT("density"), TEXT("Physical material density in g/cm3."))
+			.String(TEXT("surfaceType"), TEXT("SurfaceType index/name."))
+			.String(TEXT("surfaceName"), TEXT("Project physical surface display name."))
+			.String(TEXT("frictionCombineMode"), TEXT("average, min, multiply, or max."))
+			.String(TEXT("restitutionCombineMode"), TEXT("average, min, multiply, or max."))
+			.Bool(TEXT("overrideFrictionCombineMode"), TEXT("Override project friction combine mode."))
+			.Bool(TEXT("overrideRestitutionCombineMode"), TEXT("Override project restitution combine mode."))
 			.String(TEXT("texturePath"), TEXT("Texture asset path."))
 			.String(TEXT("expressionClass"), TEXT(""))
 			.Number(TEXT("coordinateIndex"), TEXT(""))

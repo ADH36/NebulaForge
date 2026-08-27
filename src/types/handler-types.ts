@@ -131,6 +131,19 @@ export interface AssetArgs extends HandlerArgs {
     parentMaterial?: string;
     parameters?: Record<string, unknown>;
     assetPaths?: string[];
+    physicalMaterialPath?: string;
+    actorName?: string;
+    componentName?: string;
+    friction?: number;
+    staticFriction?: number;
+    restitution?: number;
+    density?: number;
+    surfaceType?: string;
+    surfaceName?: string;
+    frictionCombineMode?: string;
+    restitutionCombineMode?: string;
+    overrideFrictionCombineMode?: boolean;
+    overrideRestitutionCombineMode?: boolean;
     meshPath?: string;
     // Bulk operations (C++ TryGetStringField)
     prefix?: string;

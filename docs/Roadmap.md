@@ -1519,10 +1519,15 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Official Unreal references**: [`UCollisionProfile`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UCollisionProfile), [`UCollisionProfile::LoadProfileConfig`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UCollisionProfile/LoadProfileConfig?application_version=5.7), [`FCollisionResponseContainer`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FCollisionResponseContainer), [`UPrimitiveComponent`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent), [`SetCollisionProfileName`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetCollisionProfileName), [`SetCollisionObjectType`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetCollisionObjectType), [`SetCollisionResponseToChannel`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetCollisionResponseToChannel), and [`ECollisionChannel`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ECollisionChannel).
 
 ### 34.5 Physics Materials
-- [ ] `create_physical_material`
-- [ ] `set_friction`, `set_restitution`, `set_density`
-- [ ] `configure_surface_type`
-- [ ] `assign_physical_material`
+- [x] `create_physical_material`
+- [x] `set_friction`, `set_restitution`, `set_density`
+- [x] `configure_surface_type`
+- [x] `assign_physical_material`
+- [x] `configure_physical_material`, `get_physical_material`, `clear_physical_material_override`
+
+**Implemented feature coverage**: editor-only `UPhysicalMaterial` asset creation through `UPhysicalMaterialFactoryNew`; validated friction, static friction, restitution, density, surface type, friction/restitution combine modes, and combine-mode override flags; structured physical-material readback; project `PhysicalSurfaces` configuration with optional `DefaultEngine.ini` persistence; assignment to every primitive component or one named component on an actor; and explicit clearing of component physical-material overrides.
+
+**Official Unreal references**: [`UPhysicalMaterial`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/PhysicsCore/PhysicalMaterials/UPhysicalMaterial), [`UPhysicalMaterialFactoryNew`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/Factories/UPhysicalMaterialFactoryNew?application_version=5.5), [`UPrimitiveComponent::SetPhysMaterialOverride`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetPhysMaterialOverride), [Physical Materials Reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/physical-materials-reference-for-unreal-engine), [Add a Surface Type](https://dev.epicgames.com/documentation/en-us/unreal-engine/add-a-surface-type-in-unreal-engine?lang=en-US), and [Physics Settings](https://dev.epicgames.com/documentation/en-us/unreal-engine/physics-settings-in-the-unreal-engine-project-settings?lang=en-US).
 
 ### 34.6 Subsystems
 - [ ] `create_game_instance_subsystem`

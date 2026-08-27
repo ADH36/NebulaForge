@@ -285,7 +285,10 @@ export interface ToolParameters {
 }
 
 // Consolidated tool action types
-export type AssetAction = 'list' | 'import' | 'create_material' | 'create_material_instance';
+export type AssetAction = 'list' | 'import' | 'create_material' | 'create_material_instance' |
+  'create_physical_material' | 'set_friction' | 'set_restitution' | 'set_density' |
+  'configure_surface_type' | 'assign_physical_material' | 'configure_physical_material' |
+  'get_physical_material' | 'clear_physical_material_override';
 export type ActorAction =
   | 'spawn'
   | 'spawn_blueprint'
@@ -362,6 +365,19 @@ export interface ConsolidatedToolParams {
     path?: string;
     parentMaterial?: string;
     parameters?: Record<string, unknown>;
+    physicalMaterialPath?: string;
+    actorName?: string;
+    componentName?: string;
+    friction?: number;
+    staticFriction?: number;
+    restitution?: number;
+    density?: number;
+    surfaceType?: string;
+    surfaceName?: string;
+    frictionCombineMode?: string;
+    restitutionCombineMode?: string;
+    overrideFrictionCombineMode?: boolean;
+    overrideRestitutionCombineMode?: boolean;
   };
 
   control_actor: {

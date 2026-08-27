@@ -98,6 +98,13 @@ export const LIGHTING_ACTIONS = [
   'inspect_scene_captures'
 ] as const;
 
+/** Phase 34.5: physical material assets, project surfaces, and component overrides. */
+export const PHYSICAL_MATERIAL_ACTIONS = [
+  'create_physical_material', 'set_friction', 'set_restitution', 'set_density',
+  'configure_surface_type', 'assign_physical_material',
+  'configure_physical_material', 'get_physical_material', 'clear_physical_material_override',
+] as const;
+
 export const SPLINE_ACTIONS = [
   'create_spline_actor', 'add_spline_point', 'remove_spline_point', 'set_spline_point_position',
   'insert_spline_point', 'update_spline_point', 'set_spline_point_tangents', 'set_spline_point_rotation', 'set_spline_point_scale', 'set_spline_point_roll', 'set_spline_type',
@@ -263,7 +270,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_search_text',
             'create_render_target', 'generate_lods', 'add_material_parameter', 'list_instances', 'reset_instance_parameters', 'exists', 'get_material_stats',
             'nanite_rebuild_mesh', 'bulk_rename', 'bulk_delete', 'source_control_checkout', 'source_control_submit',
-            ...MATERIAL_AUTHORING_ACTIONS, ...TEXTURE_ACTIONS],
+            ...MATERIAL_AUTHORING_ACTIONS, ...TEXTURE_ACTIONS, ...PHYSICAL_MATERIAL_ACTIONS],
           description: 'Action to perform'
         },
         assetPath: commonSchemas.assetPath,
@@ -349,6 +356,19 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         pinName: commonSchemas.pinName,
         materialPath: commonSchemas.materialPath,
         texturePath: commonSchemas.texturePath,
+        physicalMaterialPath: commonSchemas.assetPath,
+        actorName: commonSchemas.actorName,
+        componentName: commonSchemas.componentName,
+        friction: commonSchemas.numberProp,
+        staticFriction: commonSchemas.numberProp,
+        restitution: commonSchemas.numberProp,
+        density: commonSchemas.numberProp,
+        surfaceType: commonSchemas.stringProp,
+        surfaceName: commonSchemas.stringProp,
+        frictionCombineMode: commonSchemas.stringProp,
+        restitutionCombineMode: commonSchemas.stringProp,
+        overrideFrictionCombineMode: commonSchemas.booleanProp,
+        overrideRestitutionCombineMode: commonSchemas.booleanProp,
         coordinateIndex: commonSchemas.numberProp,
         parameterType: commonSchemas.stringProp,
         tags: commonSchemas.arrayOfStrings,
@@ -1205,7 +1225,6 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         landscapeActorPath: commonSchemas.stringProp,
         actorPath: commonSchemas.stringProp,
         layerInfoPath: commonSchemas.assetPath,
-        physicalMaterialPath: commonSchemas.assetPath,
         noWeightBlend: commonSchemas.booleanProp,
         hardness: commonSchemas.numberProp,
         layers: commonSchemas.arrayOfObjects,

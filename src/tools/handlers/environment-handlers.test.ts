@@ -88,6 +88,12 @@ const PHASE_29_5_POST_PROCESS_ACTIONS = [
   'configure_screen_percentage', 'inspect_post_process_volume'
 ] as const;
 
+const PHASE_29_6_SCENE_CAPTURE_ACTIONS = [
+  'create_scene_capture_2d', 'create_scene_capture_cube', 'create_render_target_cube',
+  'configure_scene_capture', 'configure_scene_capture_resolution', 'configure_capture_source',
+  'assign_render_target', 'capture_scene', 'inspect_scene_captures'
+] as const;
+
 function getBuildEnvironmentActionEnum(): readonly string[] {
   const tool = consolidatedToolDefinitions.find(def => def.name === 'build_environment');
   const inputSchema = tool?.inputSchema as { properties?: { action?: { enum?: string[] } } } | undefined;
@@ -368,6 +374,57 @@ describe('handleEnvironmentTools path normalization', () => {
         bloomIntensity: 0.8
       }),
       'Automation bridge not available for configure_exposure'
+    );
+  });
+
+  it('exposes and forwards Phase 29.6 scene capture controls', async () => {
+    expect(getBuildEnvironmentActionEnum()).toEqual(expect.arrayContaining([...PHASE_29_6_SCENE_CAPTURE_ACTIONS]));
+    expect(getBuildEnvironmentProperties()).toEqual(expect.objectContaining({
+      sceneCaptureName: expect.any(Object),
+      renderTargetPath: expect.any(Object),
+      captureSource: expect.any(Object),
+      projectionType: expect.any(Object),
+      captureEveryFrame: expect.any(Object),
+      captureDeferred: expect.any(Object),
+      clearColor: expect.any(Object),
+      showOnlyActors: expect.any(Object)
+    }));
+
+    await handleLightingTools('configure_scene_capture', {
+      action: 'configure_scene_capture',
+      sceneCaptureName: 'Phase29SceneCapture',
+      captureSource: 'SCS_FinalColorLDR',
+      projectionType: 'Orthographic',
+      fovAngle: 90,
+      orthoWidth: 1024,
+      captureEveryFrame: false,
+      captureOnMovement: true,
+      alwaysPersistRenderingState: true,
+      captureRotation: true,
+      capturePriority: 2,
+      captureDeferred: true,
+      width: 512,
+      height: 256,
+      format: 'RGBA8',
+      forceLinearGamma: true,
+      autoGenerateMips: false,
+      supportsUAV: true,
+      hdr: false,
+      clearColor: [0, 0, 0, 1],
+      hiddenActors: ['HiddenActor'],
+      showOnlyActors: ['VisibleActor'],
+      postProcessBlendWeight: 0.5
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'configure_scene_capture', expect.objectContaining({
+        target: 'Phase29SceneCapture',
+        captureSource: 'SCS_FinalColorLDR',
+        projectionType: 'Orthographic',
+        clearColor: [0, 0, 0, 1],
+        hiddenActors: ['HiddenActor'],
+        postProcessBlendWeight: 0.5
+      }), 'Automation bridge not available for configure_scene_capture'
     );
   });
 

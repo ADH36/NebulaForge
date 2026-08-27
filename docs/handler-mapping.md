@@ -198,6 +198,15 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `configure_grain` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures film grain intensity |
 | `configure_screen_percentage` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; applies renderer screen percentage CVar |
 | `inspect_post_process_volume` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; lists volumes and representative post-process settings |
+| `create_scene_capture_2d` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; creates a 2D scene capture actor |
+| `create_scene_capture_cube` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; creates a six-face cube scene capture actor |
+| `create_render_target_cube` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; creates a persistent cube render-target asset |
+| `configure_scene_capture` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; configures cadence, persistence, projection, FOV, priority, source, and post-process blend |
+| `configure_scene_capture_resolution` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; resizes 2D targets or reinitializes cube targets |
+| `configure_capture_source` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; resolves and applies `ESceneCaptureSource` |
+| `assign_render_target` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; assigns a typed 2D/cube render target |
+| `capture_scene` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; captures immediately or deferred |
+| `inspect_scene_captures` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.6; lists scene captures and key settings |
 
 ## Performance Manager (`system_control`)
 

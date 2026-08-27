@@ -64,6 +64,10 @@ public:
 				TEXT("set_exposure_min_max"), TEXT("configure_ssao"), TEXT("configure_gtao"),
 				TEXT("configure_vignette"), TEXT("configure_chromatic_aberration"), TEXT("configure_grain"),
 				TEXT("configure_screen_percentage"), TEXT("inspect_post_process_volume"),
+				TEXT("create_scene_capture_2d"), TEXT("create_scene_capture_cube"), TEXT("create_render_target_cube"),
+				TEXT("configure_scene_capture"), TEXT("configure_scene_capture_resolution"),
+				TEXT("configure_capture_source"), TEXT("assign_render_target"), TEXT("capture_scene"),
+				TEXT("inspect_scene_captures"),
 				TEXT("list_light_types")
 			}, TEXT("Action"))
 			.String(TEXT("name"), TEXT("Name identifier."))
@@ -249,6 +253,31 @@ public:
 			.Number(TEXT("vignetteIntensity"), TEXT("Vignette intensity."))
 			.Number(TEXT("chromaticAberrationIntensity"), TEXT("Chromatic aberration intensity."))
 			.Number(TEXT("grainIntensity"), TEXT("Film grain intensity."))
+			.String(TEXT("sceneCaptureName"), TEXT("Scene Capture actor name."))
+			.String(TEXT("sceneCapturePath"), TEXT("Scene Capture actor path."))
+			.String(TEXT("renderTargetPath"), TEXT("Render target asset path."))
+			.String(TEXT("renderTargetName"), TEXT("Cube render target asset name."))
+			.String(TEXT("captureSource"), TEXT("ESceneCaptureSource enum name."))
+			.String(TEXT("projectionType"), TEXT("Perspective or Orthographic for 2D captures."))
+			.Number(TEXT("fovAngle"), TEXT("2D capture field of view."))
+			.Number(TEXT("orthoWidth"), TEXT("2D orthographic width."))
+			.Bool(TEXT("captureEveryFrame"), TEXT("Capture every frame."))
+			.Bool(TEXT("captureOnMovement"), TEXT("Capture when the component moves."))
+			.Bool(TEXT("alwaysPersistRenderingState"), TEXT("Persist capture rendering state."))
+			.Bool(TEXT("captureRotation"), TEXT("Capture cube faces with rotation."))
+			.Bool(TEXT("captureDeferred"), TEXT("Defer one-shot capture."))
+			.Number(TEXT("capturePriority"), TEXT("Scene capture sort priority."))
+			.Number(TEXT("width"), TEXT("Render target width or cube resolution."))
+			.Number(TEXT("height"), TEXT("Render target height."))
+			.String(TEXT("format"), TEXT("Render target pixel format."))
+			.Bool(TEXT("forceLinearGamma"), TEXT("Force linear gamma on the render target."))
+			.Bool(TEXT("autoGenerateMips"), TEXT("Generate render target mipmaps."))
+			.Bool(TEXT("supportsUAV"), TEXT("Allow unordered access on the render target."))
+			.Bool(TEXT("hdr"), TEXT("Use an HDR render target format."))
+			.Array(TEXT("clearColor"), TEXT("Render target clear color RGBA."), TEXT("number"))
+			.Array(TEXT("hiddenActors"), TEXT("Actor names hidden from this capture."), TEXT("string"))
+			.Array(TEXT("showOnlyActors"), TEXT("Actor names shown exclusively by this capture."), TEXT("string"))
+			.Number(TEXT("postProcessBlendWeight"), TEXT("Scene capture post-process blend weight."))
 			.String(TEXT("shadowQuality"), TEXT(""))
 			.Bool(TEXT("cascadedShadows"), TEXT(""))
 			.Number(TEXT("shadowDistance"), TEXT(""))

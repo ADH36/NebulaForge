@@ -1285,10 +1285,15 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Research references**: [Post Process Effects](https://dev.epicgames.com/documentation/en-us/unreal-engine/post-process-effects-in-unreal-engine), [FPostProcessSettings API](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FPostProcessSettings), [Post Process Volume API](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/APostProcessVolume), [Color Grading and Filmic Tonemapper](https://dev.epicgames.com/documentation/en-us/unreal-engine/color-grading-and-the-filmic-tonemapper-in-unreal-engine), and [Rendering Features Reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/rendering-features-reference).
 
 ### 29.6 Scene Capture
-- [ ] `create_scene_capture_2d`, `create_scene_capture_cube`
-- [ ] `configure_capture_resolution`, `configure_capture_source`
-- [ ] `create_render_target`, `assign_render_target`
-- [ ] `capture_scene`
+- [x] `create_scene_capture_2d`, `create_scene_capture_cube`
+- [x] `configure_scene_capture_resolution`, `configure_capture_source`
+- [x] `create_render_target` (existing 2D `manage_asset` action), `create_render_target_cube`
+- [x] `assign_render_target`, `capture_scene`, `inspect_scene_captures`
+- [x] Additional UE capture controls: projection mode, FOV/orthographic width, capture cadence, persisted rendering state, capture priority, post-process blend weight, linear-gamma/HDR target options, and capture filtering fields.
+
+**Implementation notes**: Scene Capture actors are created as `ASceneCapture2D` or `ASceneCaptureCube` and configured through their `USceneCaptureComponent` instances. 2D captures resize `UTextureRenderTarget2D`; cube captures initialize `UTextureRenderTargetCube`. Capture source names are resolved against the engine enum so version-specific enum values remain discoverable. Existing `manage_asset.create_render_target` remains the 2D render-target creator; Phase 29.6 adds the cube counterpart and explicit assignment/capture/inspection actions.
+
+**Research references**: [Rendering Components](https://dev.epicgames.com/documentation/en-us/unreal-engine/rendering-components-in-unreal-engine), [USceneCaptureComponent](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/USceneCaptureComponent?lang=en-US), [USceneCaptureComponent2D](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/USceneCaptureComponent2D?lang=en-US), [USceneCaptureComponentCube](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/USceneCaptureComponentCube?lang=en-US), [ESceneCaptureSource](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ESceneCaptureSource), [UTextureRenderTarget2D](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UTextureRenderTarget2D?lang=en-US), and [UTextureRenderTargetCube](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UTextureRenderTargetCube).
 
 ---
 

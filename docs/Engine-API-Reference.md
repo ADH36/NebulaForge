@@ -1257,6 +1257,27 @@ GTAO, vignette, chromatic aberration, film grain, and screen percentage.
 
 ---
 
+### Scene Capture and Render Targets (Phase 29.6)
+
+```cpp
+ASceneCapture2D* Capture2D = World->SpawnActor<ASceneCapture2D>(Location, Rotation);
+USceneCaptureComponent2D* Component = Capture2D->GetCaptureComponent2D();
+Component->TextureTarget = RenderTarget2D;
+Component->CaptureSource = SCS_FinalColorLDR;
+Component->bCaptureEveryFrame = false;
+Component->CaptureScene(); // or CaptureSceneDeferred()
+```
+
+The bridge also supports `ASceneCaptureCube` with `UTextureRenderTargetCube`,
+typed render-target assignment, 2D resize/cube reinitialization, projection/FOV
+controls, capture cadence/persistence, capture priority, post-process blend
+weight, and scene-capture inspection. These map to Epic's
+`USceneCaptureComponent`, `USceneCaptureComponent2D`,
+`USceneCaptureComponentCube`, `ESceneCaptureSource`, `UTextureRenderTarget2D`,
+and `UTextureRenderTargetCube` APIs.
+
+---
+
 ## Phase 30: Sequencer & Cinematics
 
 ### Key Headers

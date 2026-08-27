@@ -699,6 +699,62 @@ async function configurePostProcessAction(
   )) as Record<string, unknown>;
 }
 
+/** Scene Capture 2D/cube and render-target controls (Phase 29.6). */
+async function configureSceneCaptureAction(
+  tools: ITools,
+  action: string,
+  args: LightingArgs
+): Promise<Record<string, unknown>> {
+  const toStringArray = (value: unknown): string[] | undefined => {
+    if (!Array.isArray(value)) return undefined;
+    return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  };
+  const toNumberArray = (value: unknown): number[] | undefined => {
+    if (!Array.isArray(value)) return undefined;
+    return value.filter((item): item is number => typeof item === 'number' && Number.isFinite(item));
+  };
+  const target = args.sceneCaptureName || args.sceneCapturePath || args.captureName || args.actorName || args.actorPath || args.name;
+  const payload: Record<string, unknown> = {
+    name: args.name,
+    target,
+    sceneCaptureName: args.sceneCaptureName,
+    sceneCapturePath: args.sceneCapturePath,
+    renderTargetPath: toString(args.renderTargetPath),
+    renderTargetName: toString(args.renderTargetName),
+    location: toLocationObj(args.location),
+    rotation: toRotationObj(args.rotation),
+    captureSource: toString(args.captureSource),
+    projectionType: toString(args.projectionType),
+    fovAngle: toNumber(args.fovAngle),
+    orthoWidth: toNumber(args.orthoWidth),
+    captureEveryFrame: toBoolean(args.captureEveryFrame),
+    captureOnMovement: toBoolean(args.captureOnMovement),
+    alwaysPersistRenderingState: toBoolean(args.alwaysPersistRenderingState),
+    captureRotation: toBoolean(args.captureRotation),
+    captureDeferred: toBoolean(args.captureDeferred),
+    capturePriority: toNumber(args.capturePriority),
+    width: toNumber(args.width),
+    height: toNumber(args.height),
+    captureResolution: toNumber(args.captureResolution),
+    format: toString(args.format),
+    forceLinearGamma: toBoolean(args.forceLinearGamma),
+    autoGenerateMips: toBoolean(args.autoGenerateMips),
+    supportsUAV: toBoolean(args.supportsUAV),
+    hdr: toBoolean(args.hdr),
+    clearColor: toNumberArray(args.clearColor),
+    hiddenActors: toStringArray(args.hiddenActors),
+    showOnlyActors: toStringArray(args.showOnlyActors),
+    postProcessBlendWeight: toNumber(args.postProcessBlendWeight)
+  };
+
+  return cleanObject(await executeAutomationRequest(
+    tools,
+    action,
+    payload,
+    `Automation bridge not available for ${action}`
+  )) as Record<string, unknown>;
+}
+
 /**
  * Create lighting enabled level
  */
@@ -1122,6 +1178,17 @@ export async function handleLightingTools(action: string, args: LightingArgs, to
     case 'configure_screen_percentage':
     case 'inspect_post_process_volume':
       return configurePostProcessAction(tools, action, args);
+
+    case 'create_scene_capture_2d':
+    case 'create_scene_capture_cube':
+    case 'create_render_target_cube':
+    case 'configure_scene_capture':
+    case 'configure_scene_capture_resolution':
+    case 'configure_capture_source':
+    case 'assign_render_target':
+    case 'capture_scene':
+    case 'inspect_scene_captures':
+      return configureSceneCaptureAction(tools, action, args);
 
     case 'build_lighting':
       return cleanObject(await buildLighting(tools, args));

@@ -161,6 +161,15 @@ export const TOOL_ACTIONS = {
   CONFIGURE_GRAIN: 'configure_grain',
   CONFIGURE_SCREEN_PERCENTAGE: 'configure_screen_percentage',
   INSPECT_POST_PROCESS_VOLUME: 'inspect_post_process_volume',
+  CREATE_SCENE_CAPTURE_2D: 'create_scene_capture_2d',
+  CREATE_SCENE_CAPTURE_CUBE: 'create_scene_capture_cube',
+  CREATE_RENDER_TARGET_CUBE: 'create_render_target_cube',
+  CONFIGURE_SCENE_CAPTURE: 'configure_scene_capture',
+  CONFIGURE_SCENE_CAPTURE_RESOLUTION: 'configure_scene_capture_resolution',
+  CONFIGURE_CAPTURE_SOURCE: 'configure_capture_source',
+  ASSIGN_RENDER_TARGET: 'assign_render_target',
+  CAPTURE_SCENE: 'capture_scene',
+  INSPECT_SCENE_CAPTURES: 'inspect_scene_captures',
 
   // ==================== PERFORMANCE ACTIONS ====================
   START_PROFILING: 'start_profiling',

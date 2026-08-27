@@ -90,7 +90,12 @@ export const LIGHTING_ACTIONS = [
   'configure_exposure', 'set_exposure_method', 'set_exposure_compensation',
   'set_exposure_min_max', 'configure_ssao', 'configure_gtao',
   'configure_vignette', 'configure_chromatic_aberration', 'configure_grain',
-  'configure_screen_percentage', 'inspect_post_process_volume'
+  'configure_screen_percentage', 'inspect_post_process_volume',
+  // Phase 29.6: Scene Capture 2D/cube and render-target workflows.
+  'create_scene_capture_2d', 'create_scene_capture_cube', 'create_render_target_cube',
+  'configure_scene_capture', 'configure_scene_capture_resolution',
+  'configure_capture_source', 'assign_render_target', 'capture_scene',
+  'inspect_scene_captures'
 ] as const;
 
 export const SPLINE_ACTIONS = [
@@ -1364,6 +1369,32 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         vignetteIntensity: commonSchemas.numberProp,
         chromaticAberrationIntensity: commonSchemas.numberProp,
         grainIntensity: commonSchemas.numberProp,
+        // Phase 29.6 Scene Capture and render-target controls.
+        sceneCaptureName: commonSchemas.actorName,
+        sceneCapturePath: commonSchemas.actorPath,
+        renderTargetPath: commonSchemas.assetPath,
+        renderTargetName: commonSchemas.name,
+        captureSource: commonSchemas.stringProp,
+        projectionType: commonSchemas.stringProp,
+        fovAngle: commonSchemas.numberProp,
+        orthoWidth: commonSchemas.numberProp,
+        captureEveryFrame: commonSchemas.booleanProp,
+        captureOnMovement: commonSchemas.booleanProp,
+        alwaysPersistRenderingState: commonSchemas.booleanProp,
+        captureRotation: commonSchemas.booleanProp,
+        captureDeferred: commonSchemas.booleanProp,
+        capturePriority: commonSchemas.numberProp,
+        forceLinearGamma: commonSchemas.booleanProp,
+        autoGenerateMips: commonSchemas.booleanProp,
+        supportsUAV: commonSchemas.booleanProp,
+        hdr: commonSchemas.booleanProp,
+        clearColor: commonSchemas.color,
+        hiddenActors: commonSchemas.arrayOfStrings,
+        showOnlyActors: commonSchemas.arrayOfStrings,
+        width: commonSchemas.numberProp,
+        height: commonSchemas.numberProp,
+        format: commonSchemas.stringProp,
+        postProcessBlendWeight: commonSchemas.numberProp,
         pathTracing: commonSchemas.booleanProp,
         materialIndex: commonSchemas.numberProp,
         maxBrightness: commonSchemas.numberProp,
@@ -1386,8 +1417,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         save: commonSchemas.save,
         skipFlush: commonSchemas.booleanProp,
         splineType: commonSchemas.stringProp,
-        useRandomOffset: commonSchemas.booleanProp,
-        width: commonSchemas.numberProp
+        useRandomOffset: commonSchemas.booleanProp
       },
       required: ['action']
     },

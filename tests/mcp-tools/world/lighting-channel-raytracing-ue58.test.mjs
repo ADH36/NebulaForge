@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Advanced lighting channel + ray-tracing configuration integration tests.
- * Covers the UE 5.8 phase-29.1/29.2/29.3/29.4/29.5 build_environment actions: per-light ray-traced
+ * Covers the UE 5.8 phase-29.1/29.2/29.3/29.4/29.5/29.6 build_environment actions: per-light ray-traced
  * feature toggles, path tracing, global ray-tracing quality knobs, and light
  * channel assignment/inspection across one or all components, plus Lightmass
  * settings, volumetric lightmaps, and indirect lighting cache controls.
@@ -86,12 +86,25 @@ const testCases = [
   { scenario: 'POST: configure screen percentage', toolName: 'build_environment', arguments: { action: 'configure_screen_percentage', screenPercentage: 100 }, expected: 'success' },
   { scenario: 'POST: inspect post process volumes', toolName: 'build_environment', arguments: { action: 'inspect_post_process_volume', volumeName: POST_PROCESS_VOLUME_NAME }, expected: 'success' },
 
+  // === SCENE CAPTURE / RENDER TARGETS ===
+  { scenario: 'SCENE CAPTURE: create 2D capture with cadence, projection, and target settings', toolName: 'build_environment', arguments: { action: 'create_scene_capture_2d', sceneCaptureName: `${DEMO_LIGHT_NAME}_SceneCapture2D`, location: { x: 0, y: 0, z: 300 }, rotation: { pitch: 0, yaw: 0, roll: 0 }, captureSource: 'SCS_FinalColorLDR', projectionType: 'Perspective', fovAngle: 90, orthoWidth: 1024, captureEveryFrame: false, captureOnMovement: true, alwaysPersistRenderingState: true, captureRotation: true, capturePriority: 1, width: 512, height: 256, format: 'RGBA8', forceLinearGamma: true, autoGenerateMips: false, supportsUAV: false, hdr: false, clearColor: [0, 0, 0, 1], hiddenActors: [], showOnlyActors: [], postProcessBlendWeight: 0.5 }, expected: 'success' },
+  { scenario: 'SCENE CAPTURE: configure 2D capture source and resolution', toolName: 'build_environment', arguments: { action: 'configure_scene_capture', sceneCaptureName: `${DEMO_LIGHT_NAME}_SceneCapture2D`, sceneCapturePath: `${DEMO_LIGHT_NAME}_SceneCapture2D`, captureSource: 'SCS_SceneDepth', captureEveryFrame: false, captureOnMovement: false, projectionType: 'Orthographic', orthoWidth: 2048 }, expected: 'success' },
+  { scenario: 'SCENE CAPTURE: configure scene capture resolution', toolName: 'build_environment', arguments: { action: 'configure_scene_capture_resolution', sceneCaptureName: `${DEMO_LIGHT_NAME}_SceneCapture2D`, width: 512, height: 512, captureResolution: 512 }, expected: 'success|invalid|not found' },
+  { scenario: 'SCENE CAPTURE: configure capture source explicitly', toolName: 'build_environment', arguments: { action: 'configure_capture_source', sceneCaptureName: `${DEMO_LIGHT_NAME}_SceneCapture2D`, captureSource: 'SCS_Normal' }, expected: 'success' },
+  { scenario: 'SCENE CAPTURE: create cube capture', toolName: 'build_environment', arguments: { action: 'create_scene_capture_cube', sceneCaptureName: `${DEMO_LIGHT_NAME}_SceneCaptureCube`, location: { x: 100, y: 0, z: 200 }, captureEveryFrame: false, captureRotation: true }, expected: 'success' },
+  { scenario: 'SCENE CAPTURE: create cube render target asset', toolName: 'build_environment', arguments: { action: 'create_render_target_cube', renderTargetName: `${DEMO_LIGHT_NAME}_CubeTarget`, path: '/Game/RenderTargets', captureResolution: 256, format: 'RGBA8', forceLinearGamma: true, hdr: false }, expected: 'success|already exists|not found|invalid' },
+  { scenario: 'SCENE CAPTURE: assign typed render target', toolName: 'build_environment', arguments: { action: 'assign_render_target', sceneCaptureName: `${DEMO_LIGHT_NAME}_SceneCaptureCube`, renderTargetPath: `/Game/RenderTargets/${DEMO_LIGHT_NAME}_CubeTarget` }, expected: 'success|asset not found|not found|invalid' },
+  { scenario: 'SCENE CAPTURE: trigger deferred capture', toolName: 'build_environment', arguments: { action: 'capture_scene', sceneCaptureName: `${DEMO_LIGHT_NAME}_SceneCapture2D`, captureDeferred: true }, expected: 'success|invalid|not found' },
+  { scenario: 'SCENE CAPTURE: inspect scene captures', toolName: 'build_environment', arguments: { action: 'inspect_scene_captures' }, expected: 'success' },
+
   // === CLEANUP ===
   { scenario: 'Cleanup: delete demo light actor', toolName: 'control_actor', arguments: { action: 'delete', actorName: DEMO_LIGHT_NAME }, expected: 'success|not found' },
   { scenario: 'Cleanup: delete sphere reflection capture', toolName: 'control_actor', arguments: { action: 'delete', actorName: `${DEMO_LIGHT_NAME}_SphereCapture` }, expected: 'success|not found' },
   { scenario: 'Cleanup: delete box reflection capture', toolName: 'control_actor', arguments: { action: 'delete', actorName: `${DEMO_LIGHT_NAME}_BoxCapture` }, expected: 'success|not found' },
   { scenario: 'Cleanup: delete planar reflection', toolName: 'control_actor', arguments: { action: 'delete', actorName: `${DEMO_LIGHT_NAME}_PlanarReflection` }, expected: 'success|not found' },
   { scenario: 'Cleanup: delete post process volume', toolName: 'control_actor', arguments: { action: 'delete', actorName: POST_PROCESS_VOLUME_NAME }, expected: 'success|not found' },
+  { scenario: 'Cleanup: delete 2D scene capture', toolName: 'control_actor', arguments: { action: 'delete', actorName: `${DEMO_LIGHT_NAME}_SceneCapture2D` }, expected: 'success|not found' },
+  { scenario: 'Cleanup: delete cube scene capture', toolName: 'control_actor', arguments: { action: 'delete', actorName: `${DEMO_LIGHT_NAME}_SceneCaptureCube` }, expected: 'success|not found' },
 ];
 
 runToolTests('lighting-channel-raytracing-ue58', testCases);

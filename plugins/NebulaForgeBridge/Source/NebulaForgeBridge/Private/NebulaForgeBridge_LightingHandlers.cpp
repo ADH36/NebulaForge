@@ -63,6 +63,8 @@
 #include "Engine/Scene.h"
 #include "Engine/Texture.h"
 #include "Engine/TextureCube.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Engine/TextureRenderTargetCube.h"
 
 #if WITH_EDITOR
 
@@ -85,6 +87,14 @@
 #include "Engine/SphereReflectionCapture.h"
 #include "Engine/BoxReflectionCapture.h"
 #include "Engine/PlanarReflection.h"
+#include "Engine/SceneCapture.h"
+#include "Engine/SceneCapture2D.h"
+#include "Engine/SceneCaptureCube.h"
+#include "Components/SceneCaptureComponent.h"
+#include "Components/SceneCaptureComponent2D.h"
+#include "Components/SceneCaptureComponentCube.h"
+#include "EditorAssetLibrary.h"
+#include "UObject/Package.h"
 #include "Components/ReflectionCaptureComponent.h"
 #include "Components/SphereReflectionCaptureComponent.h"
 #include "Components/BoxReflectionCaptureComponent.h"
@@ -909,7 +919,15 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         Lower.StartsWith(TEXT("configure_chromatic_aberration")) ||
         Lower.StartsWith(TEXT("configure_grain")) ||
         Lower.StartsWith(TEXT("configure_screen_percentage")) ||
-        Lower.StartsWith(TEXT("inspect_post_process_volume"));
+        Lower.StartsWith(TEXT("inspect_post_process_volume")) ||
+        Lower.StartsWith(TEXT("create_scene_capture_2d")) ||
+        Lower.StartsWith(TEXT("create_scene_capture_cube")) ||
+        Lower.StartsWith(TEXT("create_render_target_cube")) ||
+        Lower.StartsWith(TEXT("configure_scene_capture")) ||
+        Lower.StartsWith(TEXT("configure_capture_source")) ||
+        Lower.StartsWith(TEXT("assign_render_target")) ||
+        Lower.StartsWith(TEXT("capture_scene")) ||
+        Lower.StartsWith(TEXT("inspect_scene_captures"));
     if (!bKnownLightingAction)
     {
         if (Action.Equals(TEXT("manage_lighting"), ESearchCase::IgnoreCase))
@@ -2753,6 +2771,261 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         SendAutomationResponse(RequestingSocket, RequestId, true,
             TEXT("Reflection captures inspected"), Response);
         return true;
+    }
+
+    // =========================================================================
+    // Phase 29.6: Scene Capture 2D/cube and render targets
+    // =========================================================================
+    if (Lower == TEXT("create_render_target_cube"))
+    {
+        FString Name;
+        Payload->TryGetStringField(TEXT("renderTargetName"), Name);
+        if (Name.IsEmpty()) Payload->TryGetStringField(TEXT("name"), Name);
+        FString PackagePath = TEXT("/Game/RenderTargets");
+        Payload->TryGetStringField(TEXT("path"), PackagePath);
+        if (Name.IsEmpty() || !PackagePath.StartsWith(TEXT("/Game/")))
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("create_render_target_cube requires a name and a /Game package path"), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        if (!DoesAssetDirectoryExistOnDisk(PackagePath))
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                FString::Printf(TEXT("Parent folder does not exist: %s"), *PackagePath), TEXT("PARENT_FOLDER_NOT_FOUND"));
+            return true;
+        }
+        const FString FullPath = PackagePath / Name;
+        if (UEditorAssetLibrary::DoesAssetExist(FullPath))
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                FString::Printf(TEXT("Asset already exists at path: %s"), *FullPath), TEXT("ASSET_ALREADY_EXISTS"));
+            return true;
+        }
+        int32 Resolution = 256;
+        Payload->TryGetNumberField(TEXT("captureResolution"), Resolution);
+        Payload->TryGetNumberField(TEXT("width"), Resolution);
+        if (Resolution < 1 || Resolution > 4096)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("captureResolution must be between 1 and 4096"), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        UPackage* Package = CreatePackage(*FullPath);
+        UTextureRenderTargetCube* RT = NewObject<UTextureRenderTargetCube>(
+            Package, UTextureRenderTargetCube::StaticClass(), FName(*Name), RF_Public | RF_Standalone);
+        if (!RT)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Failed to create cube render target"), TEXT("CREATE_FAILED"));
+            return true;
+        }
+        bool bHdr = false;
+        Payload->TryGetBoolField(TEXT("hdr"), bHdr);
+        EPixelFormat PixelFormat = bHdr ? PF_FloatRGBA : PF_B8G8R8A8;
+        FString Format;
+        if (Payload->TryGetStringField(TEXT("format"), Format))
+        {
+            if (Format.Equals(TEXT("RGBA16F"), ESearchCase::IgnoreCase) || Format.Equals(TEXT("FloatRGBA"), ESearchCase::IgnoreCase)) PixelFormat = PF_FloatRGBA;
+            else if (Format.Equals(TEXT("RGBA32F"), ESearchCase::IgnoreCase)) PixelFormat = PF_A32B32G32R32F;
+            else if (Format.Equals(TEXT("R16F"), ESearchCase::IgnoreCase)) PixelFormat = PF_R16F;
+        }
+        RT->Init(static_cast<uint32>(Resolution), PixelFormat);
+        bool bForceLinearGamma = false;
+        if (Payload->TryGetBoolField(TEXT("forceLinearGamma"), bForceLinearGamma)) RT->bForceLinearGamma = bForceLinearGamma;
+        bool bBoolValue = false;
+        if (Payload->TryGetBoolField(TEXT("autoGenerateMips"), bBoolValue)) RT->bAutoGenerateMips = bBoolValue;
+        if (Payload->TryGetBoolField(TEXT("supportsUAV"), bBoolValue)) RT->bSupportsUAV = bBoolValue;
+        FVector4 ClearColor;
+        if (ReadPostProcessVector(Payload, TEXT("clearColor"), ClearColor)) RT->ClearColor = FLinearColor(ClearColor.X, ClearColor.Y, ClearColor.Z, ClearColor.W);
+        RT->UpdateResourceImmediate(true);
+        RT->MarkPackageDirty();
+        FAssetRegistryModule::AssetCreated(RT);
+        const bool bSaved = McpSafeAssetSave(RT);
+        TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+        Response->SetBoolField(TEXT("success"), true);
+        Response->SetStringField(TEXT("assetPath"), RT->GetPathName());
+        Response->SetNumberField(TEXT("size"), Resolution);
+        Response->SetBoolField(TEXT("saved"), bSaved);
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Cube render target created"), Response);
+        return true;
+    }
+
+    if (Lower == TEXT("create_scene_capture_2d") || Lower == TEXT("create_scene_capture_cube") ||
+        Lower == TEXT("configure_scene_capture") || Lower == TEXT("configure_scene_capture_resolution") ||
+        Lower == TEXT("configure_capture_source") || Lower == TEXT("assign_render_target") ||
+        Lower == TEXT("capture_scene") || Lower == TEXT("inspect_scene_captures"))
+    {
+        auto FindCapture = [&](const FString& Requested) -> ASceneCapture*
+        {
+            if (!Requested.IsEmpty()) return Cast<ASceneCapture>(FindActorByName(Requested, true));
+            for (AActor* Candidate : ActorSS->GetAllLevelActors())
+            {
+                if (Candidate && Candidate->IsA<ASceneCapture>()) return Cast<ASceneCapture>(Candidate);
+            }
+            return nullptr;
+        };
+        auto GetCapture = [](ASceneCapture* Actor) -> USceneCaptureComponent*
+        {
+            return Actor ? Actor->FindComponentByClass<USceneCaptureComponent>() : nullptr;
+        };
+        auto TargetName = [&]() -> FString
+        {
+            FString Target;
+            const TCHAR* Fields[] = { TEXT("target"), TEXT("sceneCaptureName"), TEXT("sceneCapturePath"), TEXT("actorPath"), TEXT("actorName"), TEXT("name") };
+            for (const TCHAR* Field : Fields) if (Payload->TryGetStringField(Field, Target) && !Target.IsEmpty()) return Target;
+            return FString();
+        };
+        auto ReadRotation = [&](FRotator& Out)
+        {
+            const TSharedPtr<FJsonObject>* Object = nullptr;
+            if (Payload->TryGetObjectField(TEXT("rotation"), Object) && Object && Object->IsValid())
+            {
+                Out.Pitch = GetJsonNumberField(*Object, TEXT("pitch"));
+                Out.Yaw = GetJsonNumberField(*Object, TEXT("yaw"));
+                Out.Roll = GetJsonNumberField(*Object, TEXT("roll"));
+            }
+        };
+        auto SetBoolProperty = [](UObject* Object, const TCHAR* Name, bool Value) -> bool
+        {
+            if (FBoolProperty* Property = CastField<FBoolProperty>(Object->GetClass()->FindPropertyByName(FName(Name))))
+            {
+                Property->SetPropertyValue_InContainer(Object, Value); return true;
+            }
+            return false;
+        };
+        auto ReadActorArray = [&](const TCHAR* Field, TArray<AActor*>& OutActors) -> bool
+        {
+            const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
+            if (!Payload->TryGetArrayField(Field, Values) || !Values) return false;
+            for (const TSharedPtr<FJsonValue>& Value : *Values)
+            {
+                const FString Name = Value->AsString();
+                if (AActor* Actor = FindActorByName(Name, true)) OutActors.Add(Actor);
+            }
+            return true;
+        };
+        auto SetCaptureSource = [](USceneCaptureComponent* Component, const FString& Requested) -> bool
+        {
+            FProperty* Property = Component->GetClass()->FindPropertyByName(FName(TEXT("CaptureSource")));
+            FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property);
+            FByteProperty* ByteProperty = CastField<FByteProperty>(Property);
+            UEnum* Enum = EnumProperty ? EnumProperty->GetEnum() : (ByteProperty ? ByteProperty->Enum : nullptr);
+            FNumericProperty* Numeric = EnumProperty ? EnumProperty->GetUnderlyingProperty() : CastField<FNumericProperty>(ByteProperty);
+            if (!Enum || !Numeric) return false;
+            const int64 Value = ResolvePostProcessEnumValue(Enum, Requested);
+            if (Value == INDEX_NONE) return false;
+            Numeric->SetIntPropertyValue(Numeric->ContainerPtrToValuePtr<void>(Component), Value);
+            return true;
+        };
+        auto ApplySettings = [&](ASceneCapture* Actor, USceneCaptureComponent* Component) -> bool
+        {
+            if (!Actor || !Component) return false;
+            Actor->Modify(); Component->Modify();
+            FVector Location;
+            if (ReadJsonVector(Payload, TEXT("location"), Location)) Actor->SetActorLocation(Location);
+            FRotator Rotation = Actor->GetActorRotation(); ReadRotation(Rotation); Actor->SetActorRotation(Rotation);
+            bool BoolValue;
+            if (Payload->TryGetBoolField(TEXT("captureEveryFrame"), BoolValue)) Component->bCaptureEveryFrame = BoolValue;
+            if (Payload->TryGetBoolField(TEXT("captureOnMovement"), BoolValue)) Component->bCaptureOnMovement = BoolValue;
+            if (Payload->TryGetBoolField(TEXT("alwaysPersistRenderingState"), BoolValue)) Component->bAlwaysPersistRenderingState = BoolValue;
+            if (Payload->TryGetBoolField(TEXT("captureRotation"), BoolValue)) SetBoolProperty(Component, TEXT("bCaptureRotation"), BoolValue);
+            double Number;
+            if (Payload->TryGetNumberField(TEXT("postProcessBlendWeight"), Number) && FMath::IsFinite(Number))
+            {
+                const float BlendWeight = FMath::Clamp(static_cast<float>(Number), 0.0f, 1.0f);
+                if (USceneCaptureComponent2D* Capture2D = Cast<USceneCaptureComponent2D>(Component)) Capture2D->PostProcessBlendWeight = BlendWeight;
+                if (USceneCaptureComponentCube* CaptureCube = Cast<USceneCaptureComponentCube>(Component)) CaptureCube->PostProcessBlendWeight = BlendWeight;
+            }
+            if (Payload->TryGetNumberField(TEXT("capturePriority"), Number) && FMath::IsFinite(Number)) Component->SetCaptureSortPriority(FMath::RoundToInt(Number));
+            TArray<AActor*> Actors;
+            if (ReadActorArray(TEXT("hiddenActors"), Actors)) { Component->ClearHiddenComponents(); for (AActor* Actor : Actors) Component->HideActorComponents(Actor, false); }
+            Actors.Reset();
+            if (ReadActorArray(TEXT("showOnlyActors"), Actors)) { Component->ClearShowOnlyComponents(); for (AActor* Actor : Actors) Component->ShowOnlyActorComponents(Actor, false); }
+            FString Source;
+            if (Payload->TryGetStringField(TEXT("captureSource"), Source) && !SetCaptureSource(Component, Source)) return false;
+            if (USceneCaptureComponent2D* Capture2D = Cast<USceneCaptureComponent2D>(Component))
+            {
+                if (Payload->TryGetNumberField(TEXT("fovAngle"), Number) && FMath::IsFinite(Number) && Number > 0.0 && Number < 180.0) Capture2D->FOVAngle = static_cast<float>(Number);
+                if (Payload->TryGetNumberField(TEXT("orthoWidth"), Number) && FMath::IsFinite(Number) && Number > 0.0) Capture2D->OrthoWidth = static_cast<float>(Number);
+                FString Projection;
+                if (Payload->TryGetStringField(TEXT("projectionType"), Projection)) Capture2D->ProjectionType = Projection.Equals(TEXT("orthographic"), ESearchCase::IgnoreCase) ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
+            }
+            FString RenderTargetPath;
+            if (Payload->TryGetStringField(TEXT("renderTargetPath"), RenderTargetPath) && !RenderTargetPath.IsEmpty())
+            {
+                if (USceneCaptureComponent2D* Capture2D = Cast<USceneCaptureComponent2D>(Component)) Capture2D->TextureTarget = LoadObject<UTextureRenderTarget2D>(nullptr, *RenderTargetPath);
+                else if (USceneCaptureComponentCube* CaptureCube = Cast<USceneCaptureComponentCube>(Component)) CaptureCube->TextureTarget = LoadObject<UTextureRenderTargetCube>(nullptr, *RenderTargetPath);
+                const bool bAssigned = (Cast<USceneCaptureComponent2D>(Component) && Cast<USceneCaptureComponent2D>(Component)->TextureTarget) || (Cast<USceneCaptureComponentCube>(Component) && Cast<USceneCaptureComponentCube>(Component)->TextureTarget);
+                if (!bAssigned) return false;
+            }
+            Actor->PostEditChange(); Component->PostEditChange(); Actor->MarkPackageDirty();
+            return true;
+        };
+
+        if (Lower == TEXT("inspect_scene_captures"))
+        {
+            TArray<TSharedPtr<FJsonValue>> Captures;
+            for (AActor* Actor : ActorSS->GetAllLevelActors()) if (ASceneCapture* CaptureActor = Cast<ASceneCapture>(Actor))
+            {
+                if (USceneCaptureComponent* Component = GetCapture(CaptureActor))
+                {
+                    TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+                    Item->SetStringField(TEXT("actorName"), CaptureActor->GetActorLabel());
+                    Item->SetStringField(TEXT("actorPath"), CaptureActor->GetPathName());
+                    Item->SetStringField(TEXT("captureType"), CaptureActor->IsA<ASceneCapture2D>() ? TEXT("2d") : TEXT("cube"));
+                    Item->SetBoolField(TEXT("captureEveryFrame"), Component->bCaptureEveryFrame);
+                    Item->SetBoolField(TEXT("captureOnMovement"), Component->bCaptureOnMovement);
+                    if (USceneCaptureComponent2D* Capture2D = Cast<USceneCaptureComponent2D>(Component)) Item->SetNumberField(TEXT("fovAngle"), Capture2D->FOVAngle);
+                    Captures.Add(MakeShared<FJsonValueObject>(Item));
+                }
+            }
+            TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject(); Response->SetBoolField(TEXT("success"), true); Response->SetNumberField(TEXT("count"), Captures.Num()); Response->SetArrayField(TEXT("captures"), Captures);
+            SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Scene captures inspected"), Response); return true;
+        }
+
+        ASceneCapture* CaptureActor = nullptr;
+        if (Lower == TEXT("create_scene_capture_2d") || Lower == TEXT("create_scene_capture_cube"))
+        {
+            FVector Location = FVector::ZeroVector; ReadJsonVector(Payload, TEXT("location"), Location);
+            FRotator Rotation = FRotator::ZeroRotator; ReadRotation(Rotation);
+            UClass* CaptureClass = Lower == TEXT("create_scene_capture_2d") ? ASceneCapture2D::StaticClass() : ASceneCaptureCube::StaticClass();
+            CaptureActor = SpawnActorInActiveWorld<ASceneCapture>(CaptureClass, Location, Rotation);
+            if (CaptureActor)
+            {
+                FString Name; Payload->TryGetStringField(TEXT("sceneCaptureName"), Name); if (Name.IsEmpty()) Payload->TryGetStringField(TEXT("name"), Name); if (!Name.IsEmpty()) CaptureActor->SetActorLabel(Name);
+            }
+        }
+        else CaptureActor = FindCapture(TargetName());
+        USceneCaptureComponent* Component = GetCapture(CaptureActor);
+        if (!CaptureActor || !Component)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Scene capture target was not found or could not be created"), TEXT("ACTOR_NOT_FOUND")); return true;
+        }
+        if (Lower == TEXT("capture_scene"))
+        {
+            bool Deferred = false; Payload->TryGetBoolField(TEXT("captureDeferred"), Deferred);
+            if (USceneCaptureComponent2D* Capture2D = Cast<USceneCaptureComponent2D>(Component)) { if (Deferred) Capture2D->CaptureSceneDeferred(); else Capture2D->CaptureScene(); }
+            else if (USceneCaptureComponentCube* CaptureCube = Cast<USceneCaptureComponentCube>(Component)) { if (Deferred) CaptureCube->CaptureSceneDeferred(); else CaptureCube->CaptureScene(); }
+        }
+        else if (Lower == TEXT("configure_scene_capture_resolution"))
+        {
+            int32 Width = 0, Height = 0; Payload->TryGetNumberField(TEXT("width"), Width); Payload->TryGetNumberField(TEXT("height"), Height); if (Width <= 0) Payload->TryGetNumberField(TEXT("captureResolution"), Width); if (Height <= 0) Height = Width;
+            if (USceneCaptureComponent2D* Capture2D = Cast<USceneCaptureComponent2D>(Component)) { if (!Capture2D->TextureTarget || Width <= 0 || Height <= 0) { SendAutomationError(RequestingSocket, RequestId, TEXT("2D capture requires a render target and positive width/height"), TEXT("INVALID_ARGUMENT")); return true; } Capture2D->TextureTarget->ResizeTarget(Width, Height); Capture2D->TextureTarget->UpdateResourceImmediate(true); }
+            else if (USceneCaptureComponentCube* CaptureCube = Cast<USceneCaptureComponentCube>(Component)) { if (!CaptureCube->TextureTarget || Width <= 0) { SendAutomationError(RequestingSocket, RequestId, TEXT("Cube capture requires a render target and positive resolution"), TEXT("INVALID_ARGUMENT")); return true; } CaptureCube->TextureTarget->InitAutoFormat(static_cast<uint32>(Width)); CaptureCube->TextureTarget->UpdateResourceImmediate(true); }
+        }
+        else if (Lower == TEXT("assign_render_target"))
+        {
+            FString Path; Payload->TryGetStringField(TEXT("renderTargetPath"), Path); if (!Path.StartsWith(TEXT("/Game/")) && !Path.StartsWith(TEXT("/Engine/"))) { SendAutomationError(RequestingSocket, RequestId, TEXT("renderTargetPath must be a /Game or /Engine asset path"), TEXT("INVALID_PATH")); return true; }
+            if (USceneCaptureComponent2D* Capture2D = Cast<USceneCaptureComponent2D>(Component)) Capture2D->TextureTarget = LoadObject<UTextureRenderTarget2D>(nullptr, *Path);
+            else if (USceneCaptureComponentCube* CaptureCube = Cast<USceneCaptureComponentCube>(Component)) CaptureCube->TextureTarget = LoadObject<UTextureRenderTargetCube>(nullptr, *Path);
+            if ((Cast<USceneCaptureComponent2D>(Component) && !Cast<USceneCaptureComponent2D>(Component)->TextureTarget) || (Cast<USceneCaptureComponentCube>(Component) && !Cast<USceneCaptureComponentCube>(Component)->TextureTarget)) { SendAutomationError(RequestingSocket, RequestId, TEXT("Render target asset was not found or has the wrong type"), TEXT("ASSET_NOT_FOUND")); return true; }
+        }
+        else if (!ApplySettings(CaptureActor, Component))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Invalid or unsupported scene capture settings"), TEXT("INVALID_ARGUMENT")); return true;
+        }
+        TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject(); Response->SetBoolField(TEXT("success"), true); Response->SetStringField(TEXT("actorName"), CaptureActor->GetActorLabel()); Response->SetStringField(TEXT("actorPath"), CaptureActor->GetPathName()); Response->SetStringField(TEXT("captureType"), CaptureActor->IsA<ASceneCapture2D>() ? TEXT("2d") : TEXT("cube")); McpHandlerUtils::AddVerification(Response, CaptureActor);
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Scene capture operation completed"), Response); return true;
     }
 
     // =========================================================================

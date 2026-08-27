@@ -1490,22 +1490,33 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Official Unreal references**: [`FContentBrowserModule`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/FContentBrowserModule), [`IContentBrowserSingleton`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/IContentBrowserSingleton), [`SetSelectedPaths`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/IContentBrowserSingleton/SetSelectedPaths?application_version=5.5), [`SyncBrowserTo`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/IContentBrowserSingleton/SyncBrowserTo?application_version=5.5), [`ICollectionManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Developer/CollectionManager/ICollectionManager), [`AddToCollection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Developer/CollectionManager/ICollectionManager/AddToCollection), and [Working with Assets](https://dev.epicgames.com/documentation/en-us/unreal-engine/working-with-assets-in-unreal-engine).
 
 ### 34.3 Selection
-- [ ] `select_actor`
-- [ ] `select_actors_by_class`
-- [ ] `select_actors_by_tag`
-- [ ] `select_actors_in_volume`
-- [ ] `deselect_all`
-- [ ] `get_selected_actors`
-- [ ] `group_actors`, `ungroup_actors`
+- [x] `select_actor`
+- [x] `select_actors_by_class`
+- [x] `select_actors_by_tag`
+- [x] `select_actors_in_volume`
+- [x] `deselect_all`
+- [x] `get_selected_actors`
+- [x] `group_actors`, `ungroup_actors`
+- [x] `select_all`, `invert_selection`, `select_children`
+- [x] `remove_selected_from_group`, `lock_selected_groups`, `unlock_selected_groups`
+
+**Implemented feature coverage**: exact actor selection by label/name/path; class selection with optional derived classes; gameplay-tag selection; volume-intersection selection using actor bounds; clear/read/select-all/invert/child-hierarchy selection; and group, ungroup, remove, lock, and unlock operations. Selection responses include actor labels, object names, paths, classes, hidden state, and counts.
+
+**Official Unreal references**: [`UEditorEngine::SelectActor`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/Editor/UEditorEngine/SelectActor?application_version=5.5), [`UEditorActorSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/Subsystems/UEditorActorSubsystem?application_version=5.5), [`UEditorActorSubsystem::GetSelectedLevelActors`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UEditorActorSubsystem/GetSelectedLevelActors?lang=en-US), [`AVolume::EncompassesPoint`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/AVolume?application_version=5.5), and [`UActorGroupingUtils`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UActorGroupingUtils).
 
 ### 34.4 Collision
-- [ ] `create_collision_channel`
-- [ ] `create_collision_profile`
-- [ ] `configure_channel_responses`
-- [ ] `configure_object_type`
-- [ ] `configure_trace_channel`
-- [ ] `set_actor_collision_profile`
-- [ ] `set_component_collision_profile`
+- [x] `create_collision_channel`
+- [x] `create_collision_profile`
+- [x] `configure_channel_responses`
+- [x] `configure_object_type`
+- [x] `configure_trace_channel`
+- [x] `set_actor_collision_profile`
+- [x] `set_component_collision_profile`
+- [x] `get_actor_collision`, `get_component_collision`, `validate_collision_profile`
+
+**Implemented feature coverage**: configuration-backed custom object/trace channels with slot validation, default responses, optional `DefaultEngine.ini` persistence, profile creation with collision mode/object type/custom responses, runtime profile assignment to every primitive component on an actor or to one component, per-channel response updates, object-type changes, trace-channel response changes, and structured collision readback/validation.
+
+**Official Unreal references**: [`UCollisionProfile`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UCollisionProfile), [`UCollisionProfile::LoadProfileConfig`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UCollisionProfile/LoadProfileConfig?application_version=5.7), [`FCollisionResponseContainer`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FCollisionResponseContainer), [`UPrimitiveComponent`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent), [`SetCollisionProfileName`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetCollisionProfileName), [`SetCollisionObjectType`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetCollisionObjectType), [`SetCollisionResponseToChannel`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetCollisionResponseToChannel), and [`ECollisionChannel`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ECollisionChannel).
 
 ### 34.5 Physics Materials
 - [ ] `create_physical_material`

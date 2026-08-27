@@ -1582,6 +1582,34 @@ Phase 34.2 uses the editor-only Content Browser and Collection Manager APIs behi
 
 The implementation treats Content Browser colors as folder-path colors, matching the editor's documented behavior. View type and thumbnail size are accepted but reported as unsupported for an already-open browser when the public API does not expose a mutable setter. See Epic's [Content Browser overview](https://dev.epicgames.com/documentation/en-us/unreal-engine/content-browser-in-unreal-engine), [Content Browser settings](https://dev.epicgames.com/documentation/en-us/unreal-engine/content-browser-settings-in-unreal-engine), [`FContentBrowserModule`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/FContentBrowserModule), [`IContentBrowserSingleton`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/IContentBrowserSingleton), [`ICollectionManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Developer/CollectionManager/ICollectionManager), [`AddToCollection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Developer/CollectionManager/ICollectionManager/AddToCollection), and [Working with Assets](https://dev.epicgames.com/documentation/en-us/unreal-engine/working-with-assets-in-unreal-engine).
 
+### Actor Selection and Grouping (34.3)
+
+Phase 34.3 routes selection and grouping through the editor-only actor subsystem and UnrealEd APIs:
+
+| Unreal API | Bridge coverage |
+|------|------|
+| `UEditorEngine::SelectActor` / `SelectNone` | Exact actor selection, additive/replacement selection, hidden-actor handling, and clear selection |
+| `UEditorActorSubsystem` | Selected-actor readback, select all, invert selection, and child hierarchy selection |
+| `AVolume::EncompassesPoint` + `AActor::GetComponentsBoundingBox` | Spatial selection of actors whose bounds intersect the requested volume |
+| `UActorGroupingUtils` | Group, ungroup, remove from group, lock selected groups, and unlock selected groups |
+
+Selection responses return stable actor labels, object names, paths, class paths, hidden state, and counts. See Epic's [Selecting Actors](https://dev.epicgames.com/documentation/en-us/unreal-engine/selecting-actors-in-unreal-engine), [`UEditorEngine::SelectActor`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/Editor/UEditorEngine/SelectActor?application_version=5.5), [`UEditorActorSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/Subsystems/UEditorActorSubsystem?application_version=5.5), [`AVolume`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/AVolume), and [`UActorGroupingUtils`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UActorGroupingUtils).
+
+### Collision Profiles and Channels (34.4)
+
+Phase 34.4 routes collision configuration through the engine's collision profile settings and primitive-component APIs:
+
+| Unreal API | Bridge coverage |
+|------|------|
+| `UCollisionProfile` / `LoadProfileConfig` | Add custom channel/profile config entries, reload the in-memory profile registry, and validate named profiles |
+| `ECollisionChannel` / `FCollisionResponseContainer` | Resolve engine and custom channels and report per-channel responses |
+| `UPrimitiveComponent::SetCollisionProfileName` | Apply a named profile to an actor's primitive components or a selected component |
+| `UPrimitiveComponent::SetCollisionObjectType` | Change the runtime object channel |
+| `UPrimitiveComponent::SetCollisionResponseToChannel` | Configure trace/object responses individually or in a batch |
+| `UPrimitiveComponent::GetCollisionProfileName`, `GetCollisionEnabled`, and response getters | Structured actor/component collision readback |
+
+Custom profile/channel creation is persisted to the documented `/Script/Engine.CollisionProfile` section only when `saveConfig` is enabled. See Epic's [`UCollisionProfile`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UCollisionProfile), [`UCollisionProfile::LoadProfileConfig`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UCollisionProfile/LoadProfileConfig?application_version=5.7), [`FCollisionResponseContainer`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FCollisionResponseContainer), [`UPrimitiveComponent`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent), and [`ECollisionChannel`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ECollisionChannel).
+
 ---
 
 ## Phase 35: Additional Gameplay Systems

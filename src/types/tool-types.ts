@@ -305,7 +305,17 @@ export type ActorAction =
   | 'set_blueprint_variables'
   | 'create_snapshot'
   | 'attach'
-  | 'detach';
+  | 'detach'
+  | 'create_collision_channel'
+  | 'create_collision_profile'
+  | 'configure_channel_responses'
+  | 'configure_object_type'
+  | 'configure_trace_channel'
+  | 'set_actor_collision_profile'
+  | 'set_component_collision_profile'
+  | 'get_actor_collision'
+  | 'get_component_collision'
+  | 'validate_collision_profile';
 export type EditorAction = 'play' | 'stop' | 'set_camera' | 'set_view_mode' | 'screenshot' | 'take_screenshot';
 export type LevelAction = 'load' | 'save' | 'stream' | 'create_light' | 'build_lighting';
 export type AnimationAction =
@@ -376,6 +386,20 @@ export interface ConsolidatedToolParams {
     childActor?: string;
     parentActor?: string;
     actorNames?: string[];
+    collisionEnabled?: boolean | string;
+    collisionMode?: string;
+    profileName?: string;
+    channelName?: string;
+    channelType?: string;
+    objectType?: string;
+    traceChannel?: string;
+    response?: string;
+    defaultResponse?: string;
+    responses?: Record<string, unknown>;
+    saveConfig?: boolean;
+    staticObject?: boolean;
+    traceType?: boolean;
+    helpMessage?: string;
   };
 
   control_editor: {

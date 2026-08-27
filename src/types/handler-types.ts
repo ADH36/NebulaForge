@@ -87,6 +87,27 @@ export interface ActorArgs extends HandlerArgs {
     materialSlot?: number;
     materialIndex?: number;
     allComponents?: boolean;
+    actorNames?: string[];
+    volumeActorName?: string;
+    replaceSelection?: boolean;
+    selectEvenIfHidden?: boolean;
+    includeDerivedClasses?: boolean;
+    recurseChildren?: boolean;
+    warnIfLevelLocked?: boolean;
+    collisionEnabled?: boolean | string;
+    collisionMode?: string;
+    profileName?: string;
+    channelName?: string;
+    channelType?: string;
+    objectType?: string;
+    traceChannel?: string;
+    response?: string;
+    defaultResponse?: string;
+    responses?: Record<string, unknown>;
+    saveConfig?: boolean;
+    staticObject?: boolean;
+    traceType?: boolean;
+    helpMessage?: string;
 }
 
 // ============================================================================
@@ -480,7 +501,6 @@ export interface EffectArgs extends HandlerArgs {
     lightExponent?: number;
     affectsTranslucency?: boolean;
     // Collision module
-    collisionMode?: string;
     restitution?: number;
     friction?: number;
     dieOnCollision?: boolean;

@@ -370,6 +370,9 @@ private:
   HandleControlActorAction(const FString &RequestId, const FString &Action,
                            const TSharedPtr<FJsonObject> &Payload,
                            TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  bool HandleControlActorSelection(const FString &RequestId, const FString &Action,
+                                   const TSharedPtr<FJsonObject> &Payload,
+                                   TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
   bool
   HandleControlEditorAction(const FString &RequestId, const FString &Action,
                             const TSharedPtr<FJsonObject> &Payload,
@@ -1165,6 +1168,10 @@ private:
   bool HandleControlActorSetCollision(const FString &RequestId,
                                       const TSharedPtr<FJsonObject> &Payload,
                                       TSharedPtr<FMcpBridgeWebSocket> Socket);
+  bool HandleControlActorCollision(const FString &RequestId,
+                                   const FString &Action,
+                                   const TSharedPtr<FJsonObject> &Payload,
+                                   TSharedPtr<FMcpBridgeWebSocket> Socket);
   bool HandleControlActorCallFunction(const FString &RequestId,
                                       const TSharedPtr<FJsonObject> &Payload,
                                       TSharedPtr<FMcpBridgeWebSocket> Socket);

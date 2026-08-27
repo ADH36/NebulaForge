@@ -90,6 +90,18 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `add_component` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorAction` | Runtime component addition |
 | `add_tag` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorAction` | |
 | `find_by_tag` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorAction` | |
+| `select_actor` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorSelection` | Selects exact actor labels, names, or paths |
+| `select_actors_by_class` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorSelection` | Optional derived-class matching |
+| `select_actors_by_tag` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorSelection` | Selects actors carrying a gameplay tag |
+| `select_actors_in_volume` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorSelection` | Uses actor bounds against an `AVolume` |
+| `deselect_all`, `get_selected_actors` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorSelection` | Clear or inspect editor actor selection |
+| `group_actors`, `ungroup_actors` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorSelection` | Uses `UActorGroupingUtils` |
+| `select_all`, `invert_selection`, `select_children` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorSelection` | Official editor subsystem selection utilities |
+| `remove_selected_from_group`, `lock_selected_groups`, `unlock_selected_groups` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorSelection` | Group maintenance operations |
+| `create_collision_channel`, `create_collision_profile` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorCollision` | CollisionProfile config entries with optional DefaultEngine.ini persistence |
+| `configure_channel_responses`, `configure_object_type`, `configure_trace_channel` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorCollision` | Official UPrimitiveComponent collision channel/object response APIs |
+| `set_actor_collision_profile`, `set_component_collision_profile` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorCollision` | Apply a validated named profile to primitive components |
+| `get_actor_collision`, `get_component_collision`, `validate_collision_profile` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorCollision` | Collision state readback and UCollisionProfile validation |
 | `list` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorAction` | |
 | `attach` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorAction` | |
 | `detach` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlActorAction` | |

@@ -1,4 +1,4 @@
-// McpTool_ControlActor.cpp — control_actor tool definition (43 actions)
+// McpTool_ControlActor.cpp — control_actor tool definition (67 actions)
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -12,8 +12,8 @@ public:
 
 	FString GetDescription() const override
 	{
-		return TEXT("Spawn actors, set transforms, enable physics, add components, "
-			"manage tags, and attach actors.");
+		return TEXT("Spawn and control actors, manage components/tags, collision profiles/channels, attach actors, "
+			"and automate editor selection and grouping.");
 	}
 
 	FString GetCategory() const override { return TEXT("core"); }
@@ -59,6 +59,30 @@ public:
 				TEXT("find_actors_by_name"),
 				TEXT("find_by_class"),
 				TEXT("find_actors_by_class"),
+				TEXT("select_actor"),
+				TEXT("select_actors_by_class"),
+				TEXT("select_actors_by_tag"),
+				TEXT("select_actors_in_volume"),
+				TEXT("deselect_all"),
+				TEXT("get_selected_actors"),
+				TEXT("group_actors"),
+				TEXT("ungroup_actors"),
+				TEXT("select_all"),
+				TEXT("invert_selection"),
+				TEXT("select_children"),
+				TEXT("remove_selected_from_group"),
+				TEXT("lock_selected_groups"),
+				TEXT("unlock_selected_groups"),
+				TEXT("create_collision_channel"),
+				TEXT("create_collision_profile"),
+				TEXT("configure_channel_responses"),
+				TEXT("configure_object_type"),
+				TEXT("configure_trace_channel"),
+				TEXT("set_actor_collision_profile"),
+				TEXT("set_component_collision_profile"),
+				TEXT("get_actor_collision"),
+				TEXT("get_component_collision"),
+				TEXT("validate_collision_profile"),
 				TEXT("list"),
 				TEXT("set_blueprint_variables"),
 				TEXT("create_snapshot"),
@@ -113,11 +137,30 @@ public:
 			.String(TEXT("newName"), TEXT("New name for renaming."))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.String(TEXT("tag"), TEXT("Name of the tag."))
+			.String(TEXT("volumeActorName"), TEXT("Volume actor used for spatial selection."))
+			.Bool(TEXT("replaceSelection"), TEXT("Clear the current selection before selecting matches."))
+			.Bool(TEXT("selectEvenIfHidden"), TEXT("Allow selection of hidden actors."))
+			.Bool(TEXT("includeDerivedClasses"), TEXT("Include subclasses for class selection."))
+			.Bool(TEXT("recurseChildren"), TEXT("Include all descendants when selecting children."))
+			.Bool(TEXT("warnIfLevelLocked"), TEXT("Allow the editor to warn about locked levels."))
 			.FreeformObject(TEXT("variables"), TEXT(""))
 			.String(TEXT("snapshotName"), TEXT(""))
 			.Integer(TEXT("limit"), TEXT("Maximum number of actors to return."))
 			.String(TEXT("filter"), TEXT("Optional actor label/name filter for list."))
 			.Bool(TEXT("collisionEnabled"), TEXT("Whether actor collision is enabled."))
+			.String(TEXT("collisionMode"), TEXT("Collision profile mode: NoCollision, QueryOnly, PhysicsOnly, or QueryAndPhysics."))
+			.String(TEXT("profileName"), TEXT("Collision profile name."))
+			.String(TEXT("channelName"), TEXT("Collision channel display name."))
+			.String(TEXT("channelType"), TEXT("Custom channel type: object or trace."))
+			.String(TEXT("objectType"), TEXT("Collision object channel name."))
+			.String(TEXT("traceChannel"), TEXT("Trace channel name."))
+			.String(TEXT("response"), TEXT("Collision response: block, overlap, or ignore."))
+			.String(TEXT("defaultResponse"), TEXT("Default response for a new channel."))
+			.FreeformObject(TEXT("responses"), TEXT("Map of collision channel names to block, overlap, or ignore."))
+			.Bool(TEXT("saveConfig"), TEXT("Persist collision settings to DefaultEngine.ini."))
+			.Bool(TEXT("staticObject"), TEXT("Whether a custom channel is for static objects."))
+			.Bool(TEXT("traceType"), TEXT("Whether a custom channel is a trace channel."))
+			.String(TEXT("helpMessage"), TEXT("Optional collision profile help text."))
 			.String(TEXT("functionName"), TEXT("Name of the function."))
 			.Array(TEXT("arguments"), TEXT("Arguments to pass to an actor function."))
 			.Required({TEXT("action")})

@@ -3,7 +3,7 @@
 // =============================================================================
 // Editor control, viewport, PIE, camera, and actor manipulation handlers.
 //
-// HANDLERS (64 actions):
+// HANDLERS (74 actions):
 //   Editor Control:
 //     - start_pie, stop_pie, pause_pie, resume_pie, is_pie_active
 //     - get_pie_info, set_pie_mode
@@ -25,8 +25,14 @@
 //     - set_component_property, get_component_property
 //
 //   Selection:
-//     - select_actor, deselect_actor, clear_selection, get_selected_actors
-//     - select_components, get_selected_components
+//     - select_actor, select_actors_by_class, select_actors_by_tag
+//     - select_actors_in_volume, deselect_all, get_selected_actors
+//     - select_all, invert_selection, select_children
+//     - group_actors, ungroup_actors, remove/lock/unlock selected groups
+//
+//   Collision:
+//     - create/validate collision profiles and custom object/trace channels
+//     - configure profiles, object types, channel responses, and readback
 //
 //   Debug:
 //     - draw_debug_line, draw_debug_sphere, draw_debug_box
@@ -64,6 +70,7 @@
 #include "Misc/App.h"
 #include "Misc/CommandLine.h"
 #include "Misc/DateTime.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeExit.h"
 #include "HAL/PlatformProcess.h"
@@ -81,9 +88,13 @@
 // Editor-only Includes: Asset & Engine Utilities
 // -----------------------------------------------------------------------------
 #include "EditorAssetLibrary.h"
+#include "ActorGroupingUtils.h"
+#include "Editor/GroupActor.h"
+#include "Engine/Selection.h"
 #include "EngineUtils.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/GameInstance.h"
+#include "GameFramework/Volume.h"
 #include "Landscape.h"
 #include "LandscapeInfo.h"
 
@@ -149,6 +160,8 @@
 // Editor-only Includes: Components & Actors
 // -----------------------------------------------------------------------------
 #include "Components/PrimitiveComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/EngineTypes.h"
 #include "EditorViewportClient.h"
 #include "Engine/Blueprint.h"
 #include "GameFramework/Pawn.h"
@@ -3318,6 +3331,319 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorSetCollision(
 #endif
 }
 
+#if WITH_EDITOR
+namespace {
+
+static FString McpCollisionResponseName(ECollisionResponse Response) {
+  switch (Response) {
+  case ECR_Ignore: return TEXT("ignore");
+  case ECR_Overlap: return TEXT("overlap");
+  case ECR_Block: return TEXT("block");
+  default: return TEXT("unknown");
+  }
+}
+
+static bool McpParseCollisionResponse(const FString &Value,
+                                      ECollisionResponse &OutResponse) {
+  const FString Normalized = Value.TrimStartAndEnd().ToLower();
+  if (Normalized == TEXT("ignore") || Normalized == TEXT("ecr_ignore")) {
+    OutResponse = ECR_Ignore; return true;
+  }
+  if (Normalized == TEXT("overlap") || Normalized == TEXT("ecr_overlap")) {
+    OutResponse = ECR_Overlap; return true;
+  }
+  if (Normalized == TEXT("block") || Normalized == TEXT("ecr_block")) {
+    OutResponse = ECR_Block; return true;
+  }
+  return false;
+}
+
+static bool McpParseCollisionEnabled(const FString &Value,
+                                     ECollisionEnabled::Type &OutEnabled) {
+  const FString Normalized = Value.TrimStartAndEnd().ToLower();
+  if (Normalized == TEXT("no_collision") || Normalized == TEXT("nocollision")) {
+    OutEnabled = ECollisionEnabled::NoCollision; return true;
+  }
+  if (Normalized == TEXT("query_only") || Normalized == TEXT("queryonly")) {
+    OutEnabled = ECollisionEnabled::QueryOnly; return true;
+  }
+  if (Normalized == TEXT("physics_only") || Normalized == TEXT("physicsonly")) {
+    OutEnabled = ECollisionEnabled::PhysicsOnly; return true;
+  }
+  if (Normalized == TEXT("query_and_physics") || Normalized == TEXT("queryandphysics")) {
+    OutEnabled = ECollisionEnabled::QueryAndPhysics; return true;
+  }
+  return false;
+}
+
+static FString McpCollisionEnabledName(ECollisionEnabled::Type Enabled) {
+  switch (Enabled) {
+  case ECollisionEnabled::NoCollision: return TEXT("NoCollision");
+  case ECollisionEnabled::QueryOnly: return TEXT("QueryOnly");
+  case ECollisionEnabled::PhysicsOnly: return TEXT("PhysicsOnly");
+  case ECollisionEnabled::QueryAndPhysics: return TEXT("QueryAndPhysics");
+  default: return TEXT("Unknown");
+  }
+}
+
+static bool McpCollisionNameIsSafe(const FString &Value) {
+  if (Value.IsEmpty() || Value.Len() > 64) return false;
+  for (TCHAR Character : Value) {
+    if (!(FChar::IsAlnum(Character) || Character == TEXT('_') ||
+          Character == TEXT('-') || Character == TEXT(' '))) return false;
+  }
+  return true;
+}
+
+static bool McpResolveCollisionChannel(const FString &Value,
+                                       ECollisionChannel &OutChannel) {
+  const FString Name = Value.TrimStartAndEnd();
+  const TPair<const TCHAR *, ECollisionChannel> StandardChannels[] = {
+      {TEXT("WorldStatic"), ECC_WorldStatic}, {TEXT("WorldDynamic"), ECC_WorldDynamic},
+      {TEXT("Pawn"), ECC_Pawn}, {TEXT("Visibility"), ECC_Visibility},
+      {TEXT("Camera"), ECC_Camera}, {TEXT("PhysicsBody"), ECC_PhysicsBody},
+      {TEXT("Vehicle"), ECC_Vehicle}, {TEXT("Destructible"), ECC_Destructible}};
+  for (const auto &Pair : StandardChannels) {
+    if (Name.Equals(Pair.Key, ESearchCase::IgnoreCase)) {
+      OutChannel = Pair.Value; return true;
+    }
+  }
+  if (Name.StartsWith(TEXT("GameTraceChannel"), ESearchCase::IgnoreCase)) {
+    const int32 Slot = FCString::Atoi(*Name.RightChop(16));
+    if (Slot >= 1 && Slot <= 18) {
+      OutChannel = static_cast<ECollisionChannel>(static_cast<int32>(ECC_GameTraceChannel1) + Slot - 1);
+      return true;
+    }
+  }
+  UCollisionProfile *Profile = UCollisionProfile::Get();
+  if (!Profile) return false;
+  FName DisplayName(*Name);
+  const int32 Index = Profile->ReturnContainerIndexFromChannelName(DisplayName);
+  if (Index >= 0 && Index < static_cast<int32>(ECC_MAX)) {
+    OutChannel = static_cast<ECollisionChannel>(Index); return true;
+  }
+  return false;
+}
+
+static bool McpResolveCollisionComponents(AActor *Actor, const FString &ComponentName,
+                                          TArray<UPrimitiveComponent *> &Out,
+                                          FString &OutError) {
+  if (!ComponentName.IsEmpty()) {
+    UActorComponent *FoundComponent = nullptr;
+    TArray<UActorComponent *> ActorComponents;
+    Actor->GetComponents<UActorComponent>(ActorComponents);
+    for (UActorComponent *Candidate : ActorComponents) {
+      if (Candidate && (Candidate->GetName().Equals(ComponentName, ESearchCase::IgnoreCase) ||
+                        Candidate->GetFName().ToString().StartsWith(ComponentName))) {
+        FoundComponent = Candidate;
+        break;
+      }
+    }
+    UPrimitiveComponent *Primitive = Cast<UPrimitiveComponent>(FoundComponent);
+    if (!Primitive) {
+      OutError = FString::Printf(TEXT("Primitive component not found: %s"), *ComponentName);
+      return false;
+    }
+    Out.Add(Primitive); return true;
+  }
+  Actor->GetComponents<UPrimitiveComponent>(Out);
+  if (Out.Num() == 0) { OutError = TEXT("Actor has no primitive components."); return false; }
+  return true;
+}
+
+static void McpAddCollisionState(const UPrimitiveComponent *Component,
+                                 TSharedPtr<FJsonObject> &Data) {
+  UCollisionProfile *Profile = UCollisionProfile::Get();
+  Data->SetStringField(TEXT("componentName"), Component->GetName());
+  Data->SetStringField(TEXT("componentClass"), Component->GetClass()->GetPathName());
+  Data->SetStringField(TEXT("profileName"), Component->GetCollisionProfileName().ToString());
+  Data->SetStringField(TEXT("collisionEnabled"), McpCollisionEnabledName(Component->GetCollisionEnabled()));
+  Data->SetStringField(TEXT("objectType"), Profile->ReturnChannelNameFromContainerIndex(
+      static_cast<int32>(Component->GetCollisionObjectType())).ToString());
+  TSharedPtr<FJsonObject> Responses = MakeShared<FJsonObject>();
+  for (int32 Index = 0; Index < static_cast<int32>(ECC_MAX); ++Index) {
+    const FName ChannelName = Profile->ReturnChannelNameFromContainerIndex(Index);
+    if (!ChannelName.IsNone()) Responses->SetStringField(ChannelName.ToString(),
+        McpCollisionResponseName(Component->GetCollisionResponseToChannel(static_cast<ECollisionChannel>(Index))));
+  }
+  Data->SetObjectField(TEXT("responses"), Responses);
+}
+
+static bool McpBuildCollisionResponseConfig(const TSharedPtr<FJsonObject> &Payload,
+                                            FString &OutConfig, FString &OutError) {
+  const TSharedPtr<FJsonObject> *Responses = nullptr;
+  if (!Payload->TryGetObjectField(TEXT("responses"), Responses) || !Responses || !Responses->IsValid()) {
+    OutConfig.Empty(); return true;
+  }
+  TArray<FString> Parts;
+  for (const auto &Pair : (*Responses)->Values) {
+    FString ResponseName;
+    ECollisionResponse Response;
+    if (!Pair.Value.IsValid() || !Pair.Value->TryGetString(ResponseName) ||
+        !McpParseCollisionResponse(ResponseName, Response) || !McpCollisionNameIsSafe(Pair.Key)) {
+      OutError = FString::Printf(TEXT("Invalid collision response entry for channel '%s'."), *Pair.Key);
+      return false;
+    }
+    Parts.Add(FString::Printf(TEXT("(Channel=%s,Response=ECR_%s)"), *Pair.Key,
+                              *McpCollisionResponseName(Response).ToUpper()));
+  }
+  OutConfig = FString::Join(Parts, TEXT(",")); return true;
+}
+
+} // namespace
+#endif
+
+bool UNebulaForgeBridgeSubsystem::HandleControlActorCollision(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR
+  UCollisionProfile *Profile = UCollisionProfile::Get();
+  if (!Profile) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("COLLISION_PROFILE_UNAVAILABLE"),
+                              TEXT("UCollisionProfile is unavailable."), nullptr);
+    return true;
+  }
+  const FString Section = TEXT("/Script/Engine.CollisionProfile");
+  const bool bSaveConfig = Payload->HasField(TEXT("saveConfig"))
+      ? GetJsonBoolField(Payload, TEXT("saveConfig"), true) : true;
+
+  if (Action == TEXT("create_collision_channel")) {
+    FString ChannelName, ChannelType, DefaultResponseName;
+    Payload->TryGetStringField(TEXT("channelName"), ChannelName);
+    Payload->TryGetStringField(TEXT("channelType"), ChannelType);
+    Payload->TryGetStringField(TEXT("defaultResponse"), DefaultResponseName);
+    if (!McpCollisionNameIsSafe(ChannelName)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("channelName is invalid."), nullptr); return true;
+    }
+    const FString Type = ChannelType.TrimStartAndEnd().ToLower();
+    if (Type != TEXT("object") && Type != TEXT("trace")) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("channelType must be object or trace."), nullptr); return true;
+    }
+    ECollisionResponse DefaultResponse = ECR_Block;
+    if (!DefaultResponseName.IsEmpty() && !McpParseCollisionResponse(DefaultResponseName, DefaultResponse)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("defaultResponse is invalid."), nullptr); return true;
+    }
+    int32 Slot = INDEX_NONE; bool bAlreadyConfigured = false;
+    for (int32 Candidate = 1; Candidate <= 18; ++Candidate) {
+      FString Existing;
+      GConfig->GetString(*Section, *FString::Printf(TEXT("GameTraceChannel%d"), Candidate), Existing, GEngineIni);
+      if (Existing.Equals(ChannelName, ESearchCase::IgnoreCase)) { Slot = Candidate; bAlreadyConfigured = true; break; }
+      if (Slot == INDEX_NONE && Existing.IsEmpty()) Slot = Candidate;
+    }
+    if (Slot == INDEX_NONE) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("NO_CHANNEL_SLOT"), TEXT("All custom channel slots are in use."), nullptr); return true;
+    }
+    GConfig->SetString(*Section, *FString::Printf(TEXT("GameTraceChannel%d"), Slot), *ChannelName, GEngineIni);
+    TArray<FString> Entries; GConfig->GetArray(*Section, TEXT("DefaultChannelResponses"), Entries, GEngineIni);
+    if (!bAlreadyConfigured) {
+      const bool bStaticObject = Payload->HasField(TEXT("staticObject")) ? GetJsonBoolField(Payload, TEXT("staticObject"), false) : false;
+      const bool bTraceType = Payload->HasField(TEXT("traceType")) ? GetJsonBoolField(Payload, TEXT("traceType"), Type == TEXT("trace")) : Type == TEXT("trace");
+      Entries.Add(FString::Printf(TEXT("(Channel=ECC_GameTraceChannel%d,Name=\"%s\",DefaultResponse=ECR_%s,bTraceType=%s,bStaticObject=%s)"),
+          Slot, *ChannelName, *McpCollisionResponseName(DefaultResponse).ToUpper(),
+          bTraceType ? TEXT("True") : TEXT("False"), bStaticObject ? TEXT("True") : TEXT("False")));
+      GConfig->SetArray(*Section, TEXT("DefaultChannelResponses"), Entries, GEngineIni);
+    }
+    Profile->LoadProfileConfig(true); if (bSaveConfig) GConfig->Flush(false, GEngineIni);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("channelName"), ChannelName); Result->SetStringField(TEXT("channelType"), Type);
+    Result->SetStringField(TEXT("channel"), FString::Printf(TEXT("ECC_GameTraceChannel%d"), Slot));
+    Result->SetBoolField(TEXT("alreadyConfigured"), bAlreadyConfigured); Result->SetBoolField(TEXT("configSaved"), bSaveConfig);
+    SendStandardSuccessResponse(this, Socket, RequestId, TEXT("Collision channel configured"), Result); return true;
+  }
+
+  if (Action == TEXT("create_collision_profile")) {
+    FString ProfileName, ObjectTypeName, EnabledName, ResponseConfig, Error;
+    Payload->TryGetStringField(TEXT("profileName"), ProfileName); Payload->TryGetStringField(TEXT("objectType"), ObjectTypeName);
+    Payload->TryGetStringField(TEXT("collisionMode"), EnabledName);
+    if (EnabledName.IsEmpty()) Payload->TryGetStringField(TEXT("collisionEnabled"), EnabledName);
+    FString HelpMessage; Payload->TryGetStringField(TEXT("helpMessage"), HelpMessage);
+    if (HelpMessage.Contains(TEXT("\"")) || HelpMessage.Contains(TEXT("\r")) || HelpMessage.Contains(TEXT("\n"))) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("helpMessage cannot contain quotes or line breaks."), nullptr); return true;
+    }
+    if (!McpCollisionNameIsSafe(ProfileName)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("profileName is invalid."), nullptr); return true;
+    }
+    if (ObjectTypeName.IsEmpty()) ObjectTypeName = TEXT("WorldDynamic");
+    if (!McpCollisionNameIsSafe(ObjectTypeName)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("objectType is invalid."), nullptr); return true;
+    }
+    ECollisionEnabled::Type Enabled = ECollisionEnabled::QueryAndPhysics;
+    if (!EnabledName.IsEmpty() && !McpParseCollisionEnabled(EnabledName, Enabled)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("collisionEnabled is invalid."), nullptr); return true;
+    }
+    if (!McpBuildCollisionResponseConfig(Payload, ResponseConfig, Error)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), *Error, nullptr); return true;
+    }
+    FCollisionResponseTemplate ExistingTemplate;
+    if (Profile->GetProfileTemplate(FName(*ProfileName), ExistingTemplate)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("PROFILE_EXISTS"), TEXT("Collision profile already exists."), nullptr); return true;
+    }
+    TArray<FString> Profiles; GConfig->GetArray(*Section, TEXT("Profiles"), Profiles, GEngineIni);
+    Profiles.Add(FString::Printf(TEXT("(Name=\"%s\",CollisionEnabled=%s,ObjectTypeName=%s,HelpMessage=\"%s\",CustomResponses=(%s))"),
+        *ProfileName, *McpCollisionEnabledName(Enabled), *ObjectTypeName, *HelpMessage, *ResponseConfig));
+    GConfig->SetArray(*Section, TEXT("Profiles"), Profiles, GEngineIni);
+    Profile->LoadProfileConfig(true); if (bSaveConfig) GConfig->Flush(false, GEngineIni);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("profileName"), ProfileName); Result->SetStringField(TEXT("collisionEnabled"), McpCollisionEnabledName(Enabled));
+    Result->SetStringField(TEXT("objectType"), ObjectTypeName); Result->SetBoolField(TEXT("configSaved"), bSaveConfig);
+    SendStandardSuccessResponse(this, Socket, RequestId, TEXT("Collision profile configured"), Result); return true;
+  }
+
+  if (Action == TEXT("validate_collision_profile")) {
+    FString ProfileName; Payload->TryGetStringField(TEXT("profileName"), ProfileName);
+    FCollisionResponseTemplate Template; const bool bValid = Profile->GetProfileTemplate(FName(*ProfileName), Template);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); Result->SetStringField(TEXT("profileName"), ProfileName); Result->SetBoolField(TEXT("valid"), bValid);
+    if (bValid) { Result->SetStringField(TEXT("collisionEnabled"), McpCollisionEnabledName(Template.CollisionEnabled)); Result->SetStringField(TEXT("objectType"), Template.ObjectTypeName.ToString()); Result->SetStringField(TEXT("helpMessage"), Template.HelpMessage); }
+    SendStandardSuccessResponse(this, Socket, RequestId, bValid ? TEXT("Collision profile is valid") : TEXT("Collision profile was not found"), Result); return true;
+  }
+
+  FString ActorName; Payload->TryGetStringField(TEXT("actorName"), ActorName);
+  if (ActorName.IsEmpty()) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("MISSING_PARAM"), TEXT("actorName is required."), nullptr); return true; }
+  AActor *Actor = FindActorByName(ActorName);
+  if (!Actor) { SendAutomationError(Socket, RequestId, FString::Printf(TEXT("Actor not found: %s"), *ActorName), TEXT("ACTOR_NOT_FOUND")); return true; }
+  FString ComponentName; Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+  if ((Action == TEXT("set_component_collision_profile") || Action == TEXT("get_component_collision")) && ComponentName.IsEmpty()) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("MISSING_PARAM"), TEXT("componentName is required for component collision actions."), nullptr); return true;
+  }
+  TArray<UPrimitiveComponent *> Components; FString ResolveError;
+  if (!McpResolveCollisionComponents(Actor, ComponentName, Components, ResolveError)) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("COMPONENT_NOT_FOUND"), *ResolveError, nullptr); return true; }
+
+  if (Action == TEXT("set_actor_collision_profile") || Action == TEXT("set_component_collision_profile")) {
+    FString ProfileName; Payload->TryGetStringField(TEXT("profileName"), ProfileName); FCollisionResponseTemplate Template;
+    if (ProfileName.IsEmpty() || !Profile->GetProfileTemplate(FName(*ProfileName), Template)) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("PROFILE_NOT_FOUND"), TEXT("Collision profile was not found."), nullptr); return true; }
+    for (UPrimitiveComponent *Component : Components) Component->SetCollisionProfileName(FName(*ProfileName), true);
+  } else if (Action == TEXT("configure_object_type")) {
+    FString ObjectType; Payload->TryGetStringField(TEXT("objectType"), ObjectType); ECollisionChannel Channel;
+    if (!McpResolveCollisionChannel(ObjectType, Channel)) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("objectType is not a known collision channel."), nullptr); return true; }
+    for (UPrimitiveComponent *Component : Components) Component->SetCollisionObjectType(Channel);
+  } else if (Action == TEXT("configure_trace_channel")) {
+    FString ChannelName, ResponseName; Payload->TryGetStringField(TEXT("traceChannel"), ChannelName); if (ChannelName.IsEmpty()) Payload->TryGetStringField(TEXT("channelName"), ChannelName); Payload->TryGetStringField(TEXT("response"), ResponseName);
+    ECollisionChannel Channel; ECollisionResponse Response;
+    if (!McpResolveCollisionChannel(ChannelName, Channel) || !McpParseCollisionResponse(ResponseName, Response)) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("traceChannel and a valid response are required."), nullptr); return true; }
+    for (UPrimitiveComponent *Component : Components) Component->SetCollisionResponseToChannel(Channel, Response);
+  } else if (Action == TEXT("configure_channel_responses")) {
+    const TSharedPtr<FJsonObject> *Responses = nullptr;
+    if (!Payload->TryGetObjectField(TEXT("responses"), Responses) || !Responses || !Responses->IsValid()) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("MISSING_PARAM"), TEXT("responses is required."), nullptr); return true; }
+    for (const auto &Pair : (*Responses)->Values) {
+      FString ResponseName; ECollisionChannel Channel; ECollisionResponse Response;
+      if (!Pair.Value.IsValid() || !Pair.Value->TryGetString(ResponseName) || !McpResolveCollisionChannel(Pair.Key, Channel) || !McpParseCollisionResponse(ResponseName, Response)) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("responses contains an invalid channel or response."), nullptr); return true; }
+      for (UPrimitiveComponent *Component : Components) Component->SetCollisionResponseToChannel(Channel, Response);
+    }
+  } else if (Action == TEXT("get_actor_collision") || Action == TEXT("get_component_collision")) {
+    TArray<TSharedPtr<FJsonValue>> States;
+    for (UPrimitiveComponent *Component : Components) { TSharedPtr<FJsonObject> State = McpHandlerUtils::CreateResultObject(); McpAddCollisionState(Component, State); States.Add(MakeShared<FJsonValueObject>(State)); }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); Result->SetStringField(TEXT("actorName"), ActorName); Result->SetArrayField(TEXT("components"), States); Result->SetNumberField(TEXT("componentCount"), Components.Num());
+    SendStandardSuccessResponse(this, Socket, RequestId, TEXT("Collision state retrieved"), Result); return true;
+  } else { return false; }
+
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); Result->SetStringField(TEXT("actorName"), ActorName); Result->SetNumberField(TEXT("componentCount"), Components.Num());
+  SendStandardSuccessResponse(this, Socket, RequestId, TEXT("Collision settings updated"), Result); return true;
+#else
+  SendStandardErrorResponse(this, Socket, RequestId, TEXT("NOT_IMPLEMENTED"), TEXT("Collision settings require an editor build."), nullptr); return true;
+#endif
+}
+
 bool UNebulaForgeBridgeSubsystem::HandleControlActorCallFunction(
     const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket) {
@@ -3367,6 +3693,267 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorCallFunction(
 
   SendAutomationError(Socket, RequestId, FString::Printf(TEXT("Function not found: %s"), *FunctionName), TEXT("FUNCTION_NOT_FOUND"));
   return true;
+#else
+  return false;
+#endif
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleControlActorSelection(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket) {
+#if WITH_EDITOR
+  if (!GEditor || !Payload.IsValid()) {
+    SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                              TEXT("EDITOR_NOT_AVAILABLE"),
+                              TEXT("Editor and selection payload are required."), nullptr);
+    return true;
+  }
+
+  UEditorActorSubsystem *ActorSubsystem =
+      GEditor->GetEditorSubsystem<UEditorActorSubsystem>();
+  if (!ActorSubsystem) {
+    SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                              TEXT("EDITOR_ACTOR_SUBSYSTEM_MISSING"),
+                              TEXT("EditorActorSubsystem not available."), nullptr);
+    return true;
+  }
+
+  const bool bReplaceSelection = Payload->HasField(TEXT("replaceSelection"))
+                                     ? Payload->GetBoolField(TEXT("replaceSelection")) : true;
+  const bool bSelectEvenIfHidden = Payload->HasField(TEXT("selectEvenIfHidden"))
+                                       ? Payload->GetBoolField(TEXT("selectEvenIfHidden")) : false;
+  const bool bWarnIfLevelLocked = Payload->HasField(TEXT("warnIfLevelLocked"))
+                                      ? Payload->GetBoolField(TEXT("warnIfLevelLocked")) : true;
+  const bool bIncludeDerivedClasses = Payload->HasField(TEXT("includeDerivedClasses"))
+                                          ? Payload->GetBoolField(TEXT("includeDerivedClasses")) : true;
+  const bool bRecurseChildren = Payload->HasField(TEXT("recurseChildren"))
+                                    ? Payload->GetBoolField(TEXT("recurseChildren")) : true;
+
+  auto MakeActorObject = [](AActor *Actor) {
+    TSharedPtr<FJsonObject> Object = McpHandlerUtils::CreateResultObject();
+    if (Actor) {
+      Object->SetStringField(TEXT("label"), Actor->GetActorLabel());
+      Object->SetStringField(TEXT("name"), Actor->GetName());
+      Object->SetStringField(TEXT("path"), Actor->GetPathName());
+      Object->SetStringField(TEXT("class"), Actor->GetClass()->GetPathName());
+      Object->SetBoolField(TEXT("hiddenInEditor"), Actor->IsHiddenEd());
+    }
+    return Object;
+  };
+
+  auto GetSelectedActors = [&]() {
+    return ActorSubsystem->GetSelectedLevelActors();
+  };
+
+  auto SendSelectionResult = [&](const TCHAR *Message, bool bSuccess,
+                                 const TArray<AActor *> &Actors,
+                                 AGroupActor *Group = nullptr) {
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetBoolField(TEXT("success"), bSuccess);
+    Response->SetNumberField(TEXT("count"), Actors.Num());
+    TArray<TSharedPtr<FJsonValue>> ActorValues;
+    for (AActor *Actor : Actors) {
+      if (Actor) ActorValues.Add(MakeShared<FJsonValueObject>(MakeActorObject(Actor)));
+    }
+    Response->SetArrayField(TEXT("actors"), ActorValues);
+    if (Group) Response->SetStringField(TEXT("groupPath"), Group->GetPathName());
+    SendAutomationResponse(RequestingSocket, RequestId, bSuccess, Message,
+                           Response, bSuccess ? FString() : TEXT("SELECTION_FAILED"));
+  };
+
+  auto ReadActorNames = [&]() {
+    TArray<FString> Names;
+    const TArray<TSharedPtr<FJsonValue>> *Values = nullptr;
+    if (Payload->TryGetArrayField(TEXT("actorNames"), Values) && Values) {
+      for (const TSharedPtr<FJsonValue> &Value : *Values) {
+        FString Name;
+        if (Value.IsValid() && Value->TryGetString(Name) && !Name.IsEmpty()) Names.Add(Name);
+      }
+    }
+    if (Names.Num() == 0) {
+      FString Name;
+      Payload->TryGetStringField(TEXT("actorName"), Name);
+      if (Name.IsEmpty()) Payload->TryGetStringField(TEXT("name"), Name);
+      if (!Name.IsEmpty()) Names.Add(Name);
+    }
+    return Names;
+  };
+
+  auto ResolveNamedActors = [&](const TArray<FString> &Names, TArray<AActor *> &OutActors) {
+    for (const FString &Name : Names) {
+      AActor *Actor = FindActorByName(Name, true);
+      if (!Actor) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                  TEXT("ACTOR_NOT_FOUND"),
+                                  FString::Printf(TEXT("Actor not found: %s"), *Name), nullptr);
+        return false;
+      }
+      OutActors.AddUnique(Actor);
+    }
+    return OutActors.Num() > 0;
+  };
+
+  auto ApplySelection = [&](const TArray<AActor *> &Actors) {
+    if (bReplaceSelection) GEditor->SelectNone(true, true, false);
+    int32 SelectedCount = 0;
+    for (AActor *Actor : Actors) {
+      if (!Actor) continue;
+      if (bWarnIfLevelLocked &&
+          !GEditor->CanSelectActor(Actor, true, bSelectEvenIfHidden, true)) continue;
+      GEditor->SelectActor(Actor, true, true, bSelectEvenIfHidden, true);
+      ++SelectedCount;
+    }
+    return SelectedCount;
+  };
+
+  const FString Lower = Action.ToLower();
+  if (Lower == TEXT("deselect_all") || Lower == TEXT("clear_selection")) {
+    GEditor->SelectNone(true, true, false);
+    SendSelectionResult(TEXT("Editor selection cleared"), true, TArray<AActor *>());
+    return true;
+  }
+
+  if (Lower == TEXT("get_selected_actors")) {
+    const TArray<AActor *> Selected = GetSelectedActors();
+    SendSelectionResult(TEXT("Selected actors returned"), true, Selected);
+    return true;
+  }
+
+  if (Lower == TEXT("select_all") || Lower == TEXT("select_all_actors")) {
+    UWorld *World = GEditor->GetEditorWorldContext().World();
+    if (!World) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("WORLD_NOT_FOUND"), TEXT("Editor world not available."), nullptr);
+      return true;
+    }
+    ActorSubsystem->SelectAll(World);
+    SendSelectionResult(TEXT("All visible level actors selected"), true, GetSelectedActors());
+    return true;
+  }
+
+  if (Lower == TEXT("invert_selection")) {
+    UWorld *World = GEditor->GetEditorWorldContext().World();
+    if (!World) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("WORLD_NOT_FOUND"), TEXT("Editor world not available."), nullptr);
+      return true;
+    }
+    ActorSubsystem->InvertSelection(World);
+    SendSelectionResult(TEXT("Editor selection inverted"), true, GetSelectedActors());
+    return true;
+  }
+
+  if (Lower == TEXT("select_children")) {
+    ActorSubsystem->SelectAllChildren(bRecurseChildren);
+    SendSelectionResult(TEXT("Actor children selected"), true, GetSelectedActors());
+    return true;
+  }
+
+  TArray<AActor *> Candidates;
+  if (Lower == TEXT("select_actor")) {
+    if (!ResolveNamedActors(ReadActorNames(), Candidates)) return true;
+  } else if (Lower == TEXT("select_actors_by_class")) {
+    FString ClassName;
+    Payload->TryGetStringField(TEXT("classPath"), ClassName);
+    if (ClassName.IsEmpty()) Payload->TryGetStringField(TEXT("className"), ClassName);
+    if (ClassName.IsEmpty()) Payload->TryGetStringField(TEXT("actorClass"), ClassName);
+    UClass *ActorClass = ClassName.IsEmpty() ? nullptr : ResolveClassByName(ClassName);
+    if (!ActorClass || !ActorClass->IsChildOf(AActor::StaticClass())) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("CLASS_NOT_FOUND"),
+                                FString::Printf(TEXT("Actor class not found: %s"), *ClassName), nullptr);
+      return true;
+    }
+    for (AActor *Actor : ActorSubsystem->GetAllLevelActors()) {
+      if (Actor && (bIncludeDerivedClasses ? Actor->IsA(ActorClass) : Actor->GetClass() == ActorClass))
+        Candidates.Add(Actor);
+    }
+  } else if (Lower == TEXT("select_actors_by_tag")) {
+    FString TagName;
+    Payload->TryGetStringField(TEXT("tag"), TagName);
+    if (TagName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("INVALID_ARGUMENT"), TEXT("tag is required."), nullptr);
+      return true;
+    }
+    const FName Tag(*TagName);
+    for (AActor *Actor : ActorSubsystem->GetAllLevelActors()) {
+      if (Actor && Actor->ActorHasTag(Tag)) Candidates.Add(Actor);
+    }
+  } else if (Lower == TEXT("select_actors_in_volume")) {
+    FString VolumeName;
+    Payload->TryGetStringField(TEXT("volumeActorName"), VolumeName);
+    if (VolumeName.IsEmpty()) Payload->TryGetStringField(TEXT("actorName"), VolumeName);
+    AVolume *Volume = Cast<AVolume>(FindActorByName(VolumeName, true));
+    if (!Volume) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("VOLUME_NOT_FOUND"),
+                                FString::Printf(TEXT("Volume actor not found: %s"), *VolumeName), nullptr);
+      return true;
+    }
+    for (AActor *Actor : ActorSubsystem->GetAllLevelActors()) {
+      if (!Actor || Actor == Volume) continue;
+      const FBox Bounds = Actor->GetComponentsBoundingBox(true, true);
+      if (Bounds.IsValid && Volume->EncompassesPoint(Bounds.GetCenter(), Bounds.GetExtent().Size(), nullptr))
+        Candidates.Add(Actor);
+    }
+  }
+
+  if (Lower == TEXT("select_actor") || Lower == TEXT("select_actors_by_class") ||
+      Lower == TEXT("select_actors_by_tag") || Lower == TEXT("select_actors_in_volume")) {
+    ApplySelection(Candidates);
+    SendSelectionResult(TEXT("Actors selected"), true, GetSelectedActors());
+    return true;
+  }
+
+  UActorGroupingUtils *Grouping = UActorGroupingUtils::Get();
+  if (!Grouping) {
+    SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                              TEXT("GROUPING_UTILS_UNAVAILABLE"),
+                              TEXT("Actor grouping utilities are unavailable."), nullptr);
+    return true;
+  }
+
+  if (Lower == TEXT("group_actors") || Lower == TEXT("ungroup_actors")) {
+    const TArray<FString> Names = ReadActorNames();
+    if (Names.Num() > 0) {
+      if (!ResolveNamedActors(Names, Candidates)) return true;
+      ApplySelection(Candidates);
+    }
+    if (Lower == TEXT("group_actors")) {
+      AGroupActor *Group = Names.Num() > 0 ? Grouping->GroupActors(Candidates) : Grouping->GroupSelected();
+      if (!Group) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                  TEXT("GROUP_FAILED"), TEXT("Selected actors could not be grouped."), nullptr);
+        return true;
+      }
+      SendSelectionResult(TEXT("Actors grouped"), true, GetSelectedActors(), Group);
+    } else {
+      if (Names.Num() > 0) Grouping->UngroupActors(Candidates);
+      else Grouping->UngroupSelected();
+      SendSelectionResult(TEXT("Actors ungrouped"), true, GetSelectedActors());
+    }
+    return true;
+  }
+
+  if (Lower == TEXT("remove_selected_from_group")) {
+    Grouping->RemoveSelectedFromGroup();
+    SendSelectionResult(TEXT("Actors removed from group"), true, GetSelectedActors());
+    return true;
+  }
+  if (Lower == TEXT("lock_selected_groups")) {
+    Grouping->LockSelectedGroups();
+    SendSelectionResult(TEXT("Selected groups locked"), true, GetSelectedActors());
+    return true;
+  }
+  if (Lower == TEXT("unlock_selected_groups")) {
+    Grouping->UnlockSelectedGroups();
+    SendSelectionResult(TEXT("Selected groups unlocked"), true, GetSelectedActors());
+    return true;
+  }
+
+  return false;
 #else
   return false;
 #endif
@@ -3483,6 +4070,22 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("find_by_class") || LowerSub == TEXT("find_actors_by_class"))
     return HandleControlActorFindByClass(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("select_actor") ||
+      LowerSub == TEXT("select_actors_by_class") ||
+      LowerSub == TEXT("select_actors_by_tag") ||
+      LowerSub == TEXT("select_actors_in_volume") ||
+      LowerSub == TEXT("deselect_all") ||
+      LowerSub == TEXT("clear_selection") ||
+      LowerSub == TEXT("get_selected_actors") ||
+      LowerSub == TEXT("group_actors") ||
+      LowerSub == TEXT("ungroup_actors") ||
+      LowerSub == TEXT("select_all") ||
+      LowerSub == TEXT("invert_selection") ||
+      LowerSub == TEXT("select_children") ||
+      LowerSub == TEXT("remove_selected_from_group") ||
+      LowerSub == TEXT("lock_selected_groups") ||
+      LowerSub == TEXT("unlock_selected_groups"))
+    return HandleControlActorSelection(RequestId, LowerSub, Payload, RequestingSocket);
   if (LowerSub == TEXT("remove_component"))
     return HandleControlActorRemoveComponent(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("get_component_property"))
@@ -3493,6 +4096,17 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return HandleGetObjectProperty(RequestId, TEXT("get_object_property"), Payload, RequestingSocket);
   if (LowerSub == TEXT("set_collision") || LowerSub == TEXT("set_actor_collision"))
     return HandleControlActorSetCollision(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("create_collision_channel") ||
+      LowerSub == TEXT("create_collision_profile") ||
+      LowerSub == TEXT("configure_channel_responses") ||
+      LowerSub == TEXT("configure_object_type") ||
+      LowerSub == TEXT("configure_trace_channel") ||
+      LowerSub == TEXT("set_actor_collision_profile") ||
+      LowerSub == TEXT("set_component_collision_profile") ||
+      LowerSub == TEXT("get_actor_collision") ||
+      LowerSub == TEXT("get_component_collision") ||
+      LowerSub == TEXT("validate_collision_profile"))
+    return HandleControlActorCollision(RequestId, LowerSub, Payload, RequestingSocket);
   if (LowerSub == TEXT("call_function") || LowerSub == TEXT("call_actor_function"))
     return HandleControlActorCallFunction(RequestId, Payload, RequestingSocket);
 

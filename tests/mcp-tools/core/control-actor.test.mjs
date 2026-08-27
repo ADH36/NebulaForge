@@ -85,6 +85,19 @@ const testCases = [
   { scenario: 'INFO: get_actor_bounds', toolName: 'control_actor', arguments: actorArgs('get_actor_bounds'), expected: 'success' },
   { scenario: 'DELETE: remove_component', toolName: 'control_actor', arguments: actorArgs('remove_component', { componentName: COMPONENT_NAME }), expected: 'success|not found' },
 
+  // === COLLISION PROFILES / CHANNELS (PHASE 34.4) ===
+  { scenario: 'COLLISION: create object channel', toolName: 'control_actor', arguments: { action: 'create_collision_channel', channelName: `MCPObjectChannel_${ts}`, channelType: 'object', defaultResponse: 'block', staticObject: false, traceType: false, saveConfig: false, helpMessage: `MCP collision channel ${ts}` }, expected: 'success|already configured|no channel slot' },
+  { scenario: 'COLLISION: create trace channel', toolName: 'control_actor', arguments: { action: 'create_collision_channel', channelName: `MCPTraceChannel_${ts}`, channelType: 'trace', defaultResponse: 'overlap', staticObject: false, traceType: true, saveConfig: false }, expected: 'success|already configured|no channel slot' },
+  { scenario: 'COLLISION: create profile', toolName: 'control_actor', arguments: { action: 'create_collision_profile', profileName: `MCPProfile_${ts}`, collisionMode: 'query_and_physics', objectType: 'WorldDynamic', responses: { WorldStatic: 'block', Visibility: 'ignore', Camera: 'overlap' }, saveConfig: false, helpMessage: `MCP collision profile ${ts}` }, expected: 'success|already exists' },
+  { scenario: 'COLLISION: validate profile', toolName: 'control_actor', arguments: { action: 'validate_collision_profile', profileName: `MCPProfile_${ts}`, saveConfig: false }, expected: 'success' },
+  { scenario: 'COLLISION: configure object type', toolName: 'control_actor', arguments: actorArgs('configure_object_type', { objectType: 'WorldDynamic', collisionMode: 'query_and_physics' }), expected: 'success' },
+  { scenario: 'COLLISION: configure trace channel', toolName: 'control_actor', arguments: actorArgs('configure_trace_channel', { traceChannel: 'Visibility', response: 'block', channelName: 'Visibility' }), expected: 'success' },
+  { scenario: 'COLLISION: configure response batch', toolName: 'control_actor', arguments: actorArgs('configure_channel_responses', { responses: { WorldStatic: 'block', Pawn: 'overlap', Camera: 'ignore' } }), expected: 'success' },
+  { scenario: 'COLLISION: apply actor profile', toolName: 'control_actor', arguments: actorArgs('set_actor_collision_profile', { profileName: `MCPProfile_${ts}` }), expected: 'success' },
+  { scenario: 'COLLISION: apply component profile', toolName: 'control_actor', arguments: actorArgs('set_component_collision_profile', { componentName: 'StaticMeshComponent0', profileName: `MCPProfile_${ts}` }), expected: 'success|not found' },
+  { scenario: 'COLLISION: read actor state', toolName: 'control_actor', arguments: actorArgs('get_actor_collision'), expected: 'success' },
+  { scenario: 'COLLISION: read component state', toolName: 'control_actor', arguments: actorArgs('get_component_collision', { componentName: 'StaticMeshComponent0' }), expected: 'success|not found' },
+
   // === TAGS / SEARCH ===
   { scenario: 'ADD: add_tag', toolName: 'control_actor', arguments: actorArgs('add_tag', { tag: TAG }), expected: 'success|already exists' },
   { scenario: 'INFO: find_by_tag', toolName: 'control_actor', arguments: { action: 'find_by_tag', tag: TAG }, expected: 'success' },
@@ -93,6 +106,21 @@ const testCases = [
   { scenario: 'INFO: find_actors_by_name', toolName: 'control_actor', arguments: { action: 'find_actors_by_name', name: MAIN_ACTOR }, expected: 'success' },
   { scenario: 'INFO: find_by_class', toolName: 'control_actor', arguments: { action: 'find_by_class', className: 'StaticMeshActor' }, expected: 'success' },
   { scenario: 'INFO: find_actors_by_class', toolName: 'control_actor', arguments: { action: 'find_actors_by_class', className: 'StaticMeshActor' }, expected: 'success' },
+  // === SELECTION / GROUPING (PHASE 34.3) ===
+  { scenario: 'SELECT: select_actor', toolName: 'control_actor', arguments: { action: 'select_actor', actorName: MAIN_ACTOR, replaceSelection: true, selectEvenIfHidden: true, warnIfLevelLocked: false }, expected: 'success' },
+  { scenario: 'SELECT: select_actors_by_class', toolName: 'control_actor', arguments: { action: 'select_actors_by_class', classPath: '/Script/Engine.StaticMeshActor', replaceSelection: true, includeDerivedClasses: true }, expected: 'success' },
+  { scenario: 'SELECT: select_actors_by_tag', toolName: 'control_actor', arguments: { action: 'select_actors_by_tag', tag: TAG, replaceSelection: true }, expected: 'success' },
+  { scenario: 'SELECT: select_actors_in_volume', toolName: 'control_actor', arguments: { action: 'select_actors_in_volume', volumeActorName: MAIN_ACTOR, replaceSelection: true }, expected: 'success|volume not found' },
+  { scenario: 'SELECT: get_selected_actors', toolName: 'control_actor', arguments: { action: 'get_selected_actors' }, expected: 'success' },
+  { scenario: 'SELECT: select_all', toolName: 'control_actor', arguments: { action: 'select_all' }, expected: 'success' },
+  { scenario: 'SELECT: invert_selection', toolName: 'control_actor', arguments: { action: 'invert_selection' }, expected: 'success' },
+  { scenario: 'SELECT: select_children', toolName: 'control_actor', arguments: { action: 'select_children', recurseChildren: false }, expected: 'success' },
+  { scenario: 'GROUP: group_actors', toolName: 'control_actor', arguments: { action: 'group_actors', actorNames: [MAIN_ACTOR, MESH_ACTOR], replaceSelection: true }, expected: 'success|group failed' },
+  { scenario: 'GROUP: ungroup_actors', toolName: 'control_actor', arguments: { action: 'ungroup_actors', actorNames: [MAIN_ACTOR, MESH_ACTOR] }, expected: 'success|failed' },
+  { scenario: 'GROUP: remove_selected_from_group', toolName: 'control_actor', arguments: { action: 'remove_selected_from_group' }, expected: 'success' },
+  { scenario: 'GROUP: lock_selected_groups', toolName: 'control_actor', arguments: { action: 'lock_selected_groups' }, expected: 'success' },
+  { scenario: 'GROUP: unlock_selected_groups', toolName: 'control_actor', arguments: { action: 'unlock_selected_groups' }, expected: 'success' },
+  { scenario: 'SELECT: deselect_all', toolName: 'control_actor', arguments: { action: 'deselect_all' }, expected: 'success' },
   { scenario: 'DELETE: remove_tag', toolName: 'control_actor', arguments: actorArgs('remove_tag', { tag: TAG }), expected: 'success|not found' },
   { scenario: 'ACTION: list', toolName: 'control_actor', arguments: { action: 'list', limit: 20, filter: 'MCP_' }, expected: 'success' },
 

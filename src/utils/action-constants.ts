@@ -216,6 +216,16 @@ export const ACTOR_ACTIONS = {
   CALL_FUNCTION: 'call_function',
   FIND_BY_CLASS: 'find_by_class',
   GET_BOUNDING_BOX: 'get_bounding_box',
+  CREATE_COLLISION_CHANNEL: 'create_collision_channel',
+  CREATE_COLLISION_PROFILE: 'create_collision_profile',
+  CONFIGURE_CHANNEL_RESPONSES: 'configure_channel_responses',
+  CONFIGURE_OBJECT_TYPE: 'configure_object_type',
+  CONFIGURE_TRACE_CHANNEL: 'configure_trace_channel',
+  SET_ACTOR_COLLISION_PROFILE: 'set_actor_collision_profile',
+  SET_COMPONENT_COLLISION_PROFILE: 'set_component_collision_profile',
+  GET_ACTOR_COLLISION: 'get_actor_collision',
+  GET_COMPONENT_COLLISION: 'get_component_collision',
+  VALIDATE_COLLISION_PROFILE: 'validate_collision_profile',
 } as const;
 
 // ============================================================================

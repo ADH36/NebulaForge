@@ -138,6 +138,12 @@
 #else
 #define MCP_HAS_LEVEL_EDITOR_PLAY_SETTINGS 0
 #endif
+#if __has_include("Settings/LevelEditorViewportSettings.h")
+#include "Settings/LevelEditorViewportSettings.h"
+#define MCP_HAS_LEVEL_EDITOR_VIEWPORT_SETTINGS 1
+#else
+#define MCP_HAS_LEVEL_EDITOR_VIEWPORT_SETTINGS 0
+#endif
 
 // -----------------------------------------------------------------------------
 // Editor-only Includes: Components & Actors
@@ -4267,7 +4273,8 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
     return HandleControlEditorCreateBookmark(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("jump_to_bookmark"))
     return HandleControlEditorJumpToBookmark(RequestId, Payload, RequestingSocket);
-  if (LowerSub == TEXT("set_preferences"))
+  if (LowerSub == TEXT("set_preferences") ||
+      LowerSub == TEXT("configure_editor_preferences"))
     return HandleControlEditorSetPreferences(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("set_viewport_realtime"))
     return HandleControlEditorSetViewportRealtime(RequestId, Payload, RequestingSocket);
@@ -4288,6 +4295,14 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
     return HandleControlEditorRedo(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("set_editor_mode"))
     return HandleControlEditorSetEditorMode(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("set_grid_settings"))
+    return HandleControlEditorSetGridSettings(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("set_snap_settings"))
+    return HandleControlEditorSetSnapSettings(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("manage_editor_layouts"))
+    return HandleControlEditorManageLayouts(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("create_custom_editor_mode"))
+    return HandleControlEditorCreateCustomMode(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("show_stats"))
     return HandleControlEditorShowStats(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("hide_stats"))
@@ -6180,6 +6195,275 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorSetEditorMode(
   Resp->SetStringField(TEXT("mode"), Mode);
   SendAutomationResponse(Socket, RequestId, true,
                          FString::Printf(TEXT("Editor mode set to %s"), *Mode), Resp, FString());
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleControlEditorSetGridSettings(
+    const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR && MCP_HAS_LEVEL_EDITOR_VIEWPORT_SETTINGS
+  ULevelEditorViewportSettings *Settings =
+      GetMutableDefault<ULevelEditorViewportSettings>();
+  if (!Settings) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("SETTINGS_UNAVAILABLE"),
+                              TEXT("Level editor viewport settings are unavailable."), nullptr);
+    return true;
+  }
+
+  bool bChanged = false;
+  bool BoolValue = false;
+  if (Payload->TryGetBoolField(TEXT("gridEnabled"), BoolValue)) {
+    Settings->GridEnabled = BoolValue;
+    bChanged = true;
+  }
+  if (Payload->TryGetBoolField(TEXT("usePowerOf2SnapSize"), BoolValue)) {
+    Settings->bUsePowerOf2SnapSize = BoolValue;
+    bChanged = true;
+  }
+
+  double GridSize = 0.0;
+  if (Payload->TryGetNumberField(TEXT("gridSize"), GridSize)) {
+    if (GridSize <= 0.0 || !FMath::IsFinite(GridSize)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("gridSize must be a finite positive number."), nullptr);
+      return true;
+    }
+
+    TArray<float> &GridSizes = Settings->bUsePowerOf2SnapSize
+                                   ? Settings->Pow2GridSizes
+                                   : Settings->DecimalGridSizes;
+    const float RequestedSize = static_cast<float>(GridSize);
+    int32 GridIndex = INDEX_NONE;
+    for (int32 Index = 0; Index < GridSizes.Num(); ++Index) {
+      if (FMath::IsNearlyEqual(GridSizes[Index], RequestedSize)) {
+        GridIndex = Index;
+        break;
+      }
+    }
+    if (GridIndex == INDEX_NONE) {
+      GridIndex = GridSizes.Add(RequestedSize);
+    }
+    Settings->CurrentPosGridSize = GridIndex;
+    bChanged = true;
+  }
+
+  if (!bChanged) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                              TEXT("Provide gridEnabled, gridSize, or usePowerOf2SnapSize."), nullptr);
+    return true;
+  }
+
+  Settings->SaveConfig();
+  Settings->PostEditChange();
+  TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+  Resp->SetBoolField(TEXT("success"), true);
+  Resp->SetBoolField(TEXT("gridEnabled"), Settings->GridEnabled);
+  Resp->SetBoolField(TEXT("usePowerOf2SnapSize"), Settings->bUsePowerOf2SnapSize);
+  Resp->SetNumberField(TEXT("currentPosGridSize"), Settings->CurrentPosGridSize);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Grid settings updated"), Resp, FString());
+  return true;
+#else
+  SendStandardErrorResponse(this, Socket, RequestId, TEXT("NOT_IMPLEMENTED"),
+                            TEXT("Grid settings require an editor build with viewport settings."), nullptr);
+  return true;
+#endif
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleControlEditorSetSnapSettings(
+    const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR && MCP_HAS_LEVEL_EDITOR_VIEWPORT_SETTINGS
+  ULevelEditorViewportSettings *Settings =
+      GetMutableDefault<ULevelEditorViewportSettings>();
+  if (!Settings) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("SETTINGS_UNAVAILABLE"),
+                              TEXT("Level editor viewport settings are unavailable."), nullptr);
+    return true;
+  }
+
+  bool bChanged = false;
+  bool BoolValue = false;
+  if (Payload->TryGetBoolField(TEXT("gridEnabled"), BoolValue)) {
+    Settings->GridEnabled = BoolValue;
+    bChanged = true;
+  }
+  if (Payload->TryGetBoolField(TEXT("rotationGridEnabled"), BoolValue)) {
+    Settings->RotGridEnabled = BoolValue;
+    bChanged = true;
+  }
+  if (Payload->TryGetBoolField(TEXT("scaleGridEnabled"), BoolValue)) {
+    Settings->SnapScaleEnabled = BoolValue;
+    bChanged = true;
+  }
+  if (Payload->TryGetBoolField(TEXT("usePowerOf2SnapSize"), BoolValue)) {
+    Settings->bUsePowerOf2SnapSize = BoolValue;
+    bChanged = true;
+  }
+  if (Payload->TryGetBoolField(TEXT("snapToSurface"), BoolValue)) {
+    Settings->SnapToSurface.bEnabled = BoolValue;
+    bChanged = true;
+  }
+  if (Payload->TryGetBoolField(TEXT("snapRotation"), BoolValue)) {
+    Settings->SnapToSurface.bSnapRotation = BoolValue;
+    bChanged = true;
+  }
+
+  double NumberValue = 0.0;
+  if (Payload->TryGetNumberField(TEXT("actorSnapDistance"), NumberValue)) {
+    if (NumberValue < 0.0 || !FMath::IsFinite(NumberValue)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorSnapDistance must be a finite non-negative number."), nullptr);
+      return true;
+    }
+    Settings->ActorSnapDistance = static_cast<float>(NumberValue);
+    bChanged = true;
+  }
+  if (Payload->TryGetNumberField(TEXT("snapDistance"), NumberValue)) {
+    if (NumberValue < 0.0 || !FMath::IsFinite(NumberValue)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("snapDistance must be a finite non-negative number."), nullptr);
+      return true;
+    }
+    Settings->SnapDistance = static_cast<float>(NumberValue);
+    bChanged = true;
+  }
+  if (Payload->TryGetNumberField(TEXT("actorSnapScale"), NumberValue)) {
+    if (NumberValue < 0.0 || !FMath::IsFinite(NumberValue)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorSnapScale must be a finite non-negative number."), nullptr);
+      return true;
+    }
+    Settings->ActorSnapScale = static_cast<float>(NumberValue);
+    bChanged = true;
+  }
+  if (Payload->TryGetNumberField(TEXT("snapOffsetExtent"), NumberValue)) {
+    if (!FMath::IsFinite(NumberValue)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("snapOffsetExtent must be a finite number."), nullptr);
+      return true;
+    }
+    Settings->SnapToSurface.SnapOffsetExtent = static_cast<float>(NumberValue);
+    bChanged = true;
+  }
+
+  if (!bChanged) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                              TEXT("No supported snapping settings were supplied."), nullptr);
+    return true;
+  }
+
+  Settings->SaveConfig();
+  Settings->PostEditChange();
+  TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+  Resp->SetBoolField(TEXT("success"), true);
+  Resp->SetBoolField(TEXT("gridEnabled"), Settings->GridEnabled);
+  Resp->SetBoolField(TEXT("rotationGridEnabled"), Settings->RotGridEnabled);
+  Resp->SetBoolField(TEXT("scaleGridEnabled"), Settings->SnapScaleEnabled);
+  Resp->SetBoolField(TEXT("snapToSurface"), Settings->SnapToSurface.bEnabled);
+  Resp->SetBoolField(TEXT("snapRotation"), Settings->SnapToSurface.bSnapRotation);
+  Resp->SetNumberField(TEXT("actorSnapDistance"), Settings->ActorSnapDistance);
+  Resp->SetNumberField(TEXT("snapDistance"), Settings->SnapDistance);
+  Resp->SetNumberField(TEXT("actorSnapScale"), Settings->ActorSnapScale);
+  Resp->SetNumberField(TEXT("snapOffsetExtent"), Settings->SnapToSurface.SnapOffsetExtent);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Snap settings updated"), Resp, FString());
+  return true;
+#else
+  SendStandardErrorResponse(this, Socket, RequestId, TEXT("NOT_IMPLEMENTED"),
+                            TEXT("Snap settings require an editor build with viewport settings."), nullptr);
+  return true;
+#endif
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleControlEditorManageLayouts(
+    const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR
+  FString LayoutAction;
+  Payload->TryGetStringField(TEXT("layoutAction"), LayoutAction);
+  LayoutAction = LayoutAction.TrimStartAndEnd().ToLower();
+  if (LayoutAction.IsEmpty() ||
+      (LayoutAction != TEXT("save") && LayoutAction != TEXT("load") &&
+       LayoutAction != TEXT("remove") && LayoutAction != TEXT("reset") &&
+       LayoutAction != TEXT("export") && LayoutAction != TEXT("import"))) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                              TEXT("layoutAction must be save, load, remove, reset, export, or import."), nullptr);
+    return true;
+  }
+
+  FString LayoutName;
+  Payload->TryGetStringField(TEXT("layoutName"), LayoutName);
+  LayoutName = LayoutName.TrimStartAndEnd();
+  if (!LayoutName.IsEmpty() && !IsSafeConsoleArgumentToken(LayoutName)) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                              TEXT("layoutName must be a single safe token."), nullptr);
+    return true;
+  }
+
+  const TCHAR *CommandName = TEXT("ResetLayout");
+  if (LayoutAction == TEXT("save")) CommandName = TEXT("SaveLayout");
+  else if (LayoutAction == TEXT("load")) CommandName = TEXT("LoadLayout");
+  else if (LayoutAction == TEXT("remove")) CommandName = TEXT("RemoveLayout");
+  else if (LayoutAction == TEXT("export")) CommandName = TEXT("ExportLayout");
+  else if (LayoutAction == TEXT("import")) CommandName = TEXT("ImportLayout");
+
+  const FString Command = LayoutName.IsEmpty()
+      ? FString(CommandName)
+      : FString::Printf(TEXT("%s %s"), CommandName, *LayoutName);
+  const bool bExecuted = GEditor->Exec(GEditor->GetEditorWorldContext().World(), *Command);
+  TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+  Resp->SetBoolField(TEXT("success"), bExecuted);
+  Resp->SetStringField(TEXT("layoutAction"), LayoutAction);
+  if (!LayoutName.IsEmpty()) Resp->SetStringField(TEXT("layoutName"), LayoutName);
+  Resp->SetStringField(TEXT("command"), Command);
+  SendAutomationResponse(Socket, RequestId, bExecuted,
+                         bExecuted ? TEXT("Editor layout operation completed")
+                                   : TEXT("Editor layout operation was not handled"),
+                         Resp, bExecuted ? FString() : TEXT("LAYOUT_COMMAND_FAILED"));
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleControlEditorCreateCustomMode(
+    const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR
+  FString ModeName;
+  Payload->TryGetStringField(TEXT("customModeName"), ModeName);
+  ModeName = ModeName.TrimStartAndEnd();
+  if (ModeName.IsEmpty() || !IsSafeConsoleArgumentToken(ModeName)) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                              TEXT("customModeName must be a non-empty safe token."), nullptr);
+    return true;
+  }
+
+  FString ModeId;
+  Payload->TryGetStringField(TEXT("customModeId"), ModeId);
+  ModeId = ModeId.TrimStartAndEnd();
+  if (ModeId.IsEmpty()) ModeId = ModeName;
+  if (!IsSafeConsoleArgumentToken(ModeId)) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"),
+                              TEXT("customModeId must be a single safe token."), nullptr);
+    return true;
+  }
+
+  FString Description;
+  Payload->TryGetStringField(TEXT("modeDescription"), Description);
+  TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+  Resp->SetBoolField(TEXT("success"), true);
+  Resp->SetBoolField(TEXT("registered"), false);
+  Resp->SetBoolField(TEXT("requiresEditorModule"), true);
+  Resp->SetStringField(TEXT("customModeName"), ModeName);
+  Resp->SetStringField(TEXT("customModeId"), ModeId);
+  if (!Description.IsEmpty()) Resp->SetStringField(TEXT("modeDescription"), Description);
+  Resp->SetStringField(TEXT("message"),
+                       TEXT("Descriptor validated. Runtime UEdMode registration requires a compiled editor module or plugin."));
+  SendAutomationResponse(Socket, RequestId, true,
+                         TEXT("Custom editor mode descriptor validated"), Resp, FString());
   return true;
 #else
   return false;

@@ -96,6 +96,12 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `screenshot` | `NebulaForgeBridge_EditorFunctionHandlers.cpp` | `HandleControlEditorAction` | |
 | `simulate_input` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | |
 | `create_bookmark` | `NebulaForgeBridge_EditorFunctionHandlers.cpp` | `HandleControlEditorAction` | |
+| `set_editor_mode` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlEditorSetEditorMode` | Selects a registered editor mode through the UE editor command path |
+| `configure_editor_preferences` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlEditorSetPreferences` | Applies supported console variables and editor preferences |
+| `set_grid_settings` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlEditorSetGridSettings` | Updates `ULevelEditorViewportSettings` translation grid settings |
+| `set_snap_settings` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlEditorSetSnapSettings` | Updates translation, rotation, scale, actor, and surface snapping |
+| `manage_editor_layouts` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlEditorManageLayouts` | Save/load/remove/reset/import/export named layouts through editor commands |
+| `create_custom_editor_mode` | `NebulaForgeBridge_ControlHandlers.cpp` | `HandleControlEditorCreateCustomMode` | Validates a mode descriptor; runtime `UEdMode` registration requires a compiled editor module |
 
 ## Level Manager (`manage_level`)
 

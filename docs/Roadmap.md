@@ -1466,11 +1466,15 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Tools**: Various editor management tools
 
 ### 34.1 Editor Modes
-- [ ] `set_editor_mode` (place, paint, landscape, foliage, mesh_paint)
-- [ ] `configure_editor_preferences`
-- [ ] `set_grid_settings`, `set_snap_settings`
-- [ ] `manage_editor_layouts`
-- [ ] `create_custom_editor_mode`
+- [x] `set_editor_mode` (place, paint, landscape, foliage, mesh_paint)
+- [x] `configure_editor_preferences`
+- [x] `set_grid_settings`, `set_snap_settings`
+- [x] `manage_editor_layouts`
+- [x] `create_custom_editor_mode` (descriptor validation; compiled editor module/plugin required for runtime `UEdMode` registration)
+
+**Implemented feature coverage**: editor-mode selection; supported preference/CVar updates; translation, rotation, scale, actor-distance, actor-scale, power-of-two, and surface snapping; named layout save/load/remove/reset/import/export command routing; and safe custom-mode descriptors.
+
+**Official Unreal references**: [`ULevelEditorViewportSettings`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/ULevelEditorViewportSettings), [`FSnapToSurfaceSettings`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/FSnapToSurfaceSettings), [`FEditorViewportCommands`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/FEditorViewportCommands), [`UEdMode`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UEdMode), and [Layout Customization](https://dev.epicgames.com/documentation/en-us/unreal-engine/layout-customization?application_version=4.27).
 
 ### 34.2 Content Browser
 - [ ] `set_view_settings`

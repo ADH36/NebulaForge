@@ -849,6 +849,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'open_level', 'focus_actor',
             'show_stats', 'hide_stats',
             'set_editor_mode', 'set_immersive_mode', 'set_game_view',
+            // Phase 34.1: editor mode, preferences, viewport snapping, and layouts.
+            'configure_editor_preferences', 'set_grid_settings', 'set_snap_settings',
+            'manage_editor_layouts', 'create_custom_editor_mode',
             'undo', 'redo', 'save_all'
           ],
           description: 'Editor action'
@@ -885,6 +888,23 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         stat: commonSchemas.stringProp,
         category: commonSchemas.stringProp,
         preferences: commonSchemas.objectProp,
+        // Phase 34.1 editor utility controls.
+        gridEnabled: commonSchemas.booleanProp,
+        gridSize: commonSchemas.numberProp,
+        rotationGridEnabled: commonSchemas.booleanProp,
+        scaleGridEnabled: commonSchemas.booleanProp,
+        snapToSurface: commonSchemas.booleanProp,
+        actorSnapDistance: commonSchemas.numberProp,
+        snapDistance: commonSchemas.numberProp,
+        usePowerOf2SnapSize: commonSchemas.booleanProp,
+        layoutAction: commonSchemas.stringProp,
+        layoutName: commonSchemas.stringProp,
+        customModeName: commonSchemas.stringProp,
+        customModeId: commonSchemas.stringProp,
+        modeDescription: commonSchemas.stringProp,
+        snapRotation: commonSchemas.booleanProp,
+        snapOffsetExtent: commonSchemas.numberProp,
+        actorSnapScale: commonSchemas.numberProp,
         key: commonSchemas.stringProp,
         // simulate_input parameters
         type: commonSchemas.stringProp,

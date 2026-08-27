@@ -20,6 +20,11 @@ const EDITOR_ACTION_ALIASES: Record<string, string> = {
   'undo': 'undo',
   'redo': 'redo',
   'set_editor_mode': 'set_editor_mode',
+  'configure_editor_preferences': 'configure_editor_preferences',
+  'set_grid_settings': 'set_grid_settings',
+  'set_snap_settings': 'set_snap_settings',
+  'manage_editor_layouts': 'manage_editor_layouts',
+  'create_custom_editor_mode': 'create_custom_editor_mode',
   'show_stats': 'show_stats',
   'hide_stats': 'hide_stats',
   'set_game_view': 'set_game_view',
@@ -60,6 +65,7 @@ const ACTION_REQUIRED_PARAMS: Record<string, string[]> = {
   'set_game_speed': ['speed'],
   'set_fixed_delta_time': ['deltaTime'],
   'set_preferences': ['category', 'preferences'],
+  'configure_editor_preferences': ['category', 'preferences'],
   'execute_command': ['command'],
   'console_command': ['command'],
   'query_pie_actor': ['actorName'],
@@ -95,6 +101,11 @@ const ACTION_ALLOWED_PARAMS: Record<string, string[]> = {
   'set_fixed_delta_time': ['deltaTime'],
   'screenshot': ['filename', 'path', 'outputPath', 'resolution', 'mode', 'returnBase64', 'includeMetadata', 'metadata', 'warmupFrames', 'screenshotDelayMs', 'captureMode'],
   'set_preferences': ['category', 'preferences'],
+  'configure_editor_preferences': ['category', 'preferences'],
+  'set_grid_settings': ['gridEnabled', 'gridSize', 'usePowerOf2SnapSize'],
+  'set_snap_settings': ['gridEnabled', 'rotationGridEnabled', 'scaleGridEnabled', 'snapToSurface', 'snapRotation', 'snapOffsetExtent', 'actorSnapDistance', 'snapDistance', 'actorSnapScale', 'usePowerOf2SnapSize'],
+  'manage_editor_layouts': ['layoutAction', 'layoutName'],
+  'create_custom_editor_mode': ['customModeName', 'customModeId', 'modeDescription'],
   'execute_command': ['command'],
   'console_command': ['command'],
   'undo': [],
@@ -535,6 +546,20 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
     }
     case 'set_preferences': {
       const res = await executeAutomationRequest(tools, 'control_editor', { action: 'set_preferences', category: args.category ?? '', preferences: args.preferences ?? {} }) as Record<string, unknown>;
+      return cleanObject(res);
+    }
+    case 'configure_editor_preferences': {
+      const res = await executeAutomationRequest(tools, 'control_editor', { action: 'set_preferences', category: args.category ?? '', preferences: args.preferences ?? {} }) as Record<string, unknown>;
+      return cleanObject({ ...res, action: 'configure_editor_preferences' });
+    }
+    case 'set_grid_settings':
+    case 'set_snap_settings':
+    case 'manage_editor_layouts':
+    case 'create_custom_editor_mode': {
+      const res = await executeAutomationRequest(tools, 'control_editor', {
+        ...editorArgs,
+        action: normalizedAction
+      }) as Record<string, unknown>;
       return cleanObject(res);
     }
     case 'open_asset': {

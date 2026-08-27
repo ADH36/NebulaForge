@@ -1255,6 +1255,18 @@ private:
   bool HandleControlEditorSetEditorMode(const FString &RequestId,
                                         const TSharedPtr<FJsonObject> &Payload,
                                         TSharedPtr<FMcpBridgeWebSocket> Socket);
+  bool HandleControlEditorSetGridSettings(const FString &RequestId,
+                                          const TSharedPtr<FJsonObject> &Payload,
+                                          TSharedPtr<FMcpBridgeWebSocket> Socket);
+  bool HandleControlEditorSetSnapSettings(const FString &RequestId,
+                                          const TSharedPtr<FJsonObject> &Payload,
+                                          TSharedPtr<FMcpBridgeWebSocket> Socket);
+  bool HandleControlEditorManageLayouts(const FString &RequestId,
+                                        const TSharedPtr<FJsonObject> &Payload,
+                                        TSharedPtr<FMcpBridgeWebSocket> Socket);
+  bool HandleControlEditorCreateCustomMode(const FString &RequestId,
+                                           const TSharedPtr<FJsonObject> &Payload,
+                                           TSharedPtr<FMcpBridgeWebSocket> Socket);
   bool HandleControlEditorShowStats(const FString &RequestId,
                                     const TSharedPtr<FJsonObject> &Payload,
                                     TSharedPtr<FMcpBridgeWebSocket> Socket);

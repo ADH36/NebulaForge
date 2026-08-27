@@ -1554,6 +1554,20 @@ class UMyEditorTask : public UEditorUtilityTask
 };
 ```
 
+### Editor Modes, Viewport Snapping, and Layouts (34.1)
+
+The bridge exposes editor-mode selection through the editor command path and persists viewport settings through `ULevelEditorViewportSettings` in the UnrealEd module.
+
+| Unreal API | Bridge coverage |
+|------|------|
+| `ULevelEditorViewportSettings` | Translation grid enablement/size, power-of-two grid selection, rotation/scale snapping, actor snap distance/scale, and surface snapping |
+| `FSnapToSurfaceSettings` | Surface snap enablement, surface-aligned rotation, and snap offset extent |
+| `FEditorViewportCommands` | Official viewport snapping command model used as the behavior reference |
+| `UEdMode` | Custom mode descriptor validation; actual mode registration remains a compiled editor module/plugin concern because `UEdMode` is an abstract editor extension point |
+| Editor layout commands | Save/load/remove/reset/import/export named layouts with safe names |
+
+The implementation intentionally validates layout and mode identifiers before sending editor commands. See Epic's [`ULevelEditorViewportSettings`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/ULevelEditorViewportSettings), [`FSnapToSurfaceSettings`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/FSnapToSurfaceSettings), [`FEditorViewportCommands`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/FEditorViewportCommands), [`UEdMode`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UEdMode), and [Layout Customization](https://dev.epicgames.com/documentation/en-us/unreal-engine/layout-customization?application_version=4.27).
+
 ---
 
 ## Phase 35: Additional Gameplay Systems

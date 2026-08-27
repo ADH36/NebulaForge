@@ -1,4 +1,4 @@
-// McpTool_ControlEditor.cpp — control_editor tool definition (40 actions)
+// McpTool_ControlEditor.cpp — control_editor tool definition
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -74,6 +74,11 @@ public:
 				TEXT("show_stats"),
 				TEXT("hide_stats"),
 				TEXT("set_editor_mode"),
+				TEXT("configure_editor_preferences"),
+				TEXT("set_grid_settings"),
+				TEXT("set_snap_settings"),
+				TEXT("manage_editor_layouts"),
+				TEXT("create_custom_editor_mode"),
 				TEXT("set_immersive_mode"),
 				TEXT("set_game_view"),
 				TEXT("undo"),
@@ -118,6 +123,22 @@ public:
 			.String(TEXT("stat"), TEXT(""))
 			.String(TEXT("category"), TEXT(""))
 			.FreeformObject(TEXT("preferences"), TEXT(""))
+			.Bool(TEXT("gridEnabled"), TEXT("Enable translation grid snapping."))
+			.Number(TEXT("gridSize"), TEXT("Translation grid size in Unreal units."))
+			.Bool(TEXT("rotationGridEnabled"), TEXT("Enable rotation grid snapping."))
+			.Bool(TEXT("scaleGridEnabled"), TEXT("Enable scale grid snapping."))
+			.Bool(TEXT("snapToSurface"), TEXT("Snap dragged actors to surfaces."))
+			.Bool(TEXT("snapRotation"), TEXT("Rotate surface-snapped actors to the surface normal."))
+			.Number(TEXT("snapOffsetExtent"), TEXT("Surface snap offset extent."))
+			.Number(TEXT("actorSnapDistance"), TEXT("Global actor snap distance."))
+			.Number(TEXT("snapDistance"), TEXT("Viewport snap distance."))
+			.Number(TEXT("actorSnapScale"), TEXT("Global actor snap scale."))
+			.Bool(TEXT("usePowerOf2SnapSize"), TEXT("Use power-of-two translation grid sizes."))
+			.String(TEXT("layoutAction"), TEXT("Layout operation: save, load, remove, reset, export, or import."))
+			.String(TEXT("layoutName"), TEXT("Named editor layout."))
+			.String(TEXT("customModeName"), TEXT("Human-readable custom editor mode name."))
+			.String(TEXT("customModeId"), TEXT("Stable custom editor mode identifier."))
+			.String(TEXT("modeDescription"), TEXT("Custom editor mode description."))
 			.String(TEXT("key"), TEXT(""))
 			.String(TEXT("type"), TEXT("Input event type for simulate_input, e.g. key_down, key_up, mouse_click, mouse_move."))
 			.String(TEXT("inputType"), TEXT("Alias for type used by simulate_input."))

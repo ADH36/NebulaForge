@@ -3415,12 +3415,21 @@ static bool McpResolveCollisionChannel(const FString &Value,
       return true;
     }
   }
-  UCollisionProfile *Profile = UCollisionProfile::Get();
-  if (!Profile) return false;
-  FName DisplayName(*Name);
-  const int32 Index = Profile->ReturnContainerIndexFromChannelName(DisplayName);
-  if (Index >= 0 && Index < static_cast<int32>(ECC_MAX)) {
-    OutChannel = static_cast<ECollisionChannel>(Index); return true;
+  const UEnum* CollisionChannelEnum = StaticEnum<ECollisionChannel>();
+  if (!CollisionChannelEnum) return false;
+  for (int32 ChannelValue = 0; ChannelValue < static_cast<int32>(ECC_MAX); ++ChannelValue)
+  {
+    const int32 EnumIndex = CollisionChannelEnum->GetIndexByValue(ChannelValue);
+    if (EnumIndex == INDEX_NONE) continue;
+
+    const FString DisplayName = CollisionChannelEnum->GetMetaData(TEXT("DisplayName"), EnumIndex);
+    const FString EnumName = CollisionChannelEnum->GetNameStringByValue(ChannelValue);
+    if ((!DisplayName.IsEmpty() && Name.Equals(DisplayName, ESearchCase::IgnoreCase)) ||
+        Name.Equals(EnumName, ESearchCase::IgnoreCase))
+    {
+      OutChannel = static_cast<ECollisionChannel>(ChannelValue);
+      return true;
+    }
   }
   return false;
 }

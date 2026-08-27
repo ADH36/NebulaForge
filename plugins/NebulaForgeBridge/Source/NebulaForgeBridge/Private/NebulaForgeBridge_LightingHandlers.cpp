@@ -768,7 +768,7 @@ static void ApplyPostProcessSettings(
         }
         else if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Tonemapper.Type")))
         {
-            CVar->Set(FMath::RoundToInt(Value));
+            CVar->Set(static_cast<int32>(FMath::RoundToInt(Value)));
             Applied.Add(MakeShared<FJsonValueString>(TEXT("r.Tonemapper.Type")));
         }
         else
@@ -2272,7 +2272,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
                 {
                     return;
                 }
-                CVar->Set(FMath::RoundToInt(Value));
+                CVar->Set(static_cast<int32>(FMath::RoundToInt(Value)));
             }
             else
             {
@@ -2377,7 +2377,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         {
             if (IConsoleVariable* ResolutionCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ReflectionCaptureResolution")))
             {
-                ResolutionCVar->Set(FMath::RoundToInt(NumberValue));
+                ResolutionCVar->Set(static_cast<int32>(FMath::RoundToInt(NumberValue)));
             }
         }
 
@@ -2455,7 +2455,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         Response->SetNumberField(TEXT("captureResolution"), Resolution);
         if (CVar)
         {
-            CVar->Set(FMath::RoundToInt(Resolution));
+            CVar->Set(static_cast<int32>(FMath::RoundToInt(Resolution)));
             Response->SetBoolField(TEXT("supported"), true);
             Response->SetStringField(TEXT("appliedCVar"), TEXT("r.ReflectionCaptureResolution"));
         }
@@ -2636,7 +2636,6 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
             SendAutomationError(RequestingSocket, RequestId, InvalidField, TEXT("INVALID_ARGUMENT"));
             return true;
         }
-        Component->UpdatePreviewShape();
         Component->PostEditChange();
         Component->MarkRenderStateDirty();
 
@@ -2681,7 +2680,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
                     InvalidField = FString::Printf(TEXT("%s must be an integer"), Field);
                     return;
                 }
-                CVar->Set(FMath::RoundToInt(Value));
+                CVar->Set(static_cast<int32>(FMath::RoundToInt(Value)));
             }
             else
             {

@@ -1,5 +1,12 @@
 @echo off
 setlocal enabledelayedexpansion
+
+REM Resolve these before SHIFT changes the batch positional parameters.
+for %%I in ("%~dp0.") do set "SCRIPT_DIR=%%~fI\"
+for %%I in ("%~dp0..") do set "REPO_ROOT=%%~fI"
+set "PLUGIN_FILE=%REPO_ROOT%\plugins\NebulaForgeBridge\NebulaForgeBridge.uplugin"
+set "POWERSHELL_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+
 REM
 REM Package NebulaForgeBridge plugin as pre-built binaries.
 REM Output can be distributed to Blueprint-only projects (no compilation needed).
@@ -44,11 +51,6 @@ if "!OUTPUT_DIR!"=="" set "OUTPUT_DIR=%cd%\build"
 if not exist "!OUTPUT_DIR!" mkdir "!OUTPUT_DIR!"
 for %%I in ("!OUTPUT_DIR!") do set "OUTPUT_DIR=%%~fI"
 
-set "SCRIPT_DIR=%~dp0"
-set "REPO_ROOT=%SCRIPT_DIR%.."
-set "PLUGIN_FILE=%REPO_ROOT%\plugins\NebulaForgeBridge\NebulaForgeBridge.uplugin"
-set "POWERSHELL_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
-
 if not exist "%PLUGIN_FILE%" (
     echo ERROR: Plugin file not found: %PLUGIN_FILE%
     exit /b 1
@@ -70,7 +72,10 @@ if exist "%UE_VERSION_FILE%" (
 )
 
 set "PLUGIN_VER=0.0.0"
-for /f "delims=" %%V in ('"%POWERSHELL_EXE%" -NoProfile -File "%SCRIPT_DIR%read-package-version.ps1" -Path "%PLUGIN_FILE%"') do set "PLUGIN_VER=%%V"
+set "PLUGIN_VERSION_OUTPUT=%TEMP%\NebulaForgeBridge-plugin-version.txt"
+%POWERSHELL_EXE% -NoProfile -File "%SCRIPT_DIR%read-package-version.ps1" -Path "%PLUGIN_FILE%" > "%PLUGIN_VERSION_OUTPUT%"
+if not errorlevel 1 set /p PLUGIN_VER=<"%PLUGIN_VERSION_OUTPUT%"
+if exist "%PLUGIN_VERSION_OUTPUT%" del /q "%PLUGIN_VERSION_OUTPUT%"
 
 set "ZIP_NAME=NebulaForgeBridge-v%PLUGIN_VER%-UE%UE_VER%-Win64.zip"
 set "ZIP_PATH=%OUTPUT_DIR%\%ZIP_NAME%"
@@ -123,7 +128,7 @@ if not defined OUTPUT_PLUGIN_DIR (
 set "OUTPUT_UPLUGIN=%OUTPUT_PLUGIN_DIR%\NebulaForgeBridge.uplugin"
 if exist "%OUTPUT_UPLUGIN%" (
     echo Setting Installed=true in output .uplugin...
-    powershell -NoProfile -Command "try { $ErrorActionPreference='Stop'; $f=$args[0]; $d=Get-Content -LiteralPath $f -Raw | ConvertFrom-Json; $d | Add-Member -Force -NotePropertyName Installed -NotePropertyValue $true; $d | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $f } catch { Write-Error $_; exit 1 }" "%OUTPUT_UPLUGIN%"
+    "%POWERSHELL_EXE%" -NoProfile -File "%SCRIPT_DIR%set-plugin-installed.ps1" -Path "%OUTPUT_UPLUGIN%"
     if errorlevel 1 (
         echo ERROR: Failed to set Installed=true in .uplugin
         if exist "%STAGING_DIR%" rmdir /s /q "%STAGING_DIR%"
@@ -136,7 +141,7 @@ REM ─── Zip ────────────────────�
 echo Creating archive: %ZIP_NAME%
 if exist "%ZIP_PATH%" del "%ZIP_PATH%"
 if exist "%OUTPUT_PLUGIN_DIR%\Intermediate" rmdir /s /q "%OUTPUT_PLUGIN_DIR%\Intermediate"
-powershell -NoProfile -Command "try { $ErrorActionPreference='Stop'; $pluginDir=$args[0]; $zipPath=$args[1]; Get-ChildItem -LiteralPath $pluginDir -Recurse -Filter '*.pdb' | Remove-Item -Force; Push-Location (Split-Path -Parent $pluginDir); Compress-Archive -LiteralPath 'NebulaForgeBridge' -DestinationPath $zipPath -Force; Pop-Location } catch { Write-Error $_; exit 1 }" "%OUTPUT_PLUGIN_DIR%" "%ZIP_PATH%"
+"%POWERSHELL_EXE%" -NoProfile -File "%SCRIPT_DIR%archive-plugin.ps1" -PluginDirectory "%OUTPUT_PLUGIN_DIR%" -ZipPath "%ZIP_PATH%"
 if errorlevel 1 (
     echo ERROR: Failed to create zip archive.
     if exist "%STAGING_DIR%" rmdir /s /q "%STAGING_DIR%"

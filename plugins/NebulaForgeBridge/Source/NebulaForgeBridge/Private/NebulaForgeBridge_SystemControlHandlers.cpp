@@ -4,6 +4,7 @@
 #include "Async/TaskGraphInterfaces.h"
 #include "NebulaForgeBridgeHelpers.h"
 #include "NebulaForgeBridgeSubsystem.h"
+#include "McpHandlerUtils.h"
 
 #if WITH_EDITOR
 #include "Editor/UnrealEd/Public/Editor.h"
@@ -75,7 +76,7 @@ public:
 
   void Cancel() { bCancelled = true; }
 
-  FString GetDescription() override {
+  FString GetDescription() const override {
     return FString::Printf(TEXT("MCP latent action '%s': %.3f seconds remaining"),
                            *LatentId, FMath::Max(0.0f, Remaining));
   }
@@ -864,7 +865,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAsyncTimerAction(
                              TEXT("TASK_OWNER_NOT_FOUND"));
       return true;
     }
-    IGameplayTaskOwnerInterface *TaskOwner = UGameplayTask::ConvertToTaskOwner(*OwnerObject);
+    IGameplayTaskOwnerInterface *TaskOwner = Cast<IGameplayTaskOwnerInterface>(OwnerObject);
     if (!TaskOwner) {
       SendAutomationResponse(RequestingSocket, RequestId, false,
                              TEXT("ownerObject does not implement a gameplay-task owner interface"), nullptr,
@@ -951,7 +952,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAsyncTimerAction(
                                TEXT("TASK_OWNER_NOT_FOUND"));
         return true;
       }
-      IGameplayTaskOwnerInterface *TaskOwner = UGameplayTask::ConvertToTaskOwner(*OwnerObject->Get());
+      IGameplayTaskOwnerInterface *TaskOwner = Cast<IGameplayTaskOwnerInterface>(OwnerObject->Get());
       if (!TaskOwner) {
         SendAutomationResponse(RequestingSocket, RequestId, false,
                                TEXT("Gameplay task owner is no longer usable"), nullptr,

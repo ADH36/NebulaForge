@@ -44,7 +44,7 @@
 //
 // VERSION COMPATIBILITY:
 // ----------------------
-// UE 5.0-5.7: All handlers supported
+// UE 5.0-5.8: Actions are version-guarded and project/module conditional
 // - ProceduralMeshComponent available in all versions
 // - UEditorActorSubsystem available via conditional includes
 // - Console command execution uses GEngine->Exec()

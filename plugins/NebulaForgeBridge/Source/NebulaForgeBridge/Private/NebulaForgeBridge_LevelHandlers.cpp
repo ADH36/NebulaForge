@@ -28,7 +28,7 @@
 //
 // VERSION COMPATIBILITY:
 // ----------------------
-// UE 5.0-5.7: All handlers supported
+// UE 5.0-5.8: Actions are version-guarded and project/module conditional
 // - Level streaming APIs stable across versions
 // - World Partition conditional via __has_include
 //

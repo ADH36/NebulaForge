@@ -30,7 +30,7 @@
 //
 // VERSION COMPATIBILITY:
 // ----------------------
-// UE 5.0-5.7: All handlers supported
+// UE 5.0-5.8: Actions are version-guarded and project/module conditional
 // - Inventory component pattern stable across versions
 // - DataAsset/DataTable APIs unchanged
 //

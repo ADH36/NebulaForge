@@ -4091,6 +4091,8 @@ bool UNebulaForgeBridgeSubsystem::HandleManageLevelStructureAction(
         UDataLayerEditorSubsystem* DataLayerSubsystem = GEditor ? GEditor->GetEditorSubsystem<UDataLayerEditorSubsystem>() : nullptr;
         int32 ActivatedLayers = 0;
         int32 RuntimeActivatedLayers = 0;
+        const bool bHasWorldPartition = WorldPartition != nullptr;
+        const bool bHasDataLayerManager = WorldPartition && WorldPartition->GetDataLayerManager();
         if (!GEditor->PlayWorld && EditorWorldPartition && DataLayerSubsystem && EditorWorldPartition->GetDataLayerManager())
         {
             EditorWorldPartition->GetDataLayerManager()->ForEachDataLayerInstance([&](UDataLayerInstance* Instance) {
@@ -4111,16 +4113,23 @@ bool UNebulaForgeBridgeSubsystem::HandleManageLevelStructureAction(
             });
         }
         if (World) World->FlushLevelStreaming(EFlushLevelStreamingType::Full);
+        const bool bPrepared = World != nullptr && bHasWorldPartition && bHasDataLayerManager;
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
-        Result->SetBoolField(TEXT("success"), World != nullptr);
-        Result->SetStringField(TEXT("status"), World ? TEXT("PASS") : TEXT("FAIL"));
+        Result->SetBoolField(TEXT("success"), bPrepared);
+        Result->SetStringField(TEXT("status"), bPrepared ? TEXT("PASS") : (World ? TEXT("PARTIAL") : TEXT("FAIL")));
+        Result->SetBoolField(TEXT("worldPartitionAvailable"), bHasWorldPartition);
+        Result->SetBoolField(TEXT("dataLayerManagerAvailable"), bHasDataLayerManager);
         Result->SetNumberField(TEXT("activatedDataLayers"), ActivatedLayers);
         Result->SetNumberField(TEXT("runtimeActivatedDataLayers"), RuntimeActivatedLayers);
         Result->SetBoolField(TEXT("runtimeWorldPrepared"), GEditor && GEditor->PlayWorld != nullptr);
         Result->SetBoolField(TEXT("editorWorldAvailable"), EditorWorld != nullptr);
         Result->SetBoolField(TEXT("streamingFlushed"), World != nullptr);
-        Result->SetStringField(TEXT("evidence"), TEXT("World Partition data layers made visible/loaded in editor and level streaming flushed before PIE capture."));
-        SendAutomationResponse(Socket, RequestId, World != nullptr, TEXT("PIE capture prerequisites prepared"), Result, World ? FString() : TEXT("NO_WORLD"));
+        Result->SetStringField(TEXT("evidence"), bPrepared
+            ? TEXT("World Partition data layers made visible/loaded in editor or activated in PIE, and level streaming was flushed before capture.")
+            : (World ? TEXT("World exists, but World Partition/Data Layer prerequisites were unavailable; capture preparation is partial.")
+                    : TEXT("No editor or PIE world was available.")));
+        SendAutomationResponse(Socket, RequestId, bPrepared, TEXT("PIE capture prerequisites prepared"), Result,
+            bPrepared ? FString() : (World ? TEXT("WORLD_PARTITION_PREREQUISITES_UNAVAILABLE") : TEXT("NO_WORLD")));
         bHandled = true;
     }
     else if (SubAction == TEXT("create_data_layer"))

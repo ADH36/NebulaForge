@@ -279,7 +279,13 @@ inline const TArray<FString>& Lighting()
 		// Phase 29.3: Lightmass and precomputed lighting.
 		TEXT("configure_lightmass_settings"), TEXT("build_lighting_quality"),
 		TEXT("configure_indirect_lighting_cache"), TEXT("configure_volumetric_lightmaps"),
-		TEXT("configure_lightmass_ambient_occlusion"), TEXT("inspect_lightmass_settings")
+		TEXT("configure_lightmass_ambient_occlusion"), TEXT("inspect_lightmass_settings"),
+		// Phase 29.4: Reflection captures and dynamic reflections.
+		TEXT("create_sphere_reflection_capture"), TEXT("create_box_reflection_capture"),
+		TEXT("configure_capture_resolution"), TEXT("configure_capture_offset"),
+		TEXT("recapture_scene"), TEXT("create_planar_reflection"),
+		TEXT("configure_planar_reflection"), TEXT("configure_ssr_settings"),
+		TEXT("configure_lumen_reflection_settings"), TEXT("inspect_reflection_captures")
 	};
 	return Actions;
 }

@@ -121,6 +121,16 @@ export const TOOL_ACTIONS = {
   CONFIGURE_VOLUMETRIC_LIGHTMAPS: 'configure_volumetric_lightmaps',
   CONFIGURE_LIGHTMASS_AMBIENT_OCCLUSION: 'configure_lightmass_ambient_occlusion',
   INSPECT_LIGHTMASS_SETTINGS: 'inspect_lightmass_settings',
+  CREATE_SPHERE_REFLECTION_CAPTURE: 'create_sphere_reflection_capture',
+  CREATE_BOX_REFLECTION_CAPTURE: 'create_box_reflection_capture',
+  CONFIGURE_CAPTURE_RESOLUTION: 'configure_capture_resolution',
+  CONFIGURE_CAPTURE_OFFSET: 'configure_capture_offset',
+  RECAPTURE_SCENE: 'recapture_scene',
+  CREATE_PLANAR_REFLECTION: 'create_planar_reflection',
+  CONFIGURE_PLANAR_REFLECTION: 'configure_planar_reflection',
+  CONFIGURE_SSR_SETTINGS: 'configure_ssr_settings',
+  CONFIGURE_LUMEN_REFLECTION_SETTINGS: 'configure_lumen_reflection_settings',
+  INSPECT_REFLECTION_CAPTURES: 'inspect_reflection_captures',
 
   // ==================== PERFORMANCE ACTIONS ====================
   START_PROFILING: 'start_profiling',

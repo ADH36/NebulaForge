@@ -43,6 +43,16 @@ public:
 				TEXT("configure_volumetric_lightmaps"),
 				TEXT("configure_lightmass_ambient_occlusion"),
 				TEXT("inspect_lightmass_settings"),
+				TEXT("create_sphere_reflection_capture"),
+				TEXT("create_box_reflection_capture"),
+				TEXT("configure_capture_resolution"),
+				TEXT("configure_capture_offset"),
+				TEXT("recapture_scene"),
+				TEXT("create_planar_reflection"),
+				TEXT("configure_planar_reflection"),
+				TEXT("configure_ssr_settings"),
+				TEXT("configure_lumen_reflection_settings"),
+				TEXT("inspect_reflection_captures"),
 				TEXT("list_light_types")
 			}, TEXT("Action"))
 			.String(TEXT("name"), TEXT("Name identifier."))
@@ -128,6 +138,40 @@ public:
 			.Bool(TEXT("updateEveryFrame"), TEXT("Update the indirect lighting cache every frame."))
 			.Number(TEXT("lightingCacheDimension"), TEXT("Indirect lighting cache dimension."))
 			.Number(TEXT("movableObjectAllocationSize"), TEXT("Indirect lighting cache allocation size."))
+			.String(TEXT("captureName"), TEXT("Reflection capture or planar reflection actor name/path."))
+			.StringEnum(TEXT("captureType"), { TEXT("sphere"), TEXT("box"), TEXT("planar") }, TEXT("Reflection capture shape."))
+			.Number(TEXT("influenceRadius"), TEXT("Sphere capture influence radius."))
+			.Number(TEXT("boxTransitionDistance"), TEXT("Box capture transition distance."))
+			.FreeformObject(TEXT("captureOffset"), TEXT("World-space reflection capture offset."))
+			.Number(TEXT("captureResolution"), TEXT("Reflection capture cubemap resolution; must be a power of two."))
+			.Number(TEXT("sourceCubemapAngle"), TEXT("Source cubemap rotation angle."))
+			.Number(TEXT("brightness"), TEXT("Reflection capture brightness multiplier."))
+			.Bool(TEXT("runtimeCapture"), TEXT("Generate reflection capture content at runtime."))
+			.Number(TEXT("maxViewDistance"), TEXT("Runtime capture maximum view distance."))
+			.Bool(TEXT("fastRender"), TEXT("Render all capture faces in one frame when refreshing."))
+			.Bool(TEXT("smoothBlend"), TEXT("Smoothly blend runtime capture refreshes."))
+			.Number(TEXT("normalDistortionStrength"), TEXT("Planar reflection normal distortion."))
+			.Number(TEXT("prefilterRoughness"), TEXT("Planar reflection prefilter roughness."))
+			.Number(TEXT("prefilterRoughnessDistance"), TEXT("Distance at which planar prefilter roughness is reached."))
+			.Number(TEXT("distanceFromPlaneFadeoutStart"), TEXT("Planar reflection distance fade start."))
+			.Number(TEXT("distanceFromPlaneFadeoutEnd"), TEXT("Planar reflection distance fade end."))
+			.Number(TEXT("angleFromPlaneFadeStart"), TEXT("Planar reflection angle fade start."))
+			.Number(TEXT("angleFromPlaneFadeEnd"), TEXT("Planar reflection angle fade end."))
+			.Number(TEXT("screenPercentage"), TEXT("Planar reflection render screen percentage."))
+			.Number(TEXT("extraFOV"), TEXT("Extra field of view for planar reflections."))
+			.Bool(TEXT("renderSceneTwoSided"), TEXT("Render planar reflection scene two-sided."))
+			.Bool(TEXT("showPreviewPlane"), TEXT("Show the planar reflection preview plane."))
+			.Bool(TEXT("ssrEnabled"), TEXT("Enable screen-space reflections."))
+			.Number(TEXT("ssrIntensity"), TEXT("SSR intensity percentage."))
+			.Number(TEXT("ssrQuality"), TEXT("SSR quality from 0 to 100."))
+			.Number(TEXT("ssrMaxRoughness"), TEXT("Maximum roughness receiving SSR."))
+			.Bool(TEXT("lumenReflectionsEnabled"), TEXT("Enable Lumen reflections."))
+			.Number(TEXT("lumenReflectionQuality"), TEXT("Lumen reflection scalability quality."))
+			.Number(TEXT("lumenReflectionMaxRoughness"), TEXT("Lumen maximum roughness to trace."))
+			.Number(TEXT("lumenReflectionMaxBounces"), TEXT("Lumen reflection bounce count."))
+			.Number(TEXT("lumenReflectionDownsampleFactor"), TEXT("Lumen reflection downsample factor."))
+			.Bool(TEXT("lumenReflectionScreenTraces"), TEXT("Use screen traces for Lumen reflections."))
+			.Bool(TEXT("lumenReflectionDownsampleCheckerboard"), TEXT("Use checkerboard downsampling for Lumen reflections."))
 			.String(TEXT("shadowQuality"), TEXT(""))
 			.Bool(TEXT("cascadedShadows"), TEXT(""))
 			.Number(TEXT("shadowDistance"), TEXT(""))

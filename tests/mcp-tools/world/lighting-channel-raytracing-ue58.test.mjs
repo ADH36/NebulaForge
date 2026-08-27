@@ -40,8 +40,24 @@ const testCases = [
   { scenario: 'LIGHTMASS: inspect current settings', toolName: 'build_environment', arguments: { action: 'inspect_lightmass_settings' }, expected: 'success' },
   { scenario: 'LIGHTMASS: start a preview quality build', toolName: 'build_environment', arguments: { action: 'build_lighting_quality', quality: 'Preview' }, expected: 'success|already exists' },
 
+  // === REFLECTION CAPTURES / DYNAMIC REFLECTIONS ===
+  { scenario: 'REFLECTION: configure capture cubemap resolution', toolName: 'build_environment', arguments: { action: 'configure_capture_resolution', captureResolution: 256 }, expected: 'success' },
+  { scenario: 'REFLECTION: create sphere capture', toolName: 'build_environment', arguments: { action: 'create_sphere_reflection_capture', name: `${DEMO_LIGHT_NAME}_SphereCapture`, location: { x: 0, y: 0, z: 200 }, captureOffset: { x: 10, y: 20, z: 30 }, influenceRadius: 1500, brightness: 1, sourceCubemapAngle: 0, runtimeCapture: false, maxViewDistance: 0 }, expected: 'success' },
+  { scenario: 'REFLECTION: create box capture with transition', toolName: 'build_environment', arguments: { action: 'create_box_reflection_capture', name: `${DEMO_LIGHT_NAME}_BoxCapture`, location: { x: 500, y: 0, z: 200 }, size: { x: 1000, y: 1000, z: 500 }, boxTransitionDistance: 100, captureOffset: { x: 0, y: 0, z: 0 }, influenceRadius: 1000, brightness: 1, sourceCubemapAngle: 45, runtimeCapture: false, maxViewDistance: 0 }, expected: 'success' },
+  { scenario: 'REFLECTION: configure capture offset', toolName: 'build_environment', arguments: { action: 'configure_capture_offset', captureName: `${DEMO_LIGHT_NAME}_SphereCapture`, captureOffset: { x: 0, y: 0, z: 50 } }, expected: 'success' },
+  { scenario: 'REFLECTION: create planar reflection with full tuning', toolName: 'build_environment', arguments: { action: 'create_planar_reflection', name: `${DEMO_LIGHT_NAME}_PlanarReflection`, location: { x: 0, y: 0, z: 0 }, normalDistortionStrength: 0, prefilterRoughness: 0.04, prefilterRoughnessDistance: 1000, distanceFromPlaneFadeoutStart: 100, distanceFromPlaneFadeoutEnd: 2000, angleFromPlaneFadeStart: 0, angleFromPlaneFadeEnd: 90, screenPercentage: 75, extraFOV: 0, renderSceneTwoSided: false, showPreviewPlane: true }, expected: 'success' },
+  { scenario: 'REFLECTION: configure planar reflection', toolName: 'build_environment', arguments: { action: 'configure_planar_reflection', captureName: `${DEMO_LIGHT_NAME}_PlanarReflection`, normalDistortionStrength: 0.1, prefilterRoughness: 0.02, screenPercentage: 80, renderSceneTwoSided: true, showPreviewPlane: false }, expected: 'success' },
+  { scenario: 'REFLECTION: configure SSR settings', toolName: 'build_environment', arguments: { action: 'configure_ssr_settings', ssrEnabled: true, ssrIntensity: 100, ssrQuality: 50, ssrMaxRoughness: 0.8 }, expected: 'success' },
+  { scenario: 'REFLECTION: configure Lumen reflection settings', toolName: 'build_environment', arguments: { action: 'configure_lumen_reflection_settings', lumenReflectionsEnabled: true, lumenReflectionQuality: 2, lumenReflectionMaxRoughness: 0.4, lumenReflectionMaxBounces: 2, lumenReflectionDownsampleFactor: 1, lumenReflectionScreenTraces: true, lumenReflectionDownsampleCheckerboard: false }, expected: 'success' },
+  { scenario: 'REFLECTION: inspect reflection captures', toolName: 'build_environment', arguments: { action: 'inspect_reflection_captures' }, expected: 'success' },
+  { scenario: 'REFLECTION: exercise capture type selector', toolName: 'build_environment', arguments: { action: 'inspect_reflection_captures', captureType: 'sphere' }, expected: 'success' },
+  { scenario: 'REFLECTION: recapture reflection scene', toolName: 'build_environment', arguments: { action: 'recapture_scene', captureName: `${DEMO_LIGHT_NAME}_SphereCapture`, fastRender: true, smoothBlend: false }, expected: 'success' },
+
   // === CLEANUP ===
   { scenario: 'Cleanup: delete demo light actor', toolName: 'control_actor', arguments: { action: 'delete', actorName: DEMO_LIGHT_NAME }, expected: 'success|not found' },
+  { scenario: 'Cleanup: delete sphere reflection capture', toolName: 'control_actor', arguments: { action: 'delete', actorName: `${DEMO_LIGHT_NAME}_SphereCapture` }, expected: 'success|not found' },
+  { scenario: 'Cleanup: delete box reflection capture', toolName: 'control_actor', arguments: { action: 'delete', actorName: `${DEMO_LIGHT_NAME}_BoxCapture` }, expected: 'success|not found' },
+  { scenario: 'Cleanup: delete planar reflection', toolName: 'control_actor', arguments: { action: 'delete', actorName: `${DEMO_LIGHT_NAME}_PlanarReflection` }, expected: 'success|not found' },
 ];
 
 runToolTests('lighting-channel-raytracing-ue58', testCases);

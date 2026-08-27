@@ -547,6 +547,65 @@ async function configureIndirectLightingCache(
   )) as Record<string, unknown>;
 }
 
+/** Reflection capture, planar reflection, SSR, and Lumen reflection controls. */
+async function configureReflectionAction(
+  tools: ITools,
+  action: string,
+  args: LightingArgs
+): Promise<Record<string, unknown>> {
+  const location = toLocationObj(args.location);
+  const rotation = toRotationObj(args.rotation);
+  const captureOffset = toLocationObj(args.captureOffset);
+  const target = args.captureName || args.lightName || args.actorName || args.actorPath || args.name;
+  const payload: Record<string, unknown> = {
+    name: args.name,
+    captureName: args.captureName,
+    target,
+    location,
+    rotation,
+    captureOffset,
+    influenceRadius: toNumber(args.influenceRadius),
+    boxTransitionDistance: toNumber(args.boxTransitionDistance),
+    captureResolution: toNumber(args.captureResolution),
+    sourceCubemapAngle: toNumber(args.sourceCubemapAngle),
+    brightness: toNumber(args.brightness),
+    runtimeCapture: toBoolean(args.runtimeCapture),
+    maxViewDistance: toNumber(args.maxViewDistance),
+    fastRender: toBoolean(args.fastRender),
+    smoothBlend: toBoolean(args.smoothBlend),
+    normalDistortionStrength: toNumber(args.normalDistortionStrength),
+    prefilterRoughness: toNumber(args.prefilterRoughness),
+    prefilterRoughnessDistance: toNumber(args.prefilterRoughnessDistance),
+    distanceFromPlaneFadeoutStart: toNumber(args.distanceFromPlaneFadeoutStart),
+    distanceFromPlaneFadeoutEnd: toNumber(args.distanceFromPlaneFadeoutEnd),
+    angleFromPlaneFadeStart: toNumber(args.angleFromPlaneFadeStart),
+    angleFromPlaneFadeEnd: toNumber(args.angleFromPlaneFadeEnd),
+    screenPercentage: toNumber(args.screenPercentage),
+    extraFOV: toNumber(args.extraFOV),
+    renderSceneTwoSided: toBoolean(args.renderSceneTwoSided),
+    showPreviewPlane: toBoolean(args.showPreviewPlane),
+    ssrEnabled: args.ssrEnabled === undefined ? toBoolean(args.enabled) : toBoolean(args.ssrEnabled),
+    ssrIntensity: toNumber(args.ssrIntensity),
+    ssrQuality: toNumber(args.ssrQuality),
+    ssrMaxRoughness: toNumber(args.ssrMaxRoughness),
+    lumenReflectionsEnabled: args.lumenReflectionsEnabled === undefined ? toBoolean(args.enabled) : toBoolean(args.lumenReflectionsEnabled),
+    lumenReflectionQuality: toNumber(args.lumenReflectionQuality),
+    lumenReflectionMaxRoughness: toNumber(args.lumenReflectionMaxRoughness),
+    lumenReflectionMaxBounces: toNumber(args.lumenReflectionMaxBounces),
+    lumenReflectionDownsampleFactor: toNumber(args.lumenReflectionDownsampleFactor),
+    lumenReflectionScreenTraces: toBoolean(args.lumenReflectionScreenTraces),
+    lumenReflectionDownsampleCheckerboard: toBoolean(args.lumenReflectionDownsampleCheckerboard),
+    captureType: toString(args.captureType)
+  };
+
+  return cleanObject(await executeAutomationRequest(
+    tools,
+    action,
+    payload,
+    `Automation bridge not available for ${action}`
+  )) as Record<string, unknown>;
+}
+
 /**
  * Create lighting enabled level
  */
@@ -926,6 +985,18 @@ export async function handleLightingTools(action: string, args: LightingArgs, to
 
     case 'configure_indirect_lighting_cache':
       return configureIndirectLightingCache(tools, args);
+
+    case 'create_sphere_reflection_capture':
+    case 'create_box_reflection_capture':
+    case 'configure_capture_resolution':
+    case 'configure_capture_offset':
+    case 'recapture_scene':
+    case 'create_planar_reflection':
+    case 'configure_planar_reflection':
+    case 'configure_ssr_settings':
+    case 'configure_lumen_reflection_settings':
+    case 'inspect_reflection_captures':
+      return configureReflectionAction(tools, action, args);
 
     case 'build_lighting':
       return cleanObject(await buildLighting(tools, args));

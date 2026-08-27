@@ -25,6 +25,8 @@
 // - build_lighting_quality
 // - configure_indirect_lighting_cache / configure_volumetric_lightmaps
 // - configure_lightmass_ambient_occlusion
+// - create/configure reflection captures and planar reflections
+// - configure SSR/Lumen reflections and inspect reflection captures
 //
 // UE VERSION COMPATIBILITY:
 // - UE 5.0-5.7: Full support for all lighting types
@@ -77,6 +79,14 @@
 #include "Engine/RectLight.h"
 #include "Engine/SkyLight.h"
 #include "Engine/SpotLight.h"
+#include "Engine/ReflectionCapture.h"
+#include "Engine/SphereReflectionCapture.h"
+#include "Engine/BoxReflectionCapture.h"
+#include "Engine/PlanarReflection.h"
+#include "Components/ReflectionCaptureComponent.h"
+#include "Components/SphereReflectionCaptureComponent.h"
+#include "Components/BoxReflectionCaptureComponent.h"
+#include "Components/PlanarReflectionComponent.h"
 #include "GameFramework/WorldSettings.h"
 #include "Lightmass/LightmassImportanceVolume.h"
 
@@ -283,6 +293,68 @@ static bool GetOptionalLightmassFloat(
         MemberProperty->ContainerPtrToValuePtr<void>(SettingsData));
     return true;
 }
+
+static FString GetReflectionTarget(const TSharedPtr<FJsonObject>& Payload)
+{
+    FString Target;
+    const TCHAR* Fields[] = {
+        TEXT("target"), TEXT("captureName"), TEXT("actorPath"), TEXT("actorName"), TEXT("name")
+    };
+    for (const TCHAR* Field : Fields)
+    {
+        if (Payload->TryGetStringField(Field, Target) && !Target.IsEmpty())
+        {
+            return Target;
+        }
+    }
+    return FString();
+}
+
+static bool ReadJsonVector(
+    const TSharedPtr<FJsonObject>& Payload,
+    const TCHAR* FieldName,
+    FVector& OutVector)
+{
+    const TSharedPtr<FJsonObject>* VectorObject = nullptr;
+    if (!Payload->TryGetObjectField(FieldName, VectorObject) || !VectorObject || !VectorObject->IsValid())
+    {
+        return false;
+    }
+
+    OutVector.X = GetJsonNumberField(*VectorObject, TEXT("x"));
+    OutVector.Y = GetJsonNumberField(*VectorObject, TEXT("y"));
+    OutVector.Z = GetJsonNumberField(*VectorObject, TEXT("z"));
+    return true;
+}
+
+static UReflectionCaptureComponent* GetReflectionCaptureComponent(AActor* Actor)
+{
+    AReflectionCapture* Capture = Cast<AReflectionCapture>(Actor);
+    return Capture ? Capture->GetCaptureComponent() : nullptr;
+}
+
+static TSharedPtr<FJsonObject> MakeReflectionCaptureResult(
+    AActor* Actor,
+    const TCHAR* CaptureType,
+    const UReflectionCaptureComponent* Component)
+{
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetBoolField(TEXT("success"), true);
+    Response->SetStringField(TEXT("actorName"), Actor->GetActorLabel());
+    Response->SetStringField(TEXT("actorPath"), Actor->GetPathName());
+    Response->SetStringField(TEXT("captureType"), CaptureType);
+    Response->SetNumberField(TEXT("brightness"), Component->Brightness);
+    TSharedPtr<FJsonObject> CaptureOffset = McpHandlerUtils::CreateResultObject();
+    CaptureOffset->SetNumberField(TEXT("x"), Component->CaptureOffset.X);
+    CaptureOffset->SetNumberField(TEXT("y"), Component->CaptureOffset.Y);
+    CaptureOffset->SetNumberField(TEXT("z"), Component->CaptureOffset.Z);
+    Response->SetObjectField(TEXT("captureOffset"), CaptureOffset);
+    Response->SetNumberField(TEXT("sourceCubemapAngle"), Component->SourceCubemapAngle);
+    Response->SetBoolField(TEXT("runtimeCapture"), Component->bRuntimeCapture);
+    Response->SetNumberField(TEXT("maxViewDistance"), Component->MaxViewDistance);
+    McpHandlerUtils::AddVerification(Response, Actor);
+    return Response;
+}
 #endif
 }
 
@@ -344,7 +416,17 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         Lower.StartsWith(TEXT("configure_indirect_lighting_cache")) ||
         Lower.StartsWith(TEXT("configure_volumetric_lightmaps")) ||
         Lower.StartsWith(TEXT("configure_lightmass_ambient_occlusion")) ||
-        Lower.StartsWith(TEXT("inspect_lightmass_settings"));
+        Lower.StartsWith(TEXT("inspect_lightmass_settings")) ||
+        Lower.StartsWith(TEXT("create_sphere_reflection_capture")) ||
+        Lower.StartsWith(TEXT("create_box_reflection_capture")) ||
+        Lower.StartsWith(TEXT("configure_capture_resolution")) ||
+        Lower.StartsWith(TEXT("configure_capture_offset")) ||
+        Lower.StartsWith(TEXT("recapture_scene")) ||
+        Lower.StartsWith(TEXT("create_planar_reflection")) ||
+        Lower.StartsWith(TEXT("configure_planar_reflection")) ||
+        Lower.StartsWith(TEXT("configure_ssr_settings")) ||
+        Lower.StartsWith(TEXT("configure_lumen_reflection_settings")) ||
+        Lower.StartsWith(TEXT("inspect_reflection_captures"));
     if (!bKnownLightingAction)
     {
         if (Action.Equals(TEXT("manage_lighting"), ESearchCase::IgnoreCase))
@@ -1715,6 +1797,478 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         Resp->SetNumberField(TEXT("appliedCount"), AppliedCVars.Num());
         SendAutomationResponse(RequestingSocket, RequestId, true,
             TEXT("Indirect lighting cache configured"), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // Phase 29.4: Reflection captures, planar reflections, SSR, and Lumen
+    // =========================================================================
+    if (Lower == TEXT("create_sphere_reflection_capture") ||
+        Lower == TEXT("create_box_reflection_capture"))
+    {
+        FVector Location = FVector::ZeroVector;
+        ReadJsonVector(Payload, TEXT("location"), Location);
+        FRotator Rotation = FRotator::ZeroRotator;
+        const TSharedPtr<FJsonObject>* RotationObject = nullptr;
+        if (Payload->TryGetObjectField(TEXT("rotation"), RotationObject) && RotationObject && RotationObject->IsValid())
+        {
+            Rotation.Pitch = GetJsonNumberField(*RotationObject, TEXT("pitch"));
+            Rotation.Yaw = GetJsonNumberField(*RotationObject, TEXT("yaw"));
+            Rotation.Roll = GetJsonNumberField(*RotationObject, TEXT("roll"));
+        }
+
+        FString Name;
+        Payload->TryGetStringField(TEXT("name"), Name);
+        AActor* Actor = SpawnActorInActiveWorld<AActor>(
+            Lower == TEXT("create_sphere_reflection_capture")
+                ? ASphereReflectionCapture::StaticClass()
+                : ABoxReflectionCapture::StaticClass(),
+            Location, Rotation);
+        if (!Actor)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Failed to spawn reflection capture"), TEXT("SPAWN_FAILED"));
+            return true;
+        }
+        if (!Name.IsEmpty())
+        {
+            Actor->SetActorLabel(Name);
+        }
+
+        UReflectionCaptureComponent* Component = GetReflectionCaptureComponent(Actor);
+        if (!Component)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Reflection capture component not available"), TEXT("COMPONENT_NOT_AVAILABLE"));
+            return true;
+        }
+
+        Actor->Modify();
+        Component->Modify();
+        double NumberValue = 0.0;
+        if (Payload->TryGetNumberField(TEXT("brightness"), NumberValue) && NumberValue >= 0.0)
+        {
+            Component->Brightness = static_cast<float>(NumberValue);
+        }
+        if (Payload->TryGetNumberField(TEXT("sourceCubemapAngle"), NumberValue))
+        {
+            Component->SourceCubemapAngle = static_cast<float>(FMath::Clamp(NumberValue, 0.0, 360.0));
+        }
+        if (Payload->TryGetNumberField(TEXT("maxViewDistance"), NumberValue) && NumberValue >= 0.0)
+        {
+            Component->MaxViewDistance = static_cast<float>(NumberValue);
+        }
+        bool BoolValue = false;
+        if (Payload->TryGetBoolField(TEXT("runtimeCapture"), BoolValue))
+        {
+            Component->bRuntimeCapture = BoolValue;
+        }
+        FVector CaptureOffset;
+        if (ReadJsonVector(Payload, TEXT("captureOffset"), CaptureOffset))
+        {
+            Component->CaptureOffset = CaptureOffset;
+        }
+
+        if (Payload->TryGetNumberField(TEXT("captureResolution"), NumberValue) &&
+            FMath::IsFinite(NumberValue) && NumberValue >= 1.0 && NumberValue <= 4096.0 &&
+            FMath::RoundToInt(NumberValue) == NumberValue &&
+            (FMath::RoundToInt(NumberValue) & (FMath::RoundToInt(NumberValue) - 1)) == 0)
+        {
+            if (IConsoleVariable* ResolutionCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ReflectionCaptureResolution")))
+            {
+                ResolutionCVar->Set(FMath::RoundToInt(NumberValue));
+            }
+        }
+
+        const FString CaptureType = Lower == TEXT("create_sphere_reflection_capture") ? TEXT("sphere") : TEXT("box");
+        if (CaptureType == TEXT("sphere"))
+        {
+            if (USphereReflectionCaptureComponent* Sphere = Cast<USphereReflectionCaptureComponent>(Component))
+            {
+                if (Payload->TryGetNumberField(TEXT("influenceRadius"), NumberValue) && NumberValue > 0.0)
+                {
+                    Sphere->InfluenceRadius = static_cast<float>(NumberValue);
+                }
+                Sphere->UpdatePreviewShape();
+            }
+        }
+        else if (UBoxReflectionCaptureComponent* Box = Cast<UBoxReflectionCaptureComponent>(Component))
+        {
+            if (Payload->TryGetNumberField(TEXT("boxTransitionDistance"), NumberValue) && NumberValue >= 0.0)
+            {
+                Box->BoxTransitionDistance = static_cast<float>(NumberValue);
+            }
+            FVector Size;
+            if (ReadJsonVector(Payload, TEXT("size"), Size) && Size.X > 0.0 && Size.Y > 0.0 && Size.Z > 0.0)
+            {
+                Actor->SetActorScale3D(Size / 100.0f);
+            }
+            Box->UpdatePreviewShape();
+        }
+
+        Component->PostEditChange();
+        Component->MarkRenderStateDirty();
+        bool bRecapture = false;
+        Payload->TryGetBoolField(TEXT("recapture"), bRecapture);
+        if (bRecapture)
+        {
+            if (Component->bRuntimeCapture)
+            {
+                bool bFastRender = false;
+                bool bSmoothBlend = false;
+                Payload->TryGetBoolField(TEXT("fastRender"), bFastRender);
+                Payload->TryGetBoolField(TEXT("smoothBlend"), bSmoothBlend);
+                Component->RefreshCapture(bFastRender, bSmoothBlend);
+            }
+            else
+            {
+                Component->MarkDirtyForRecapture();
+                UReflectionCaptureComponent::UpdateReflectionCaptureContents(
+                    Actor->GetWorld(), TEXT("NebulaForge MCP"), false, false, false);
+            }
+        }
+
+        TSharedPtr<FJsonObject> Response = MakeReflectionCaptureResult(Actor, *CaptureType, Component);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Reflection capture created"), Response);
+        return true;
+    }
+
+    if (Lower == TEXT("configure_capture_resolution"))
+    {
+        double Resolution = 0.0;
+        if (!Payload->TryGetNumberField(TEXT("captureResolution"), Resolution) ||
+            !FMath::IsFinite(Resolution) || Resolution < 1.0 || Resolution > 4096.0 ||
+            FMath::RoundToInt(Resolution) != Resolution ||
+            (FMath::RoundToInt(Resolution) & (FMath::RoundToInt(Resolution) - 1)) != 0)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("captureResolution must be a power of two from 1 to 4096"),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ReflectionCaptureResolution"));
+        TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+        Response->SetBoolField(TEXT("success"), true);
+        Response->SetNumberField(TEXT("captureResolution"), Resolution);
+        if (CVar)
+        {
+            CVar->Set(FMath::RoundToInt(Resolution));
+            Response->SetBoolField(TEXT("supported"), true);
+            Response->SetStringField(TEXT("appliedCVar"), TEXT("r.ReflectionCaptureResolution"));
+        }
+        else
+        {
+            Response->SetBoolField(TEXT("supported"), false);
+            Response->SetStringField(TEXT("unsupportedReason"), TEXT("r.ReflectionCaptureResolution is unavailable in this engine"));
+        }
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Reflection capture resolution configured"), Response);
+        return true;
+    }
+
+    if (Lower == TEXT("configure_capture_offset"))
+    {
+        const FString Target = GetReflectionTarget(Payload);
+        AActor* Actor = Target.IsEmpty() ? nullptr : FindActorByName(Target, true);
+        UReflectionCaptureComponent* Component = GetReflectionCaptureComponent(Actor);
+        FVector CaptureOffset;
+        if (!Actor || !Component || !ReadJsonVector(Payload, TEXT("captureOffset"), CaptureOffset))
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("configure_capture_offset requires a reflection capture target and captureOffset {x,y,z}"),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        Actor->Modify();
+        Component->Modify();
+        Component->CaptureOffset = CaptureOffset;
+        Component->PostEditChange();
+        Component->MarkDirtyForRecapture();
+
+        TSharedPtr<FJsonObject> Response = MakeReflectionCaptureResult(
+            Actor, Actor->IsA<ASphereReflectionCapture>() ? TEXT("sphere") : TEXT("box"), Component);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Reflection capture offset configured"), Response);
+        return true;
+    }
+
+    if (Lower == TEXT("recapture_scene"))
+    {
+        const FString Target = GetReflectionTarget(Payload);
+        TArray<AActor*> Captures;
+        if (!Target.IsEmpty())
+        {
+            if (AActor* Actor = FindActorByName(Target, true))
+            {
+                Captures.Add(Actor);
+            }
+        }
+        else
+        {
+            Captures = ActorSS->GetAllLevelActors();
+        }
+
+        bool bFastRender = false;
+        bool bSmoothBlend = false;
+        Payload->TryGetBoolField(TEXT("fastRender"), bFastRender);
+        Payload->TryGetBoolField(TEXT("smoothBlend"), bSmoothBlend);
+        int32 RecapturedCount = 0;
+        for (AActor* Actor : Captures)
+        {
+            if (UReflectionCaptureComponent* Component = GetReflectionCaptureComponent(Actor))
+            {
+                if (Component->bRuntimeCapture)
+                {
+                    Component->RefreshCapture(bFastRender, bSmoothBlend);
+                }
+                else
+                {
+                    Component->MarkDirtyForRecapture();
+                }
+                ++RecapturedCount;
+            }
+        }
+        if (RecapturedCount > 0)
+        {
+            UReflectionCaptureComponent::UpdateReflectionCaptureContents(
+                GEditor->GetEditorWorldContext().World(), TEXT("NebulaForge MCP"), false, false, false);
+        }
+
+        TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+        Response->SetBoolField(TEXT("success"), true);
+        Response->SetNumberField(TEXT("recapturedCount"), RecapturedCount);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Reflection captures queued for recapture"), Response);
+        return true;
+    }
+
+    if (Lower == TEXT("create_planar_reflection") || Lower == TEXT("configure_planar_reflection"))
+    {
+        AActor* Actor = nullptr;
+        if (Lower == TEXT("create_planar_reflection"))
+        {
+            FVector Location = FVector::ZeroVector;
+            ReadJsonVector(Payload, TEXT("location"), Location);
+            FRotator Rotation = FRotator::ZeroRotator;
+            const TSharedPtr<FJsonObject>* RotationObject = nullptr;
+            if (Payload->TryGetObjectField(TEXT("rotation"), RotationObject) && RotationObject && RotationObject->IsValid())
+            {
+                Rotation.Pitch = GetJsonNumberField(*RotationObject, TEXT("pitch"));
+                Rotation.Yaw = GetJsonNumberField(*RotationObject, TEXT("yaw"));
+                Rotation.Roll = GetJsonNumberField(*RotationObject, TEXT("roll"));
+            }
+            Actor = SpawnActorInActiveWorld<AActor>(APlanarReflection::StaticClass(), Location, Rotation);
+            FString Name;
+            if (Actor && Payload->TryGetStringField(TEXT("name"), Name) && !Name.IsEmpty())
+            {
+                Actor->SetActorLabel(Name);
+            }
+        }
+        else
+        {
+            const FString Target = GetReflectionTarget(Payload);
+            Actor = Target.IsEmpty() ? nullptr : FindActorByName(Target, true);
+        }
+
+        APlanarReflection* PlanarActor = Cast<APlanarReflection>(Actor);
+        UPlanarReflectionComponent* Component = PlanarActor ? PlanarActor->GetPlanarReflectionComponent() : nullptr;
+        if (!PlanarActor || !Component)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("A planar reflection actor was not found or could not be created"),
+                TEXT("ACTOR_NOT_FOUND"));
+            return true;
+        }
+
+        FString InvalidField;
+        auto SetPlanarFloat = [&](const TCHAR* Field, float& Setting, double Minimum, double Maximum) {
+            if (!Payload->HasField(Field)) return true;
+            double Value = 0.0;
+            if (!Payload->TryGetNumberField(Field, Value) || !FMath::IsFinite(Value) || Value < Minimum || Value > Maximum)
+            {
+                InvalidField = FString::Printf(TEXT("%s must be between %g and %g"), Field, Minimum, Maximum);
+                return false;
+            }
+            Setting = static_cast<float>(Value);
+            return true;
+        };
+        auto SetPlanarBool = [&](const TCHAR* Field, bool& Setting) {
+            if (!Payload->HasField(Field)) return true;
+            if (!Payload->TryGetBoolField(Field, Setting))
+            {
+                InvalidField = FString::Printf(TEXT("%s must be boolean"), Field);
+                return false;
+            }
+            return true;
+        };
+
+        Component->Modify();
+        bool bValid = SetPlanarFloat(TEXT("normalDistortionStrength"), Component->NormalDistortionStrength, 0.0, 1000.0);
+        bValid = SetPlanarFloat(TEXT("prefilterRoughness"), Component->PrefilterRoughness, 0.0, 1.0) && bValid;
+        bValid = SetPlanarFloat(TEXT("prefilterRoughnessDistance"), Component->PrefilterRoughnessDistance, 0.0, 100000.0) && bValid;
+        bValid = SetPlanarFloat(TEXT("distanceFromPlaneFadeoutStart"), Component->DistanceFromPlaneFadeoutStart, 0.0, 100000.0) && bValid;
+        bValid = SetPlanarFloat(TEXT("distanceFromPlaneFadeoutEnd"), Component->DistanceFromPlaneFadeoutEnd, 0.0, 100000.0) && bValid;
+        bValid = SetPlanarFloat(TEXT("angleFromPlaneFadeStart"), Component->AngleFromPlaneFadeStart, 0.0, 90.0) && bValid;
+        bValid = SetPlanarFloat(TEXT("angleFromPlaneFadeEnd"), Component->AngleFromPlaneFadeEnd, 0.0, 90.0) && bValid;
+        bValid = SetPlanarFloat(TEXT("extraFOV"), Component->ExtraFOV, 0.0, 180.0) && bValid;
+        bValid = SetPlanarBool(TEXT("renderSceneTwoSided"), Component->bRenderSceneTwoSided) && bValid;
+        bValid = SetPlanarBool(TEXT("showPreviewPlane"), Component->bShowPreviewPlane) && bValid;
+
+        if (Payload->HasField(TEXT("screenPercentage")))
+        {
+            double Value = 0.0;
+            const int32 Rounded = Payload->TryGetNumberField(TEXT("screenPercentage"), Value) ? FMath::RoundToInt(Value) : 0;
+            if (!Payload->TryGetNumberField(TEXT("screenPercentage"), Value) || Rounded != Value || Rounded < 1 || Rounded > 100)
+            {
+                InvalidField = TEXT("screenPercentage must be an integer from 1 to 100");
+                bValid = false;
+            }
+            else
+            {
+                Component->ScreenPercentage = Rounded;
+            }
+        }
+        if (!bValid)
+        {
+            SendAutomationError(RequestingSocket, RequestId, InvalidField, TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        Component->UpdatePreviewShape();
+        Component->PostEditChange();
+        Component->MarkRenderStateDirty();
+
+        TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+        Response->SetBoolField(TEXT("success"), true);
+        Response->SetStringField(TEXT("actorName"), PlanarActor->GetActorLabel());
+        Response->SetStringField(TEXT("actorPath"), PlanarActor->GetPathName());
+        Response->SetNumberField(TEXT("screenPercentage"), Component->ScreenPercentage);
+        Response->SetNumberField(TEXT("normalDistortionStrength"), Component->NormalDistortionStrength);
+        Response->SetNumberField(TEXT("prefilterRoughness"), Component->PrefilterRoughness);
+        Response->SetNumberField(TEXT("distanceFromPlaneFadeoutStart"), Component->DistanceFromPlaneFadeoutStart);
+        Response->SetNumberField(TEXT("distanceFromPlaneFadeoutEnd"), Component->DistanceFromPlaneFadeoutEnd);
+        McpHandlerUtils::AddVerification(Response, PlanarActor);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            Lower == TEXT("create_planar_reflection") ? TEXT("Planar reflection created") : TEXT("Planar reflection configured"), Response);
+        return true;
+    }
+
+    if (Lower == TEXT("configure_ssr_settings") || Lower == TEXT("configure_lumen_reflection_settings"))
+    {
+        TArray<TSharedPtr<FJsonValue>> AppliedCVars;
+        TArray<TSharedPtr<FJsonValue>> UnsupportedCVars;
+        FString InvalidField;
+        auto SetReflectionCVar = [&](const TCHAR* Field, const TCHAR* CVarName, bool bInteger, double Minimum, double Maximum) {
+            if (!Payload->HasField(Field)) return;
+            IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(CVarName);
+            if (!CVar)
+            {
+                UnsupportedCVars.Add(MakeShared<FJsonValueString>(CVarName));
+                return;
+            }
+            double Value = 0.0;
+            if (!Payload->TryGetNumberField(Field, Value) || !FMath::IsFinite(Value) || Value < Minimum || Value > Maximum)
+            {
+                InvalidField = FString::Printf(TEXT("%s must be between %g and %g"), Field, Minimum, Maximum);
+                return;
+            }
+            if (bInteger)
+            {
+                if (FMath::RoundToInt(Value) != Value)
+                {
+                    InvalidField = FString::Printf(TEXT("%s must be an integer"), Field);
+                    return;
+                }
+                CVar->Set(FMath::RoundToInt(Value));
+            }
+            else
+            {
+                CVar->Set(static_cast<float>(Value));
+            }
+            AppliedCVars.Add(MakeShared<FJsonValueString>(CVarName));
+        };
+        auto SetReflectionBoolCVar = [&](const TCHAR* Field, const TCHAR* CVarName) {
+            if (!Payload->HasField(Field)) return;
+            IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(CVarName);
+            if (!CVar)
+            {
+                UnsupportedCVars.Add(MakeShared<FJsonValueString>(CVarName));
+                return;
+            }
+            bool Value = false;
+            if (!Payload->TryGetBoolField(Field, Value))
+            {
+                InvalidField = FString::Printf(TEXT("%s must be boolean"), Field);
+                return;
+            }
+            CVar->Set(Value ? 1 : 0);
+            AppliedCVars.Add(MakeShared<FJsonValueString>(CVarName));
+        };
+
+        if (Lower == TEXT("configure_ssr_settings"))
+        {
+            SetReflectionBoolCVar(TEXT("ssrEnabled"), TEXT("r.SSR.Quality"));
+            SetReflectionCVar(TEXT("ssrQuality"), TEXT("r.SSR.Quality"), true, 0.0, 100.0);
+            SetReflectionCVar(TEXT("ssrIntensity"), TEXT("r.SSR.Intensity"), false, 0.0, 100.0);
+            SetReflectionCVar(TEXT("ssrMaxRoughness"), TEXT("r.SSR.MaxRoughness"), false, 0.0, 1.0);
+        }
+        else
+        {
+            SetReflectionBoolCVar(TEXT("lumenReflectionsEnabled"), TEXT("r.Lumen.Reflections.Allow"));
+            SetReflectionCVar(TEXT("lumenReflectionQuality"), TEXT("sg.ReflectionQuality"), true, 0.0, 4.0);
+            SetReflectionCVar(TEXT("lumenReflectionMaxRoughness"), TEXT("r.Lumen.Reflections.MaxRoughnessToTrace"), false, 0.0, 1.0);
+            SetReflectionCVar(TEXT("lumenReflectionMaxBounces"), TEXT("r.Lumen.Reflections.MaxBounces"), true, 0.0, 64.0);
+            SetReflectionCVar(TEXT("lumenReflectionDownsampleFactor"), TEXT("r.Lumen.Reflections.DownsampleFactor"), true, 1.0, 2.0);
+            SetReflectionBoolCVar(TEXT("lumenReflectionScreenTraces"), TEXT("r.Lumen.Reflections.ScreenTraces"));
+            SetReflectionBoolCVar(TEXT("lumenReflectionDownsampleCheckerboard"), TEXT("r.Lumen.Reflections.DownsampleCheckerboard"));
+        }
+        if (!InvalidField.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId, InvalidField, TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+        Response->SetBoolField(TEXT("success"), true);
+        Response->SetArrayField(TEXT("appliedCVars"), AppliedCVars);
+        Response->SetArrayField(TEXT("unsupportedCVars"), UnsupportedCVars);
+        Response->SetNumberField(TEXT("appliedCount"), AppliedCVars.Num());
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            Lower == TEXT("configure_ssr_settings") ? TEXT("SSR settings configured") : TEXT("Lumen reflection settings configured"), Response);
+        return true;
+    }
+
+    if (Lower == TEXT("inspect_reflection_captures"))
+    {
+        TArray<TSharedPtr<FJsonValue>> Reflections;
+        for (AActor* Actor : ActorSS->GetAllLevelActors())
+        {
+            if (UReflectionCaptureComponent* Component = GetReflectionCaptureComponent(Actor))
+            {
+                const TCHAR* Type = Actor->IsA<ASphereReflectionCapture>() ? TEXT("sphere") : TEXT("box");
+                Reflections.Add(MakeShared<FJsonValueObject>(MakeReflectionCaptureResult(Actor, Type, Component)));
+            }
+            else if (APlanarReflection* PlanarActor = Cast<APlanarReflection>(Actor))
+            {
+                if (UPlanarReflectionComponent* Component = PlanarActor->GetPlanarReflectionComponent())
+                {
+                    TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+                    Item->SetBoolField(TEXT("success"), true);
+                    Item->SetStringField(TEXT("actorName"), PlanarActor->GetActorLabel());
+                    Item->SetStringField(TEXT("actorPath"), PlanarActor->GetPathName());
+                    Item->SetStringField(TEXT("captureType"), TEXT("planar"));
+                    Item->SetNumberField(TEXT("screenPercentage"), Component->ScreenPercentage);
+                    Item->SetNumberField(TEXT("normalDistortionStrength"), Component->NormalDistortionStrength);
+                    Reflections.Add(MakeShared<FJsonValueObject>(Item));
+                }
+            }
+        }
+        TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+        Response->SetBoolField(TEXT("success"), true);
+        Response->SetNumberField(TEXT("count"), Reflections.Num());
+        Response->SetArrayField(TEXT("captures"), Reflections);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Reflection captures inspected"), Response);
         return true;
     }
 

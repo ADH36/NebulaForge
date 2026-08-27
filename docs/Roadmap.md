@@ -1252,14 +1252,20 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Research references**: [Global Illumination](https://dev.epicgames.com/documentation/en-us/unreal-engine/global-illumination-in-unreal-engine), [Static Light Mobility](https://dev.epicgames.com/documentation/en-us/unreal-engine/static-light-mobility-in-unreal-engine), [Volumetric Lightmaps](https://dev.epicgames.com/documentation/en-us/unreal-engine/volumetric-lightmaps-in-unreal-engine), and [Indirect Lighting Cache](https://dev.epicgames.com/documentation/en-us/unreal-engine/indirect-lighting-cache-in-unreal-engine).
 
 ### 29.4 Reflections
-- [ ] `create_sphere_reflection_capture`
-- [ ] `create_box_reflection_capture`
-- [ ] `configure_capture_resolution`, `configure_capture_offset`
-- [ ] `recapture_scene`
-- [ ] `create_planar_reflection`
-- [ ] `configure_planar_reflection` (resolution, clip_plane)
-- [ ] `configure_ssr_settings`
-- [ ] `configure_lumen_reflection_settings`
+- [x] `create_sphere_reflection_capture` (influence radius, brightness, capture offset, source cubemap angle, runtime capture, and max view distance)
+- [x] `create_box_reflection_capture` (box size, transition distance, brightness, capture offset, source cubemap angle, runtime capture, and max view distance)
+- [x] `configure_capture_resolution` (power-of-two global reflection capture cubemap resolution)
+- [x] `configure_capture_offset` (world-space offset for a named capture)
+- [x] `recapture_scene` (targeted or all captures, with fast-render and smooth-blend options for runtime captures)
+- [x] `create_planar_reflection`
+- [x] `configure_planar_reflection` (normal distortion, prefilter roughness, distance/angle fade, screen percentage, extra FOV, two-sided rendering, preview plane)
+- [x] `configure_ssr_settings` (enablement, intensity, quality, and maximum roughness)
+- [x] `configure_lumen_reflection_settings` (enablement, quality, roughness threshold, bounces, downsampling, screen traces, and checkerboard mode)
+- [x] `inspect_reflection_captures` (readback for sphere, box, and planar reflection actors)
+
+**Implementation notes**: Reflection captures are static cubemap probes with optional runtime refresh. Sphere and box captures use their native influence/transition geometry; planar reflections use the native scene-capture component. Global SSR and Lumen controls report unsupported CVars when an engine version or rendering path does not expose them.
+
+**Research references**: [Reflection Captures](https://dev.epicgames.com/documentation/en-us/unreal-engine/reflections-captures-in-unreal-engine), [Planar Reflections](https://dev.epicgames.com/documentation/en-us/unreal-engine/planar-reflections-in-unreal-engine), [Reflections Environment](https://dev.epicgames.com/documentation/en-us/unreal-engine/reflections-environment-in-unreal-engine), [Rendering Settings](https://dev.epicgames.com/documentation/en-us/unreal-engine/rendering-settings-in-the-unreal-engine-project-settings), and [Lumen Reflections](https://dev.epicgames.com/documentation/en-us/unreal-engine/lumen-global-illumination-and-reflections-in-unreal-engine).
 
 ### 29.5 Post Processing
 - [ ] `create_post_process_volume`

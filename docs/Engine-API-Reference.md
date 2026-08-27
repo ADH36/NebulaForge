@@ -1216,6 +1216,22 @@ UBoxReflectionCaptureComponent* Box;
 Box->SetBoxTransitionDistance(100.f);
 ```
 
+### Planar Reflections
+```cpp
+APlanarReflection* Planar;
+UPlanarReflectionComponent* Reflection = Planar->GetPlanarReflectionComponent();
+Reflection->ScreenPercentage = 75;
+Reflection->PrefilterRoughness = 0.04f;
+Reflection->DistanceFromPlaneFadeoutStart = 100.f;
+Reflection->DistanceFromPlaneFadeoutEnd = 2000.f;
+Reflection->NormalDistortionStrength = 0.0f;
+```
+
+Reflection captures can be queued with `MarkDirtyForRecapture()` and processed
+with `UReflectionCaptureComponent::UpdateReflectionCaptureContents()`. The
+bridge also exposes supported SSR and Lumen reflection controls through the
+Phase 29.4 actions.
+
 ---
 
 ## Phase 30: Sequencer & Cinematics

@@ -66,6 +66,14 @@ const PHASE_29_3_LIGHTMASS_ACTIONS = [
   'configure_lightmass_ambient_occlusion', 'inspect_lightmass_settings'
 ] as const;
 
+const PHASE_29_4_REFLECTION_ACTIONS = [
+  'create_sphere_reflection_capture', 'create_box_reflection_capture',
+  'configure_capture_resolution', 'configure_capture_offset', 'recapture_scene',
+  'create_planar_reflection', 'configure_planar_reflection',
+  'configure_ssr_settings', 'configure_lumen_reflection_settings',
+  'inspect_reflection_captures'
+] as const;
+
 function getBuildEnvironmentActionEnum(): readonly string[] {
   const tool = consolidatedToolDefinitions.find(def => def.name === 'build_environment');
   const inputSchema = tool?.inputSchema as { properties?: { action?: { enum?: string[] } } } | undefined;
@@ -259,6 +267,47 @@ describe('handleEnvironmentTools path normalization', () => {
         useAmbientOcclusion: true
       }),
       'Automation bridge not available for Lightmass settings'
+    );
+  });
+
+  it('exposes every Phase 29.4 reflection action and property on the schema', () => {
+    expect(getBuildEnvironmentActionEnum()).toEqual(expect.arrayContaining([...PHASE_29_4_REFLECTION_ACTIONS]));
+    expect(getBuildEnvironmentProperties()).toEqual(expect.objectContaining({
+      captureName: expect.any(Object),
+      influenceRadius: expect.any(Object),
+      captureResolution: expect.any(Object),
+      captureOffset: expect.any(Object),
+      screenPercentage: expect.any(Object),
+      ssrQuality: expect.any(Object),
+      lumenReflectionMaxBounces: expect.any(Object)
+    }));
+  });
+
+  it('normalizes and forwards reflection capture settings', async () => {
+    await handleLightingTools('create_sphere_reflection_capture', {
+      action: 'create_sphere_reflection_capture',
+      name: 'Phase29Reflection',
+      location: { x: 10, y: 20, z: 30 },
+      captureOffset: { x: 1, y: 2, z: 3 },
+      influenceRadius: 1000,
+      captureResolution: 256,
+      brightness: 1.25,
+      runtimeCapture: true
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {},
+      'create_sphere_reflection_capture',
+      expect.objectContaining({
+        name: 'Phase29Reflection',
+        location: { x: 10, y: 20, z: 30 },
+        captureOffset: { x: 1, y: 2, z: 3 },
+        influenceRadius: 1000,
+        captureResolution: 256,
+        brightness: 1.25,
+        runtimeCapture: true
+      }),
+      'Automation bridge not available for create_sphere_reflection_capture'
     );
   });
 

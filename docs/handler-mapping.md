@@ -158,6 +158,16 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `configure_volumetric_lightmaps` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.3; configures volumetric lightmap and sparse-volume settings |
 | `configure_lightmass_ambient_occlusion` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.3; configures baked AO and optional precomputed AO material masks |
 | `inspect_lightmass_settings` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.3; returns current Lightmass and volumetric-lightmap settings |
+| `create_sphere_reflection_capture` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; creates and configures a sphere reflection capture |
+| `create_box_reflection_capture` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; creates and configures a box reflection capture |
+| `configure_capture_resolution` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; sets the global reflection capture cubemap resolution |
+| `configure_capture_offset` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; updates a capture's world-space offset |
+| `recapture_scene` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; queues targeted or all static/runtime captures for refresh |
+| `create_planar_reflection` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; creates a realtime planar reflection actor |
+| `configure_planar_reflection` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; configures planar fade, distortion, filtering, and performance settings |
+| `configure_ssr_settings` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; applies supported SSR CVars |
+| `configure_lumen_reflection_settings` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; applies supported Lumen reflection CVars |
+| `inspect_reflection_captures` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; lists capture and planar reflection actors with readback |
 
 ## Performance Manager (`system_control`)
 

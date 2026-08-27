@@ -26,6 +26,15 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `validate` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleAssetAction` | |
 | `fixup_redirectors` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleFixupRedirectors` | |
 | `generate_report` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleAssetAction` | |
+| `set_view_settings` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Uses official Content Browser instance settings; unsupported view-type fields are reported explicitly |
+| `navigate_to_path` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Selects a Content Browser folder |
+| `sync_to_asset` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Syncs one or more assets through the editor browser |
+| `sync_to_folder` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Syncs a folder with lock/focus/new-browser options |
+| `create_collection` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Supports local/private/shared and static/dynamic collections |
+| `add_to_collection` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Adds resolved asset soft paths to a collection |
+| `set_asset_color` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Persists the documented Content Browser folder-path color |
+| `show_in_explorer` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Reveals the asset package directory on disk |
+| `set_search_text` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleContentBrowserAction` | Sets the Content Browser search text |
 | `create_material` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleAssetAction` | |
 | `create_material_instance` | `NebulaForgeBridge_AssetWorkflowHandlers.cpp` | `HandleAssetAction` | |
 | `create_render_target` | `NebulaForgeBridge_RenderHandlers.cpp` | `HandleRenderAction` | |

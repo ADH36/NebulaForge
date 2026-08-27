@@ -143,6 +143,35 @@ export interface AssetArgs extends HandlerArgs {
     // Metadata
     metadata?: Record<string, unknown>;
     tags?: string[];
+    viewType?: string;
+    thumbnailSize?: string;
+    instanceName?: string;
+    saveConfig?: boolean;
+    showEngineContent?: boolean;
+    showPluginContent?: boolean;
+    showDeveloperContent?: boolean;
+    showFolders?: boolean;
+    showEmptyFolders?: boolean;
+    showCppFolders?: boolean;
+    showLocalizedContent?: boolean;
+    showFavorites?: boolean;
+    searchAssetPaths?: boolean;
+    searchClasses?: boolean;
+    searchCollections?: boolean;
+    filterRecursively?: boolean;
+    sourcesExpanded?: boolean;
+    contentBrowserPath?: string;
+    collectionName?: string;
+    collectionShareType?: string;
+    collectionStorageMode?: string;
+    color?: Record<string, unknown>;
+    r?: number;
+    g?: number;
+    b?: number;
+    a?: number;
+    focusContentBrowser?: boolean;
+    allowLockedBrowser?: boolean;
+    newBrowser?: boolean;
 }
 
 // ============================================================================

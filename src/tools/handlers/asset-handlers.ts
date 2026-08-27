@@ -16,6 +16,10 @@ const VALID_ASSET_ACTIONS = new Set([
   'create_folder', 'search_assets', 'get_dependencies', 'validate',
   'fixup_redirectors', 'find_by_tag', 'exists', 'bulk_rename', 'bulk_delete',
   'duplicate_asset', 'rename_asset', 'move_asset', 'delete_asset', 'delete_assets',
+  // Phase 34.2 Content Browser operations
+  'set_view_settings', 'navigate_to_path', 'sync_to_asset', 'sync_to_folder',
+  'create_collection', 'add_to_collection', 'set_asset_color', 'show_in_explorer',
+  'set_search_text',
   // Asset metadata
   'create_thumbnail', 'set_tags', 'get_metadata', 'set_metadata', 'generate_report',
   // Material operations
@@ -238,6 +242,35 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
           subAction: 'create_folder'
         }) as AssetOperationResponse;
         return ResponseFactory.success(res, 'Folder created successfully');
+      }
+      case 'set_view_settings':
+      case 'navigate_to_path':
+      case 'sync_to_asset':
+      case 'sync_to_folder':
+      case 'create_collection':
+      case 'add_to_collection':
+      case 'set_asset_color':
+      case 'show_in_explorer':
+      case 'set_search_text': {
+        const argsTyped = args as AssetArgs;
+        const scalarPaths = [argsTyped.assetPath, argsTyped.path, argsTyped.directory,
+          argsTyped.directoryPath, argsTyped.contentBrowserPath];
+        for (const candidate of scalarPaths) {
+          const securityError = validatePathSecurity(candidate, 'contentBrowserPath');
+          if (securityError) return securityError;
+        }
+        const arraySecurityError = validatePathsSecurity(argsTyped.assetPaths, 'assetPaths');
+        if (arraySecurityError) return arraySecurityError;
+
+        const res = await executeAutomationRequest(tools, 'manage_asset', {
+          ...argsTyped,
+          subAction: action
+        }) as AssetOperationResponse;
+        const failure = findAutomationFailure(res);
+        if (failure) {
+          return automationFailureResponse(res, failure, 'Content Browser operation failed', { action });
+        }
+        return ResponseFactory.success(res, `Content Browser action '${action}' completed`);
       }
       case 'import': {
         const params = normalizeArgs(args, [

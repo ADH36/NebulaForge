@@ -1568,6 +1568,20 @@ The bridge exposes editor-mode selection through the editor command path and per
 
 The implementation intentionally validates layout and mode identifiers before sending editor commands. See Epic's [`ULevelEditorViewportSettings`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/ULevelEditorViewportSettings), [`FSnapToSurfaceSettings`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/FSnapToSurfaceSettings), [`FEditorViewportCommands`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/FEditorViewportCommands), [`UEdMode`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UEdMode), and [Layout Customization](https://dev.epicgames.com/documentation/en-us/unreal-engine/layout-customization?application_version=4.27).
 
+### Content Browser and Collections (34.2)
+
+Phase 34.2 uses the editor-only Content Browser and Collection Manager APIs behind `manage_asset`:
+
+| Unreal API | Bridge coverage |
+|------|------|
+| `FContentBrowserModule` / `IContentBrowserSingleton` | Load the browser module, select folders, synchronize folders/assets, and set search text |
+| `ContentBrowserInstanceUtils` | Toggle engine, plugin, developer, folder, empty-folder, C++ folder, localized, favorites, search, recursive-filter, and source-panel settings; optionally save configs |
+| `ICollectionManager` | Create collections and add resolved asset soft paths with local/private/shared and static/dynamic options |
+| `FOnSetFolderColor` / `PathColor` config | Persist and refresh Content Browser folder colors |
+| `FPlatformProcess::ExploreFolder` | Reveal an asset's package directory in the host file explorer |
+
+The implementation treats Content Browser colors as folder-path colors, matching the editor's documented behavior. View type and thumbnail size are accepted but reported as unsupported for an already-open browser when the public API does not expose a mutable setter. See Epic's [Content Browser overview](https://dev.epicgames.com/documentation/en-us/unreal-engine/content-browser-in-unreal-engine), [Content Browser settings](https://dev.epicgames.com/documentation/en-us/unreal-engine/content-browser-settings-in-unreal-engine), [`FContentBrowserModule`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/FContentBrowserModule), [`IContentBrowserSingleton`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/IContentBrowserSingleton), [`ICollectionManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Developer/CollectionManager/ICollectionManager), [`AddToCollection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Developer/CollectionManager/ICollectionManager/AddToCollection), and [Working with Assets](https://dev.epicgames.com/documentation/en-us/unreal-engine/working-with-assets-in-unreal-engine).
+
 ---
 
 ## Phase 35: Additional Gameplay Systems

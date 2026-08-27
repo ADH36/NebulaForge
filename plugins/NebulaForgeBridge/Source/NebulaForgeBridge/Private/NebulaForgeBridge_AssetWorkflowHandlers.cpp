@@ -9,6 +9,7 @@
 //     - create_folder, create_material, create_material_instance
 //     - get_dependencies, get_asset_graph, set_tags, set_metadata, get_metadata
 //     - validate, generate_report, generate_thumbnail, get_material_stats
+//     - Content Browser navigation, settings, search, collections, colors, Explorer
 //
 //   Material Authoring:
 //     - add_material_node, connect_material_pins, remove_material_node
@@ -103,6 +104,27 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetToolsModule.h"
 #include "AssetViewUtils.h"
+#if __has_include("ContentBrowserModule.h")
+#include "ContentBrowserModule.h"
+#include "IContentBrowserSingleton.h"
+#define MCP_HAS_CONTENT_BROWSER 1
+#else
+#define MCP_HAS_CONTENT_BROWSER 0
+#endif
+#if MCP_HAS_CONTENT_BROWSER && __has_include("ContentBrowserInstanceUtils.h")
+#include "ContentBrowserInstanceUtils.h"
+#define MCP_HAS_CONTENT_BROWSER_SETTINGS 1
+#else
+#define MCP_HAS_CONTENT_BROWSER_SETTINGS 0
+#endif
+#if __has_include("CollectionManagerModule.h")
+#include "CollectionManagerModule.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerTypes.h"
+#define MCP_HAS_COLLECTION_MANAGER 1
+#else
+#define MCP_HAS_COLLECTION_MANAGER 0
+#endif
 #include "EditorAssetLibrary.h"
 #include "Engine/StaticMesh.h"
 #include "EngineUtils.h"  // TActorIterator
@@ -110,6 +132,10 @@
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "FileHelpers.h"
 #include "IAssetTools.h"
+#include "Editor/EditorEngine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/PackageName.h"
+#include "HAL/PlatformProcess.h"
 
 // -----------------------------------------------------------------------------
 // Editor-only Includes (Source Control)
@@ -255,6 +281,16 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleDeleteAssets(RequestId, Payload, RequestingSocket);
   if (Lower == TEXT("create_folder"))
     return HandleCreateFolder(RequestId, Payload, RequestingSocket);
+  if (Lower == TEXT("set_view_settings") ||
+      Lower == TEXT("navigate_to_path") ||
+      Lower == TEXT("sync_to_asset") ||
+      Lower == TEXT("sync_to_folder") ||
+      Lower == TEXT("create_collection") ||
+      Lower == TEXT("add_to_collection") ||
+      Lower == TEXT("set_asset_color") ||
+      Lower == TEXT("show_in_explorer") ||
+      Lower == TEXT("set_search_text"))
+    return HandleContentBrowserAction(RequestId, Lower, Payload, RequestingSocket);
   if (Lower == TEXT("create_material"))
     return HandleCreateMaterial(RequestId, Payload, RequestingSocket);
   if (Lower == TEXT("create_material_instance"))
@@ -339,6 +375,387 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   return false;
 }
 
+
+bool UNebulaForgeBridgeSubsystem::HandleContentBrowserAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket) {
+#if WITH_EDITOR
+  if (!Payload.IsValid()) {
+    SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_PAYLOAD"),
+                              TEXT("Content Browser payload missing."), nullptr);
+    return true;
+  }
+
+  const FString Lower = Action.ToLower();
+  const bool bFocus = Payload->HasField(TEXT("focusContentBrowser"))
+                          ? Payload->GetBoolField(TEXT("focusContentBrowser")) : true;
+  const bool bAllowLockedBrowser = Payload->HasField(TEXT("allowLockedBrowser"))
+                                       ? Payload->GetBoolField(TEXT("allowLockedBrowser")) : false;
+  const bool bNewBrowser = Payload->HasField(TEXT("newBrowser"))
+                               ? Payload->GetBoolField(TEXT("newBrowser")) : false;
+  FString InstanceString;
+  Payload->TryGetStringField(TEXT("instanceName"), InstanceString);
+  const FName InstanceName = InstanceString.IsEmpty() ? NAME_None : FName(*InstanceString);
+
+  if (Lower == TEXT("navigate_to_path") || Lower == TEXT("sync_to_folder")) {
+#if MCP_HAS_CONTENT_BROWSER
+    FString RawPath;
+    Payload->TryGetStringField(TEXT("contentBrowserPath"), RawPath);
+    if (RawPath.IsEmpty()) Payload->TryGetStringField(TEXT("path"), RawPath);
+    const FString SafePath = SanitizeProjectRelativePath(RawPath);
+    if (SafePath.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("A valid Content Browser folder path is required."), nullptr);
+      return true;
+    }
+    FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+    TArray<FString> Paths;
+    Paths.Add(SafePath);
+    if (Lower == TEXT("navigate_to_path")) {
+      IContentBrowserSingleton::Get().SetSelectedPaths(Paths, true, false);
+    } else {
+      IContentBrowserSingleton::Get().SyncBrowserToFolders(
+          Paths, bAllowLockedBrowser, bFocus, InstanceName, bNewBrowser);
+    }
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetBoolField(TEXT("success"), true);
+    Resp->SetStringField(TEXT("path"), SafePath);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           Lower == TEXT("navigate_to_path") ? TEXT("Content Browser path selected")
+                                                              : TEXT("Content Browser folder synchronized"),
+                           Resp, FString());
+    return true;
+#else
+    SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_IMPLEMENTED"),
+                              TEXT("Content Browser support is unavailable."), nullptr);
+    return true;
+#endif
+  }
+
+  if (Lower == TEXT("set_search_text")) {
+#if MCP_HAS_CONTENT_BROWSER
+    FString SearchText;
+    Payload->TryGetStringField(TEXT("searchText"), SearchText);
+    if (!Payload->HasField(TEXT("searchText"))) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("searchText is required."), nullptr);
+      return true;
+    }
+    FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+    IContentBrowserSingleton::Get().SetSearchText(FText::FromString(SearchText));
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetBoolField(TEXT("success"), true);
+    Resp->SetStringField(TEXT("searchText"), SearchText);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Content Browser search text updated"), Resp, FString());
+    return true;
+#else
+    SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_IMPLEMENTED"),
+                              TEXT("Content Browser support is unavailable."), nullptr);
+    return true;
+#endif
+  }
+
+  if (Lower == TEXT("sync_to_asset")) {
+    TArray<FString> RawPaths;
+    const TArray<TSharedPtr<FJsonValue>> *PathValues = nullptr;
+    if (Payload->TryGetArrayField(TEXT("assetPaths"), PathValues) && PathValues) {
+      for (const TSharedPtr<FJsonValue> &Value : *PathValues) {
+        FString Path;
+        if (Value.IsValid() && Value->TryGetString(Path) && !Path.IsEmpty()) RawPaths.Add(Path);
+      }
+    }
+    if (RawPaths.Num() == 0) {
+      FString AssetPath;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      if (!AssetPath.IsEmpty()) RawPaths.Add(AssetPath);
+    }
+    if (RawPaths.Num() == 0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("assetPath or assetPaths is required."), nullptr);
+      return true;
+    }
+    TArray<FAssetData> Assets;
+    for (const FString &RawPath : RawPaths) {
+      const FString ResolvedPath = ResolveAssetPath(RawPath);
+      FAssetData AssetData = ResolvedPath.IsEmpty()
+                                 ? FAssetData()
+                                 : UEditorAssetLibrary::FindAssetData(ResolvedPath);
+      if (!AssetData.IsValid()) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ASSET_NOT_FOUND"),
+                                  FString::Printf(TEXT("Asset not found: %s"), *RawPath), nullptr);
+        return true;
+      }
+      Assets.Add(AssetData);
+    }
+    if (!GEditor) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("EDITOR_NOT_AVAILABLE"),
+                                TEXT("Editor is unavailable."), nullptr);
+      return true;
+    }
+#if MCP_HAS_CONTENT_BROWSER
+    FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+    IContentBrowserSingleton::Get().SyncBrowserToAssets(
+        Assets, bAllowLockedBrowser, bFocus, InstanceName, bNewBrowser);
+#else
+    GEditor->SyncBrowserToObjects(Assets, bFocus);
+#endif
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetBoolField(TEXT("success"), true);
+    Resp->SetNumberField(TEXT("count"), Assets.Num());
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Content Browser synchronized to assets"), Resp, FString());
+    return true;
+  }
+
+  if (Lower == TEXT("set_view_settings")) {
+#if MCP_HAS_CONTENT_BROWSER_SETTINGS
+    const FString InstanceString = Payload->HasField(TEXT("instanceName"))
+        ? Payload->GetStringField(TEXT("instanceName")) : FString();
+    const FName InstanceName = InstanceString.IsEmpty() ? NAME_None : FName(*InstanceString);
+    const bool bSaveConfig = Payload->HasField(TEXT("saveConfig"))
+                                  ? Payload->GetBoolField(TEXT("saveConfig")) : true;
+    TArray<FString> Applied;
+    bool BoolValue = false;
+    auto ApplyBool = [&](const TCHAR *FieldName, auto Setter) {
+      if (Payload->TryGetBoolField(FieldName, BoolValue)) {
+        Setter(BoolValue, InstanceName, bSaveConfig);
+        Applied.Add(FieldName);
+      }
+    };
+    ApplyBool(TEXT("showEngineContent"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetShowEngineContent(Name, Value, Save); });
+    ApplyBool(TEXT("showPluginContent"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetShowPluginContent(Name, Value, Save); });
+    ApplyBool(TEXT("showDeveloperContent"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetShowDeveloperContent(Name, Value, Save); });
+    ApplyBool(TEXT("showFolders"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetShowFolders(Name, Value, Save); });
+    ApplyBool(TEXT("showEmptyFolders"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetShowEmptyFolders(Name, Value, Save); });
+    ApplyBool(TEXT("showCppFolders"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetShowCppFolders(Name, Value, Save); });
+    ApplyBool(TEXT("showLocalizedContent"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetShowLocalizedContent(Name, Value, Save); });
+    ApplyBool(TEXT("showFavorites"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetShowFavorites(Name, Value, Save); });
+    ApplyBool(TEXT("searchAssetPaths"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetSearchAssetPaths(Name, Value, Save); });
+    ApplyBool(TEXT("searchClasses"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetSearchClasses(Name, Value, Save); });
+    ApplyBool(TEXT("searchCollections"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetSearchCollections(Name, Value, Save); });
+    ApplyBool(TEXT("filterRecursively"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetFilterRecursively(Name, Value, Save); });
+    ApplyBool(TEXT("sourcesExpanded"), [](bool Value, const FName &Name, bool Save) { ContentBrowserInstanceUtils::SetSourcesExpanded(Name, Value, Save); });
+    FString ViewType;
+    FString ThumbnailSize;
+    Payload->TryGetStringField(TEXT("viewType"), ViewType);
+    Payload->TryGetStringField(TEXT("thumbnailSize"), ThumbnailSize);
+    TArray<FString> Unsupported;
+    if (!ViewType.IsEmpty()) Unsupported.Add(TEXT("viewType"));
+    if (!ThumbnailSize.IsEmpty()) Unsupported.Add(TEXT("thumbnailSize"));
+    if (bSaveConfig) ContentBrowserInstanceUtils::SaveAllConfigs();
+    if (Applied.Num() == 0 && Unsupported.Num() > 0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("UNSUPPORTED_SETTING"),
+                                TEXT("The public API does not mutate viewType or thumbnailSize for an existing browser."), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetBoolField(TEXT("success"), Applied.Num() > 0);
+    TArray<TSharedPtr<FJsonValue>> AppliedValues;
+    for (const FString &Name : Applied) AppliedValues.Add(MakeShared<FJsonValueString>(Name));
+    Resp->SetArrayField(TEXT("applied"), AppliedValues);
+    if (Unsupported.Num() > 0) {
+      TArray<TSharedPtr<FJsonValue>> UnsupportedValues;
+      for (const FString &Name : Unsupported) UnsupportedValues.Add(MakeShared<FJsonValueString>(Name));
+      Resp->SetArrayField(TEXT("unsupported"), UnsupportedValues);
+    }
+    SendAutomationResponse(RequestingSocket, RequestId, Applied.Num() > 0,
+                           TEXT("Content Browser settings updated"), Resp,
+                           Applied.Num() > 0 ? FString() : TEXT("NO_SETTINGS_APPLIED"));
+    return true;
+#else
+    SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_IMPLEMENTED"),
+                              TEXT("Content Browser support is unavailable."), nullptr);
+    return true;
+#endif
+  }
+
+  if (Lower == TEXT("create_collection") || Lower == TEXT("add_to_collection")) {
+#if MCP_HAS_COLLECTION_MANAGER
+    FString CollectionString;
+    Payload->TryGetStringField(TEXT("collectionName"), CollectionString);
+    if (CollectionString.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("collectionName is required."), nullptr);
+      return true;
+    }
+    const FName CollectionName(*CollectionString);
+    FString ShareString;
+    Payload->TryGetStringField(TEXT("collectionShareType"), ShareString);
+    ShareString = ShareString.ToLower();
+    ECollectionShareType::Type ShareType = ECollectionShareType::CST_Local;
+    if (ShareString == TEXT("private")) ShareType = ECollectionShareType::CST_Private;
+    else if (ShareString == TEXT("shared")) ShareType = ECollectionShareType::CST_Shared;
+    else if (!ShareString.IsEmpty() && ShareString != TEXT("local")) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("collectionShareType must be local, private, or shared."), nullptr);
+      return true;
+    }
+    FCollectionManagerModule &CollectionModule = FCollectionManagerModule::GetModule();
+    ICollectionManager &CollectionManager = CollectionModule.Get();
+    FText Error;
+    if (Lower == TEXT("create_collection")) {
+      FString StorageString;
+      Payload->TryGetStringField(TEXT("collectionStorageMode"), StorageString);
+      StorageString = StorageString.ToLower();
+      ECollectionStorageMode::Type StorageMode = ECollectionStorageMode::Static;
+      if (StorageString == TEXT("dynamic")) StorageMode = ECollectionStorageMode::Dynamic;
+      else if (!StorageString.IsEmpty() && StorageString != TEXT("static")) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                  TEXT("collectionStorageMode must be static or dynamic."), nullptr);
+        return true;
+      }
+      const bool bCreated = CollectionManager.CreateCollection(CollectionName, ShareType, StorageMode, &Error);
+      TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+      Resp->SetBoolField(TEXT("success"), bCreated);
+      Resp->SetStringField(TEXT("collectionName"), CollectionString);
+      if (!Error.IsEmpty()) Resp->SetStringField(TEXT("errorMessage"), Error.ToString());
+      SendAutomationResponse(RequestingSocket, RequestId, bCreated,
+                             bCreated ? TEXT("Collection created") : TEXT("Collection creation failed"), Resp,
+                             bCreated ? FString() : TEXT("COLLECTION_CREATE_FAILED"));
+      return true;
+    }
+    TArray<FString> RawPaths;
+    const TArray<TSharedPtr<FJsonValue>> *PathValues = nullptr;
+    if (Payload->TryGetArrayField(TEXT("assetPaths"), PathValues) && PathValues) {
+      for (const TSharedPtr<FJsonValue> &Value : *PathValues) {
+        FString Path;
+        if (Value.IsValid() && Value->TryGetString(Path) && !Path.IsEmpty()) RawPaths.Add(Path);
+      }
+    }
+    if (RawPaths.Num() == 0) {
+      FString AssetPath;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      if (!AssetPath.IsEmpty()) RawPaths.Add(AssetPath);
+    }
+    if (RawPaths.Num() == 0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("assetPath or assetPaths is required for add_to_collection."), nullptr);
+      return true;
+    }
+    TArray<FSoftObjectPath> ObjectPaths;
+    for (const FString &RawPath : RawPaths) {
+      const FString ResolvedPath = ResolveAssetPath(RawPath);
+      if (ResolvedPath.IsEmpty()) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ASSET_NOT_FOUND"),
+                                  FString::Printf(TEXT("Asset not found: %s"), *RawPath), nullptr);
+        return true;
+      }
+      FAssetData AssetData = UEditorAssetLibrary::FindAssetData(ResolvedPath);
+      if (!AssetData.IsValid()) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ASSET_NOT_FOUND"),
+                                  FString::Printf(TEXT("Asset not found: %s"), *RawPath), nullptr);
+        return true;
+      }
+#if MCP_HAS_ASSET_SOFT_PATH
+      ObjectPaths.Add(AssetData.GetSoftObjectPath());
+#else
+      ObjectPaths.Add(FSoftObjectPath(AssetData.PackageName.ToString() + TEXT(".") + AssetData.AssetName.ToString()));
+#endif
+    }
+    int32 AddedCount = 0;
+    const bool bAdded = CollectionManager.AddToCollection(CollectionName, ShareType, ObjectPaths, &AddedCount, &Error);
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetBoolField(TEXT("success"), bAdded);
+    Resp->SetNumberField(TEXT("addedCount"), AddedCount);
+    Resp->SetStringField(TEXT("collectionName"), CollectionString);
+    if (!Error.IsEmpty()) Resp->SetStringField(TEXT("errorMessage"), Error.ToString());
+    SendAutomationResponse(RequestingSocket, RequestId, bAdded,
+                           bAdded ? TEXT("Assets added to collection") : TEXT("Assets could not be added to collection"), Resp,
+                           bAdded ? FString() : TEXT("COLLECTION_ADD_FAILED"));
+    return true;
+#else
+    SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_IMPLEMENTED"),
+                              TEXT("Collection Manager support is unavailable."), nullptr);
+    return true;
+#endif
+  }
+
+  if (Lower == TEXT("set_asset_color")) {
+    FString RawPath;
+    Payload->TryGetStringField(TEXT("path"), RawPath);
+    if (RawPath.IsEmpty()) Payload->TryGetStringField(TEXT("assetPath"), RawPath);
+    const FString SafePath = SanitizeProjectRelativePath(RawPath);
+    if (SafePath.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("A valid asset or folder path is required."), nullptr);
+      return true;
+    }
+    double R = 1.0;
+    double G = 1.0;
+    double B = 1.0;
+    double A = 1.0;
+    const TSharedPtr<FJsonObject> *ColorObject = nullptr;
+    if (Payload->TryGetObjectField(TEXT("color"), ColorObject) && ColorObject && ColorObject->IsValid()) {
+      (*ColorObject)->TryGetNumberField(TEXT("r"), R);
+      (*ColorObject)->TryGetNumberField(TEXT("g"), G);
+      (*ColorObject)->TryGetNumberField(TEXT("b"), B);
+      (*ColorObject)->TryGetNumberField(TEXT("a"), A);
+    } else {
+      Payload->TryGetNumberField(TEXT("r"), R);
+      Payload->TryGetNumberField(TEXT("g"), G);
+      Payload->TryGetNumberField(TEXT("b"), B);
+      Payload->TryGetNumberField(TEXT("a"), A);
+    }
+    const FLinearColor Color(
+        FMath::Clamp(static_cast<float>(R), 0.f, 1.f),
+        FMath::Clamp(static_cast<float>(G), 0.f, 1.f),
+        FMath::Clamp(static_cast<float>(B), 0.f, 1.f),
+        FMath::Clamp(static_cast<float>(A), 0.f, 1.f));
+    FString ColorPath = SafePath;
+    if (UEditorAssetLibrary::DoesAssetExist(SafePath)) {
+      ColorPath = FPaths::GetPath(FPackageName::ObjectPathToPackageName(SafePath));
+    }
+    GConfig->SetString(TEXT("PathColor"), *ColorPath, *Color.ToString(), GEditorPerProjectIni);
+    GConfig->Flush(false, GEditorPerProjectIni);
+#if MCP_HAS_CONTENT_BROWSER
+    FContentBrowserModule &ContentBrowserModule =
+        FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+    ContentBrowserModule.GetOnSetFolderColor().Broadcast(ColorPath);
+#endif
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetBoolField(TEXT("success"), true);
+    Resp->SetStringField(TEXT("path"), SafePath);
+    Resp->SetStringField(TEXT("colorPath"), ColorPath);
+    Resp->SetStringField(TEXT("color"), Color.ToString());
+    Resp->SetStringField(TEXT("note"), TEXT("Content Browser color is a folder-path color; asset paths target their parent folder entry."));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Content Browser folder color updated"), Resp, FString());
+    return true;
+  }
+
+  if (Lower == TEXT("show_in_explorer")) {
+    FString AssetPath;
+    Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+    const FString ResolvedPath = ResolveAssetPath(AssetPath);
+    if (ResolvedPath.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ASSET_NOT_FOUND"),
+                                TEXT("A valid assetPath is required."), nullptr);
+      return true;
+    }
+    FString AssetFilename;
+    if (!FPackageName::TryConvertLongPackageNameToFilename(
+            FPackageName::ObjectPathToPackageName(ResolvedPath), AssetFilename,
+            FPackageName::GetAssetPackageExtension())) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("FILE_NOT_FOUND"),
+                                TEXT("Could not resolve the asset package on disk."), nullptr);
+      return true;
+    }
+    const FString Directory = FPaths::GetPath(AssetFilename);
+    FPlatformProcess::ExploreFolder(*Directory);
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetBoolField(TEXT("success"), true);
+    Resp->SetStringField(TEXT("assetPath"), ResolvedPath);
+    Resp->SetStringField(TEXT("directory"), Directory);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Asset folder opened in Explorer"), Resp, FString());
+    return true;
+  }
+
+  return false;
+#else
+  return false;
+#endif
+}
 
 // ============================================================================
 // 1. FIXUP REDIRECTORS

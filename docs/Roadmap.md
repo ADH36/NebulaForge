@@ -1477,12 +1477,17 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Official Unreal references**: [`ULevelEditorViewportSettings`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/ULevelEditorViewportSettings), [`FSnapToSurfaceSettings`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/FSnapToSurfaceSettings), [`FEditorViewportCommands`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/FEditorViewportCommands), [`UEdMode`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UEdMode), and [Layout Customization](https://dev.epicgames.com/documentation/en-us/unreal-engine/layout-customization?application_version=4.27).
 
 ### 34.2 Content Browser
-- [ ] `set_view_settings`
-- [ ] `navigate_to_path`
-- [ ] `sync_to_asset`
-- [ ] `create_collection`, `add_to_collection`
-- [ ] `set_asset_color`
-- [ ] `show_in_explorer`
+- [x] `set_view_settings`
+- [x] `navigate_to_path`
+- [x] `sync_to_asset`, `sync_to_folder`
+- [x] `create_collection`, `add_to_collection`
+- [x] `set_asset_color`
+- [x] `show_in_explorer`
+- [x] `set_search_text`
+
+**Implemented feature coverage**: Content Browser boolean view/search settings with optional persistence; folder navigation and folder/asset synchronization; local, private, and shared static/dynamic collections; folder-path color persistence and refresh; Explorer reveal; and direct search-text control. `viewType` and `thumbnailSize` are accepted for forward compatibility and reported as unsupported when no mutable public singleton setter is available for an existing browser instance.
+
+**Official Unreal references**: [`FContentBrowserModule`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/FContentBrowserModule), [`IContentBrowserSingleton`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/IContentBrowserSingleton), [`SetSelectedPaths`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/IContentBrowserSingleton/SetSelectedPaths?application_version=5.5), [`SyncBrowserTo`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/ContentBrowser/IContentBrowserSingleton/SyncBrowserTo?application_version=5.5), [`ICollectionManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Developer/CollectionManager/ICollectionManager), [`AddToCollection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Developer/CollectionManager/ICollectionManager/AddToCollection), and [Working with Assets](https://dev.epicgames.com/documentation/en-us/unreal-engine/working-with-assets-in-unreal-engine).
 
 ### 34.3 Selection
 - [ ] `select_actor`

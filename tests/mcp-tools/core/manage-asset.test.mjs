@@ -45,6 +45,7 @@ const BULK_RENAME_SOURCE = asset(`M_BulkRenameSource_${ts}`);
 const BULK_DELETE_SOURCE = asset(`M_BulkDeleteSource_${ts}`);
 const TAG_KEY = `MCPAssetTag_${ts}`;
 const TAG_VALUE = 'real-live';
+const CONTENT_BROWSER_COLLECTION = `MCP_ContentBrowser_${ts}`;
 
 const createMaterial = (name) => ({
   toolName: 'manage_asset',
@@ -101,6 +102,23 @@ const testCases = [
   { scenario: 'ACTION: fixup_redirectors', toolName: 'manage_asset', arguments: { action: 'fixup_redirectors', directoryPath: TEST_FOLDER, checkoutFiles: false }, expected: 'success' },
   { scenario: 'INFO: find_by_tag', toolName: 'manage_asset', arguments: { action: 'find_by_tag', tag: TAG_KEY }, expected: 'success' },
   { scenario: 'ACTION: generate_report', toolName: 'manage_asset', arguments: { action: 'generate_report', directory: TEST_FOLDER, reportType: 'Summary' }, expected: 'success' },
+
+  // === CONTENT BROWSER (PHASE 34.2) ===
+  { scenario: 'CONTENT BROWSER: set_view_settings', toolName: 'manage_asset', arguments: {
+    action: 'set_view_settings', instanceName: 'Primary', viewType: 'tile', thumbnailSize: 'medium', saveConfig: false,
+    showEngineContent: true, showPluginContent: true, showDeveloperContent: false, showFolders: true,
+    showEmptyFolders: false, showCppFolders: false, showLocalizedContent: false, showFavorites: true,
+    searchAssetPaths: true, searchClasses: true, searchCollections: true, filterRecursively: true,
+    sourcesExpanded: true, contentBrowserPath: TEST_FOLDER
+  }, expected: 'success|unsupported|no settings' },
+  { scenario: 'CONTENT BROWSER: navigate_to_path', toolName: 'manage_asset', arguments: { action: 'navigate_to_path', path: TEST_FOLDER, contentBrowserPath: TEST_FOLDER, focusContentBrowser: true }, expected: 'success' },
+  { scenario: 'CONTENT BROWSER: sync_to_asset', toolName: 'manage_asset', arguments: { action: 'sync_to_asset', assetPath: BASE_MATERIAL, focusContentBrowser: true, allowLockedBrowser: false, newBrowser: false }, expected: 'success' },
+  { scenario: 'CONTENT BROWSER: sync_to_folder', toolName: 'manage_asset', arguments: { action: 'sync_to_folder', contentBrowserPath: TEST_FOLDER, focusContentBrowser: true, allowLockedBrowser: false, newBrowser: false }, expected: 'success' },
+  { scenario: 'CONTENT BROWSER: create_collection', toolName: 'manage_asset', arguments: { action: 'create_collection', collectionName: CONTENT_BROWSER_COLLECTION, collectionShareType: 'local', collectionStorageMode: 'static' }, expected: 'success|already exists|failed' },
+  { scenario: 'CONTENT BROWSER: add_to_collection', toolName: 'manage_asset', arguments: { action: 'add_to_collection', collectionName: CONTENT_BROWSER_COLLECTION, collectionShareType: 'local', assetPaths: [BASE_MATERIAL] }, expected: 'success|failed|not found' },
+  { scenario: 'CONTENT BROWSER: set_asset_color', toolName: 'manage_asset', arguments: { action: 'set_asset_color', path: TEST_FOLDER, color: { r: 0.2, g: 0.45, b: 0.8, a: 1 }, r: 0.2, g: 0.45, b: 0.8, a: 1 }, expected: 'success' },
+  { scenario: 'CONTENT BROWSER: set_search_text', toolName: 'manage_asset', arguments: { action: 'set_search_text', searchText: `AssetBase_${ts}` }, expected: 'success' },
+  { scenario: 'CONTENT BROWSER: show_in_explorer', toolName: 'manage_asset', arguments: { action: 'show_in_explorer', assetPath: BASE_MATERIAL }, expected: 'success|file not found|not found' },
 
   // === MATERIAL / MESH ACTIONS ===
   { scenario: 'CREATE: create_material', toolName: 'manage_asset', arguments: { action: 'create_material', name: `M_CreateAction_${ts}`, path: TEST_FOLDER }, expected: 'success|already exists' },

@@ -1018,6 +1018,14 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("create_gameplay_task") || Lower == TEXT("end_gameplay_task") ||
       Lower == TEXT("get_gameplay_task") || Lower == TEXT("list_gameplay_tasks") ||
       Lower == TEXT("configure_task_priority");
+  const bool bDelegateInterfaceAction =
+      Lower == TEXT("create_event_dispatcher") || Lower == TEXT("bind_to_event") ||
+      Lower == TEXT("unbind_from_event") || Lower == TEXT("broadcast_event") ||
+      Lower == TEXT("create_delegate") || Lower == TEXT("bind_delegate") ||
+      Lower == TEXT("inspect_delegate") || Lower == TEXT("list_delegate_bindings") ||
+      Lower == TEXT("create_blueprint_interface") || Lower == TEXT("add_interface_function") ||
+      Lower == TEXT("implement_interface") || Lower == TEXT("get_interface_info") ||
+      Lower == TEXT("call_interface_function");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -1028,7 +1036,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("start_session") &&
       Lower != TEXT("validate_assets") &&
       Lower != TEXT("execute_python") &&
-      !bSubsystemAction && !bAsyncTimerAction) {
+      !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction) {
     return false; // Not handled by this function
   }
 
@@ -1046,6 +1054,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
 
   if (bAsyncTimerAction) {
     return HandleAsyncTimerAction(RequestId, Lower, Payload, RequestingSocket);
+  }
+
+  if (bDelegateInterfaceAction) {
+    return HandleDelegateInterfaceAction(RequestId, Lower, Payload, RequestingSocket);
   }
 
   if (Lower == TEXT("start_session")) {

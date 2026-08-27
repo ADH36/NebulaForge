@@ -1553,14 +1553,20 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Official Unreal references**: [`FTimerManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FTimerManager?lang=en-US), [Gameplay Timers](https://dev.epicgames.com/documentation/en-us/unreal-engine/gameplay-timers-in-unreal-engine?lang=en-US), [`FLatentActionManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FLatentActionManager?lang=en-US), [`FPendingLatentAction`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FPendingLatentAction), [`Async`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/Async?lang=en-US), [`EAsyncExecution`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/EAsyncExecution), [`UGameplayTask`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/GameplayTasks/UGameplayTask?lang=en-US), and [`UGameplayTasksComponent`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/GameplayTasks/UGameplayTasksComponent).
 
 ### 34.8 Delegates & Interfaces
-- [ ] `create_event_dispatcher`
-- [ ] `bind_to_event`, `unbind_from_event`
-- [ ] `broadcast_event`
-- [ ] `create_delegate`, `bind_delegate`
-- [ ] `create_blueprint_interface`
-- [ ] `add_interface_function`
-- [ ] `implement_interface`
-- [ ] `call_interface_function`
+- [x] `create_event_dispatcher`
+- [x] `bind_to_event`, `unbind_from_event`
+- [x] `broadcast_event`
+- [x] `create_delegate`, `bind_delegate`
+- [x] `inspect_delegate`, `list_delegate_bindings`
+- [x] `create_blueprint_interface`, `add_interface_function`
+- [x] `implement_interface`
+- [x] `get_interface_info`, `call_interface_function`
+
+**Implemented feature coverage**: editor-safe creation of single-cast and multicast Blueprint delegate variables; event-dispatcher authoring; reflection-backed binding, unbinding, inspection, and broadcasting; Blueprint Interface asset creation and function-graph authoring; interface implementation through `FBlueprintEditorUtils::ImplementNewInterface`; interface enumeration; and reflected interface calls with JSON-marshaled parameters and return values. Runtime delegate/object references are intentionally resolved only from loaded Unreal objects, and authored assets are saved through the bridge safe-save wrapper.
+
+**Additional coverage**: delegate signatures and bound-object metadata are returned by inspection; multicast invocation supports reflected parameter values through `parameterValues`; interface calls expose the interface class, target, function, and return value; and delegate/function-graph authoring reports idempotent/existing states where Unreal permits them.
+
+**Official Unreal references**: [`FDelegateProperty`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/CoreUObject/FDelegateProperty), [`FMulticastDelegateProperty`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/CoreUObject/FMulticastDelegateProperty), [`TScriptDelegate`](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Core/TScriptDelegate?lang=en-US), [`TMulticastScriptDelegate`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/TMulticastScriptDelegate), [`UEdGraphSchema_K2::PC_Delegate`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/BlueprintGraph/UEdGraphSchema_K2), [`FBlueprintEditorUtils::ImplementNewInterface`](https://dev.epicgames.com/documentation/unreal-engine/API/Editor/UnrealEd/FBlueprintEditorUtils/ImplementNewInterface?lang=en-US), [`FBlueprintEditorUtils::CreateFunctionGraph`](https://dev.epicgames.com/documentation/unreal-engine/API/Editor/UnrealEd/FBlueprintEditorUtils/CreateFunctionGraph), [`UInterface`](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/CoreUObject/UInterface?lang=en-US), and [Unreal Interfaces](https://dev.epicgames.com/documentation/unreal-engine/interfaces-in-unreal-engine).
 
 ---
 

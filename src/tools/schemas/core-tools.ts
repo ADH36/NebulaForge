@@ -572,7 +572,11 @@ export const coreToolDefinitions: ToolDefinition[] = [
             'create_latent_action', 'clear_latent_action', 'get_latent_action', 'list_latent_actions',
             'create_async_action', 'cancel_async_action', 'get_async_action', 'list_async_actions',
             'create_gameplay_task', 'end_gameplay_task', 'get_gameplay_task', 'list_gameplay_tasks',
-            'configure_task_priority'
+            'configure_task_priority',
+            'create_event_dispatcher', 'bind_to_event', 'unbind_from_event', 'broadcast_event',
+            'create_delegate', 'bind_delegate', 'inspect_delegate', 'list_delegate_bindings',
+            'create_blueprint_interface', 'add_interface_function', 'implement_interface',
+            'get_interface_info', 'call_interface_function'
           ],
           description: 'Action'
         },
@@ -624,6 +628,20 @@ export const coreToolDefinitions: ToolDefinition[] = [
         priority: commonSchemas.numberProp,
         activate: commonSchemas.booleanProp,
         taskType: commonSchemas.stringProp
+        ,name: commonSchemas.name
+        ,blueprintPath: commonSchemas.assetPath
+        ,folder: commonSchemas.assetPath
+        ,delegateObject: commonSchemas.stringProp
+        ,delegateName: commonSchemas.name
+        ,delegateKind: { type: 'string', enum: ['single', 'multicast', 'event_dispatcher'] }
+        ,targetObject: commonSchemas.stringProp
+        ,functionName: commonSchemas.name
+        ,interfacePath: commonSchemas.assetPath
+        ,interfaceClass: commonSchemas.stringProp
+        ,interfaceFunction: commonSchemas.name
+        ,interfaceFunctionName: commonSchemas.name
+        ,parameterValues: commonSchemas.objectProp
+        ,saveAsset: commonSchemas.booleanProp
       },
       required: ['action']
     },

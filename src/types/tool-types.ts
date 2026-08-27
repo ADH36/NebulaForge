@@ -152,6 +152,16 @@ export interface SystemControlResponse extends BaseToolResponse {
   logPath?: string;
   entries?: Array<{ timestamp?: string; category?: string; level?: string; message: string }>;
   filteredCount?: number;
+  delegateName?: string;
+  delegateType?: string;
+  delegateObject?: string;
+  bound?: boolean;
+  bindingCount?: number;
+  interfaceClass?: string;
+  interfaceFunction?: string;
+  implementsInterface?: boolean;
+  returnValue?: unknown;
+  interfaces?: Array<Record<string, unknown>>;
 }
 
 // Console Command Types
@@ -357,7 +367,11 @@ export type SystemAction = 'profile' | 'show_fps' | 'set_quality' | 'play_sound'
   'resume_timer' | 'get_timer' | 'list_timers' | 'create_latent_action' |
   'clear_latent_action' | 'get_latent_action' | 'list_latent_actions' | 'create_async_action' |
   'cancel_async_action' | 'get_async_action' | 'list_async_actions' | 'create_gameplay_task' |
-  'end_gameplay_task' | 'get_gameplay_task' | 'list_gameplay_tasks' | 'configure_task_priority';
+  'end_gameplay_task' | 'get_gameplay_task' | 'list_gameplay_tasks' | 'configure_task_priority'
+  | 'create_event_dispatcher' | 'bind_to_event' | 'unbind_from_event' | 'broadcast_event'
+  | 'create_delegate' | 'bind_delegate' | 'inspect_delegate' | 'list_delegate_bindings'
+  | 'create_blueprint_interface' | 'add_interface_function' | 'implement_interface'
+  | 'get_interface_info' | 'call_interface_function';
 export type VerificationAction = 'foliage_type_exists' | 'foliage_instances_near' | 'landscape_exists' | 'quality_level';
 
 // Consolidated tool parameter types
@@ -630,6 +644,18 @@ export interface ConsolidatedToolParams {
     priority?: number;
     activate?: boolean;
     taskType?: string;
+    blueprintPath?: string;
+    delegateObject?: string;
+    delegateName?: string;
+    delegateKind?: 'single' | 'multicast' | 'event_dispatcher';
+    targetObject?: string;
+    functionName?: string;
+    interfacePath?: string;
+    interfaceClass?: string;
+    interfaceFunction?: string;
+    interfaceFunctionName?: string;
+    parameterValues?: Record<string, unknown>;
+    saveAsset?: boolean;
   };
 
   console_command: {

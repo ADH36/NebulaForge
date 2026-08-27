@@ -766,6 +766,9 @@ private:
   bool HandleAsyncTimerAction(const FString &RequestId, const FString &Action,
                               const TSharedPtr<FJsonObject> &Payload,
                               TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  bool HandleDelegateInterfaceAction(const FString &RequestId, const FString &Action,
+                                     const TSharedPtr<FJsonObject> &Payload,
+                                     TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
   void ShutdownManagedAsyncOperations();
   bool
   HandleConsoleCommandAction(const FString &RequestId, const FString &Action,

@@ -2,13 +2,15 @@
 /**
  * system_control Tool Integration Tests
  * Covers the core system-control actions, including Phase 34.6 subsystem and Phase 34.7
- * async/timer operations,
+ * async/timer operations, and Phase 34.8 delegate/interface operations,
  * with proper setup/teardown sequencing.
  */
 
 import { runToolTests } from '../../test-runner.mjs';
 
 const TEST_FOLDER = '/Game/MCPTest/SystemControl';
+const PHASE_348_FOLDER = '/Game/MCPTest/SystemControl348';
+const PHASE_348_INTERFACE = `${PHASE_348_FOLDER}/BPI_SystemControl_348`;
 const WIDGET_NAME = 'WBP_SystemControl_Test';
 const WIDGET_PATH = `${TEST_FOLDER}/${WIDGET_NAME}`;
 const VALIDATION_MATERIAL = `${TEST_FOLDER}/M_SystemControlValidation`;
@@ -75,6 +77,7 @@ const testCases = [
   // === SETUP ===
   { scenario: 'Setup: create test folder', toolName: 'manage_asset', arguments: { action: 'create_folder', path: TEST_FOLDER }, expected: 'success|already exists' },
   { scenario: 'Setup: create validation material', toolName: 'manage_asset', arguments: { action: 'create_material', name: 'M_SystemControlValidation', path: TEST_FOLDER }, expected: 'success|already exists' },
+  { scenario: 'Setup: create Phase 34.8 folder', toolName: 'manage_asset', arguments: { action: 'create_folder', path: PHASE_348_FOLDER }, expected: 'success|already exists' },
 
   // === SUBSYSTEMS (PHASE 34.6) ===
   { scenario: 'INFO: list_subsystems', toolName: 'system_control', arguments: { action: 'list_subsystems', subsystemScope: 'world', subsystemName: 'WorldPartitionSubsystem' }, expected: 'success' },
@@ -109,6 +112,21 @@ const testCases = [
   { scenario: 'INFO: list_gameplay_tasks', toolName: 'system_control', arguments: { action: 'list_gameplay_tasks' }, expected: 'success' },
   { scenario: 'TASK: end_gameplay_task', toolName: 'system_control', arguments: { action: 'end_gameplay_task', taskId: 'system-control-task' }, expected: 'success|not found' },
   { scenario: 'CONFIG: configure_task_priority', toolName: 'system_control', arguments: { action: 'configure_task_priority', taskId: 'system-control-task', priority: 10 }, expected: 'success|not found' },
+
+  // === DELEGATES & INTERFACES (PHASE 34.8) ===
+  { scenario: 'INTERFACE: create_blueprint_interface', toolName: 'system_control', arguments: { action: 'create_blueprint_interface', name: 'BPI_SystemControl_348', folder: PHASE_348_FOLDER }, expected: 'success|already exists' },
+  { scenario: 'INTERFACE: add_interface_function', toolName: 'system_control', arguments: { action: 'add_interface_function', blueprintPath: PHASE_348_INTERFACE, interfaceFunction: 'OnSystemControlEvent', saveAsset: true }, expected: 'success|already exists|not found|invalid' },
+  { scenario: 'DELEGATE: create_event_dispatcher', toolName: 'system_control', arguments: { action: 'create_event_dispatcher', blueprintPath: '/Game/MCPTest/MissingBlueprint', delegateName: 'OnSystemControlEvent', delegateKind: 'event_dispatcher', saveAsset: true }, expected: 'not found|invalid' },
+  { scenario: 'DELEGATE: create_delegate', toolName: 'system_control', arguments: { action: 'create_delegate', blueprintPath: '/Game/MCPTest/MissingBlueprint', delegateName: 'SystemControlDelegate', delegateKind: 'single', saveAsset: false }, expected: 'not found|invalid' },
+  { scenario: 'DELEGATE: bind_to_event', toolName: 'system_control', arguments: { action: 'bind_to_event', delegateObject: '/Game/MCPTest/MissingObject', delegateName: 'OnSystemControlEvent', targetObject: '/Game/MCPTest/MissingTarget', callbackFunction: 'OnSystemControlEvent' }, expected: 'not found|invalid' },
+  { scenario: 'DELEGATE: bind_delegate with functionName', toolName: 'system_control', arguments: { action: 'bind_delegate', delegateObject: '/Game/MCPTest/MissingObject', delegateName: 'SystemControlDelegate', targetObject: '/Game/MCPTest/MissingTarget', functionName: 'HandleSystemControl' }, expected: 'not found|invalid' },
+  { scenario: 'DELEGATE: unbind_from_event', toolName: 'system_control', arguments: { action: 'unbind_from_event', delegateObject: '/Game/MCPTest/MissingObject', delegateName: 'OnSystemControlEvent', targetObject: '/Game/MCPTest/MissingTarget', callbackFunction: 'OnSystemControlEvent' }, expected: 'not found|invalid' },
+  { scenario: 'DELEGATE: broadcast_event', toolName: 'system_control', arguments: { action: 'broadcast_event', delegateObject: '/Game/MCPTest/MissingObject', delegateName: 'OnSystemControlEvent', parameterValues: { EventId: 'phase-34-8' } }, expected: 'not found|invalid' },
+  { scenario: 'DELEGATE: inspect_delegate', toolName: 'system_control', arguments: { action: 'inspect_delegate', delegateObject: '/Game/MCPTest/MissingObject', delegateName: 'OnSystemControlEvent' }, expected: 'not found|invalid' },
+  { scenario: 'DELEGATE: list_delegate_bindings', toolName: 'system_control', arguments: { action: 'list_delegate_bindings', delegateObject: '/Game/MCPTest/MissingObject', delegateName: 'OnSystemControlEvent' }, expected: 'not found|invalid' },
+  { scenario: 'INTERFACE: implement_interface', toolName: 'system_control', arguments: { action: 'implement_interface', blueprintPath: '/Game/MCPTest/MissingBlueprint', interfacePath: PHASE_348_INTERFACE, interfaceClass: '/Script/Engine.MissingInterface', saveAsset: true }, expected: 'not found|invalid' },
+  { scenario: 'INTERFACE: get_interface_info', toolName: 'system_control', arguments: { action: 'get_interface_info', targetObject: '/Game/MCPTest/MissingObject', interfaceClass: '/Script/Engine.MissingInterface' }, expected: 'not found|invalid' },
+  { scenario: 'INTERFACE: call_interface_function', toolName: 'system_control', arguments: { action: 'call_interface_function', targetObject: '/Game/MCPTest/MissingObject', interfacePath: PHASE_348_INTERFACE, interfaceFunctionName: 'OnSystemControlEvent', parameterValues: {} }, expected: 'not found|invalid' },
 
   // === ACTION ===
   { scenario: 'ACTION: profile', toolName: 'system_control', arguments: { action: 'profile', profileType: 'cpu' }, expected: 'success' },
@@ -160,6 +178,7 @@ const testCases = [
   { scenario: 'Cleanup: delete execute_python file', toolName: 'system_control', arguments: { action: 'execute_python', code: DELETE_PYTHON_FILE_CODE }, expected: 'success' },
   { scenario: 'Cleanup: remove project setting', toolName: 'system_control', arguments: { action: 'execute_python', code: CLEANUP_PROJECT_SETTING_CODE }, expected: 'success' },
   { scenario: 'Cleanup: delete test folder', toolName: 'manage_asset', arguments: { action: 'delete', path: TEST_FOLDER, force: true }, expected: 'success|not found' },
+  { scenario: 'Cleanup: delete Phase 34.8 folder', toolName: 'manage_asset', arguments: { action: 'delete', path: PHASE_348_FOLDER, force: true }, expected: 'success|not found' },
   { scenario: 'ACTION: run_tests', toolName: 'system_control', arguments: { action: 'run_tests', filter: 'System.Core.Time.Comparison' }, expected: 'success' },
 ];
 

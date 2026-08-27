@@ -322,6 +322,13 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `get_async_action` / `list_async_actions` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Reports async execution and completion state |
 | `create_gameplay_task` / `end_gameplay_task` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Creates and ends managed generic gameplay tasks |
 | `get_gameplay_task` / `list_gameplay_tasks` / `configure_task_priority` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleAsyncTimerAction` | Inspects task state and recreates inactive managed tasks with a new priority |
+| `create_event_dispatcher` / `create_delegate` | `NebulaForgeBridge_DelegateInterfaceHandlers.cpp` | `HandleDelegateInterfaceAction` | Creates Blueprint multicast dispatcher or single/multicast delegate variables |
+| `bind_to_event` / `unbind_from_event` / `bind_delegate` | `NebulaForgeBridge_DelegateInterfaceHandlers.cpp` | `HandleDelegateInterfaceAction` | Binds loaded `UObject` callback functions through reflected delegate properties |
+| `broadcast_event` | `NebulaForgeBridge_DelegateInterfaceHandlers.cpp` | `HandleDelegateInterfaceAction` | Broadcasts multicast delegates using reflected `parameterValues` |
+| `inspect_delegate` / `list_delegate_bindings` | `NebulaForgeBridge_DelegateInterfaceHandlers.cpp` | `HandleDelegateInterfaceAction` | Returns delegate signature, binding state, and bound-object metadata |
+| `create_blueprint_interface` / `add_interface_function` | `NebulaForgeBridge_DelegateInterfaceHandlers.cpp` | `HandleDelegateInterfaceAction` | Creates Blueprint Interface assets and function graphs |
+| `implement_interface` | `NebulaForgeBridge_DelegateInterfaceHandlers.cpp` | `HandleDelegateInterfaceAction` | Uses `FBlueprintEditorUtils::ImplementNewInterface` |
+| `get_interface_info` / `call_interface_function` | `NebulaForgeBridge_DelegateInterfaceHandlers.cpp` | `HandleDelegateInterfaceAction` | Enumerates implemented interfaces and invokes reflected interface functions |
 | `create_hud` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |
 | `set_widget_text` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |
 | `set_widget_image` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |

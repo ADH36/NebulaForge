@@ -512,7 +512,14 @@ inline const TArray<FString>& SystemControlCore()
 		TEXT("get_async_action"), TEXT("list_async_actions"),
 		TEXT("create_gameplay_task"), TEXT("end_gameplay_task"),
 		TEXT("get_gameplay_task"), TEXT("list_gameplay_tasks"),
-		TEXT("configure_task_priority")
+		TEXT("configure_task_priority"),
+		TEXT("create_event_dispatcher"), TEXT("bind_to_event"),
+		TEXT("unbind_from_event"), TEXT("broadcast_event"),
+		TEXT("create_delegate"), TEXT("bind_delegate"),
+		TEXT("inspect_delegate"), TEXT("list_delegate_bindings"),
+		TEXT("create_blueprint_interface"), TEXT("add_interface_function"),
+		TEXT("implement_interface"), TEXT("get_interface_info"),
+		TEXT("call_interface_function")
 	};
 	return Actions;
 }

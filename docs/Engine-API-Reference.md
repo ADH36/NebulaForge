@@ -1662,6 +1662,25 @@ Callbacks are restricted to loaded zero-argument `UFunction`s, and asynchronous 
 
 ---
 
+### Delegates, Event Dispatchers, and Interfaces (34.8)
+
+Phase 34.8 exposes delegate and interface authoring through `system_control`, while runtime operations use Unreal's reflection-backed script delegate APIs. Single-cast and multicast delegate variables are authored as Blueprint member variables; event dispatchers use the multicast delegate pin category; runtime binding is performed with `FScriptDelegate::BindUFunction` and the property-level add/remove APIs; and broadcast uses the delegate signature's reflected parameter layout.
+
+| Unreal API | Bridge coverage |
+|------|------|
+| `FDelegateProperty` / `FMulticastDelegateProperty` | Discover delegate properties, signatures, single/multicast state, and bound objects |
+| `TScriptDelegate::BindUFunction` / `Unbind` | Bind and unbind single-cast delegates to loaded `UObject` functions |
+| `FMulticastDelegateProperty::AddDelegate` / `RemoveDelegate` | Bind and unbind event-dispatcher/multicast listeners |
+| `TMulticastScriptDelegate::ProcessMulticastDelegate` | Broadcast a reflected event with JSON-converted parameters |
+| `FBlueprintEditorUtils::AddMemberVariable` | Create single-cast/multicast Blueprint delegate variables and dispatchers |
+| `FBlueprintEditorUtils::CreateFunctionGraph` / `AddFunctionGraph` | Add interface function graphs |
+| `FBlueprintEditorUtils::ImplementNewInterface` | Add an interface and its required member graphs to a Blueprint |
+| `UObject::ImplementsInterface` / `ProcessEvent` | Inspect implemented interfaces and invoke reflected interface functions |
+
+Runtime object paths must resolve to loaded `UObject`s. Blueprint authoring uses the editor-only bridge and safe asset saves. Reflected invocation initializes and destroys the `UFunction` parameter frame and rejects missing/unsupported parameter values before dispatch, keeping the generic API safe across UE 5.0–5.8 signature shapes. See Epic's [`FDelegateProperty`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/CoreUObject/FDelegateProperty), [`FMulticastDelegateProperty`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/CoreUObject/FMulticastDelegateProperty), [`TScriptDelegate`](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Core/TScriptDelegate?lang=en-US), [`TMulticastScriptDelegate`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/TMulticastScriptDelegate), [`FBlueprintEditorUtils::ImplementNewInterface`](https://dev.epicgames.com/documentation/unreal-engine/API/Editor/UnrealEd/FBlueprintEditorUtils/ImplementNewInterface?lang=en-US), [`FBlueprintEditorUtils::CreateFunctionGraph`](https://dev.epicgames.com/documentation/unreal-engine/API/Editor/UnrealEd/FBlueprintEditorUtils/CreateFunctionGraph), and [Unreal Interfaces](https://dev.epicgames.com/documentation/unreal-engine/interfaces-in-unreal-engine).
+
+---
+
 ## Phase 35: Additional Gameplay Systems
 
 ### Key Headers

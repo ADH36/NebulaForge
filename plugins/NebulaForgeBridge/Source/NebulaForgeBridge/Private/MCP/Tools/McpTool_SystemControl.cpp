@@ -15,7 +15,7 @@ public:
 	{
 		return TEXT("Run profiling, set quality/CVars, execute console commands, "
 			"execute Python scripts, manage Unreal subsystems, timers, async work, and gameplay tasks, "
-			"run UBT, manage widgets, and take screenshots.");
+			"run UBT, manage widgets, delegates, Blueprint interfaces, and take screenshots.");
 	}
 
 	FString GetCategory() const override { return TEXT("core"); }
@@ -105,6 +105,19 @@ public:
 			.Number(TEXT("priority"), TEXT("Gameplay task priority from 0 to 255."))
 			.Bool(TEXT("activate"), TEXT("Activate the gameplay task immediately; defaults to true."))
 			.String(TEXT("taskType"), TEXT("Managed task type; currently generic is supported."))
+			.String(TEXT("blueprintPath"), TEXT("Blueprint asset path for delegate or interface authoring."))
+			.String(TEXT("folder"), TEXT("Content folder for a newly created Blueprint Interface."))
+			.String(TEXT("delegateObject"), TEXT("Loaded UObject path containing the reflected delegate property."))
+			.String(TEXT("delegateName"), TEXT("Delegate or event-dispatcher property name."))
+			.String(TEXT("delegateKind"), TEXT("single, multicast, or event_dispatcher for authored delegate variables."))
+			.String(TEXT("targetObject"), TEXT("Loaded UObject path receiving a delegate callback."))
+			.String(TEXT("functionName"), TEXT("Function name used for interface or delegate operations."))
+			.String(TEXT("interfacePath"), TEXT("Blueprint Interface asset path or interface class path."))
+			.String(TEXT("interfaceClass"), TEXT("Interface class path or name."))
+			.String(TEXT("interfaceFunction"), TEXT("Interface function name."))
+			.String(TEXT("interfaceFunctionName"), TEXT("Alias for interfaceFunction."))
+			.FreeformObject(TEXT("parameterValues"), TEXT("JSON values for reflected function or delegate parameters."))
+			.Bool(TEXT("saveAsset"), TEXT("Save modified Blueprint assets; defaults to true."))
 			.Required({TEXT("action")})
 			.Build();
 	}

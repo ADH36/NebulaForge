@@ -58,24 +58,24 @@
   "author": "Unreal Engine MCP Team",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "ajv": "^8.17.1",
     "dotenv": "^17.2.3",
     "mcp-client-capabilities": "^0.0.14",
-    "ws": "^8.18.3",
+    "ws": "^8.21.3",
     "zod": "^4.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.0.2",
+    "@types/node": "^26.2.0",
     "@types/ws": "^8.18.1",
-    "@typescript-eslint/eslint-plugin": "^8.50.0",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.49.0",
-    "@vitest/coverage-v8": "^4.0.16",
-    "eslint": "^10.0.2",
+    "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^10.9.0",
     "rimraf": "^6.1.2",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.2",
+    "typescript": "^7.0.2",
     "vitest": "^4.0.16"
   },
   "overrides": {

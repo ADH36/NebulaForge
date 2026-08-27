@@ -78,6 +78,13 @@ public:
 			.String(TEXT("gridName"), TEXT("World Partition grid name."))
 			.Bool(TEXT("bBlockOnSlowStreaming"),
 				TEXT("Block when slow streaming is detected."))
+			.Bool(TEXT("verifyPersistence"),
+				TEXT("Verify package persistence where supported."))
+			.Bool(TEXT("reloadForVerification"),
+				TEXT("Safely reload the current map before persistence verification."))
+			.String(TEXT("landscapePath"), TEXT("Landscape actor/object path for related verification."))
+			.String(TEXT("editLayerName"), TEXT("Landscape Edit Layer name for related verification."))
+			.Array(TEXT("editLayerNames"), TEXT("Landscape Edit Layer names for related verification."), TEXT("string"))
 			.Bool(TEXT("createIfMissing"),
 				TEXT("Create the target structure if it is missing."))
 			.String(TEXT("dataLayerName"), TEXT("Name of the data layer."))

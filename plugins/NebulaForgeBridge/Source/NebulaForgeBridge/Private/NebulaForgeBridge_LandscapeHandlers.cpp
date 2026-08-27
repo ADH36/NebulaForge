@@ -290,7 +290,13 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
     }
     if (!bExists) {
       Landscape->Modify();
-      Landscape->CreateLayer(FName(*RequestedLayerName), nullptr, false);
+      const int32 CreatedLayerIndex = Landscape->CreateLayer(FName(*RequestedLayerName), nullptr, false);
+      if (CreatedLayerIndex < 0) {
+        SendAutomationError(RequestingSocket, RequestId,
+          TEXT("Landscape Edit Layer creation failed; the UE 5.8 layer limit or landscape state may prevent another layer."),
+          TEXT("EDIT_LAYER_CREATE_FAILED"));
+        return true;
+      }
       Landscape->MarkPackageDirty();
     }
   }
@@ -321,10 +327,46 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
   bool bSaved = true;
   if (Lower == TEXT("create_landscape_edit_layer") || Lower == TEXT("verify_landscape_edit_layers"))
     bSaved = McpSaveLandscapePersistence(World, Landscape, SaveError);
+  bool bReloadVerified = false;
+  bool bReloadRequested = false;
+  Payload->TryGetBoolField(TEXT("reloadForVerification"), bReloadRequested);
+  if (bReloadRequested && Lower == TEXT("verify_landscape_edit_layers") && bSaved) {
+    const FString WorldPackagePath = World->GetOutermost() ? World->GetOutermost()->GetName() : FString();
+    const FString OriginalLandscapeName = Landscape->GetActorLabel();
+    if (!WorldPackagePath.IsEmpty() && McpSafeLoadMap(WorldPackagePath, true)) {
+      UWorld* ReloadedWorld = GEditor->GetEditorWorldContext().World();
+      if (ReloadedWorld) {
+        for (TActorIterator<ALandscape> It(ReloadedWorld); It; ++It) {
+          ALandscape* Candidate = *It;
+          if (Candidate && Candidate->GetActorLabel().Equals(OriginalLandscapeName, ESearchCase::IgnoreCase)) {
+            Landscape = Candidate;
+            bReloadVerified = true;
+            if (RequestedNames) {
+              for (const TSharedPtr<FJsonValue>& Value : *RequestedNames) {
+                const FString Wanted = Value.IsValid() ? Value->AsString() : FString();
+                bool bFoundAfterReload = false;
+                for (const FLandscapeLayer& Layer : Landscape->GetLayersConst()) {
+                  if (Layer.EditLayer && Layer.EditLayer->GetName().ToString().Equals(Wanted, ESearchCase::IgnoreCase)) {
+                    bFoundAfterReload = true;
+                    break;
+                  }
+                }
+                bReloadVerified &= bFoundAfterReload;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+    if (!bReloadVerified && SaveError.IsEmpty())
+      SaveError = TEXT("Map reload completed without finding the original landscape actor.");
+  }
   const FString SavedPackagePath = McpLandscapePackagePath(Landscape);
   const bool bPackageExists = !SavedPackagePath.IsEmpty() && FPackageName::DoesPackageExist(SavedPackagePath);
   const bool bVerified = bAllRequestedFound && Layers.Num() > 0 && bSaved &&
-      (Lower != TEXT("verify_landscape_edit_layers") || bPackageExists);
+      (Lower != TEXT("verify_landscape_edit_layers") || bPackageExists) &&
+      (!bReloadRequested || bReloadVerified);
 
   TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
   Result->SetBoolField(TEXT("success"), bVerified);
@@ -335,8 +377,12 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
   Result->SetBoolField(TEXT("saved"), bSaved);
   Result->SetBoolField(TEXT("savedPackageExists"), bPackageExists);
   Result->SetBoolField(TEXT("persistenceVerified"), Lower == TEXT("verify_landscape_edit_layers") && bSaved && bPackageExists && bAllRequestedFound);
-  Result->SetBoolField(TEXT("reloadVerified"), Lower == TEXT("verify_landscape_edit_layers") && bPackageExists && bAllRequestedFound);
-  Result->SetStringField(TEXT("evidence"), FString::Printf(TEXT("%d edit layer(s) enumerated; package=%s"), Layers.Num(), *McpLandscapePackagePath(Landscape)));
+  // A package-existence check proves that the save reached disk, but it does
+  // not prove a full map unload/reload. Do not report reload success without
+  // actually reopening the map through the editor world context.
+  Result->SetBoolField(TEXT("reloadRequested"), bReloadRequested);
+  Result->SetBoolField(TEXT("reloadVerified"), bReloadVerified);
+  Result->SetStringField(TEXT("evidence"), FString::Printf(TEXT("%d edit layer(s) enumerated; package=%s; reload=%s"), Layers.Num(), *McpLandscapePackagePath(Landscape), bReloadRequested ? (bReloadVerified ? TEXT("verified") : TEXT("failed")) : TEXT("not_requested")));
   if (!SaveError.IsEmpty()) Result->SetStringField(TEXT("saveError"), SaveError);
   SendAutomationResponse(RequestingSocket, RequestId, Result->GetBoolField(TEXT("success")),
       Result->GetBoolField(TEXT("success")) ? TEXT("Landscape edit layers verified") : TEXT("Landscape edit-layer verification failed"), Result,

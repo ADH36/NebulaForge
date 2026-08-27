@@ -1205,6 +1205,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         editLayerName: commonSchemas.stringProp,
         editLayerNames: commonSchemas.arrayOfStrings,
         verifyPersistence: commonSchemas.booleanProp,
+        reloadForVerification: commonSchemas.booleanProp,
         actorName: commonSchemas.actorName,
         foliageType: commonSchemas.stringProp,
         foliageTypePath: commonSchemas.assetPath,
@@ -1556,7 +1557,16 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
     outputSchema: {
       type: 'object',
       properties: {
-        ...commonSchemas.outputBase
+        ...commonSchemas.outputBase,
+        status: { type: 'string', enum: ['PASS', 'PARTIAL', 'FAIL'], description: 'Truthful evidence status.' },
+        evidence: commonSchemas.stringProp,
+        editLayers: commonSchemas.arrayOfObjects,
+        editLayerCount: commonSchemas.numberProp,
+        saved: commonSchemas.booleanProp,
+        savedPackageExists: commonSchemas.booleanProp,
+        persistenceVerified: commonSchemas.booleanProp,
+        reloadRequested: commonSchemas.booleanProp,
+        reloadVerified: commonSchemas.booleanProp
       }
     }
   },
@@ -4220,6 +4230,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
       type: 'object',
       properties: {
         success: commonSchemas.booleanProp,
+        status: { type: 'string', enum: ['PASS', 'PARTIAL', 'FAIL'], description: 'Truthful evidence status.' },
         message: commonSchemas.stringProp,
         levelPath: commonSchemas.levelPath,
         sublevelPath: commonSchemas.levelPath,
@@ -4229,6 +4240,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         generatedHlodActors: commonSchemas.arrayOfObjects,
         missingHlodActors: commonSchemas.arrayOfObjects,
         buildStatus: commonSchemas.objectProp,
+        evidence: commonSchemas.stringProp,
         nodeName: commonSchemas.nodeName,
         levelInstanceName: commonSchemas.levelInstanceName,
         levelStructureInfo: {

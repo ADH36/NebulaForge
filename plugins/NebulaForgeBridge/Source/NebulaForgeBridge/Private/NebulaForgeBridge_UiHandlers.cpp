@@ -247,13 +247,12 @@ bool ParseUiScreenshotResolutionForMcp(const TSharedPtr<FJsonObject>& Payload,
          Payload->HasField(TEXT("height"));
 }
 
-static bool IsGridOnlyScreenshotForMcp(const TArray<FColor>& Bitmap)
+static bool IsGridOnlyScreenshotForMcp(const TArray<FColor>& Bitmap, int32 Width, int32 Height)
 {
-  if (Bitmap.Num() < 64) return false;
+  if (Bitmap.Num() < 64 || Width <= 1 || Height <= 1 || Bitmap.Num() != Width * Height) return false;
   int32 Grayscale = 0;
   int32 Transitions = 0;
   TSet<uint32> QuantizedColors;
-  const int32 Width = FMath::Max(1, FMath::FloorToInt(FMath::Sqrt(static_cast<float>(Bitmap.Num()))));
   const int32 Step = FMath::Max(1, Bitmap.Num() / 4096);
   for (int32 Index = 0; Index < Bitmap.Num(); Index += Step) {
     const FColor& Pixel = Bitmap[Index];
@@ -761,7 +760,7 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
           }
           Bitmap.Reset();
           bReadSuccess = Viewport->ReadPixels(Bitmap);
-          bGridOnly = bReadSuccess && IsGridOnlyScreenshotForMcp(Bitmap);
+          bGridOnly = bReadSuccess && IsGridOnlyScreenshotForMcp(Bitmap, Size.X, Size.Y);
           bEmpty = bReadSuccess && IsEmptyScreenshotForMcp(Bitmap);
           if (bReadSuccess && Bitmap.Num() > 0 && HasVisibleScreenshotPixelsForMcp(Bitmap, NonBlackPixels) && !bGridOnly && !bEmpty) break;
         }

@@ -1,0 +1,2406 @@
+// =============================================================================
+// NebulaForgeBridge_LightingHandlers.cpp
+// =============================================================================
+// Lighting and Rendering Environment Handlers for NebulaForge Bridge.
+//
+// This file implements the following handlers:
+// - manage_lighting (spawn_light, create_light, create_dynamic_light)
+// - spawn_sky_light / create_sky_light
+// - build_lighting / bake_lightmap
+// - ensure_single_sky_light
+// - create_lighting_enabled_level
+// - create_lightmass_volume
+// - setup_volumetric_fog
+// - setup_global_illumination
+// - configure_shadows
+// - set_exposure
+// - set_ambient_occlusion
+// - list_light_types
+// - configure_ray_traced_shadows / gi / reflections / ao
+// - configure_path_tracing
+// - configure_ray_traced_translucency
+// - configure_ray_tracing_quality
+// - set_light_channel / set_actor_light_channel / get_light_channels
+// - configure_lightmass_settings / inspect_lightmass_settings
+// - build_lighting_quality
+// - configure_indirect_lighting_cache / configure_volumetric_lightmaps
+// - configure_lightmass_ambient_occlusion
+//
+// UE VERSION COMPATIBILITY:
+// - UE 5.0-5.7: Full support for all lighting types
+// - UE 5.6+: LightingBuildOptions.h removed, use console exec instead
+// - UE 5.7: Use SpawnActorDeferred for safer light spawning
+// - Intel GPU: Requires FlushRenderingCommands before spawn to prevent crashes
+//
+// SECURITY CONSIDERATIONS:
+// - Path sanitization for cubemap paths (prevents traversal attacks)
+// - Validation of intensity, radius, cone angles to prevent NaN/infinite values
+//
+// Copyright (c) 2024 NebulaForge Bridge Contributors
+// =============================================================================
+
+#include "McpVersionCompatibility.h"  // MUST BE FIRST - Version compatibility macros
+#include "McpHandlerUtils.h"          // Utility functions for JSON parsing
+
+#include "NebulaForgeBridgeGlobals.h"
+#include "Dom/JsonObject.h"
+#include "NebulaForgeBridgeHelpers.h"
+#include "NebulaForgeBridgeSubsystem.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "UObject/UObjectIterator.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/UnrealType.h"
+
+// =============================================================================
+// Engine Includes - Core
+// =============================================================================
+#include "Components/ExponentialHeightFogComponent.h"
+#include "Engine/ExponentialHeightFog.h"
+#include "Engine/PostProcessVolume.h"
+#include "Engine/Scene.h"
+#include "Engine/TextureCube.h"
+
+#if WITH_EDITOR
+
+// =============================================================================
+// Engine Includes - Editor
+// =============================================================================
+#include "Components/DirectionalLightComponent.h"
+#include "Components/LightComponent.h"
+#include "Components/PointLightComponent.h"
+#include "Components/RectLightComponent.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/SkyLightComponent.h"
+#include "Components/SpotLightComponent.h"
+#include "Engine/DirectionalLight.h"
+#include "Engine/PointLight.h"
+#include "Engine/RectLight.h"
+#include "Engine/SkyLight.h"
+#include "Engine/SpotLight.h"
+#include "GameFramework/WorldSettings.h"
+#include "Lightmass/LightmassImportanceVolume.h"
+
+// =============================================================================
+// Engine Includes - Editor Utilities
+// =============================================================================
+// UE5.6: LightingBuildOptions.h removed; use console exec
+#include "Editor/UnrealEd/Public/Editor.h"
+#include "FileHelpers.h"
+#include "Kismet/GameplayStatics.h"
+#include "LevelEditor.h"
+#include "Subsystems/EditorActorSubsystem.h"
+#include "RenderingThread.h"  // FlushRenderingCommands for safe spawning
+
+#endif // WITH_EDITOR
+
+// =============================================================================
+// Handler Implementation
+// =============================================================================
+
+namespace
+{
+struct FMcpLightingChannelState
+{
+    bool bChannel0 = false;
+    bool bChannel1 = false;
+    bool bChannel2 = false;
+};
+
+static TSharedPtr<FJsonObject> MakeLightingChannelsJson(const FMcpLightingChannelState& State)
+{
+    TSharedPtr<FJsonObject> Channels = McpHandlerUtils::CreateResultObject();
+    Channels->SetBoolField(TEXT("channel0"), State.bChannel0);
+    Channels->SetBoolField(TEXT("channel1"), State.bChannel1);
+    Channels->SetBoolField(TEXT("channel2"), State.bChannel2);
+    return Channels;
+}
+
+static bool ParseLightingChannelPayload(
+    const TSharedPtr<FJsonObject>& Payload,
+    FMcpLightingChannelState& State,
+    FString& OutError)
+{
+    bool bSpecified = false;
+    const TSharedPtr<FJsonObject>* ChannelsObject = nullptr;
+    if (Payload->TryGetObjectField(TEXT("channels"), ChannelsObject) && ChannelsObject && ChannelsObject->IsValid())
+    {
+        bool Value = false;
+        if ((*ChannelsObject)->TryGetBoolField(TEXT("channel0"), Value) || (*ChannelsObject)->TryGetBoolField(TEXT("0"), Value))
+        {
+            State.bChannel0 = Value;
+            bSpecified = true;
+        }
+        if ((*ChannelsObject)->TryGetBoolField(TEXT("channel1"), Value) || (*ChannelsObject)->TryGetBoolField(TEXT("1"), Value))
+        {
+            State.bChannel1 = Value;
+            bSpecified = true;
+        }
+        if ((*ChannelsObject)->TryGetBoolField(TEXT("channel2"), Value) || (*ChannelsObject)->TryGetBoolField(TEXT("2"), Value))
+        {
+            State.bChannel2 = Value;
+            bSpecified = true;
+        }
+    }
+
+    double ChannelNumber = 0.0;
+    if (Payload->TryGetNumberField(TEXT("channel"), ChannelNumber))
+    {
+        const int32 Channel = FMath::RoundToInt(ChannelNumber);
+        if (!FMath::IsFinite(ChannelNumber) || ChannelNumber != static_cast<double>(Channel) || Channel < 0 || Channel > 2)
+        {
+            OutError = TEXT("channel must be an integer from 0 to 2");
+            return false;
+        }
+
+        bool bEnabled = true;
+        Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+        if (Channel == 0) State.bChannel0 = bEnabled;
+        if (Channel == 1) State.bChannel1 = bEnabled;
+        if (Channel == 2) State.bChannel2 = bEnabled;
+        bSpecified = true;
+    }
+
+    if (!bSpecified)
+    {
+        OutError = TEXT("Provide channel plus enabled, or a channels object with channel0/channel1/channel2");
+        return false;
+    }
+    return true;
+}
+
+static FString GetLightingTarget(const TSharedPtr<FJsonObject>& Payload)
+{
+    FString Target;
+    const TCHAR* Fields[] = { TEXT("lightPath"), TEXT("lightName"), TEXT("actorPath"), TEXT("actorName"), TEXT("name") };
+    for (const TCHAR* Field : Fields)
+    {
+        if (Payload->TryGetStringField(Field, Target) && !Target.IsEmpty())
+        {
+            return Target;
+        }
+    }
+    return FString();
+}
+
+#if WITH_EDITOR
+static void AddLightmassSettingsToResponse(
+    const FLightmassWorldInfoSettings& Settings,
+    const TSharedPtr<FJsonObject>& Response)
+{
+    Response->SetNumberField(TEXT("staticLightingLevelScale"), Settings.StaticLightingLevelScale);
+    Response->SetNumberField(TEXT("numIndirectLightingBounces"), Settings.NumIndirectLightingBounces);
+    Response->SetNumberField(TEXT("numSkyLightingBounces"), Settings.NumSkyLightingBounces);
+    Response->SetNumberField(TEXT("indirectLightingQuality"), Settings.IndirectLightingQuality);
+    Response->SetNumberField(TEXT("indirectLightingSmoothness"), Settings.IndirectLightingSmoothness);
+
+    TSharedPtr<FJsonObject> EnvironmentColor = McpHandlerUtils::CreateResultObject();
+    EnvironmentColor->SetNumberField(TEXT("r"), Settings.EnvironmentColor.R / 255.0);
+    EnvironmentColor->SetNumberField(TEXT("g"), Settings.EnvironmentColor.G / 255.0);
+    EnvironmentColor->SetNumberField(TEXT("b"), Settings.EnvironmentColor.B / 255.0);
+    EnvironmentColor->SetNumberField(TEXT("a"), Settings.EnvironmentColor.A / 255.0);
+    Response->SetObjectField(TEXT("environmentColor"), EnvironmentColor);
+    Response->SetNumberField(TEXT("environmentIntensity"), Settings.EnvironmentIntensity);
+    Response->SetNumberField(TEXT("diffuseBoost"), Settings.DiffuseBoost);
+    Response->SetNumberField(TEXT("emissiveBoost"), Settings.EmissiveBoost);
+    Response->SetStringField(TEXT("volumeLightingMethod"),
+        Settings.VolumeLightingMethod == VLM_SparseVolumeLightingSamples
+            ? TEXT("SparseVolumeLightingSamples")
+            : TEXT("VolumetricLightmap"));
+    Response->SetBoolField(TEXT("useAmbientOcclusion"), Settings.bUseAmbientOcclusion);
+    Response->SetBoolField(TEXT("generateAmbientOcclusionMaterialMask"), Settings.bGenerateAmbientOcclusionMaterialMask);
+    Response->SetBoolField(TEXT("visualizeMaterialDiffuse"), Settings.bVisualizeMaterialDiffuse);
+    Response->SetBoolField(TEXT("visualizeAmbientOcclusion"), Settings.bVisualizeAmbientOcclusion);
+    Response->SetBoolField(TEXT("compressLightmaps"), Settings.bCompressLightmaps);
+    Response->SetNumberField(TEXT("volumetricLightmapDetailCellSize"), Settings.VolumetricLightmapDetailCellSize);
+    Response->SetNumberField(TEXT("volumetricLightmapMaximumBrickMemoryMb"), Settings.VolumetricLightmapMaximumBrickMemoryMb);
+    Response->SetNumberField(TEXT("volumetricLightmapSphericalHarmonicSmoothing"), Settings.VolumetricLightmapSphericalHarmonicSmoothing);
+    Response->SetNumberField(TEXT("volumeLightSamplePlacementScale"), Settings.VolumeLightSamplePlacementScale);
+    Response->SetNumberField(TEXT("directIlluminationOcclusionFraction"), Settings.DirectIlluminationOcclusionFraction);
+    Response->SetNumberField(TEXT("indirectIlluminationOcclusionFraction"), Settings.IndirectIlluminationOcclusionFraction);
+    Response->SetNumberField(TEXT("occlusionExponent"), Settings.OcclusionExponent);
+    Response->SetNumberField(TEXT("fullyOccludedSamplesFraction"), Settings.FullyOccludedSamplesFraction);
+    Response->SetNumberField(TEXT("maxOcclusionDistance"), Settings.MaxOcclusionDistance);
+}
+
+// UE 5.8 adds World Partition-specific Lightmass fields. Reflection keeps
+// this handler source-compatible with UE 5.0-5.7 while still exposing them
+// whenever the active engine provides them.
+static bool SetOptionalLightmassFloat(
+    AWorldSettings* WorldSettings,
+    const TCHAR* PropertyName,
+    double Value)
+{
+    FStructProperty* SettingsProperty = FindFProperty<FStructProperty>(
+        WorldSettings->GetClass(), TEXT("LightmassSettings"));
+    if (!SettingsProperty)
+    {
+        return false;
+    }
+
+    void* SettingsData = SettingsProperty->ContainerPtrToValuePtr<void>(WorldSettings);
+    FProperty* MemberProperty = FindFProperty<FProperty>(
+        SettingsProperty->Struct, FName(PropertyName));
+    if (!MemberProperty)
+    {
+        return false;
+    }
+
+    FNumericProperty* NumericProperty = CastField<FNumericProperty>(MemberProperty);
+    if (!NumericProperty)
+    {
+        return false;
+    }
+
+    NumericProperty->SetFloatingPointPropertyValue(
+        MemberProperty->ContainerPtrToValuePtr<void>(SettingsData), Value);
+    return true;
+}
+
+static bool GetOptionalLightmassFloat(
+    AWorldSettings* WorldSettings,
+    const TCHAR* PropertyName,
+    double& OutValue)
+{
+    FStructProperty* SettingsProperty = FindFProperty<FStructProperty>(
+        WorldSettings->GetClass(), TEXT("LightmassSettings"));
+    if (!SettingsProperty)
+    {
+        return false;
+    }
+
+    void* SettingsData = SettingsProperty->ContainerPtrToValuePtr<void>(WorldSettings);
+    FProperty* MemberProperty = FindFProperty<FProperty>(
+        SettingsProperty->Struct, FName(PropertyName));
+    FNumericProperty* NumericProperty = MemberProperty
+        ? CastField<FNumericProperty>(MemberProperty)
+        : nullptr;
+    if (!NumericProperty)
+    {
+        return false;
+    }
+
+    OutValue = NumericProperty->GetFloatingPointPropertyValue(
+        MemberProperty->ContainerPtrToValuePtr<void>(SettingsData));
+    return true;
+}
+#endif
+}
+
+/**
+ * Dispatch and execute native lighting actions for the automation bridge.
+ *
+ * `manage_lighting` requests are routed through their payload `action` field so
+ * consolidated-tool calls reach the same sub-action handlers as direct bridge
+ * calls. Light spawning keeps the UE 5.7 safe deferred-spawn path and returns a
+ * response only after the actor is created and verified.
+ */
+bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket)
+{
+    // -------------------------------------------------------------------------
+    // Action Routing
+    // -------------------------------------------------------------------------
+    FString EffectiveAction = Action;
+    if (Action.Equals(TEXT("manage_lighting"), ESearchCase::IgnoreCase) && Payload.IsValid())
+    {
+        FString PayloadAction;
+        if (Payload->TryGetStringField(TEXT("action"), PayloadAction) && !PayloadAction.IsEmpty())
+        {
+            EffectiveAction = PayloadAction;
+        }
+    }
+    const FString Lower = EffectiveAction.ToLower();
+    const bool bKnownLightingAction =
+        Lower.StartsWith(TEXT("spawn_light")) ||
+        Lower.StartsWith(TEXT("spawn_sky_light")) ||
+        Lower.StartsWith(TEXT("create_sky_light")) ||
+        Lower.StartsWith(TEXT("create_light")) ||
+        Lower.StartsWith(TEXT("build_lighting")) ||
+        Lower.StartsWith(TEXT("bake_lightmap")) ||
+        Lower.StartsWith(TEXT("ensure_single_sky_light")) ||
+        Lower.StartsWith(TEXT("create_lighting_enabled_level")) ||
+        Lower.StartsWith(TEXT("create_lightmass_volume")) ||
+        Lower.StartsWith(TEXT("create_dynamic_light")) ||
+        Lower.StartsWith(TEXT("setup_volumetric_fog")) ||
+        Lower.StartsWith(TEXT("setup_global_illumination")) ||
+        Lower.StartsWith(TEXT("configure_shadows")) ||
+        Lower.StartsWith(TEXT("set_exposure")) ||
+        Lower.StartsWith(TEXT("list_light_types")) ||
+        Lower.StartsWith(TEXT("set_ambient_occlusion")) ||
+        Lower.StartsWith(TEXT("configure_ray_traced_shadows")) ||
+        Lower.StartsWith(TEXT("configure_ray_traced_gi")) ||
+        Lower.StartsWith(TEXT("configure_ray_traced_reflections")) ||
+        Lower.StartsWith(TEXT("configure_ray_traced_ao")) ||
+        Lower.StartsWith(TEXT("configure_path_tracing")) ||
+        Lower.StartsWith(TEXT("configure_ray_traced_translucency")) ||
+        Lower.StartsWith(TEXT("configure_ray_tracing_quality")) ||
+        Lower.StartsWith(TEXT("set_light_channel")) ||
+        Lower.StartsWith(TEXT("set_actor_light_channel")) ||
+        Lower.StartsWith(TEXT("get_light_channels")) ||
+        Lower.StartsWith(TEXT("configure_lightmass_settings")) ||
+        Lower.StartsWith(TEXT("build_lighting_quality")) ||
+        Lower.StartsWith(TEXT("configure_indirect_lighting_cache")) ||
+        Lower.StartsWith(TEXT("configure_volumetric_lightmaps")) ||
+        Lower.StartsWith(TEXT("configure_lightmass_ambient_occlusion")) ||
+        Lower.StartsWith(TEXT("inspect_lightmass_settings"));
+    if (!bKnownLightingAction)
+    {
+        if (Action.Equals(TEXT("manage_lighting"), ESearchCase::IgnoreCase))
+        {
+            const bool bMissingSubAction = EffectiveAction.Equals(TEXT("manage_lighting"), ESearchCase::IgnoreCase);
+            SendAutomationError(RequestingSocket, RequestId,
+                bMissingSubAction
+                    ? TEXT("manage_lighting requires a non-empty 'action' field in payload")
+                    : FString::Printf(TEXT("Unknown manage_lighting action: %s"), *EffectiveAction),
+                bMissingSubAction ? TEXT("INVALID_ARGUMENT") : TEXT("UNKNOWN_ACTION"));
+            return true;
+        }
+
+        return false;
+    }
+
+#if WITH_EDITOR
+
+    // -------------------------------------------------------------------------
+    // Payload Validation
+    // -------------------------------------------------------------------------
+    if (!Payload.IsValid())
+    {
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("Lighting payload missing"),
+            TEXT("INVALID_PAYLOAD"));
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
+    // Editor Subsystem Check
+    // -------------------------------------------------------------------------
+    UEditorActorSubsystem *ActorSS = GEditor->GetEditorSubsystem<UEditorActorSubsystem>();
+    if (!ActorSS)
+    {
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("EditorActorSubsystem not available"),
+            TEXT("EDITOR_ACTOR_SUBSYSTEM_MISSING"));
+        return true;
+    }
+
+    // =========================================================================
+    // Phase 29.2: Light channels
+    // =========================================================================
+    if (Lower == TEXT("set_light_channel") ||
+        Lower == TEXT("set_actor_light_channel") ||
+        Lower == TEXT("get_light_channels"))
+    {
+        const FString Target = GetLightingTarget(Payload);
+        if (Target.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("A lightName/lightPath or actorName/actorPath/name is required"),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        AActor* TargetActor = FindActorByName(Target, true);
+        if (!TargetActor)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                FString::Printf(TEXT("Actor or light not found: %s"), *Target),
+                TEXT("NOT_FOUND"));
+            return true;
+        }
+
+        if (Lower == TEXT("set_light_channel") ||
+            Lower == TEXT("set_actor_light_channel") ||
+            Lower == TEXT("get_light_channels"))
+        {
+            if (ULightComponent* LightComponent = TargetActor->FindComponentByClass<ULightComponent>())
+            {
+                FMcpLightingChannelState State;
+                State.bChannel0 = LightComponent->LightingChannels.bChannel0;
+                State.bChannel1 = LightComponent->LightingChannels.bChannel1;
+                State.bChannel2 = LightComponent->LightingChannels.bChannel2;
+
+                if (Lower == TEXT("set_light_channel"))
+                {
+                    FString ParseError;
+                    if (!ParseLightingChannelPayload(Payload, State, ParseError))
+                    {
+                        SendAutomationError(RequestingSocket, RequestId, *ParseError, TEXT("INVALID_ARGUMENT"));
+                        return true;
+                    }
+                    TargetActor->Modify();
+                    LightComponent->SetLightingChannels(State.bChannel0, State.bChannel1, State.bChannel2);
+                    TargetActor->MarkComponentsRenderStateDirty();
+                }
+
+                TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+                Resp->SetStringField(TEXT("actorName"), TargetActor->GetActorLabel());
+                Resp->SetStringField(TEXT("actorPath"), TargetActor->GetPathName());
+                Resp->SetStringField(TEXT("componentName"), LightComponent->GetName());
+                Resp->SetObjectField(TEXT("channels"), MakeLightingChannelsJson(State));
+                SendAutomationResponse(RequestingSocket, RequestId, true,
+                    Lower == TEXT("get_light_channels") ? TEXT("Light channels read") : TEXT("Light channel updated"), Resp);
+                return true;
+            }
+            if (Lower == TEXT("set_light_channel"))
+            {
+                SendAutomationError(RequestingSocket, RequestId,
+                    FString::Printf(TEXT("Actor is not a light: %s"), *Target), TEXT("INVALID_TARGET"));
+                return true;
+            }
+        }
+
+        TArray<UPrimitiveComponent*> PrimitiveComponents;
+        FString ComponentName;
+        if (Payload->TryGetStringField(TEXT("componentName"), ComponentName) && !ComponentName.IsEmpty())
+        {
+            if (UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(FindComponentByName(TargetActor, ComponentName)))
+            {
+                PrimitiveComponents.Add(Component);
+            }
+            else
+            {
+                SendAutomationError(RequestingSocket, RequestId,
+                    FString::Printf(TEXT("Primitive component not found: %s"), *ComponentName), TEXT("NOT_FOUND"));
+                return true;
+            }
+        }
+        else
+        {
+            TargetActor->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+
+            bool bApplyToAllComponents = true;
+            Payload->TryGetBoolField(TEXT("applyToAllComponents"), bApplyToAllComponents);
+            if (!bApplyToAllComponents && PrimitiveComponents.Num() > 1)
+            {
+                if (UPrimitiveComponent* RootPrimitive = Cast<UPrimitiveComponent>(TargetActor->GetRootComponent()))
+                {
+                    PrimitiveComponents.Reset();
+                    PrimitiveComponents.Add(RootPrimitive);
+                }
+                else
+                {
+                    PrimitiveComponents.SetNum(1);
+                }
+            }
+        }
+
+        if (PrimitiveComponents.Num() == 0)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                FString::Printf(TEXT("Actor has no primitive components: %s"), *Target), TEXT("INVALID_TARGET"));
+            return true;
+        }
+
+        TArray<TSharedPtr<FJsonValue>> ComponentResults;
+        for (UPrimitiveComponent* Component : PrimitiveComponents)
+        {
+            if (!Component) continue;
+            FMcpLightingChannelState State;
+            State.bChannel0 = Component->LightingChannels.bChannel0;
+            State.bChannel1 = Component->LightingChannels.bChannel1;
+            State.bChannel2 = Component->LightingChannels.bChannel2;
+
+            if (Lower == TEXT("set_actor_light_channel"))
+            {
+                FString ParseError;
+                if (!ParseLightingChannelPayload(Payload, State, ParseError))
+                {
+                    SendAutomationError(RequestingSocket, RequestId, *ParseError, TEXT("INVALID_ARGUMENT"));
+                    return true;
+                }
+                TargetActor->Modify();
+                Component->SetLightingChannels(State.bChannel0, State.bChannel1, State.bChannel2);
+                Component->MarkRenderStateDirty();
+            }
+
+            TSharedPtr<FJsonObject> ComponentResult = McpHandlerUtils::CreateResultObject();
+            ComponentResult->SetStringField(TEXT("componentName"), Component->GetName());
+            ComponentResult->SetObjectField(TEXT("channels"), MakeLightingChannelsJson(State));
+            ComponentResults.Add(MakeShared<FJsonValueObject>(ComponentResult));
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetStringField(TEXT("actorName"), TargetActor->GetActorLabel());
+        Resp->SetStringField(TEXT("actorPath"), TargetActor->GetPathName());
+        Resp->SetNumberField(TEXT("componentCount"), ComponentResults.Num());
+        Resp->SetArrayField(TEXT("components"), ComponentResults);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            Lower == TEXT("get_light_channels") ? TEXT("Actor light channels read") : TEXT("Actor light channels updated"), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // Phase 29.1: Ray tracing configuration
+    // =========================================================================
+    // Apply only CVars that exist in the active engine version. This keeps the
+    // action compatible across UE 5.0-5.8 and reports unsupported settings
+    // without silently claiming that a missing engine feature was enabled.
+    if (Lower == TEXT("configure_ray_traced_shadows") ||
+        Lower == TEXT("configure_ray_traced_gi") ||
+        Lower == TEXT("configure_ray_traced_reflections") ||
+        Lower == TEXT("configure_ray_traced_ao") ||
+        Lower == TEXT("configure_path_tracing") ||
+        Lower == TEXT("configure_ray_traced_translucency") ||
+        Lower == TEXT("configure_ray_tracing_quality"))
+    {
+        bool bEnabled = true;
+        Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+
+        double SamplesPerPixel = 0.0;
+        const bool bHasSamples = Payload->TryGetNumberField(TEXT("samplesPerPixel"), SamplesPerPixel);
+        double MaxBounces = 0.0;
+        const bool bHasMaxBounces = Payload->TryGetNumberField(TEXT("maxBounces"), MaxBounces);
+        double Radius = 0.0;
+        const bool bHasRadius = Payload->TryGetNumberField(TEXT("radius"), Radius);
+        double Intensity = 0.0;
+        const bool bHasIntensity = Payload->TryGetNumberField(TEXT("intensity"), Intensity);
+        double RefractionRays = 0.0;
+        const bool bHasRefractionRays = Payload->TryGetNumberField(TEXT("refractionRays"), RefractionRays);
+        double MaxRoughness = 0.0;
+        const bool bHasMaxRoughness = Payload->TryGetNumberField(TEXT("maxRoughness"), MaxRoughness);
+        double SpatialDenoiserType = 0.0;
+        const bool bHasSpatialDenoiserType = Payload->TryGetNumberField(TEXT("spatialDenoiserType"), SpatialDenoiserType);
+        double CullingMode = 0.0;
+        const bool bHasCullingMode = Payload->TryGetNumberField(TEXT("cullingMode"), CullingMode);
+        double CullingRadius = 0.0;
+        const bool bHasCullingRadius = Payload->TryGetNumberField(TEXT("cullingRadius"), CullingRadius);
+        double CullingAngle = 0.0;
+        const bool bHasCullingAngle = Payload->TryGetNumberField(TEXT("cullingAngle"), CullingAngle);
+        double MaxUpdatePrimitives = 0.0;
+        const bool bHasMaxUpdatePrimitives = Payload->TryGetNumberField(TEXT("maxUpdatePrimitivesPerFrame"), MaxUpdatePrimitives);
+        double ResidentGeometryPool = 0.0;
+        const bool bHasResidentGeometryPool = Payload->TryGetNumberField(TEXT("residentGeometryMemoryPoolSizeInMB"), ResidentGeometryPool);
+
+        const auto IsValidNonNegative = [](double Value) {
+            return FMath::IsFinite(Value) && Value >= 0.0;
+        };
+        if ((bHasSamples && !IsValidNonNegative(SamplesPerPixel)) ||
+            (bHasMaxBounces && !IsValidNonNegative(MaxBounces)) ||
+            (bHasRadius && !IsValidNonNegative(Radius)) ||
+            (bHasIntensity && !IsValidNonNegative(Intensity)) ||
+            (bHasRefractionRays && !IsValidNonNegative(RefractionRays)) ||
+            (bHasMaxUpdatePrimitives && !IsValidNonNegative(MaxUpdatePrimitives)) ||
+            (bHasResidentGeometryPool && !IsValidNonNegative(ResidentGeometryPool)) ||
+            (bHasMaxRoughness && (!FMath::IsFinite(MaxRoughness) || MaxRoughness < 0.0 || MaxRoughness > 1.0)) ||
+            (bHasSpatialDenoiserType && (!FMath::IsFinite(SpatialDenoiserType) || FMath::RoundToInt(SpatialDenoiserType) != SpatialDenoiserType || SpatialDenoiserType < 0.0 || SpatialDenoiserType > 1.0)) ||
+            (bHasCullingMode && (!FMath::IsFinite(CullingMode) || FMath::RoundToInt(CullingMode) != CullingMode || CullingMode < 0.0 || CullingMode > 3.0)) ||
+            (bHasCullingRadius && (!FMath::IsFinite(CullingRadius) || CullingRadius < -1.0)) ||
+            (bHasCullingAngle && (!FMath::IsFinite(CullingAngle) || CullingAngle < 0.0)))
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("ray-tracing numeric settings are outside their supported ranges"),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        TArray<FString> AppliedCVars;
+        TArray<FString> UnsupportedCVars;
+        const auto SetIntCVar = [&AppliedCVars, &UnsupportedCVars](const TCHAR* Name, int32 Value) {
+            if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(Name))
+            {
+                CVar->Set(Value);
+                AppliedCVars.Add(Name);
+            }
+            else
+            {
+                UnsupportedCVars.Add(Name);
+            }
+        };
+        const auto SetFloatCVar = [&AppliedCVars, &UnsupportedCVars](const TCHAR* Name, float Value) {
+            if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(Name))
+            {
+                CVar->Set(Value);
+                AppliedCVars.Add(Name);
+            }
+            else
+            {
+                UnsupportedCVars.Add(Name);
+            }
+        };
+
+        // This CVar is present only in engine versions/configurations that
+        // expose the hardware ray-tracing renderer switch.
+        SetIntCVar(TEXT("r.RayTracing.Enable"), bEnabled ? 1 : 0);
+
+        if (Lower == TEXT("configure_ray_traced_shadows"))
+        {
+            SetIntCVar(TEXT("r.RayTracing.Shadows"), bEnabled ? 1 : 0);
+            if (bHasSamples) SetIntCVar(TEXT("r.RayTracing.Shadows.SamplesPerPixel"), FMath::RoundToInt(SamplesPerPixel));
+            if (Payload->HasField(TEXT("denoiser")))
+            {
+                bool bDenoiser = true;
+                Payload->TryGetBoolField(TEXT("denoiser"), bDenoiser);
+                SetIntCVar(TEXT("r.RayTracing.Shadows.Denoiser"), bDenoiser ? 1 : 0);
+            }
+        }
+        else if (Lower == TEXT("configure_ray_traced_gi"))
+        {
+            // UE's RTGI method is the ray-traced value used by the existing
+            // setup_global_illumination handler in this plugin.
+            SetIntCVar(TEXT("r.DynamicGlobalIlluminationMethod"), bEnabled ? 3 : 0);
+            SetIntCVar(TEXT("r.RayTracing.GlobalIllumination"), bEnabled ? 1 : 0);
+            if (bHasSamples) SetIntCVar(TEXT("r.RayTracing.GlobalIllumination.SamplesPerPixel"), FMath::RoundToInt(SamplesPerPixel));
+            if (bHasMaxBounces) SetIntCVar(TEXT("r.RayTracing.GlobalIllumination.MaxBounces"), FMath::RoundToInt(MaxBounces));
+            if (Payload->HasField(TEXT("denoiser")))
+            {
+                bool bDenoiser = true;
+                Payload->TryGetBoolField(TEXT("denoiser"), bDenoiser);
+                SetIntCVar(TEXT("r.RayTracing.GlobalIllumination.Denoiser"), bDenoiser ? 1 : 0);
+            }
+        }
+        else if (Lower == TEXT("configure_ray_traced_reflections"))
+        {
+            SetIntCVar(TEXT("r.ReflectionMethod"), bEnabled ? 2 : 0);
+            SetIntCVar(TEXT("r.RayTracing.Reflections"), bEnabled ? 1 : 0);
+            if (bHasSamples) SetIntCVar(TEXT("r.RayTracing.Reflections.SamplesPerPixel"), FMath::RoundToInt(SamplesPerPixel));
+            if (bHasMaxBounces) SetIntCVar(TEXT("r.RayTracing.Reflections.MaxBounces"), FMath::RoundToInt(MaxBounces));
+            if (Payload->HasField(TEXT("denoiser")))
+            {
+                bool bDenoiser = true;
+                Payload->TryGetBoolField(TEXT("denoiser"), bDenoiser);
+                SetIntCVar(TEXT("r.RayTracing.Reflections.Denoiser"), bDenoiser ? 1 : 0);
+            }
+        }
+        else if (Lower == TEXT("configure_ray_traced_ao"))
+        {
+            SetIntCVar(TEXT("r.RayTracing.AmbientOcclusion"), bEnabled ? 1 : 0);
+            if (bHasSamples) SetIntCVar(TEXT("r.RayTracing.AmbientOcclusion.SamplesPerPixel"), FMath::RoundToInt(SamplesPerPixel));
+            if (bHasRadius) SetFloatCVar(TEXT("r.RayTracing.AmbientOcclusion.Radius"), static_cast<float>(Radius));
+            if (bHasIntensity) SetFloatCVar(TEXT("r.RayTracing.AmbientOcclusion.Intensity"), static_cast<float>(Intensity));
+            if (Payload->HasField(TEXT("denoiser")))
+            {
+                bool bDenoiser = true;
+                Payload->TryGetBoolField(TEXT("denoiser"), bDenoiser);
+                SetIntCVar(TEXT("r.RayTracing.AmbientOcclusion.Denoiser"), bDenoiser ? 1 : 0);
+            }
+        }
+        else if (Lower == TEXT("configure_ray_traced_translucency"))
+        {
+            // Translucency is primarily a post-process-volume feature. Keep a
+            // CVar path for engine versions that expose the legacy controls,
+            // then apply the per-volume properties through reflection so this
+            // remains source-compatible across UE 5.x property revisions.
+            SetIntCVar(TEXT("r.RayTracing.Translucency"), bEnabled ? 1 : 0);
+            if (bHasSamples) SetIntCVar(TEXT("r.RayTracing.Translucency.SamplesPerPixel"), FMath::RoundToInt(SamplesPerPixel));
+            if (bHasMaxBounces) SetIntCVar(TEXT("r.RayTracing.Translucency.MaxBounces"), FMath::RoundToInt(MaxBounces));
+
+            APostProcessVolume* Volume = nullptr;
+            for (AActor* Actor : ActorSS->GetAllLevelActors())
+            {
+                if (APostProcessVolume* Candidate = Cast<APostProcessVolume>(Actor))
+                {
+                    if (Candidate->bUnbound)
+                    {
+                        Volume = Candidate;
+                        break;
+                    }
+                    if (!Volume) Volume = Candidate;
+                }
+            }
+            if (!Volume)
+            {
+                if (UWorld* World = GEditor->GetEditorWorldContext().World())
+                {
+                    FActorSpawnParameters SpawnParams;
+                    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                    Volume = World->SpawnActor<APostProcessVolume>(FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+                    if (Volume)
+                    {
+                        Volume->SetActorLabel(TEXT("RayTracingPostProcessVolume"));
+                        Volume->bUnbound = true;
+                    }
+                }
+            }
+
+            TArray<FString> AppliedSettings;
+            if (Volume)
+            {
+                FPostProcessSettings& Settings = Volume->Settings;
+                const auto SetSettingsValue = [&Settings, &AppliedSettings](const TCHAR* PropertyName, double Value) {
+                    FProperty* Property = FPostProcessSettings::StaticStruct()->FindPropertyByName(FName(PropertyName));
+                    if (FNumericProperty* NumericProperty = Property ? CastField<FNumericProperty>(Property) : nullptr)
+                    {
+                        void* ValuePtr = NumericProperty->ContainerPtrToValuePtr<void>(&Settings);
+                        if (NumericProperty->IsFloatingPoint())
+                        {
+                            NumericProperty->SetFloatingPointPropertyValue(ValuePtr, Value);
+                        }
+                        else
+                        {
+                            NumericProperty->SetIntPropertyValue(ValuePtr, FMath::RoundToInt(Value));
+                        }
+                        AppliedSettings.Add(PropertyName);
+                        return true;
+                    }
+                    return false;
+                };
+                const auto SetSettingsBool = [&Settings, &AppliedSettings](const TCHAR* PropertyName, bool Value) {
+                    FProperty* Property = FPostProcessSettings::StaticStruct()->FindPropertyByName(FName(PropertyName));
+                    if (FBoolProperty* BoolProperty = Property ? CastField<FBoolProperty>(Property) : nullptr)
+                    {
+                        void* ValuePtr = BoolProperty->ContainerPtrToValuePtr<void>(&Settings);
+                        BoolProperty->SetPropertyValue(ValuePtr, Value);
+                        AppliedSettings.Add(PropertyName);
+                        return true;
+                    }
+                    return false;
+                };
+
+                SetSettingsBool(TEXT("bOverride_RayTracingTranslucency"), true);
+                SetSettingsValue(TEXT("RayTracingTranslucency"), bEnabled ? 1.0 : 0.0);
+                if (bHasSamples)
+                {
+                    SetSettingsBool(TEXT("bOverride_RayTracingTranslucencySamplesPerPixel"), true);
+                    SetSettingsValue(TEXT("RayTracingTranslucencySamplesPerPixel"), SamplesPerPixel);
+                }
+                if (bHasMaxRoughness)
+                {
+                    SetSettingsBool(TEXT("bOverride_RayTracingTranslucencyMaxRoughness"), true);
+                    SetSettingsValue(TEXT("RayTracingTranslucencyMaxRoughness"), MaxRoughness);
+                }
+                if (bHasRefractionRays)
+                {
+                    SetSettingsBool(TEXT("bOverride_RayTracingTranslucencyRefractionRays"), true);
+                    SetSettingsValue(TEXT("RayTracingTranslucencyRefractionRays"), RefractionRays);
+                }
+                if (Payload->HasField(TEXT("refraction")))
+                {
+                    bool bRefraction = true;
+                    Payload->TryGetBoolField(TEXT("refraction"), bRefraction);
+                    SetSettingsBool(TEXT("bOverride_RayTracingTranslucencyUseRayTracedRefraction"), true);
+                    SetSettingsValue(TEXT("RayTracingTranslucencyUseRayTracedRefraction"), bRefraction ? 1.0 : 0.0);
+                    SetSettingsBool(TEXT("bOverride_RayTracingTranslucencyRefraction"), true);
+                    SetSettingsValue(TEXT("RayTracingTranslucencyRefraction"), bRefraction ? 1.0 : 0.0);
+                }
+                if (Payload->HasField(TEXT("includeTranslucentObjects")))
+                {
+                    bool bIncludeTranslucentObjects = false;
+                    Payload->TryGetBoolField(TEXT("includeTranslucentObjects"), bIncludeTranslucentObjects);
+                    SetSettingsBool(TEXT("bOverride_RayTracingReflectionsTranslucency"), true);
+                    SetSettingsValue(TEXT("RayTracingReflectionsTranslucency"), bIncludeTranslucentObjects ? 1.0 : 0.0);
+                }
+                Volume->MarkComponentsRenderStateDirty();
+                Volume->GetWorld()->MarkPackageDirty();
+            }
+        }
+        else if (Lower == TEXT("configure_ray_tracing_quality"))
+        {
+            if (bHasCullingMode) SetIntCVar(TEXT("r.RayTracing.Culling"), FMath::RoundToInt(CullingMode));
+            if (bHasCullingRadius) SetFloatCVar(TEXT("r.RayTracing.Culling.Radius"), static_cast<float>(CullingRadius));
+            if (bHasCullingAngle) SetFloatCVar(TEXT("r.RayTracing.Culling.Angle"), static_cast<float>(CullingAngle));
+            if (bHasMaxUpdatePrimitives) SetIntCVar(TEXT("r.RayTracing.DynamicGeometry.MaxUpdatePrimitivesPerFrame"), FMath::RoundToInt(MaxUpdatePrimitives));
+            if (bHasResidentGeometryPool) SetFloatCVar(TEXT("r.RayTracing.ResidentGeometryMemoryPoolSizeInMB"), static_cast<float>(ResidentGeometryPool));
+            if (bHasSpatialDenoiserType) SetIntCVar(TEXT("r.PathTracing.SpatialDenoiser.Type"), FMath::RoundToInt(SpatialDenoiserType));
+            if (Payload->HasField(TEXT("reflectionCaptures")))
+            {
+                bool bValue = true;
+                Payload->TryGetBoolField(TEXT("reflectionCaptures"), bValue);
+                SetIntCVar(TEXT("r.RayTracing.Reflections.ReflectionCaptures"), bValue ? 1 : 0);
+            }
+            if (Payload->HasField(TEXT("priorityBasedUpdate")))
+            {
+                bool bValue = false;
+                Payload->TryGetBoolField(TEXT("priorityBasedUpdate"), bValue);
+                SetIntCVar(TEXT("r.RayTracing.DynamicGeometry.PriorityBasedUpdate"), bValue ? 1 : 0);
+            }
+            if (Payload->HasField(TEXT("useTracingFeedback")))
+            {
+                bool bValue = false;
+                Payload->TryGetBoolField(TEXT("useTracingFeedback"), bValue);
+                SetIntCVar(TEXT("r.RayTracing.Scene.UseTracingFeedback"), bValue ? 1 : 0);
+            }
+            if (Payload->HasField(TEXT("useReferenceBasedResidency")))
+            {
+                bool bValue = true;
+                Payload->TryGetBoolField(TEXT("useReferenceBasedResidency"), bValue);
+                SetIntCVar(TEXT("r.RayTracing.UseReferenceBasedResidency"), bValue ? 1 : 0);
+            }
+            if (Payload->HasField(TEXT("compactInstances")))
+            {
+                bool bValue = false;
+                Payload->TryGetBoolField(TEXT("compactInstances"), bValue);
+                SetIntCVar(TEXT("r.RayTracing.Scene.CompactInstances"), bValue ? 1 : 0);
+            }
+
+            const TSharedPtr<FJsonObject>* GeometryPtr = nullptr;
+            if (Payload->TryGetObjectField(TEXT("geometry"), GeometryPtr) && GeometryPtr && GeometryPtr->IsValid())
+            {
+                const auto ApplyGeometryCVar = [&SetIntCVar, GeometryPtr](const TCHAR* FieldName, const TCHAR* CVarName) {
+                    bool bValue = false;
+                    if ((*GeometryPtr)->TryGetBoolField(FieldName, bValue))
+                    {
+                        SetIntCVar(CVarName, bValue ? 1 : 0);
+                    }
+                };
+                ApplyGeometryCVar(TEXT("staticMeshes"), TEXT("r.RayTracing.Geometry.StaticMeshes"));
+                ApplyGeometryCVar(TEXT("skeletalMeshes"), TEXT("r.RayTracing.Geometry.SkeletalMeshes"));
+                ApplyGeometryCVar(TEXT("instancedStaticMeshes"), TEXT("r.RayTracing.Geometry.InstancedStaticMeshes"));
+                ApplyGeometryCVar(TEXT("landscape"), TEXT("r.RayTracing.Geometry.Landscape"));
+                ApplyGeometryCVar(TEXT("geometryCache"), TEXT("r.RayTracing.Geometry.GeometryCache"));
+                ApplyGeometryCVar(TEXT("geometryCollection"), TEXT("r.RayTracing.Geometry.GeometryCollection"));
+                ApplyGeometryCVar(TEXT("niagaraMeshes"), TEXT("r.RayTracing.Geometry.NiagaraMeshes"));
+                ApplyGeometryCVar(TEXT("niagaraRibbons"), TEXT("r.RayTracing.Geometry.NiagaraRibbons"));
+                ApplyGeometryCVar(TEXT("niagaraSprites"), TEXT("r.RayTracing.Geometry.NiagaraSprites"));
+                ApplyGeometryCVar(TEXT("proceduralMeshes"), TEXT("r.RayTracing.Geometry.ProceduralMeshes"));
+            }
+        }
+        else
+        {
+            SetIntCVar(TEXT("r.PathTracing"), bEnabled ? 1 : 0);
+            if (bHasSamples) SetIntCVar(TEXT("r.PathTracing.SamplesPerPixel"), FMath::RoundToInt(SamplesPerPixel));
+            if (bHasMaxBounces) SetIntCVar(TEXT("r.PathTracing.MaxBounces"), FMath::RoundToInt(MaxBounces));
+            if (bHasSpatialDenoiserType) SetIntCVar(TEXT("r.PathTracing.SpatialDenoiser.Type"), FMath::RoundToInt(SpatialDenoiserType));
+            if (Payload->HasField(TEXT("denoiser")))
+            {
+                bool bDenoiser = true;
+                Payload->TryGetBoolField(TEXT("denoiser"), bDenoiser);
+                SetIntCVar(TEXT("r.PathTracing.Denoiser"), bDenoiser ? 1 : 0);
+            }
+        }
+
+        TArray<TSharedPtr<FJsonValue>> AppliedJson;
+        for (const FString& CVarName : AppliedCVars)
+        {
+            AppliedJson.Add(MakeShared<FJsonValueString>(CVarName));
+        }
+        TArray<TSharedPtr<FJsonValue>> UnsupportedJson;
+        for (const FString& CVarName : UnsupportedCVars)
+        {
+            UnsupportedJson.Add(MakeShared<FJsonValueString>(CVarName));
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetBoolField(TEXT("success"), true);
+        Resp->SetStringField(TEXT("action"), Lower);
+        Resp->SetBoolField(TEXT("enabled"), bEnabled);
+        Resp->SetBoolField(TEXT("supported"), AppliedCVars.Num() > 0);
+        Resp->SetArrayField(TEXT("appliedCVars"), AppliedJson);
+        Resp->SetArrayField(TEXT("unsupportedCVars"), UnsupportedJson);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            FString::Printf(TEXT("Ray-tracing settings configured: %s"), *Lower), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // list_light_types
+    // =========================================================================
+    // Discovers all ALight subclasses via reflection and returns available types
+    // -------------------------------------------------------------------------
+    if (Lower == TEXT("list_light_types"))
+    {
+        TArray<TSharedPtr<FJsonValue>> Types;
+
+        // Add common shortcuts first
+        Types.Add(MakeShared<FJsonValueString>(TEXT("DirectionalLight")));
+        Types.Add(MakeShared<FJsonValueString>(TEXT("PointLight")));
+        Types.Add(MakeShared<FJsonValueString>(TEXT("SpotLight")));
+        Types.Add(MakeShared<FJsonValueString>(TEXT("RectLight")));
+
+        // Discover all ALight subclasses via reflection
+        TSet<FString> AddedNames;
+        AddedNames.Add(TEXT("DirectionalLight"));
+        AddedNames.Add(TEXT("PointLight"));
+        AddedNames.Add(TEXT("SpotLight"));
+        AddedNames.Add(TEXT("RectLight"));
+
+        for (TObjectIterator<UClass> It; It; ++It)
+        {
+            if (It->IsChildOf(ALight::StaticClass()) &&
+                !It->HasAnyClassFlags(CLASS_Abstract) &&
+                !AddedNames.Contains(It->GetName()))
+            {
+                Types.Add(MakeShared<FJsonValueString>(It->GetName()));
+                AddedNames.Add(It->GetName());
+            }
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetArrayField(TEXT("types"), Types);
+        Resp->SetNumberField(TEXT("count"), Types.Num());
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Available light types"), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // spawn_light / create_light / create_dynamic_light
+    // =========================================================================
+    // Spawns a light actor with configurable properties:
+    // - lightClass/lightType/type: Light class name
+    // - location/rotation: Transform
+    // - properties: intensity, color, castShadows, type-specific settings
+    // -------------------------------------------------------------------------
+    if (Lower == TEXT("spawn_light") || Lower == TEXT("create_light") || Lower == TEXT("create_dynamic_light"))
+    {
+        FString LightClassStr;
+
+        // Support multiple parameter names: lightClass, lightType, type
+        // Priority: lightClass > lightType > type
+        if (!Payload->TryGetStringField(TEXT("lightClass"), LightClassStr) || LightClassStr.IsEmpty())
+        {
+            FString LightType;
+            if (Payload->TryGetStringField(TEXT("lightType"), LightType) && !LightType.IsEmpty())
+            {
+                const FString LowerType = LightType.ToLower();
+                if (LowerType == TEXT("point") || LowerType == TEXT("pointlight"))
+                {
+                    LightClassStr = TEXT("PointLight");
+                }
+                else if (LowerType == TEXT("directional") || LowerType == TEXT("directionallight"))
+                {
+                    LightClassStr = TEXT("DirectionalLight");
+                }
+                else if (LowerType == TEXT("spot") || LowerType == TEXT("spotlight"))
+                {
+                    LightClassStr = TEXT("SpotLight");
+                }
+                else if (LowerType == TEXT("rect") || LowerType == TEXT("rectlight"))
+                {
+                    LightClassStr = TEXT("RectLight");
+                }
+                else if (LowerType == TEXT("sky") || LowerType == TEXT("skylight"))
+                {
+                    LightClassStr = TEXT("SkyLight");
+                }
+                else
+                {
+                    SendAutomationError(RequestingSocket, RequestId,
+                        FString::Printf(TEXT("Invalid lightType: %s. Must be one of: point, directional, spot, rect, sky"), *LightType),
+                        TEXT("INVALID_LIGHT_TYPE"));
+                    return true;
+                }
+            }
+            // Also check for 'type' parameter (common shorthand)
+            else if (Payload->TryGetStringField(TEXT("type"), LightType) && !LightType.IsEmpty())
+            {
+                const FString LowerType = LightType.ToLower();
+                if (LowerType == TEXT("point") || LowerType == TEXT("pointlight"))
+                {
+                    LightClassStr = TEXT("PointLight");
+                }
+                else if (LowerType == TEXT("directional") || LowerType == TEXT("directionallight"))
+                {
+                    LightClassStr = TEXT("DirectionalLight");
+                }
+                else if (LowerType == TEXT("spot") || LowerType == TEXT("spotlight"))
+                {
+                    LightClassStr = TEXT("SpotLight");
+                }
+                else if (LowerType == TEXT("rect") || LowerType == TEXT("rectlight"))
+                {
+                    LightClassStr = TEXT("RectLight");
+                }
+                else if (LowerType == TEXT("sky") || LowerType == TEXT("skylight"))
+                {
+                    LightClassStr = TEXT("SkyLight");
+                }
+                else
+                {
+                    SendAutomationError(RequestingSocket, RequestId,
+                        FString::Printf(TEXT("Invalid type: %s. Must be one of: point, directional, spot, rect, sky"), *LightType),
+                        TEXT("INVALID_LIGHT_TYPE"));
+                    return true;
+                }
+            }
+        }
+
+        if (LightClassStr.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("lightClass or lightType required"),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        // CRITICAL: Use explicit StaticClass() for native light types to avoid
+        // ResolveUClass resolution issues where TObjectIterator may return wrong class.
+        // This ensures SpotLight, DirectionalLight, etc. spawn correctly.
+        UClass *LightClass = nullptr;
+        const FString LowerClassStr = LightClassStr.ToLower();
+
+        if (LowerClassStr == TEXT("pointlight") || LowerClassStr == TEXT("point"))
+        {
+            LightClass = APointLight::StaticClass();
+        }
+        else if (LowerClassStr == TEXT("directionallight") || LowerClassStr == TEXT("directional"))
+        {
+            LightClass = ADirectionalLight::StaticClass();
+        }
+        else if (LowerClassStr == TEXT("spotlight") || LowerClassStr == TEXT("spot"))
+        {
+            LightClass = ASpotLight::StaticClass();
+        }
+        else if (LowerClassStr == TEXT("rectlight") || LowerClassStr == TEXT("rect"))
+        {
+            LightClass = ARectLight::StaticClass();
+        }
+        else if (LowerClassStr == TEXT("skylight") || LowerClassStr == TEXT("sky"))
+        {
+            LightClass = ASkyLight::StaticClass();
+        }
+        else
+        {
+            // Fallback: Dynamic resolution with heuristics for custom light types
+            LightClass = ResolveUClass(LightClassStr);
+
+            // Try finding with 'A' prefix (standard Actor prefix)
+            if (!LightClass)
+            {
+                LightClass = ResolveUClass(TEXT("A") + LightClassStr);
+            }
+        }
+
+        if (!LightClass || !LightClass->IsChildOf(ALight::StaticClass()))
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                FString::Printf(TEXT("Invalid light class: %s"), *LightClassStr),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        UE_LOG(LogNebulaForgeBridgeSubsystem, Log,
+            TEXT("spawn_light: Resolved lightClass '%s' to %s (path: %s)"),
+            *LightClassStr, *LightClass->GetName(), *LightClass->GetPathName());
+
+        // ---------------------------------------------------------------------
+        // Parse Location (default to reasonable height above ground)
+        // ---------------------------------------------------------------------
+        FVector Location = FVector(0.0f, 0.0f, 300.0f);
+        const TSharedPtr<FJsonObject> *LocPtr;
+        bool bHasExplicitLocation = Payload->TryGetObjectField(TEXT("location"), LocPtr);
+        if (bHasExplicitLocation)
+        {
+            Location.X = GetJsonNumberField((*LocPtr), TEXT("x"));
+            Location.Y = GetJsonNumberField((*LocPtr), TEXT("y"));
+            Location.Z = GetJsonNumberField((*LocPtr), TEXT("z"));
+        }
+        else
+        {
+            UE_LOG(LogNebulaForgeBridgeSubsystem, Log,
+                TEXT("spawn_light: No location provided, using default (0, 0, 300)"));
+        }
+
+        // ---------------------------------------------------------------------
+        // Parse Rotation
+        // ---------------------------------------------------------------------
+        FRotator Rotation = FRotator::ZeroRotator;
+        const TSharedPtr<FJsonObject> *RotPtr;
+        if (Payload->TryGetObjectField(TEXT("rotation"), RotPtr))
+        {
+            Rotation.Pitch = GetJsonNumberField((*RotPtr), TEXT("pitch"));
+            Rotation.Yaw = GetJsonNumberField((*RotPtr), TEXT("yaw"));
+            Rotation.Roll = GetJsonNumberField((*RotPtr), TEXT("roll"));
+        }
+
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.SpawnCollisionHandlingOverride =
+            ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        // CRITICAL: Validate world before spawning to prevent crashes
+        // Use the editor world for persistent authoring instead of transient PIE worlds.
+        UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+        if (!World || !World->IsValidLowLevel())
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("No valid world available for spawning light"),
+                TEXT("NO_WORLD"));
+            return true;
+        }
+
+        // CRITICAL: Flush rendering commands to prevent GPU driver crashes
+        // during spawn operations (especially Intel MONZA drivers)
+        FlushRenderingCommands();
+
+        // CRITICAL: Use SpawnActorDeferred for safer initialization
+        FTransform SpawnTransform(Rotation, Location);
+        AActor *NewLight = World->SpawnActorDeferred<AActor>(
+            LightClass,
+            SpawnTransform,
+            nullptr,    // Owner
+            nullptr,    // Instigator
+            ESpawnActorCollisionHandlingMethod::AlwaysSpawn
+        );
+
+        // CRITICAL: Finish spawning with proper transform
+        if (NewLight)
+        {
+            UGameplayStatics::FinishSpawningActor(NewLight, SpawnTransform);
+        }
+
+        // Explicitly set location/rotation
+        if (NewLight)
+        {
+            NewLight->SetActorLabel(LightClassStr);
+            NewLight->SetActorLocationAndRotation(Location, Rotation, false, nullptr,
+                ETeleportType::TeleportPhysics);
+        }
+
+        if (!NewLight)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Failed to spawn light actor"),
+                TEXT("SPAWN_FAILED"));
+            return true;
+        }
+
+        // ---------------------------------------------------------------------
+        // Set Name (optional)
+        // ---------------------------------------------------------------------
+        FString Name;
+        if (Payload->TryGetStringField(TEXT("name"), Name) && !Name.IsEmpty())
+        {
+            NewLight->SetActorLabel(Name);
+        }
+
+        // Default to Movable for immediate feedback
+        if (ULightComponent *BaseLightComp = NewLight->FindComponentByClass<ULightComponent>())
+        {
+            BaseLightComp->SetMobility(EComponentMobility::Movable);
+        }
+
+        // ---------------------------------------------------------------------
+        // Apply Properties with Validation
+        // ---------------------------------------------------------------------
+        const TSharedPtr<FJsonObject> *Props;
+        if (Payload->TryGetObjectField(TEXT("properties"), Props))
+        {
+            ULightComponent *LightComp = NewLight->FindComponentByClass<ULightComponent>();
+            if (LightComp)
+            {
+                // Intensity validation: must be finite and non-negative
+                double Intensity;
+                if ((*Props)->TryGetNumberField(TEXT("intensity"), Intensity))
+                {
+                    if (!FMath::IsFinite(Intensity))
+                    {
+                        UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                            TEXT("spawn_light: Invalid intensity (not finite), using 0"));
+                        Intensity = 0.0;
+                    }
+                    else if (Intensity < 0.0)
+                    {
+                        UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                            TEXT("spawn_light: Negative intensity %.2f clamped to 0"), Intensity);
+                        Intensity = 0.0;
+                    }
+                    LightComp->SetIntensity((float)Intensity);
+                }
+
+                // Color validation: must have finite components
+                const TSharedPtr<FJsonObject> *ColorObj;
+                if ((*Props)->TryGetObjectField(TEXT("color"), ColorObj))
+                {
+                    FLinearColor Color;
+                    Color.R = GetJsonNumberField((*ColorObj), TEXT("r"));
+                    Color.G = GetJsonNumberField((*ColorObj), TEXT("g"));
+                    Color.B = GetJsonNumberField((*ColorObj), TEXT("b"));
+                    Color.A = (*ColorObj)->HasField(TEXT("a"))
+                        ? GetJsonNumberField((*ColorObj), TEXT("a"))
+                        : 1.0f;
+
+                    if (!FMath::IsFinite(Color.R) || !FMath::IsFinite(Color.G) ||
+                        !FMath::IsFinite(Color.B) || !FMath::IsFinite(Color.A))
+                    {
+                        UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                            TEXT("spawn_light: Invalid color components, using white"));
+                        Color = FLinearColor::White;
+                    }
+                    LightComp->SetLightColor(Color);
+                }
+
+                bool bCastShadows;
+                if ((*Props)->TryGetBoolField(TEXT("castShadows"), bCastShadows))
+                {
+                    LightComp->SetCastShadows(bCastShadows);
+                }
+
+                // -------------------------------------------------------------
+                // DirectionalLight-specific properties
+                // -------------------------------------------------------------
+                if (UDirectionalLightComponent *DirComp = Cast<UDirectionalLightComponent>(LightComp))
+                {
+                    bool bUseSun = true;
+                    if ((*Props)->TryGetBoolField(TEXT("useAsAtmosphereSunLight"), bUseSun))
+                    {
+                        DirComp->SetAtmosphereSunLight(bUseSun);
+                    }
+                    else
+                    {
+                        DirComp->SetAtmosphereSunLight(true);
+                    }
+                }
+
+                // -------------------------------------------------------------
+                // PointLight-specific properties
+                // -------------------------------------------------------------
+                if (UPointLightComponent *PointComp = Cast<UPointLightComponent>(LightComp))
+                {
+                    double Radius;
+                    if ((*Props)->TryGetNumberField(TEXT("attenuationRadius"), Radius))
+                    {
+                        // Validate radius: must be positive and finite
+                        if (!FMath::IsFinite(Radius) || Radius <= 0.0)
+                        {
+                            UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                                TEXT("spawn_light: Invalid attenuationRadius %.2f, using 1000"), Radius);
+                            Radius = 1000.0;
+                        }
+                        PointComp->SetAttenuationRadius((float)Radius);
+                    }
+                }
+
+                // -------------------------------------------------------------
+                // SpotLight-specific properties
+                // -------------------------------------------------------------
+                if (USpotLightComponent *SpotComp = Cast<USpotLightComponent>(LightComp))
+                {
+                    double InnerCone;
+                    if ((*Props)->TryGetNumberField(TEXT("innerConeAngle"), InnerCone))
+                    {
+                        // Validate cone angle: 0-180 degrees
+                        if (!FMath::IsFinite(InnerCone) || InnerCone < 0.0 || InnerCone > 180.0)
+                        {
+                            UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                                TEXT("spawn_light: Invalid innerConeAngle %.2f, clamping to 0-180"), InnerCone);
+                            InnerCone = FMath::Clamp(InnerCone, 0.0, 180.0);
+                        }
+                        SpotComp->SetInnerConeAngle((float)InnerCone);
+                    }
+
+                    double OuterCone;
+                    if ((*Props)->TryGetNumberField(TEXT("outerConeAngle"), OuterCone))
+                    {
+                        if (!FMath::IsFinite(OuterCone) || OuterCone < 0.0 || OuterCone > 180.0)
+                        {
+                            UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                                TEXT("spawn_light: Invalid outerConeAngle %.2f, clamping to 0-180"), OuterCone);
+                            OuterCone = FMath::Clamp(OuterCone, 0.0, 180.0);
+                        }
+                        SpotComp->SetOuterConeAngle((float)OuterCone);
+                    }
+                }
+
+                // -------------------------------------------------------------
+                // RectLight-specific properties
+                // -------------------------------------------------------------
+                if (URectLightComponent *RectComp = Cast<URectLightComponent>(LightComp))
+                {
+                    double Width;
+                    if ((*Props)->TryGetNumberField(TEXT("sourceWidth"), Width))
+                    {
+                        if (!FMath::IsFinite(Width) || Width <= 0.0)
+                        {
+                            UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                                TEXT("spawn_light: Invalid sourceWidth %.2f, using 100"), Width);
+                            Width = 100.0;
+                        }
+                        RectComp->SetSourceWidth((float)Width);
+                    }
+
+                    double Height;
+                    if ((*Props)->TryGetNumberField(TEXT("sourceHeight"), Height))
+                    {
+                        if (!FMath::IsFinite(Height) || Height <= 0.0)
+                        {
+                            UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                                TEXT("spawn_light: Invalid sourceHeight %.2f, using 100"), Height);
+                            Height = 100.0;
+                        }
+                        RectComp->SetSourceHeight((float)Height);
+                    }
+                }
+            }
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetBoolField(TEXT("success"), true);
+        Resp->SetStringField(TEXT("actorName"), NewLight->GetActorLabel());
+
+        // Add verification data
+        McpHandlerUtils::AddVerification(Resp, NewLight);
+
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Light spawned"), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // spawn_sky_light / create_sky_light
+    // =========================================================================
+    // Spawns a SkyLight actor with optional cubemap support
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("spawn_sky_light") || Lower == TEXT("create_sky_light"))
+    {
+        // Default location to a reasonable height for sky lights
+        FVector Location = FVector(0.0f, 0.0f, 500.0f);
+        const TSharedPtr<FJsonObject> *LocPtr;
+        bool bHasExplicitLocation = Payload->TryGetObjectField(TEXT("location"), LocPtr);
+        if (bHasExplicitLocation)
+        {
+            Location.X = GetJsonNumberField((*LocPtr), TEXT("x"));
+            Location.Y = GetJsonNumberField((*LocPtr), TEXT("y"));
+            Location.Z = GetJsonNumberField((*LocPtr), TEXT("z"));
+        }
+        else
+        {
+            UE_LOG(LogNebulaForgeBridgeSubsystem, Log,
+                TEXT("spawn_sky_light: No location provided, using default (0, 0, 500)"));
+        }
+
+        // Parse rotation (optional)
+        FRotator Rotation = FRotator::ZeroRotator;
+        const TSharedPtr<FJsonObject> *RotPtr;
+        if (Payload->TryGetObjectField(TEXT("rotation"), RotPtr))
+        {
+            Rotation.Pitch = GetJsonNumberField((*RotPtr), TEXT("pitch"));
+            Rotation.Yaw = GetJsonNumberField((*RotPtr), TEXT("yaw"));
+            Rotation.Roll = GetJsonNumberField((*RotPtr), TEXT("roll"));
+        }
+
+        AActor *SkyLight = SpawnActorInActiveWorld<AActor>(
+            ASkyLight::StaticClass(), Location, Rotation);
+        if (!SkyLight)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Failed to spawn SkyLight"),
+                TEXT("SPAWN_FAILED"));
+            return true;
+        }
+
+        // Set name (optional)
+        FString Name;
+        if (Payload->TryGetStringField(TEXT("name"), Name) && !Name.IsEmpty())
+        {
+            SkyLight->SetActorLabel(Name);
+        }
+
+        // Configure SkyLight component
+        USkyLightComponent *SkyComp = SkyLight->FindComponentByClass<USkyLightComponent>();
+        if (SkyComp)
+        {
+            FString SourceType;
+            if (Payload->TryGetStringField(TEXT("sourceType"), SourceType))
+            {
+                if (SourceType == TEXT("SpecifiedCubemap"))
+                {
+                    SkyComp->SourceType = ESkyLightSourceType::SLS_SpecifiedCubemap;
+
+                    FString CubemapPath;
+                    if (Payload->TryGetStringField(TEXT("cubemapPath"), CubemapPath) &&
+                        !CubemapPath.IsEmpty())
+                    {
+                        // Security: Validate cubemap path to prevent traversal attacks
+                        FString SanitizedCubemapPath = SanitizeProjectRelativePath(CubemapPath);
+                        if (SanitizedCubemapPath.IsEmpty())
+                        {
+                            UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                                TEXT("spawn_sky_light: Invalid cubemapPath rejected: %s"), *CubemapPath);
+                        }
+                        else
+                        {
+                            UTextureCube *Cubemap = Cast<UTextureCube>(StaticLoadObject(
+                                UTextureCube::StaticClass(), nullptr, *SanitizedCubemapPath));
+                            if (Cubemap)
+                            {
+                                SkyComp->Cubemap = Cubemap;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    SkyComp->SourceType = ESkyLightSourceType::SLS_CapturedScene;
+                }
+            }
+
+            double Intensity;
+            if (Payload->TryGetNumberField(TEXT("intensity"), Intensity))
+            {
+                SkyComp->SetIntensity((float)Intensity);
+            }
+
+            bool bRecapture;
+            if (Payload->TryGetBoolField(TEXT("recapture"), bRecapture) && bRecapture)
+            {
+                SkyComp->RecaptureSky();
+            }
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetBoolField(TEXT("success"), true);
+        Resp->SetStringField(TEXT("actorName"), SkyLight->GetActorLabel());
+
+        // Add verification data
+        McpHandlerUtils::AddVerification(Resp, SkyLight);
+
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("SkyLight spawned"), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // Phase 29.3: Lightmass and precomputed lighting
+    // =========================================================================
+    if (Lower == TEXT("inspect_lightmass_settings") ||
+        Lower == TEXT("configure_lightmass_settings") ||
+        Lower == TEXT("configure_volumetric_lightmaps") ||
+        Lower == TEXT("configure_lightmass_ambient_occlusion"))
+    {
+        UWorld* World = GEditor->GetEditorWorldContext().World();
+        AWorldSettings* WorldSettings = World ? World->GetWorldSettings() : nullptr;
+        if (!WorldSettings)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Editor world settings not available"),
+                TEXT("EDITOR_WORLD_NOT_AVAILABLE"));
+            return true;
+        }
+
+        FLightmassWorldInfoSettings& Settings = WorldSettings->LightmassSettings;
+        const bool bInspectOnly = Lower == TEXT("inspect_lightmass_settings");
+        TArray<FString> ChangedFields;
+        TArray<FString> UnsupportedFields;
+        FString InvalidField;
+
+        auto SetFloat = [&](const TCHAR* JsonName, float& Setting, double Minimum, double Maximum) {
+            if (!Payload->HasField(JsonName))
+            {
+                return true;
+            }
+            double Value = 0.0;
+            if (!Payload->TryGetNumberField(JsonName, Value) || !FMath::IsFinite(Value) ||
+                Value < Minimum || Value > Maximum)
+            {
+                InvalidField = FString::Printf(TEXT("%s must be finite and between %g and %g"),
+                    JsonName, Minimum, Maximum);
+                return false;
+            }
+            Setting = static_cast<float>(Value);
+            ChangedFields.Add(JsonName);
+            return true;
+        };
+
+        auto SetInteger = [&](const TCHAR* JsonName, int32& Setting, int32 Minimum, int32 Maximum) {
+            if (!Payload->HasField(JsonName))
+            {
+                return true;
+            }
+            double Value = 0.0;
+            const bool bHasNumber = Payload->TryGetNumberField(JsonName, Value);
+            const int32 RoundedValue = bHasNumber ? FMath::RoundToInt(Value) : 0;
+            if (!bHasNumber || !FMath::IsFinite(Value) ||
+                Value != static_cast<double>(RoundedValue) ||
+                RoundedValue < Minimum || RoundedValue > Maximum)
+            {
+                InvalidField = FString::Printf(TEXT("%s must be an integer between %d and %d"),
+                    JsonName, Minimum, Maximum);
+                return false;
+            }
+            Setting = RoundedValue;
+            ChangedFields.Add(JsonName);
+            return true;
+        };
+
+        auto SetBool = [&](const TCHAR* JsonName, uint8& Setting) {
+            if (!Payload->HasField(JsonName))
+            {
+                return true;
+            }
+            bool Value = false;
+            if (!Payload->TryGetBoolField(JsonName, Value))
+            {
+                InvalidField = FString::Printf(TEXT("%s must be a boolean"), JsonName);
+                return false;
+            }
+            Setting = Value ? 1 : 0;
+            ChangedFields.Add(JsonName);
+            return true;
+        };
+
+        bool bValid = true;
+        if (!bInspectOnly)
+        {
+            WorldSettings->Modify();
+            bValid = SetFloat(TEXT("staticLightingLevelScale"), Settings.StaticLightingLevelScale, 0.01, 100.0) && bValid;
+            bValid = SetInteger(TEXT("numIndirectLightingBounces"), Settings.NumIndirectLightingBounces, 0, 100) && bValid;
+            bValid = SetInteger(TEXT("numSkyLightingBounces"), Settings.NumSkyLightingBounces, 0, 100) && bValid;
+            bValid = SetFloat(TEXT("indirectLightingQuality"), Settings.IndirectLightingQuality, 0.01, 100.0) && bValid;
+            bValid = SetFloat(TEXT("indirectLightingSmoothness"), Settings.IndirectLightingSmoothness, 0.0, 100.0) && bValid;
+            bValid = SetFloat(TEXT("environmentIntensity"), Settings.EnvironmentIntensity, 0.0, 100.0) && bValid;
+            bValid = SetFloat(TEXT("diffuseBoost"), Settings.DiffuseBoost, 0.0, 100.0) && bValid;
+            bValid = SetFloat(TEXT("emissiveBoost"), Settings.EmissiveBoost, 0.0, 100.0) && bValid;
+            bValid = SetBool(TEXT("useAmbientOcclusion"), Settings.bUseAmbientOcclusion) && bValid;
+            bValid = SetBool(TEXT("generateAmbientOcclusionMaterialMask"), Settings.bGenerateAmbientOcclusionMaterialMask) && bValid;
+            bValid = SetBool(TEXT("visualizeMaterialDiffuse"), Settings.bVisualizeMaterialDiffuse) && bValid;
+            bValid = SetBool(TEXT("visualizeAmbientOcclusion"), Settings.bVisualizeAmbientOcclusion) && bValid;
+            bValid = SetBool(TEXT("compressLightmaps"), Settings.bCompressLightmaps) && bValid;
+            bValid = SetFloat(TEXT("volumetricLightmapDetailCellSize"), Settings.VolumetricLightmapDetailCellSize, 1.0, 20000.0) && bValid;
+            bValid = SetFloat(TEXT("volumetricLightmapMaximumBrickMemoryMb"), Settings.VolumetricLightmapMaximumBrickMemoryMb, 1.0, 100000.0) && bValid;
+            bValid = SetFloat(TEXT("volumetricLightmapSphericalHarmonicSmoothing"), Settings.VolumetricLightmapSphericalHarmonicSmoothing, 0.0, 1.0) && bValid;
+            bValid = SetFloat(TEXT("volumeLightSamplePlacementScale"), Settings.VolumeLightSamplePlacementScale, 0.01, 100.0) && bValid;
+            bValid = SetFloat(TEXT("directIlluminationOcclusionFraction"), Settings.DirectIlluminationOcclusionFraction, 0.0, 1.0) && bValid;
+            bValid = SetFloat(TEXT("indirectIlluminationOcclusionFraction"), Settings.IndirectIlluminationOcclusionFraction, 0.0, 1.0) && bValid;
+            bValid = SetFloat(TEXT("occlusionExponent"), Settings.OcclusionExponent, 0.01, 100.0) && bValid;
+            bValid = SetFloat(TEXT("fullyOccludedSamplesFraction"), Settings.FullyOccludedSamplesFraction, 0.0, 1.0) && bValid;
+            bValid = SetFloat(TEXT("maxOcclusionDistance"), Settings.MaxOcclusionDistance, 0.0, 1000000.0) && bValid;
+
+            FString VolumeLightingMethod;
+            if (Payload->TryGetStringField(TEXT("volumeLightingMethod"), VolumeLightingMethod))
+            {
+                const FString Method = VolumeLightingMethod.ToLower();
+                if (Method == TEXT("volumetriclightmap") || Method == TEXT("volumetric_lightmap"))
+                {
+                    Settings.VolumeLightingMethod = VLM_VolumetricLightmap;
+                }
+                else if (Method == TEXT("sparsevolumelightingsamples") || Method == TEXT("sparse_volume_lighting_samples"))
+                {
+                    Settings.VolumeLightingMethod = VLM_SparseVolumeLightingSamples;
+                }
+                else
+                {
+                    InvalidField = TEXT("volumeLightingMethod must be VolumetricLightmap or SparseVolumeLightingSamples");
+                    bValid = false;
+                }
+                if (bValid)
+                {
+                    ChangedFields.Add(TEXT("volumeLightingMethod"));
+                }
+            }
+            else if (Payload->HasField(TEXT("volumeLightingMethod")))
+            {
+                InvalidField = TEXT("volumeLightingMethod must be a string");
+                bValid = false;
+            }
+
+            const TSharedPtr<FJsonObject>* ColorObject = nullptr;
+            if (Payload->TryGetObjectField(TEXT("environmentColor"), ColorObject) && ColorObject && ColorObject->IsValid())
+            {
+                double Red = 0.0;
+                double Green = 0.0;
+                double Blue = 0.0;
+                double Alpha = 1.0;
+                if (!(*ColorObject)->TryGetNumberField(TEXT("r"), Red) ||
+                    !(*ColorObject)->TryGetNumberField(TEXT("g"), Green) ||
+                    !(*ColorObject)->TryGetNumberField(TEXT("b"), Blue))
+                {
+                    InvalidField = TEXT("environmentColor requires numeric r, g, and b fields");
+                    bValid = false;
+                }
+                else
+                {
+                    const bool bHasAlpha = (*ColorObject)->TryGetNumberField(TEXT("a"), Alpha);
+                    const bool bNormalized = Red <= 1.0 && Green <= 1.0 && Blue <= 1.0 && (!bHasAlpha || Alpha <= 1.0);
+                    const double AlphaValue = bHasAlpha ? (bNormalized ? Alpha * 255.0 : Alpha) : 255.0;
+                    Settings.EnvironmentColor = FColor(
+                        static_cast<uint8>(FMath::Clamp(bNormalized ? Red * 255.0 : Red, 0.0, 255.0)),
+                        static_cast<uint8>(FMath::Clamp(bNormalized ? Green * 255.0 : Green, 0.0, 255.0)),
+                        static_cast<uint8>(FMath::Clamp(bNormalized ? Blue * 255.0 : Blue, 0.0, 255.0)),
+                        static_cast<uint8>(FMath::Clamp(AlphaValue, 0.0, 255.0)));
+                    ChangedFields.Add(TEXT("environmentColor"));
+                }
+            }
+            else if (Payload->HasField(TEXT("environmentColor")))
+            {
+                InvalidField = TEXT("environmentColor must be an object with numeric r, g, and b fields");
+                bValid = false;
+            }
+
+            double LoadingCellSize = 0.0;
+            if (Payload->TryGetNumberField(TEXT("volumetricLightmapLoadingCellSize"), LoadingCellSize))
+            {
+                if (!FMath::IsFinite(LoadingCellSize) || LoadingCellSize <= 0.0)
+                {
+                    InvalidField = TEXT("volumetricLightmapLoadingCellSize must be positive");
+                    bValid = false;
+                }
+                else if (!SetOptionalLightmassFloat(WorldSettings, TEXT("VolumetricLightmapLoadingCellSize"), LoadingCellSize))
+                {
+                    UnsupportedFields.Add(TEXT("volumetricLightmapLoadingCellSize"));
+                }
+                else
+                {
+                    ChangedFields.Add(TEXT("volumetricLightmapLoadingCellSize"));
+                }
+            }
+            else if (Payload->HasField(TEXT("volumetricLightmapLoadingCellSize")))
+            {
+                InvalidField = TEXT("volumetricLightmapLoadingCellSize must be a positive number");
+                bValid = false;
+            }
+
+            if (!bValid)
+            {
+                SendAutomationError(RequestingSocket, RequestId, InvalidField, TEXT("INVALID_ARGUMENT"));
+                return true;
+            }
+
+            WorldSettings->PostEditChange();
+            WorldSettings->MarkPackageDirty();
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetBoolField(TEXT("success"), true);
+        Resp->SetStringField(TEXT("action"), Lower);
+        Resp->SetNumberField(TEXT("changedCount"), ChangedFields.Num());
+        TArray<TSharedPtr<FJsonValue>> UnsupportedJson;
+        for (const FString& Field : UnsupportedFields)
+        {
+            UnsupportedJson.Add(MakeShared<FJsonValueString>(Field));
+        }
+        Resp->SetArrayField(TEXT("unsupportedSettings"), UnsupportedJson);
+        AddLightmassSettingsToResponse(Settings, Resp);
+
+        double LoadingCellSize = 0.0;
+        const bool bHasLoadingCellSize = GetOptionalLightmassFloat(
+            WorldSettings, TEXT("VolumetricLightmapLoadingCellSize"), LoadingCellSize);
+        Resp->SetBoolField(TEXT("volumetricLightmapLoadingCellSizeSupported"), bHasLoadingCellSize);
+        if (bHasLoadingCellSize)
+        {
+            Resp->SetNumberField(TEXT("volumetricLightmapLoadingCellSize"), LoadingCellSize);
+        }
+
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            bInspectOnly ? TEXT("Lightmass settings inspected") : TEXT("Lightmass settings configured"), Resp);
+        return true;
+    }
+
+    if (Lower == TEXT("configure_indirect_lighting_cache"))
+    {
+        TArray<TSharedPtr<FJsonValue>> AppliedCVars;
+        TArray<TSharedPtr<FJsonValue>> UnsupportedCVars;
+        auto SetCacheCVar = [&](const TCHAR* JsonName, const TCHAR* CVarName, bool bInteger) {
+            if (!Payload->HasField(JsonName))
+            {
+                return;
+            }
+            IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(CVarName);
+            if (!CVar)
+            {
+                UnsupportedCVars.Add(MakeShared<FJsonValueString>(CVarName));
+                return;
+            }
+            if (bInteger)
+            {
+                double Value = 0.0;
+                if (!Payload->TryGetNumberField(JsonName, Value) || !FMath::IsFinite(Value) || Value < 1.0)
+                {
+                    return;
+                }
+                CVar->Set(FMath::RoundToInt(Value));
+            }
+            else
+            {
+                bool Value = false;
+                if (!Payload->TryGetBoolField(JsonName, Value))
+                {
+                    return;
+                }
+                CVar->Set(Value ? 1 : 0);
+            }
+            AppliedCVars.Add(MakeShared<FJsonValueString>(CVarName));
+        };
+
+        SetCacheCVar(TEXT("enabled"), TEXT("r.IndirectLightingCache"), false);
+        SetCacheCVar(TEXT("updateEveryFrame"), TEXT("r.Cache.UpdateEveryFrame"), false);
+        SetCacheCVar(TEXT("lightingCacheDimension"), TEXT("r.Cache.LightingCacheDimension"), true);
+        SetCacheCVar(TEXT("movableObjectAllocationSize"), TEXT("r.Cache.LightingCacheMovableObjectAllocationSize"), true);
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetBoolField(TEXT("success"), true);
+        Resp->SetArrayField(TEXT("appliedCVars"), AppliedCVars);
+        Resp->SetArrayField(TEXT("unsupportedCVars"), UnsupportedCVars);
+        Resp->SetNumberField(TEXT("appliedCount"), AppliedCVars.Num());
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Indirect lighting cache configured"), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // build_lighting / bake_lightmap / build_lighting_quality
+    // =========================================================================
+    // Starts a lighting build with the specified quality
+    // Quality options: preview/0, medium/1, high/2, production/3
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("build_lighting") || Lower == TEXT("bake_lightmap") || Lower == TEXT("build_lighting_quality"))
+    {
+        if (GEditor && GEditor->GetEditorWorldContext().World())
+        {
+            UWorld* World = GEditor->GetEditorWorldContext().World();
+
+            // Check if precomputed lighting is disabled in WorldSettings
+            if (AWorldSettings* WS = World->GetWorldSettings())
+            {
+                if (WS->bForceNoPrecomputedLighting)
+                {
+                    // IMPORTANT: Return success=true with skipped=true because this is intentional behavior,
+                    // not an error. The operation was handled correctly - it was just skipped due to project settings.
+                    // Tests expecting 'success' should pass when the operation is intentionally skipped.
+                    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+                    Resp->SetBoolField(TEXT("success"), true);
+                    Resp->SetBoolField(TEXT("skipped"), true);
+                    Resp->SetStringField(TEXT("reason"), TEXT("bForceNoPrecomputedLighting is true"));
+                    Resp->SetStringField(TEXT("suggestion"),
+                        TEXT("Set WorldSettings.bForceNoPrecomputedLighting to false to enable lighting builds"));
+                    SendAutomationResponse(RequestingSocket, RequestId, true,
+                        TEXT("Lighting build skipped - precomputed lighting disabled in WorldSettings"), Resp);
+                    return true;
+                }
+            }
+
+            // Read quality parameter
+            FString Quality;
+            Payload->TryGetStringField(TEXT("quality"), Quality);
+
+            // Map quality string to console command
+            FString QualityCmd = TEXT("Production"); // Default
+            if (!Quality.IsEmpty())
+            {
+                const FString LowerQuality = Quality.ToLower();
+                if (LowerQuality == TEXT("preview") || LowerQuality == TEXT("0"))
+                {
+                    QualityCmd = TEXT("Preview");
+                }
+                else if (LowerQuality == TEXT("medium") || LowerQuality == TEXT("1"))
+                {
+                    QualityCmd = TEXT("Medium");
+                }
+                else if (LowerQuality == TEXT("high") || LowerQuality == TEXT("2"))
+                {
+                    QualityCmd = TEXT("High");
+                }
+                else if (LowerQuality == TEXT("production") || LowerQuality == TEXT("3"))
+                {
+                    QualityCmd = TEXT("Production");
+                }
+                else
+                {
+                    TSharedPtr<FJsonObject> Err = McpHandlerUtils::CreateResultObject();
+                    Err->SetStringField(TEXT("error"), TEXT("unknown_quality"));
+                    Err->SetStringField(TEXT("quality"), Quality);
+                    Err->SetStringField(TEXT("validValues"),
+                        TEXT("preview/0, medium/1, high/2, production/3"));
+                    SendAutomationResponse(RequestingSocket, RequestId, false,
+                        TEXT("Unknown lighting quality"), Err,
+                        TEXT("UNKNOWN_QUALITY"));
+                    return true;
+                }
+            }
+
+            FString Command = FString::Printf(TEXT("BuildLighting %s"), *QualityCmd);
+            GEditor->Exec(GEditor->GetEditorWorldContext().World(), *Command);
+
+            TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+            Resp->SetStringField(TEXT("quality"), QualityCmd);
+            Resp->SetBoolField(TEXT("started"), true);
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                FString::Printf(TEXT("Lighting build started with quality: %s"), *QualityCmd), Resp);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Editor world not available"),
+                TEXT("EDITOR_WORLD_NOT_AVAILABLE"));
+        }
+        return true;
+    }
+
+    // =========================================================================
+    // ensure_single_sky_light
+    // =========================================================================
+    // Ensures exactly one SkyLight exists in the level
+    // Removes duplicates and optionally spawns one if none exists
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("ensure_single_sky_light"))
+    {
+        TArray<AActor *> AllActors = ActorSS->GetAllLevelActors();
+        TArray<AActor *> SkyLights;
+        for (AActor *Actor : AllActors)
+        {
+            if (Actor && Actor->IsA<ASkyLight>())
+            {
+                SkyLights.Add(Actor);
+            }
+        }
+
+        FString TargetName;
+        Payload->TryGetStringField(TEXT("name"), TargetName);
+        if (TargetName.IsEmpty())
+        {
+            TargetName = TEXT("SkyLight");
+        }
+
+        int32 RemovedCount = 0;
+        AActor *KeptActor = nullptr;
+
+        // Two-pass approach: first find exact name match, then destroy others
+        for (AActor *SkyLight : SkyLights)
+        {
+            if (SkyLight->GetActorLabel() == TargetName && !TargetName.IsEmpty())
+            {
+                KeptActor = SkyLight;
+                break;
+            }
+        }
+
+        // If no exact match, keep first and destroy rest
+        for (AActor *SkyLight : SkyLights)
+        {
+            if (SkyLight == KeptActor)
+            {
+                continue;
+            }
+            if (!KeptActor)
+            {
+                KeptActor = SkyLight;
+                if (!TargetName.IsEmpty())
+                {
+                    SkyLight->SetActorLabel(TargetName);
+                }
+            }
+            else
+            {
+                ActorSS->DestroyActor(SkyLight);
+                RemovedCount++;
+            }
+        }
+
+        if (!KeptActor)
+        {
+            // Spawn one if none existed
+            KeptActor = SpawnActorInActiveWorld<AActor>(
+                ASkyLight::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator,
+                TargetName);
+        }
+
+        if (KeptActor)
+        {
+            bool bRecapture;
+            if (Payload->TryGetBoolField(TEXT("recapture"), bRecapture) && bRecapture)
+            {
+                if (USkyLightComponent *Comp = KeptActor->FindComponentByClass<USkyLightComponent>())
+                {
+                    Comp->RecaptureSky();
+                }
+            }
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetNumberField(TEXT("removed"), RemovedCount);
+
+        // Add verification data
+        if (KeptActor)
+        {
+            McpHandlerUtils::AddVerification(Resp, KeptActor);
+        }
+
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Ensured single SkyLight"), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // create_lightmass_volume
+    // =========================================================================
+    // Creates a LightmassImportanceVolume at the specified location and size
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("create_lightmass_volume"))
+    {
+        FVector Location = FVector::ZeroVector;
+        const TSharedPtr<FJsonObject> *LocObj;
+        if (Payload->TryGetObjectField(TEXT("location"), LocObj))
+        {
+            Location.X = GetJsonNumberField((*LocObj), TEXT("x"));
+            Location.Y = GetJsonNumberField((*LocObj), TEXT("y"));
+            Location.Z = GetJsonNumberField((*LocObj), TEXT("z"));
+        }
+
+        FVector Size = FVector(1000, 1000, 1000);
+        const TSharedPtr<FJsonObject> *SizeObj;
+        if (Payload->TryGetObjectField(TEXT("size"), SizeObj))
+        {
+            Size.X = GetJsonNumberField((*SizeObj), TEXT("x"));
+            Size.Y = GetJsonNumberField((*SizeObj), TEXT("y"));
+            Size.Z = GetJsonNumberField((*SizeObj), TEXT("z"));
+        }
+
+        AActor *Volume = SpawnActorInActiveWorld<AActor>(
+            ALightmassImportanceVolume::StaticClass(), Location,
+            FRotator::ZeroRotator);
+        if (Volume)
+        {
+            Volume->SetActorScale3D(Size / 200.0f); // Brush size adjustment approximation
+
+            FString Name;
+            if (Payload->TryGetStringField(TEXT("name"), Name) && !Name.IsEmpty())
+            {
+                Volume->SetActorLabel(Name);
+            }
+
+            TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+            Resp->SetBoolField(TEXT("success"), true);
+            Resp->SetStringField(TEXT("actorName"), Volume->GetActorLabel());
+
+            // Add verification data
+            McpHandlerUtils::AddVerification(Resp, Volume);
+
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                TEXT("LightmassImportanceVolume created"), Resp);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Failed to spawn LightmassImportanceVolume"),
+                TEXT("SPAWN_FAILED"));
+        }
+        return true;
+    }
+
+    // =========================================================================
+    // setup_volumetric_fog
+    // =========================================================================
+    // Enables volumetric fog on an ExponentialHeightFog actor
+    // Spawns one if none exists
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("setup_volumetric_fog"))
+    {
+        // Find existing or spawn new ExponentialHeightFog
+        AExponentialHeightFog *FogActor = nullptr;
+        TArray<AActor *> AllActors = ActorSS->GetAllLevelActors();
+        for (AActor *Actor : AllActors)
+        {
+            if (Actor && Actor->IsA<AExponentialHeightFog>())
+            {
+                FogActor = Cast<AExponentialHeightFog>(Actor);
+                break;
+            }
+        }
+
+        if (!FogActor)
+        {
+            FogActor = Cast<AExponentialHeightFog>(SpawnActorInActiveWorld<AActor>(
+                AExponentialHeightFog::StaticClass(), FVector::ZeroVector,
+                FRotator::ZeroRotator));
+        }
+
+        if (FogActor && FogActor->GetComponent())
+        {
+            UExponentialHeightFogComponent *FogComp = FogActor->GetComponent();
+            FogComp->bEnableVolumetricFog = true;
+
+            double Distance;
+            if (Payload->TryGetNumberField(TEXT("viewDistance"), Distance))
+            {
+                FogComp->VolumetricFogDistance = (float)Distance;
+            }
+
+            TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+            Resp->SetBoolField(TEXT("success"), true);
+            Resp->SetStringField(TEXT("actorName"), FogActor->GetActorLabel());
+            Resp->SetBoolField(TEXT("enabled"), true);
+
+            // Add verification data
+            McpHandlerUtils::AddVerification(Resp, FogActor);
+
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                TEXT("Volumetric fog enabled"), Resp);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Failed to find or spawn ExponentialHeightFog"),
+                TEXT("EXECUTION_ERROR"));
+        }
+        return true;
+    }
+
+    // =========================================================================
+    // setup_global_illumination
+    // =========================================================================
+    // Configures global illumination method via console variables
+    // Options: LumenGI, ScreenSpace, None, RayTraced, Lightmass
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("setup_global_illumination"))
+    {
+        FString Method;
+        if (!Payload->TryGetStringField(TEXT("method"), Method) || Method.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("method parameter is required. Valid values: LumenGI, ScreenSpace, None, RayTraced, Lightmass"),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        bool bValidMethod = false;
+        if (Method == TEXT("LumenGI"))
+        {
+            IConsoleVariable *CVar = IConsoleManager::Get().FindConsoleVariable(
+                TEXT("r.DynamicGlobalIlluminationMethod"));
+            if (CVar)
+            {
+                CVar->Set(1); // 1 = Lumen
+            }
+
+            IConsoleVariable *CVarRefl = IConsoleManager::Get().FindConsoleVariable(
+                TEXT("r.ReflectionMethod"));
+            if (CVarRefl)
+            {
+                CVarRefl->Set(1); // 1 = Lumen
+            }
+            bValidMethod = true;
+        }
+        else if (Method == TEXT("ScreenSpace"))
+        {
+            IConsoleVariable *CVar = IConsoleManager::Get().FindConsoleVariable(
+                TEXT("r.DynamicGlobalIlluminationMethod"));
+            if (CVar)
+            {
+                CVar->Set(2); // SSGI
+            }
+            bValidMethod = true;
+        }
+        else if (Method == TEXT("None"))
+        {
+            IConsoleVariable *CVar = IConsoleManager::Get().FindConsoleVariable(
+                TEXT("r.DynamicGlobalIlluminationMethod"));
+            if (CVar)
+            {
+                CVar->Set(0);
+            }
+            bValidMethod = true;
+        }
+        else if (Method == TEXT("RayTraced"))
+        {
+            IConsoleVariable *CVar = IConsoleManager::Get().FindConsoleVariable(
+                TEXT("r.DynamicGlobalIlluminationMethod"));
+            if (CVar)
+            {
+                CVar->Set(3); // 3 = RayTraced (if supported)
+            }
+            bValidMethod = true;
+        }
+        else if (Method == TEXT("Lightmass"))
+        {
+            // Lightmass requires disabling Lumen and enabling static lighting
+            IConsoleVariable *CVarGI = IConsoleManager::Get().FindConsoleVariable(
+                TEXT("r.DynamicGlobalIlluminationMethod"));
+            if (CVarGI)
+            {
+                CVarGI->Set(0); // Disable dynamic GI to use baked
+            }
+            bValidMethod = true;
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                FString::Printf(TEXT("Invalid GI method: %s. Valid values: LumenGI, ScreenSpace, None, RayTraced, Lightmass"), *Method),
+                TEXT("INVALID_GI_METHOD"));
+            return true;
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetBoolField(TEXT("success"), bValidMethod);
+        Resp->SetStringField(TEXT("method"), Method);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            FString::Printf(TEXT("GI method configured: %s"), *Method), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // configure_shadows
+    // =========================================================================
+    // Configures shadow settings (Virtual Shadow Maps)
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("configure_shadows"))
+    {
+        bool bVirtual = false;
+        if (Payload->TryGetBoolField(TEXT("virtualShadowMaps"), bVirtual) ||
+            Payload->TryGetBoolField(TEXT("rayTracedShadows"), bVirtual))
+        {
+            IConsoleVariable *CVar = IConsoleManager::Get().FindConsoleVariable(
+                TEXT("r.Shadow.Virtual.Enable"));
+            if (CVar)
+            {
+                CVar->Set(bVirtual ? 1 : 0);
+            }
+        }
+
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetBoolField(TEXT("success"), true);
+        Resp->SetBoolField(TEXT("virtualShadowMaps"), bVirtual);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Shadows configured"), Resp);
+        return true;
+    }
+
+    // =========================================================================
+    // set_exposure
+    // =========================================================================
+    // Configures auto exposure settings via PostProcessVolume
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("set_exposure"))
+    {
+        // Find unbounded PostProcessVolume or spawn one
+        APostProcessVolume *PPV = nullptr;
+        TArray<AActor *> AllActors = ActorSS->GetAllLevelActors();
+        for (AActor *Actor : AllActors)
+        {
+            if (Actor && Actor->IsA<APostProcessVolume>())
+            {
+                APostProcessVolume *Candidate = Cast<APostProcessVolume>(Actor);
+                if (Candidate->bUnbound)
+                {
+                    PPV = Candidate;
+                    break;
+                }
+            }
+        }
+
+        if (!PPV)
+        {
+            PPV = Cast<APostProcessVolume>(SpawnActorInActiveWorld<AActor>(
+                APostProcessVolume::StaticClass(), FVector::ZeroVector,
+                FRotator::ZeroRotator));
+            if (PPV)
+            {
+                PPV->bUnbound = true;
+            }
+        }
+
+        if (PPV)
+        {
+            double MinB = 0.0, MaxB = 0.0;
+            if (Payload->TryGetNumberField(TEXT("minBrightness"), MinB))
+            {
+                PPV->Settings.AutoExposureMinBrightness = (float)MinB;
+            }
+            if (Payload->TryGetNumberField(TEXT("maxBrightness"), MaxB))
+            {
+                PPV->Settings.AutoExposureMaxBrightness = (float)MaxB;
+            }
+
+            // Bias/Compensation
+            double Comp = 0.0;
+            if (Payload->TryGetNumberField(TEXT("compensationValue"), Comp))
+            {
+                PPV->Settings.AutoExposureBias = (float)Comp;
+            }
+
+            TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+            Resp->SetBoolField(TEXT("success"), true);
+            Resp->SetStringField(TEXT("actorName"), PPV->GetActorLabel());
+
+            // Add verification data
+            McpHandlerUtils::AddVerification(Resp, PPV);
+
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                TEXT("Exposure settings applied"), Resp);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Failed to find/spawn PostProcessVolume"),
+                TEXT("EXECUTION_ERROR"));
+        }
+        return true;
+    }
+
+    // =========================================================================
+    // set_ambient_occlusion
+    // =========================================================================
+    // Configures ambient occlusion settings via PostProcessVolume
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("set_ambient_occlusion"))
+    {
+        // Find unbounded PostProcessVolume or spawn one
+        APostProcessVolume *PPV = nullptr;
+        TArray<AActor *> AllActors = ActorSS->GetAllLevelActors();
+        for (AActor *Actor : AllActors)
+        {
+            if (Actor && Actor->IsA<APostProcessVolume>())
+            {
+                APostProcessVolume *Candidate = Cast<APostProcessVolume>(Actor);
+                if (Candidate->bUnbound)
+                {
+                    PPV = Candidate;
+                    break;
+                }
+            }
+        }
+
+        if (!PPV)
+        {
+            PPV = Cast<APostProcessVolume>(SpawnActorInActiveWorld<AActor>(
+                APostProcessVolume::StaticClass(), FVector::ZeroVector,
+                FRotator::ZeroRotator));
+            if (PPV)
+            {
+                PPV->bUnbound = true;
+            }
+        }
+
+        if (PPV)
+        {
+            bool bEnabled = true;
+            if (Payload->TryGetBoolField(TEXT("enabled"), bEnabled))
+            {
+                PPV->Settings.bOverride_AmbientOcclusionIntensity = true;
+                PPV->Settings.AmbientOcclusionIntensity =
+                    bEnabled ? 0.5f : 0.0f; // Default on if enabled, 0 if disabled
+            }
+
+            double Intensity;
+            if (Payload->TryGetNumberField(TEXT("intensity"), Intensity))
+            {
+                PPV->Settings.bOverride_AmbientOcclusionIntensity = true;
+                PPV->Settings.AmbientOcclusionIntensity = (float)Intensity;
+            }
+
+            double Radius;
+            if (Payload->TryGetNumberField(TEXT("radius"), Radius))
+            {
+                PPV->Settings.bOverride_AmbientOcclusionRadius = true;
+                PPV->Settings.AmbientOcclusionRadius = (float)Radius;
+            }
+
+            TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+            Resp->SetBoolField(TEXT("success"), true);
+            Resp->SetStringField(TEXT("actorName"), PPV->GetActorLabel());
+
+            // Add verification data
+            McpHandlerUtils::AddVerification(Resp, PPV);
+
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                TEXT("Ambient Occlusion settings configured"), Resp);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Failed to find/spawn PostProcessVolume"),
+                TEXT("EXECUTION_ERROR"));
+        }
+        return true;
+    }
+
+    // =========================================================================
+    // create_lighting_enabled_level
+    // =========================================================================
+    // Creates a new level with basic lighting (DirectionalLight, SkyLight)
+    // -------------------------------------------------------------------------
+    else if (Lower == TEXT("create_lighting_enabled_level"))
+    {
+        FString Path;
+        if (!Payload->TryGetStringField(TEXT("path"), Path) || Path.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("path required"),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        // Security: Validate path to prevent traversal attacks
+        FString SanitizedPath = SanitizeProjectRelativePath(Path);
+        if (SanitizedPath.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Invalid path: contains traversal or invalid characters"),
+                TEXT("INVALID_PATH"));
+            return true;
+        }
+        Path = SanitizedPath;
+
+        FString LevelFilename;
+        const bool bHasLevelFilename = FPackageName::TryConvertLongPackageNameToFilename(
+            Path, LevelFilename, FPackageName::GetMapPackageExtension());
+        const bool bLevelExistsOnDisk = bHasLevelFilename &&
+            IFileManager::Get().FileExists(*FPaths::ConvertRelativePathToFull(LevelFilename));
+        const bool bLevelExistsInRegistry = FPackageName::DoesPackageExist(Path);
+        if (bLevelExistsOnDisk || bLevelExistsInRegistry)
+        {
+            TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+            Resp->SetBoolField(TEXT("success"), true);
+            Resp->SetStringField(TEXT("path"), Path);
+            Resp->SetBoolField(TEXT("alreadyExisted"), true);
+            Resp->SetBoolField(TEXT("existsAfter"), true);
+            Resp->SetStringField(TEXT("levelPath"), Path);
+
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                FString::Printf(TEXT("Level already exists with lighting path: %s"), *Path), Resp);
+            return true;
+        }
+
+        if (bHasLevelFilename)
+        {
+            IFileManager::Get().MakeDirectory(*FPaths::GetPath(LevelFilename), true);
+        }
+
+        if (GEditor)
+        {
+            // Create a new blank map
+            GEditor->NewMap();
+
+            // Add basic lighting
+            SpawnActorInActiveWorld<AActor>(ADirectionalLight::StaticClass(),
+                FVector(0, 0, 500), FRotator(-45, 0, 0), TEXT("Sun"));
+            SpawnActorInActiveWorld<AActor>(ASkyLight::StaticClass(),
+                FVector::ZeroVector, FRotator::ZeroRotator, TEXT("SkyLight"));
+
+            // Save the level using McpSafeLevelSave to prevent Intel GPU driver crashes
+            // Explicitly use 5 retries for Intel GPU resilience (max 7.75s total retry time)
+            UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+            bool bSaved = EditorWorld && EditorWorld->PersistentLevel &&
+                McpSafeLevelSave(EditorWorld->PersistentLevel, Path, 5);
+            if (bSaved)
+            {
+                if (bHasLevelFilename)
+                {
+                    IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+                    TArray<FString> FilesToScan;
+                    FilesToScan.Add(LevelFilename);
+                    AssetRegistry.ScanFilesSynchronous(FilesToScan, true);
+                }
+
+                TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+                Resp->SetBoolField(TEXT("success"), true);
+                Resp->SetStringField(TEXT("path"), Path);
+                Resp->SetStringField(TEXT("message"), TEXT("Level created with lighting"));
+
+                // Add verification data
+                Resp->SetBoolField(TEXT("existsAfter"), true);
+                Resp->SetStringField(TEXT("levelPath"), Path);
+
+                SendAutomationResponse(RequestingSocket, RequestId, true,
+                    TEXT("Level created with lighting"), Resp);
+            }
+            else
+            {
+                SendAutomationError(RequestingSocket, RequestId,
+                    TEXT("Failed to save level"), TEXT("SAVE_FAILED"));
+            }
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Editor not available"),
+                TEXT("EDITOR_NOT_AVAILABLE"));
+        }
+        return true;
+    }
+
+    if (Action.Equals(TEXT("manage_lighting"), ESearchCase::IgnoreCase))
+    {
+        SendAutomationError(RequestingSocket, RequestId,
+            FString::Printf(TEXT("Unknown manage_lighting action: %s"), *EffectiveAction),
+            TEXT("UNKNOWN_ACTION"));
+        return true;
+    }
+
+    return false;
+#else
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+        TEXT("Lighting actions require editor build"), nullptr,
+        TEXT("NOT_IMPLEMENTED"));
+    return true;
+#endif
+}

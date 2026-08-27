@@ -68,7 +68,7 @@ REM ─── Extract version info ───────────────
 set "UE_VER=unknown"
 set "UE_VERSION_FILE=%ENGINE_DIR%\Engine\Build\Build.version"
 if exist "%UE_VERSION_FILE%" (
-    for /f "delims=" %%V in ('"%POWERSHELL_EXE%" -NoProfile -File "%SCRIPT_DIR%read-package-version.ps1" -Path "%UE_VERSION_FILE%" -Engine') do set "UE_VER=%%V"
+    for /f "delims=" %%V in ('%POWERSHELL_EXE% -NoProfile -File "%SCRIPT_DIR%read-package-version.ps1" -Path "%UE_VERSION_FILE%" -Engine') do set "UE_VER=%%V"
 )
 
 set "PLUGIN_VER=0.0.0"

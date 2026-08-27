@@ -699,6 +699,9 @@ private:
   HandleSystemControlAction(const FString &RequestId, const FString &Action,
                             const TSharedPtr<FJsonObject> &Payload,
                             TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  bool HandleSubsystemAction(const FString &RequestId, const FString &Action,
+                             const TSharedPtr<FJsonObject> &Payload,
+                             TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
   bool
   HandleConsoleCommandAction(const FString &RequestId, const FString &Action,
                              const TSharedPtr<FJsonObject> &Payload,

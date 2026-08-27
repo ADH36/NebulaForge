@@ -1,4 +1,4 @@
-// McpTool_SystemControl.cpp — system_control tool definition (25 actions)
+// McpTool_SystemControl.cpp — system_control tool definition
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -14,7 +14,7 @@ public:
 	FString GetDescription() const override
 	{
 		return TEXT("Run profiling, set quality/CVars, execute console commands, "
-			"execute Python scripts, run UBT, manage widgets, and take screenshots.");
+			"execute Python scripts, manage Unreal subsystems, run UBT, manage widgets, and take screenshots.");
 	}
 
 	FString GetCategory() const override { return TEXT("core"); }
@@ -79,6 +79,13 @@ public:
 			.Bool(TEXT("returnBase64"), TEXT("Return PNG image data as base64 when supported. Defaults to true for full_editor_window and game_viewport modes."))
 			.Bool(TEXT("includeMetadata"), TEXT("Attach caller-provided metadata to the response."))
 			.FreeformObject(TEXT("metadata"), TEXT("Caller-provided screenshot metadata."))
+			.String(TEXT("subsystemClass"), TEXT("Subsystem class path, for example /Script/Engine.WorldPartitionSubsystem."))
+			.String(TEXT("subsystemName"), TEXT("Subsystem class name alias."))
+			.String(TEXT("subsystemScope"), TEXT("engine, game_instance, world, local_player, or editor."))
+			.String(TEXT("worldContext"), TEXT("auto, pie, or editor when resolving world-owned subsystems."))
+			.Number(TEXT("playerIndex"), TEXT("Local player index for local-player subsystems."))
+			.String(TEXT("tickType"), TEXT("conditional, always, or never for tickable world subsystems."))
+			.Bool(TEXT("tickEnabled"), TEXT("Enable or disable ticking for a tickable world subsystem."))
 			.Required({TEXT("action")})
 			.Build();
 	}

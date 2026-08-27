@@ -1625,6 +1625,22 @@ Phase 34.5 routes physical-material authoring and component overrides through th
 
 Asset writes are marked dirty and are saved only when `save` is enabled; project surface configuration is flushed only when `saveConfig` is enabled. See Epic's [`UPhysicalMaterial`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/PhysicsCore/PhysicalMaterials/UPhysicalMaterial), [`EFrictionCombineMode::Type`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/PhysicsCore/EFrictionCombineMode__Type?lang=en-US), [`UPhysicalMaterialFactoryNew`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/Factories/UPhysicalMaterialFactoryNew?application_version=5.5), [`UPrimitiveComponent::SetPhysMaterialOverride`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetPhysMaterialOverride), [Physical Materials Reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/physical-materials-reference-for-unreal-engine), and [Physics Settings](https://dev.epicgames.com/documentation/en-us/unreal-engine/physics-settings-in-the-unreal-engine-project-settings?lang=en-US).
 
+### Subsystem Resolution and Tick Control (34.6)
+
+Phase 34.6 respects Unreal's subsystem ownership model. Subsystems are auto-instanced for engine, editor, game-instance, world, and local-player lifetimes; the bridge resolves the managed instance from the appropriate owner instead of constructing a detached `UObject`.
+
+| Unreal API | Bridge coverage |
+|------|------|
+| `USubsystem` and `UGameInstance::GetSubsystemBase` | Resolve game-instance subsystems from the active editor/PIE world |
+| `UWorld::GetSubsystemBase` / `UWorldSubsystem` | Resolve world subsystems with explicit `editor`, `pie`, or automatic context selection |
+| `ULocalPlayer::GetSubsystemBase` | Resolve a local-player subsystem by player index |
+| `UEngine::GetEngineSubsystemBase` | Resolve engine-lifetime subsystems |
+| `UEditorSubsystem` | Resolve editor-lifetime subsystems for generic inspection |
+| `TObjectIterator<USubsystem>` | Enumerate live subsystem instances with class, object, outer, and scope metadata |
+| `UTickableWorldSubsystem` / `FTickableGameObject::SetTickableTickType` | Inspect and configure conditional, always, or never tick mode |
+
+Tick configuration is deliberately limited to `UTickableWorldSubsystem`, whose public tickable contract exposes safe tick-mode controls. Interval and tick-group settings are not fabricated for subsystem classes that do not expose those APIs. See Epic's [`USubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/USubsystem), [`UGameInstanceSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UGameInstanceSubsystem), [`UWorldSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UWorldSubsystem), [`ULocalPlayerSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ULocalPlayerSubsystem), [`UEngine`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UEngine), [`FTickableGameObject::SetTickableTickType`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FTickableGameObject/SetTickableTickType), and [`ETickableTickType`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ETickableTickType?lang=en-US).
+
 ---
 
 ## Phase 35: Additional Gameplay Systems

@@ -105,6 +105,14 @@ export const PHYSICAL_MATERIAL_ACTIONS = [
   'configure_physical_material', 'get_physical_material', 'clear_physical_material_override',
 ] as const;
 
+/** Phase 34.6: managed Unreal subsystem resolution, inspection, and ticking. */
+export const SUBSYSTEM_ACTIONS = [
+  'create_game_instance_subsystem', 'create_world_subsystem',
+  'create_local_player_subsystem', 'create_engine_subsystem',
+  'configure_subsystem_tick', 'get_subsystem', 'inspect_subsystem',
+  'list_subsystems',
+] as const;
+
 export const SPLINE_ACTIONS = [
   'create_spline_actor', 'add_spline_point', 'remove_spline_point', 'set_spline_point_position',
   'insert_spline_point', 'update_spline_point', 'set_spline_point_tangents', 'set_spline_point_rotation', 'set_spline_point_scale', 'set_spline_point_roll', 'set_spline_type',
@@ -1699,7 +1707,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
   {
     name: 'system_control',
     category: 'core',
-    description: 'Control the project runtime: profiling, benchmarks, scalability/LOD/Nanite settings, CVars, console commands, Python scripts, UBT, tests, logs, and widgets.',
+    description: 'Control the project runtime: profiling, benchmarks, scalability/LOD/Nanite settings, CVars, console commands, Python scripts, Unreal subsystems, UBT, tests, logs, and widgets.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1712,7 +1720,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python'
           ,
-            ...PERFORMANCE_ACTIONS],
+            ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS],
           description: 'Action'
         },
         profileType: commonSchemas.stringProp,
@@ -1740,6 +1748,13 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         returnBase64: { type: 'boolean', description: 'Return PNG image data as base64 when supported. Defaults to true for full_editor_window and game_viewport screenshot modes.' },
         includeMetadata: commonSchemas.booleanProp,
         metadata: commonSchemas.objectProp,
+        subsystemClass: commonSchemas.stringProp,
+        subsystemName: commonSchemas.stringProp,
+        subsystemScope: commonSchemas.stringProp,
+        worldContext: commonSchemas.stringProp,
+        playerIndex: commonSchemas.numberProp,
+        tickType: commonSchemas.stringProp,
+        tickEnabled: commonSchemas.booleanProp,
         type: { type: 'string', enum: ['CPU', 'GPU', 'Memory', 'RenderThread', 'GameThread', 'All'] },
         duration: commonSchemas.numberProp,
         outputPath: commonSchemas.outputPath,

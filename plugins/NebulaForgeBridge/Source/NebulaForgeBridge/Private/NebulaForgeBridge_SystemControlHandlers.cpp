@@ -12,6 +12,10 @@
 #include "Misc/App.h"
 #include "Misc/MonitoredProcess.h"
 #include "EditorAssetLibrary.h"
+#include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
+#include "Engine/LocalPlayer.h"
+#include "Engine/World.h"
 #include "AssetToolsModule.h"
 #include "IAssetTools.h"
 #include "Engine/StaticMesh.h"
@@ -21,7 +25,236 @@
 #include "Exporters/Exporter.h"
 #include "IPythonScriptPlugin.h"
 #include "Misc/FileHelper.h"
+#include "Subsystems/EngineSubsystem.h"
+#include "Subsystems/EditorSubsystem.h"
+#include "Subsystems/GameInstanceSubsystem.h"
+#include "Subsystems/LocalPlayerSubsystem.h"
+#include "Subsystems/Subsystem.h"
+#include "Subsystems/WorldSubsystem.h"
+#include "Tickable.h"
+#include "UObject/UObjectIterator.h"
 #endif
+
+// Subsystem actions resolve Unreal-managed lifetime scopes. They intentionally
+// do not construct detached UObject instances, which would bypass subsystem
+// collection initialization and deinitialization.
+
+bool UNebulaForgeBridgeSubsystem::HandleSubsystemAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket) {
+#if WITH_EDITOR
+  if (!Payload.IsValid()) {
+    SendAutomationError(RequestingSocket, RequestId,
+                        TEXT("Subsystem payload missing"),
+                        TEXT("INVALID_PAYLOAD"));
+    return true;
+  }
+
+  auto SendInvalid = [&](const FString &Message) {
+    SendAutomationResponse(RequestingSocket, RequestId, false, Message,
+                            nullptr, TEXT("INVALID_ARGUMENT"));
+  };
+  auto ResolveWorld = [&]() -> UWorld * {
+    FString WorldContext;
+    Payload->TryGetStringField(TEXT("worldContext"), WorldContext);
+    WorldContext = WorldContext.TrimStartAndEnd().ToLower();
+    if (WorldContext == TEXT("pie") || WorldContext == TEXT("play")) {
+      return GEditor && GEditor->PlayWorld ? GEditor->PlayWorld.Get() : nullptr;
+    }
+    if (WorldContext == TEXT("editor")) {
+      return GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+    }
+    if (GEditor && GEditor->PlayWorld) return GEditor->PlayWorld.Get();
+    return GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+  };
+  auto ScopeForClass = [](UClass *Class) -> FString {
+    if (!Class) return TEXT("unknown");
+    if (Class->IsChildOf(UEngineSubsystem::StaticClass())) return TEXT("engine");
+    if (Class->IsChildOf(UGameInstanceSubsystem::StaticClass())) return TEXT("game_instance");
+    if (Class->IsChildOf(UWorldSubsystem::StaticClass())) return TEXT("world");
+    if (Class->IsChildOf(ULocalPlayerSubsystem::StaticClass())) return TEXT("local_player");
+    if (Class->IsChildOf(UEditorSubsystem::StaticClass())) return TEXT("editor");
+    return TEXT("unknown");
+  };
+  auto ScopeForObject = [&](USubsystem *Subsystem) -> FString {
+    return Subsystem ? ScopeForClass(Subsystem->GetClass()) : TEXT("unknown");
+  };
+  auto TickTypeName = [](ETickableTickType Type) -> FString {
+    switch (Type) {
+    case ETickableTickType::Always: return TEXT("always");
+    case ETickableTickType::Never: return TEXT("never");
+    case ETickableTickType::Conditional: return TEXT("conditional");
+    default: return TEXT("new_object");
+    }
+  };
+  auto AddSubsystemData = [&](USubsystem *Subsystem,
+                              const FString &Scope,
+                              TSharedPtr<FJsonObject> &Result) {
+    Result->SetStringField(TEXT("subsystemClass"), Subsystem->GetClass()->GetPathName());
+    Result->SetStringField(TEXT("subsystemName"), Subsystem->GetClass()->GetName());
+    Result->SetStringField(TEXT("objectPath"), Subsystem->GetPathName());
+    Result->SetStringField(TEXT("scope"), Scope);
+    Result->SetStringField(TEXT("outerPath"), Subsystem->GetOuter() ? Subsystem->GetOuter()->GetPathName() : TEXT(""));
+    Result->SetBoolField(TEXT("managedLifecycle"), true);
+    if (UTickableWorldSubsystem *Tickable = Cast<UTickableWorldSubsystem>(Subsystem)) {
+      Result->SetBoolField(TEXT("tickable"), true);
+      Result->SetBoolField(TEXT("isInitialized"), Tickable->IsInitialized());
+      Result->SetBoolField(TEXT("isAllowedToTick"), Tickable->IsAllowedToTick());
+      Result->SetBoolField(TEXT("isTickable"), Tickable->IsTickable());
+      Result->SetStringField(TEXT("tickType"), TickTypeName(Tickable->GetTickableTickType()));
+    } else {
+      Result->SetBoolField(TEXT("tickable"), false);
+      Result->SetStringField(TEXT("tickType"), TEXT("not_exposed"));
+    }
+  };
+
+  if (Action == TEXT("list_subsystems")) {
+    FString ScopeFilter;
+    Payload->TryGetStringField(TEXT("subsystemScope"), ScopeFilter);
+    ScopeFilter = ScopeFilter.TrimStartAndEnd().ToLower();
+    if (ScopeFilter == TEXT("gameinstance")) ScopeFilter = TEXT("game_instance");
+    if (ScopeFilter == TEXT("localplayer")) ScopeFilter = TEXT("local_player");
+    FString ClassFilter;
+    Payload->TryGetStringField(TEXT("subsystemClass"), ClassFilter);
+    if (ClassFilter.IsEmpty()) Payload->TryGetStringField(TEXT("subsystemName"), ClassFilter);
+    UClass *FilterClass = ClassFilter.IsEmpty() ? nullptr : ResolveClassByName(ClassFilter);
+
+    TArray<TSharedPtr<FJsonValue>> Items;
+    for (TObjectIterator<USubsystem> It; It; ++It) {
+      USubsystem *Subsystem = *It;
+      if (!Subsystem || Subsystem->HasAnyFlags(RF_ClassDefaultObject)) continue;
+      const FString Scope = ScopeForObject(Subsystem);
+      if (!ScopeFilter.IsEmpty() && Scope != ScopeFilter) continue;
+      if (FilterClass && !Subsystem->GetClass()->IsChildOf(FilterClass)) continue;
+      TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+      AddSubsystemData(Subsystem, Scope, Item);
+      Items.Add(MakeShared<FJsonValueObject>(Item));
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetArrayField(TEXT("subsystems"), Items);
+    Result->SetNumberField(TEXT("count"), Items.Num());
+    if (!ScopeFilter.IsEmpty()) Result->SetStringField(TEXT("scope"), ScopeFilter);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Subsystems listed"), Result, FString());
+    return true;
+  }
+
+  FString ClassName;
+  Payload->TryGetStringField(TEXT("subsystemClass"), ClassName);
+  if (ClassName.IsEmpty()) Payload->TryGetStringField(TEXT("subsystemName"), ClassName);
+  if (ClassName.IsEmpty()) {
+    SendInvalid(TEXT("subsystemClass or subsystemName is required."));
+    return true;
+  }
+  UClass *SubsystemClass = ResolveClassByName(ClassName);
+  if (!SubsystemClass || !SubsystemClass->IsChildOf(USubsystem::StaticClass())) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Subsystem class not found or is not a USubsystem"),
+                           nullptr, TEXT("SUBSYSTEM_CLASS_NOT_FOUND"));
+    return true;
+  }
+
+  FString RequestedScope;
+  Payload->TryGetStringField(TEXT("subsystemScope"), RequestedScope);
+  RequestedScope = RequestedScope.TrimStartAndEnd().ToLower();
+  if (RequestedScope == TEXT("gameinstance")) RequestedScope = TEXT("game_instance");
+  if (RequestedScope == TEXT("localplayer")) RequestedScope = TEXT("local_player");
+  const FString InferredScope = ScopeForClass(SubsystemClass);
+  const FString Scope = RequestedScope.IsEmpty() ? InferredScope : RequestedScope;
+  if (Scope != InferredScope) {
+    SendInvalid(FString::Printf(TEXT("subsystemScope '%s' does not match class scope '%s'."),
+                                *Scope, *InferredScope));
+    return true;
+  }
+
+  USubsystem *Subsystem = nullptr;
+  if (Scope == TEXT("engine")) {
+    if (!GEngine) { SendInvalid(TEXT("Engine is unavailable.")); return true; }
+    Subsystem = GEngine->GetEngineSubsystemBase(SubsystemClass);
+  } else if (Scope == TEXT("editor")) {
+    if (!GEditor) { SendInvalid(TEXT("Editor is unavailable.")); return true; }
+    Subsystem = GEditor->GetEditorSubsystemBase(SubsystemClass);
+  } else {
+    UWorld *World = ResolveWorld();
+    if (!World) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("World context is unavailable"), nullptr,
+                             TEXT("WORLD_NOT_FOUND"));
+      return true;
+    }
+    UGameInstance *GameInstance = World->GetGameInstance();
+    if (Scope == TEXT("game_instance")) {
+      if (!GameInstance) { SendInvalid(TEXT("Game instance is unavailable.")); return true; }
+      Subsystem = GameInstance->GetSubsystemBase(SubsystemClass);
+    } else if (Scope == TEXT("world")) {
+      Subsystem = World->GetSubsystemBase(SubsystemClass);
+    } else if (Scope == TEXT("local_player")) {
+      double PlayerNumber = 0.0;
+      Payload->TryGetNumberField(TEXT("playerIndex"), PlayerNumber);
+      const int32 PlayerIndex = FMath::Max(0, FMath::RoundToInt(PlayerNumber));
+      ULocalPlayer *LocalPlayer = GameInstance ? GameInstance->GetLocalPlayerByIndex(PlayerIndex) : nullptr;
+      if (!LocalPlayer) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Local player context is unavailable"), nullptr,
+                               TEXT("LOCAL_PLAYER_NOT_FOUND"));
+        return true;
+      }
+      Subsystem = LocalPlayer->GetSubsystemBase(SubsystemClass);
+    }
+  }
+
+  if (!Subsystem) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Subsystem is not initialized in the requested context"),
+                           nullptr, TEXT("SUBSYSTEM_NOT_FOUND"));
+    return true;
+  }
+
+  if (Action == TEXT("configure_subsystem_tick")) {
+    UTickableWorldSubsystem *Tickable = Cast<UTickableWorldSubsystem>(Subsystem);
+    if (!Tickable) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Only UTickableWorldSubsystem exposes safe runtime tick configuration"),
+                             nullptr, TEXT("TICK_NOT_SUPPORTED"));
+      return true;
+    }
+    FString TickTypeValue;
+    Payload->TryGetStringField(TEXT("tickType"), TickTypeValue);
+    TickTypeValue = TickTypeValue.TrimStartAndEnd().ToLower();
+    bool bTickEnabled = true;
+    const bool bHasEnabled = Payload->TryGetBoolField(TEXT("tickEnabled"), bTickEnabled);
+    if (TickTypeValue.IsEmpty() && !bHasEnabled) {
+      SendInvalid(TEXT("tickType or tickEnabled is required."));
+      return true;
+    }
+    ETickableTickType NewType = bTickEnabled ? ETickableTickType::Conditional : ETickableTickType::Never;
+    if (!TickTypeValue.IsEmpty()) {
+      if (TickTypeValue == TEXT("conditional")) NewType = ETickableTickType::Conditional;
+      else if (TickTypeValue == TEXT("always")) NewType = ETickableTickType::Always;
+      else if (TickTypeValue == TEXT("never")) NewType = ETickableTickType::Never;
+      else { SendInvalid(TEXT("tickType must be conditional, always, or never.")); return true; }
+    }
+    if (bHasEnabled && !bTickEnabled) NewType = ETickableTickType::Never;
+    Tickable->SetTickableTickType(NewType);
+  }
+
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  AddSubsystemData(Subsystem, Scope, Result);
+  Result->SetStringField(TEXT("action"), Action);
+  if (Action.StartsWith(TEXT("create_"))) Result->SetBoolField(TEXT("resolved"), true);
+  SendAutomationResponse(RequestingSocket, RequestId, true,
+                         Action == TEXT("configure_subsystem_tick")
+                           ? TEXT("Subsystem tick configured")
+                           : TEXT("Managed subsystem resolved"),
+                         Result, FString());
+  return true;
+#else
+  SendAutomationError(RequestingSocket, RequestId,
+                       TEXT("Editor build required"), TEXT("NOT_SUPPORTED"));
+  return true;
+#endif
+}
 
 bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     const FString &RequestId, const FString &Action,
@@ -34,6 +267,15 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   }
 
   const FString Lower = SubAction.ToLower();
+  const bool bSubsystemAction =
+      Lower == TEXT("create_game_instance_subsystem") ||
+      Lower == TEXT("create_world_subsystem") ||
+      Lower == TEXT("create_local_player_subsystem") ||
+      Lower == TEXT("create_engine_subsystem") ||
+      Lower == TEXT("configure_subsystem_tick") ||
+      Lower == TEXT("get_subsystem") ||
+      Lower == TEXT("inspect_subsystem") ||
+      Lower == TEXT("list_subsystems");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -43,7 +285,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("export_asset") &&
       Lower != TEXT("start_session") &&
       Lower != TEXT("validate_assets") &&
-      Lower != TEXT("execute_python")) {
+      Lower != TEXT("execute_python") &&
+      !bSubsystemAction) {
     return false; // Not handled by this function
   }
 
@@ -53,6 +296,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
                         TEXT("System control payload missing"),
                         TEXT("INVALID_PAYLOAD"));
     return true;
+  }
+
+  if (bSubsystemAction) {
+    return HandleSubsystemAction(RequestId, Lower, Payload, RequestingSocket);
   }
 
   if (Lower == TEXT("start_session")) {

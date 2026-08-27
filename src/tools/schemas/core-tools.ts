@@ -552,7 +552,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
   {
     name: 'system_control',
     category: 'core',
-    description: 'Control the project runtime: profiling, benchmarks, scalability/LOD/Nanite settings, CVars, console commands, Python scripts, UBT, tests, logs, and widgets.',
+    description: 'Control the project runtime: profiling, benchmarks, scalability/LOD/Nanite settings, CVars, console commands, Python scripts, Unreal subsystems, UBT, tests, logs, and widgets.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -563,7 +563,11 @@ export const coreToolDefinitions: ToolDefinition[] = [
             'run_ubt', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'lumen_update_scene',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
-            'set_project_setting'
+            'set_project_setting',
+            'create_game_instance_subsystem', 'create_world_subsystem',
+            'create_local_player_subsystem', 'create_engine_subsystem',
+            'configure_subsystem_tick', 'get_subsystem', 'inspect_subsystem',
+            'list_subsystems'
           ],
           description: 'Action'
         },
@@ -589,7 +593,14 @@ export const coreToolDefinitions: ToolDefinition[] = [
         mode: screenshotModeSchema,
         returnBase64: { type: 'boolean', description: 'Return PNG image data as base64 when supported. Defaults to true for full_editor_window and game_viewport screenshot modes.' },
         includeMetadata: commonSchemas.booleanProp,
-        metadata: commonSchemas.objectProp
+        metadata: commonSchemas.objectProp,
+        subsystemClass: commonSchemas.stringProp,
+        subsystemName: commonSchemas.stringProp,
+        subsystemScope: commonSchemas.stringProp,
+        worldContext: commonSchemas.stringProp,
+        playerIndex: commonSchemas.numberProp,
+        tickType: commonSchemas.stringProp,
+        tickEnabled: commonSchemas.booleanProp
       },
       required: ['action']
     },

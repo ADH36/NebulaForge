@@ -1530,11 +1530,16 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Official Unreal references**: [`UPhysicalMaterial`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/PhysicsCore/PhysicalMaterials/UPhysicalMaterial), [`UPhysicalMaterialFactoryNew`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/Factories/UPhysicalMaterialFactoryNew?application_version=5.5), [`UPrimitiveComponent::SetPhysMaterialOverride`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UPrimitiveComponent/SetPhysMaterialOverride), [Physical Materials Reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/physical-materials-reference-for-unreal-engine), [Add a Surface Type](https://dev.epicgames.com/documentation/en-us/unreal-engine/add-a-surface-type-in-unreal-engine?lang=en-US), and [Physics Settings](https://dev.epicgames.com/documentation/en-us/unreal-engine/physics-settings-in-the-unreal-engine-project-settings?lang=en-US).
 
 ### 34.6 Subsystems
-- [ ] `create_game_instance_subsystem`
-- [ ] `create_world_subsystem`
-- [ ] `create_local_player_subsystem`
-- [ ] `create_engine_subsystem`
-- [ ] `configure_subsystem_tick`
+- [x] `create_game_instance_subsystem`
+- [x] `create_world_subsystem`
+- [x] `create_local_player_subsystem`
+- [x] `create_engine_subsystem`
+- [x] `configure_subsystem_tick`
+- [x] `get_subsystem`, `inspect_subsystem`, `list_subsystems`
+
+**Implemented feature coverage**: managed resolution of engine, game-instance, world, local-player, and editor subsystems through Unreal's subsystem collections; context-aware PIE/editor world selection; local-player index selection; live subsystem enumeration and structured class/object/outer metadata; tickability inspection; and conditional/always/never tick-mode configuration for `UTickableWorldSubsystem` instances. The create actions acquire Unreal-managed instances and never bypass subsystem lifecycle initialization with `NewObject`.
+
+**Official Unreal references**: [`USubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/USubsystem), [`UGameInstanceSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UGameInstanceSubsystem), [`UWorldSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UWorldSubsystem), [`ULocalPlayerSubsystem`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ULocalPlayerSubsystem), [`UEngine::GetEngineSubsystemBase`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UEngine), [`UWorld::GetSubsystemBase`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/Engine/UWorld?application_version=5.5), [`FTickableGameObject::SetTickableTickType`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FTickableGameObject/SetTickableTickType), and [`ETickableTickType`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/ETickableTickType?lang=en-US).
 
 ### 34.7 Async & Timers
 - [ ] `set_timer`, `clear_timer`, `pause_timer`

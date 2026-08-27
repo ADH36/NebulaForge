@@ -350,7 +350,10 @@ export type EffectAction =
   | 'cleanup';
 export type BlueprintAction = 'create' | 'add_component';
 export type EnvironmentAction = 'create_landscape' | 'sculpt' | 'add_foliage' | 'paint_foliage';
-export type SystemAction = 'profile' | 'show_fps' | 'set_quality' | 'play_sound' | 'create_widget' | 'show_widget' | 'screenshot' | 'engine_start' | 'engine_quit' | 'read_log';
+export type SystemAction = 'profile' | 'show_fps' | 'set_quality' | 'play_sound' | 'create_widget' | 'show_widget' | 'screenshot' | 'engine_start' | 'engine_quit' | 'read_log' |
+  'create_game_instance_subsystem' | 'create_world_subsystem' | 'create_local_player_subsystem' |
+  'create_engine_subsystem' | 'configure_subsystem_tick' | 'get_subsystem' |
+  'inspect_subsystem' | 'list_subsystems';
 export type VerificationAction = 'foliage_type_exists' | 'foliage_instances_near' | 'landscape_exists' | 'quality_level';
 
 // Consolidated tool parameter types
@@ -598,6 +601,13 @@ export interface ConsolidatedToolParams {
     width?: number;
     height?: number;
     windowed?: boolean;
+    subsystemClass?: string;
+    subsystemName?: string;
+    subsystemScope?: string;
+    worldContext?: string;
+    playerIndex?: number;
+    tickType?: string;
+    tickEnabled?: boolean;
   };
 
   console_command: {

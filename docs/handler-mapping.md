@@ -309,6 +309,11 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `lumen_update_scene` | `NebulaForgeBridge_RenderHandlers.cpp` | `HandleRenderAction` | |
 | `set_project_setting` | `NebulaForgeBridge_EnvironmentHandlers.cpp` | `HandleSystemControlAction` | |
 | `execute_python` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSystemControlAction` | Requires Python Editor Script Plugin. Max 1 MB code. Async timeout warning at 60s. |
+| `create_game_instance_subsystem` / `create_world_subsystem` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSubsystemAction` | Resolves Unreal-managed game-instance or world subsystem instances |
+| `create_local_player_subsystem` / `create_engine_subsystem` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSubsystemAction` | Resolves local-player or engine subsystem instances |
+| `get_subsystem` / `inspect_subsystem` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSubsystemAction` | Returns subsystem class, object, owner, scope, and tick metadata |
+| `list_subsystems` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSubsystemAction` | Enumerates live subsystem instances with optional scope/class filters |
+| `configure_subsystem_tick` | `NebulaForgeBridge_SystemControlHandlers.cpp` | `HandleSubsystemAction` | Configures tick mode for `UTickableWorldSubsystem` |
 | `create_hud` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |
 | `set_widget_text` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |
 | `set_widget_image` | `NebulaForgeBridge_UiHandlers.cpp` | `HandleUiAction` | Sub-action of `system_control` |

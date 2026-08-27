@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * system_control Tool Integration Tests
- * Covers all 24 actions with proper setup/teardown sequencing.
+ * Covers the core system-control actions, including Phase 34.6 subsystem operations,
+ * with proper setup/teardown sequencing.
  */
 
 import { runToolTests } from '../../test-runner.mjs';
@@ -73,6 +74,16 @@ const testCases = [
   // === SETUP ===
   { scenario: 'Setup: create test folder', toolName: 'manage_asset', arguments: { action: 'create_folder', path: TEST_FOLDER }, expected: 'success|already exists' },
   { scenario: 'Setup: create validation material', toolName: 'manage_asset', arguments: { action: 'create_material', name: 'M_SystemControlValidation', path: TEST_FOLDER }, expected: 'success|already exists' },
+
+  // === SUBSYSTEMS (PHASE 34.6) ===
+  { scenario: 'INFO: list_subsystems', toolName: 'system_control', arguments: { action: 'list_subsystems', subsystemScope: 'world', subsystemName: 'WorldPartitionSubsystem' }, expected: 'success' },
+  { scenario: 'CREATE: create_game_instance_subsystem', toolName: 'system_control', arguments: { action: 'create_game_instance_subsystem', subsystemClass: '/Script/Engine.GameInstanceSubsystem', worldContext: 'editor' }, expected: 'success|not initialized|not found|class not found' },
+  { scenario: 'CREATE: create_world_subsystem', toolName: 'system_control', arguments: { action: 'create_world_subsystem', subsystemClass: '/Script/Engine.WorldPartitionSubsystem', worldContext: 'editor' }, expected: 'success|not initialized|not found|class not found' },
+  { scenario: 'CREATE: create_local_player_subsystem', toolName: 'system_control', arguments: { action: 'create_local_player_subsystem', subsystemClass: '/Script/Engine.EnhancedInputLocalPlayerSubsystem', playerIndex: 0, worldContext: 'editor' }, expected: 'success|not initialized|not found|class not found' },
+  { scenario: 'CREATE: create_engine_subsystem', toolName: 'system_control', arguments: { action: 'create_engine_subsystem', subsystemClass: '/Script/Engine.InputDeviceSubsystem' }, expected: 'success|not initialized|not found|class not found' },
+  { scenario: 'INFO: get_subsystem', toolName: 'system_control', arguments: { action: 'get_subsystem', subsystemClass: '/Script/Engine.WorldPartitionSubsystem', subsystemScope: 'world', worldContext: 'editor' }, expected: 'success|not initialized|not found|class not found' },
+  { scenario: 'INFO: inspect_subsystem', toolName: 'system_control', arguments: { action: 'inspect_subsystem', subsystemName: 'WorldPartitionSubsystem', subsystemScope: 'world', worldContext: 'editor' }, expected: 'success|not initialized|not found|class not found' },
+  { scenario: 'CONFIG: configure_subsystem_tick', toolName: 'system_control', arguments: { action: 'configure_subsystem_tick', subsystemClass: '/Script/Engine.WorldPartitionSubsystem', subsystemScope: 'world', worldContext: 'editor', tickType: 'never', tickEnabled: false }, expected: 'success|not initialized|not found|class not found|tick not supported' },
 
   // === ACTION ===
   { scenario: 'ACTION: profile', toolName: 'system_control', arguments: { action: 'profile', profileType: 'cpu' }, expected: 'success' },

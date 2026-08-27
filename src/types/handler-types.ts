@@ -943,6 +943,13 @@ export interface SystemArgs extends HandlerArgs {
     platform?: string;
     configuration?: string;
     arguments?: string;
+    subsystemClass?: string;
+    subsystemName?: string;
+    subsystemScope?: string;
+    worldContext?: string;
+    playerIndex?: number;
+    tickType?: string;
+    tickEnabled?: boolean;
 }
 
 // ============================================================================

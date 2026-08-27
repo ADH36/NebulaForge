@@ -4084,13 +4084,16 @@ bool UNebulaForgeBridgeSubsystem::HandleManageLevelStructureAction(
     }
     else if (SubAction == TEXT("prepare_pie_capture"))
     {
-        UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+        UWorld* World = GEditor ? (GEditor->PlayWorld ? GEditor->PlayWorld.Get() : GEditor->GetEditorWorldContext().World()) : nullptr;
+        UWorld* EditorWorld = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
         UWorldPartition* WorldPartition = World ? World->GetWorldPartition() : nullptr;
+        UWorldPartition* EditorWorldPartition = EditorWorld ? EditorWorld->GetWorldPartition() : nullptr;
         UDataLayerEditorSubsystem* DataLayerSubsystem = GEditor ? GEditor->GetEditorSubsystem<UDataLayerEditorSubsystem>() : nullptr;
         int32 ActivatedLayers = 0;
-        if (WorldPartition && DataLayerSubsystem && WorldPartition->GetDataLayerManager())
+        int32 RuntimeActivatedLayers = 0;
+        if (!GEditor->PlayWorld && EditorWorldPartition && DataLayerSubsystem && EditorWorldPartition->GetDataLayerManager())
         {
-            WorldPartition->GetDataLayerManager()->ForEachDataLayerInstance([&](UDataLayerInstance* Instance) {
+            EditorWorldPartition->GetDataLayerManager()->ForEachDataLayerInstance([&](UDataLayerInstance* Instance) {
                 if (Instance) {
                     DataLayerSubsystem->SetDataLayerVisibility(Instance, true);
                     DataLayerSubsystem->SetDataLayerIsLoadedInEditor(Instance, true, false);
@@ -4099,11 +4102,22 @@ bool UNebulaForgeBridgeSubsystem::HandleManageLevelStructureAction(
                 return true;
             });
         }
+        if (World && World->GetWorldDataLayers() && WorldPartition && WorldPartition->GetDataLayerManager())
+        {
+            WorldPartition->GetDataLayerManager()->ForEachDataLayerInstance([&](UDataLayerInstance* Instance) {
+                if (Instance && World->GetWorldDataLayers()->SetDataLayerRuntimeState(Instance, EDataLayerRuntimeState::Activated, true))
+                    ++RuntimeActivatedLayers;
+                return true;
+            });
+        }
         if (World) World->FlushLevelStreaming(EFlushLevelStreamingType::Full);
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetBoolField(TEXT("success"), World != nullptr);
         Result->SetStringField(TEXT("status"), World ? TEXT("PASS") : TEXT("FAIL"));
         Result->SetNumberField(TEXT("activatedDataLayers"), ActivatedLayers);
+        Result->SetNumberField(TEXT("runtimeActivatedDataLayers"), RuntimeActivatedLayers);
+        Result->SetBoolField(TEXT("runtimeWorldPrepared"), GEditor && GEditor->PlayWorld != nullptr);
+        Result->SetBoolField(TEXT("editorWorldAvailable"), EditorWorld != nullptr);
         Result->SetBoolField(TEXT("streamingFlushed"), World != nullptr);
         Result->SetStringField(TEXT("evidence"), TEXT("World Partition data layers made visible/loaded in editor and level streaming flushed before PIE capture."));
         SendAutomationResponse(Socket, RequestId, World != nullptr, TEXT("PIE capture prerequisites prepared"), Result, World ? FString() : TEXT("NO_WORLD"));

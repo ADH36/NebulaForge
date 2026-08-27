@@ -290,7 +290,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
     }
     if (!bExists) {
       Landscape->Modify();
-      Landscape->CreateLayer(FName(*RequestedLayerName));
+      Landscape->CreateLayer(FName(*RequestedLayerName), nullptr, false);
       Landscape->MarkPackageDirty();
     }
   }
@@ -660,7 +660,7 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateLandscape(
         ImportLayerInfos, ELandscapeImportAlphamapType::Additive,
         TArrayView<const FLandscapeLayer>());
     if (Landscape->GetLayersConst().Num() == 0) {
-      Landscape->CreateLayer(FName(TEXT("MCP_Base")));
+      Landscape->CreateLayer(FName(TEXT("MCP_Base")), nullptr, false);
     }
     if (const FLandscapeLayer* BaseEditLayer = Landscape->GetLayerConst(0);
         BaseEditLayer && BaseEditLayer->EditLayer) {
@@ -1683,7 +1683,7 @@ bool UNebulaForgeBridgeSubsystem::HandlePaintLandscapeLayer(
     }
     LandscapeInfo->Layers[LayerInfoIndex].LayerInfoObj = LayerInfo;
     if (Landscape->GetLayersConst().Num() == 0) {
-      Landscape->CreateLayer(FName(TEXT("MCP_Base")));
+      Landscape->CreateLayer(FName(TEXT("MCP_Base")), nullptr, false);
     }
     if (const FLandscapeLayer* BaseEditLayer = Landscape->GetLayerConst(0);
         BaseEditLayer && BaseEditLayer->EditLayer) {

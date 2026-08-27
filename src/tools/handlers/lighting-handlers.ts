@@ -606,6 +606,99 @@ async function configureReflectionAction(
   )) as Record<string, unknown>;
 }
 
+/** Post Process Volume and FPostProcessSettings controls (Phase 29.5). */
+async function configurePostProcessAction(
+  tools: ITools,
+  action: string,
+  args: LightingArgs
+): Promise<Record<string, unknown>> {
+  const toNumberArray = (value: unknown): number[] | undefined => {
+    if (!Array.isArray(value)) return undefined;
+    return value.filter((item): item is number => typeof item === 'number' && Number.isFinite(item));
+  };
+  const target = args.volumeName || args.volumePath || args.actorName || args.actorPath || args.name;
+  const payload: Record<string, unknown> = {
+    name: args.name,
+    target,
+    volumeName: args.volumeName,
+    volumePath: args.volumePath,
+    location: toLocationObj(args.location),
+    rotation: toRotationObj(args.rotation),
+    extent: toLocationObj(args.extent),
+    bUnbound: toBoolean(args.bUnbound),
+    blendRadius: toNumber(args.blendRadius),
+    blendWeight: toNumber(args.blendWeight),
+    priority: toNumber(args.priority),
+    enabled: toBoolean(args.enabled),
+    bloomIntensity: toNumber(args.bloomIntensity),
+    bloomThreshold: toNumber(args.bloomThreshold),
+    bloomSizeScale: toNumber(args.bloomSizeScale),
+    bloomMethod: toString(args.bloomMethod),
+    lensFlareIntensity: toNumber(args.lensFlareIntensity),
+    lensFlareBokehSize: toNumber(args.lensFlareBokehSize),
+    lensFlareThreshold: toNumber(args.lensFlareThreshold),
+    dofMethod: toString(args.dofMethod),
+    dofFocalDistance: toNumber(args.dofFocalDistance),
+    dofFocalRegion: toNumber(args.dofFocalRegion),
+    dofFstop: toNumber(args.dofFstop),
+    dofMinFstop: toNumber(args.dofMinFstop),
+    dofNearBlurSize: toNumber(args.dofNearBlurSize),
+    dofFarBlurSize: toNumber(args.dofFarBlurSize),
+    dofNearTransitionRegion: toNumber(args.dofNearTransitionRegion),
+    dofFarTransitionRegion: toNumber(args.dofFarTransitionRegion),
+    dofScale: toNumber(args.dofScale),
+    dofBladeCount: toNumber(args.dofBladeCount),
+    motionBlurAmount: toNumber(args.motionBlurAmount),
+    motionBlurMax: toNumber(args.motionBlurMax),
+    motionBlurTargetFPS: toNumber(args.motionBlurTargetFPS),
+    motionBlurPerObjectSize: toNumber(args.motionBlurPerObjectSize),
+    exposureMethod: toString(args.exposureMethod),
+    exposureCompensation: toNumber(args.exposureCompensation),
+    exposureMinBrightness: toNumber(args.exposureMinBrightness),
+    exposureMaxBrightness: toNumber(args.exposureMaxBrightness),
+    exposureSpeedUp: toNumber(args.exposureSpeedUp),
+    exposureSpeedDown: toNumber(args.exposureSpeedDown),
+    exposureLowPercent: toNumber(args.exposureLowPercent),
+    exposureHighPercent: toNumber(args.exposureHighPercent),
+    whiteBalanceTemperature: toNumber(args.whiteBalanceTemperature),
+    whiteBalanceTint: toNumber(args.whiteBalanceTint),
+    colorSaturation: toNumberArray(args.colorSaturation),
+    colorContrast: toNumberArray(args.colorContrast),
+    colorGamma: toNumberArray(args.colorGamma),
+    colorGain: toNumberArray(args.colorGain),
+    colorOffset: toNumberArray(args.colorOffset),
+    lutPath: toString(args.lutPath),
+    lutIntensity: toNumber(args.lutIntensity),
+    toneCurveAmount: toNumber(args.toneCurveAmount),
+    expandGamut: toNumber(args.expandGamut),
+    filmBlackClip: toNumber(args.filmBlackClip),
+    filmWhiteClip: toNumber(args.filmWhiteClip),
+    tonemapperType: toNumber(args.tonemapperType),
+    ssaoIntensity: toNumber(args.ssaoIntensity),
+    ssaoRadius: toNumber(args.ssaoRadius),
+    ssaoPower: toNumber(args.ssaoPower),
+    ssaoBias: toNumber(args.ssaoBias),
+    ssaoDistance: toNumber(args.ssaoDistance),
+    ssaoStaticFraction: toNumber(args.ssaoStaticFraction),
+    ssaoFadeDistance: toNumber(args.ssaoFadeDistance),
+    gtaoIntensity: toNumber(args.gtaoIntensity),
+    gtaoRadius: toNumber(args.gtaoRadius),
+    gtaoPower: toNumber(args.gtaoPower),
+    gtaoThickness: toNumber(args.gtaoThickness),
+    vignetteIntensity: toNumber(args.vignetteIntensity),
+    chromaticAberrationIntensity: toNumber(args.chromaticAberrationIntensity),
+    grainIntensity: toNumber(args.grainIntensity),
+    screenPercentage: toNumber(args.screenPercentage)
+  };
+
+  return cleanObject(await executeAutomationRequest(
+    tools,
+    action,
+    payload,
+    `Automation bridge not available for ${action}`
+  )) as Record<string, unknown>;
+}
+
 /**
  * Create lighting enabled level
  */
@@ -997,6 +1090,38 @@ export async function handleLightingTools(action: string, args: LightingArgs, to
     case 'configure_lumen_reflection_settings':
     case 'inspect_reflection_captures':
       return configureReflectionAction(tools, action, args);
+
+    case 'create_post_process_volume':
+    case 'configure_pp_blend':
+    case 'set_pp_white_balance':
+    case 'set_pp_color_grading':
+    case 'set_pp_lut':
+    case 'configure_tonemapper':
+    case 'set_tonemapper_type':
+    case 'configure_bloom':
+    case 'set_bloom_intensity':
+    case 'set_bloom_threshold':
+    case 'configure_lens_flare':
+    case 'configure_dof':
+    case 'set_dof_method':
+    case 'set_focal_distance':
+    case 'set_aperture':
+    case 'configure_bokeh':
+    case 'configure_motion_blur':
+    case 'set_motion_blur_amount':
+    case 'set_motion_blur_max':
+    case 'configure_exposure':
+    case 'set_exposure_method':
+    case 'set_exposure_compensation':
+    case 'set_exposure_min_max':
+    case 'configure_ssao':
+    case 'configure_gtao':
+    case 'configure_vignette':
+    case 'configure_chromatic_aberration':
+    case 'configure_grain':
+    case 'configure_screen_percentage':
+    case 'inspect_post_process_volume':
+      return configurePostProcessAction(tools, action, args);
 
     case 'build_lighting':
       return cleanObject(await buildLighting(tools, args));

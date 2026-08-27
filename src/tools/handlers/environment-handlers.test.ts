@@ -74,6 +74,20 @@ const PHASE_29_4_REFLECTION_ACTIONS = [
   'inspect_reflection_captures'
 ] as const;
 
+const PHASE_29_5_POST_PROCESS_ACTIONS = [
+  'create_post_process_volume', 'configure_pp_blend',
+  'set_pp_white_balance', 'set_pp_color_grading', 'set_pp_lut',
+  'configure_tonemapper', 'set_tonemapper_type',
+  'configure_bloom', 'set_bloom_intensity', 'set_bloom_threshold',
+  'configure_lens_flare', 'configure_dof', 'set_dof_method',
+  'set_focal_distance', 'set_aperture', 'configure_bokeh',
+  'configure_motion_blur', 'set_motion_blur_amount', 'set_motion_blur_max',
+  'configure_exposure', 'set_exposure_method', 'set_exposure_compensation',
+  'set_exposure_min_max', 'configure_ssao', 'configure_gtao',
+  'configure_vignette', 'configure_chromatic_aberration', 'configure_grain',
+  'configure_screen_percentage', 'inspect_post_process_volume'
+] as const;
+
 function getBuildEnvironmentActionEnum(): readonly string[] {
   const tool = consolidatedToolDefinitions.find(def => def.name === 'build_environment');
   const inputSchema = tool?.inputSchema as { properties?: { action?: { enum?: string[] } } } | undefined;
@@ -308,6 +322,52 @@ describe('handleEnvironmentTools path normalization', () => {
         runtimeCapture: true
       }),
       'Automation bridge not available for create_sphere_reflection_capture'
+    );
+  });
+
+  it('exposes every Phase 29.5 post-processing action and property on the schema', () => {
+    expect(getBuildEnvironmentActionEnum()).toEqual(expect.arrayContaining([...PHASE_29_5_POST_PROCESS_ACTIONS]));
+    expect(getBuildEnvironmentProperties()).toEqual(expect.objectContaining({
+      volumeName: expect.any(Object),
+      bUnbound: expect.any(Object),
+      blendWeight: expect.any(Object),
+      bloomIntensity: expect.any(Object),
+      dofFocalDistance: expect.any(Object),
+      motionBlurAmount: expect.any(Object),
+      exposureMethod: expect.any(Object),
+      colorGamma: expect.any(Object),
+      lutPath: expect.any(Object),
+      vignetteIntensity: expect.any(Object),
+      grainIntensity: expect.any(Object)
+    }));
+  });
+
+  it('normalizes and forwards post-processing settings', async () => {
+    await handleLightingTools('configure_exposure', {
+      action: 'configure_exposure',
+      volumeName: 'Phase29PostProcess',
+      exposureMethod: 'Manual',
+      exposureCompensation: 0.5,
+      exposureMinBrightness: 0,
+      exposureMaxBrightness: 10,
+      colorSaturation: [1, 0.9, 0.8, 1],
+      bloomIntensity: 0.8,
+      motionBlurAmount: 0.2,
+      vignetteIntensity: 0.1
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {},
+      'configure_exposure',
+      expect.objectContaining({
+        volumeName: 'Phase29PostProcess',
+        target: 'Phase29PostProcess',
+        exposureMethod: 'Manual',
+        exposureCompensation: 0.5,
+        colorSaturation: [1, 0.9, 0.8, 1],
+        bloomIntensity: 0.8
+      }),
+      'Automation bridge not available for configure_exposure'
     );
   });
 

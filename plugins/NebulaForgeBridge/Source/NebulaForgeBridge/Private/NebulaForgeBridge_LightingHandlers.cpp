@@ -27,6 +27,7 @@
 // - configure_lightmass_ambient_occlusion
 // - create/configure reflection captures and planar reflections
 // - configure SSR/Lumen reflections and inspect reflection captures
+// - create/configure Post Process Volumes and post-process effects
 //
 // UE VERSION COMPATIBILITY:
 // - UE 5.0-5.7: Full support for all lighting types
@@ -60,6 +61,7 @@
 #include "Engine/ExponentialHeightFog.h"
 #include "Engine/PostProcessVolume.h"
 #include "Engine/Scene.h"
+#include "Engine/Texture.h"
 #include "Engine/TextureCube.h"
 
 #if WITH_EDITOR
@@ -355,6 +357,457 @@ static TSharedPtr<FJsonObject> MakeReflectionCaptureResult(
     McpHandlerUtils::AddVerification(Response, Actor);
     return Response;
 }
+
+static void MarkPostProcessOverride(FPostProcessSettings& Settings, const TCHAR* PropertyName)
+{
+    const FString OverrideName = FString::Printf(TEXT("bOverride_%s"), PropertyName);
+    if (FBoolProperty* Override = CastField<FBoolProperty>(
+        FPostProcessSettings::StaticStruct()->FindPropertyByName(FName(OverrideName))))
+    {
+        Override->SetPropertyValue(Override->ContainerPtrToValuePtr<void>(&Settings), true);
+    }
+}
+
+static bool SetPostProcessNumber(
+    FPostProcessSettings& Settings,
+    const TCHAR* PropertyName,
+    double Value)
+{
+    FProperty* Property = FPostProcessSettings::StaticStruct()->FindPropertyByName(FName(PropertyName));
+    FNumericProperty* NumericProperty = Property ? CastField<FNumericProperty>(Property) : nullptr;
+    if (!NumericProperty)
+    {
+        return false;
+    }
+
+    void* ValuePtr = NumericProperty->ContainerPtrToValuePtr<void>(&Settings);
+    if (NumericProperty->IsFloatingPoint())
+    {
+        NumericProperty->SetFloatingPointPropertyValue(ValuePtr, Value);
+    }
+    else
+    {
+        NumericProperty->SetIntPropertyValue(ValuePtr, FMath::RoundToInt(Value));
+    }
+    MarkPostProcessOverride(Settings, PropertyName);
+    return true;
+}
+
+static bool SetPostProcessBool(
+    FPostProcessSettings& Settings,
+    const TCHAR* PropertyName,
+    bool Value)
+{
+    FBoolProperty* BoolProperty = CastField<FBoolProperty>(
+        FPostProcessSettings::StaticStruct()->FindPropertyByName(FName(PropertyName)));
+    if (!BoolProperty)
+    {
+        return false;
+    }
+
+    BoolProperty->SetPropertyValue(BoolProperty->ContainerPtrToValuePtr<void>(&Settings), Value);
+    MarkPostProcessOverride(Settings, PropertyName);
+    return true;
+}
+
+static bool ReadPostProcessVector(
+    const TSharedPtr<FJsonObject>& Payload,
+    const TCHAR* FieldName,
+    FVector4& OutValue)
+{
+    const TArray<TSharedPtr<FJsonValue>>* ArrayValue = nullptr;
+    if (Payload->TryGetArrayField(FieldName, ArrayValue) && ArrayValue && ArrayValue->Num() >= 3)
+    {
+        OutValue.X = (*ArrayValue)[0]->AsNumber();
+        OutValue.Y = (*ArrayValue)[1]->AsNumber();
+        OutValue.Z = (*ArrayValue)[2]->AsNumber();
+        OutValue.W = ArrayValue->Num() > 3 ? (*ArrayValue)[3]->AsNumber() : 1.0;
+        return true;
+    }
+
+    const TSharedPtr<FJsonObject>* ObjectValue = nullptr;
+    if (Payload->TryGetObjectField(FieldName, ObjectValue) && ObjectValue && ObjectValue->IsValid())
+    {
+        OutValue.X = GetJsonNumberField(*ObjectValue, TEXT("r"), GetJsonNumberField(*ObjectValue, TEXT("x")));
+        OutValue.Y = GetJsonNumberField(*ObjectValue, TEXT("g"), GetJsonNumberField(*ObjectValue, TEXT("y")));
+        OutValue.Z = GetJsonNumberField(*ObjectValue, TEXT("b"), GetJsonNumberField(*ObjectValue, TEXT("z")));
+        OutValue.W = GetJsonNumberField(*ObjectValue, TEXT("a"), GetJsonNumberField(*ObjectValue, TEXT("w"), 1.0));
+        return true;
+    }
+    return false;
+}
+
+static bool SetPostProcessVector(
+    FPostProcessSettings& Settings,
+    const TCHAR* PropertyName,
+    const FVector4& Value)
+{
+    FStructProperty* StructProperty = CastField<FStructProperty>(
+        FPostProcessSettings::StaticStruct()->FindPropertyByName(FName(PropertyName)));
+    if (!StructProperty)
+    {
+        return false;
+    }
+
+    void* ValuePtr = StructProperty->ContainerPtrToValuePtr<void>(&Settings);
+    if (StructProperty->Struct == TBaseStructure<FVector4>::Get())
+    {
+        *static_cast<FVector4*>(ValuePtr) = Value;
+    }
+    else if (StructProperty->Struct == TBaseStructure<FLinearColor>::Get())
+    {
+        *static_cast<FLinearColor*>(ValuePtr) = FLinearColor(Value.X, Value.Y, Value.Z, Value.W);
+    }
+    else
+    {
+        return false;
+    }
+    MarkPostProcessOverride(Settings, PropertyName);
+    return true;
+}
+
+static int64 ResolvePostProcessEnumValue(const UEnum* Enum, FString Requested)
+{
+    if (!Enum)
+    {
+        return INDEX_NONE;
+    }
+
+    int64 NumericValue = INDEX_NONE;
+    if (LexTryParseString(NumericValue, *Requested))
+    {
+        return NumericValue;
+    }
+
+    Requested = Requested.ToLower().Replace(TEXT("_"), TEXT("")).Replace(TEXT("-"), TEXT(""));
+    if (Requested == TEXT("standard")) Requested = TEXT("sog");
+    if (Requested == TEXT("convolution")) Requested = TEXT("fft");
+    if (Requested == TEXT("histogram")) Requested = TEXT("aemhistogram");
+    if (Requested == TEXT("basic")) Requested = TEXT("aembasic");
+    if (Requested == TEXT("manual")) Requested = TEXT("aemanual");
+    for (int32 Index = 0; Index < Enum->NumEnums(); ++Index)
+    {
+        FString Candidate = Enum->GetNameStringByIndex(Index).ToLower();
+        Candidate = Candidate.Replace(TEXT("_"), TEXT("")).Replace(TEXT("-"), TEXT(""));
+        if (Candidate == Requested || Candidate.EndsWith(Requested) || Requested.EndsWith(Candidate))
+        {
+            return Enum->GetValueByIndex(Index);
+        }
+    }
+    return INDEX_NONE;
+}
+
+static bool SetPostProcessEnum(
+    FPostProcessSettings& Settings,
+    const TCHAR* PropertyName,
+    const FString& Requested)
+{
+    FProperty* Property = FPostProcessSettings::StaticStruct()->FindPropertyByName(FName(PropertyName));
+    UEnum* Enum = nullptr;
+    FNumericProperty* NumericProperty = nullptr;
+    if (FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property))
+    {
+        Enum = EnumProperty->GetEnum();
+        NumericProperty = EnumProperty->GetUnderlyingProperty();
+    }
+    else if (FByteProperty* ByteProperty = CastField<FByteProperty>(Property))
+    {
+        Enum = ByteProperty->Enum;
+        NumericProperty = ByteProperty;
+    }
+    if (!NumericProperty)
+    {
+        return false;
+    }
+
+    const int64 Value = ResolvePostProcessEnumValue(Enum, Requested);
+    if (Value == INDEX_NONE)
+    {
+        return false;
+    }
+    NumericProperty->SetIntPropertyValue(NumericProperty->ContainerPtrToValuePtr<void>(&Settings), Value);
+    MarkPostProcessOverride(Settings, PropertyName);
+    return true;
+}
+
+static bool SetPostProcessTexture(
+    FPostProcessSettings& Settings,
+    const TCHAR* PropertyName,
+    const FString& AssetPath)
+{
+    if (!AssetPath.StartsWith(TEXT("/Game/")) && !AssetPath.StartsWith(TEXT("/Engine/")))
+    {
+        return false;
+    }
+    FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(
+        FPostProcessSettings::StaticStruct()->FindPropertyByName(FName(PropertyName)));
+    UTexture* Texture = LoadObject<UTexture>(nullptr, *AssetPath);
+    if (!ObjectProperty || !Texture)
+    {
+        return false;
+    }
+    ObjectProperty->SetObjectPropertyValue_InContainer(&Settings, Texture);
+    MarkPostProcessOverride(Settings, PropertyName);
+    return true;
+}
+
+static APostProcessVolume* FindPostProcessVolume(
+    UEditorActorSubsystem* ActorSubsystem,
+    const FString& Target)
+{
+    if (!Target.IsEmpty())
+    {
+        return Cast<APostProcessVolume>(FindActorByName(Target, true));
+    }
+    if (!ActorSubsystem)
+    {
+        return nullptr;
+    }
+    for (AActor* Actor : ActorSubsystem->GetAllLevelActors())
+    {
+        if (APostProcessVolume* Volume = Cast<APostProcessVolume>(Actor))
+        {
+            return Volume;
+        }
+    }
+    return nullptr;
+}
+
+static void AddPostProcessNumber(
+    const TSharedPtr<FJsonObject>& Payload,
+    FPostProcessSettings& Settings,
+    const TCHAR* JsonField,
+    const TCHAR* PropertyName,
+    double Minimum,
+    double Maximum,
+    TArray<TSharedPtr<FJsonValue>>& Applied,
+    TArray<TSharedPtr<FJsonValue>>& Unsupported,
+    FString& InvalidField)
+{
+    if (!Payload->HasField(JsonField)) return;
+    double Value = 0.0;
+    if (!Payload->TryGetNumberField(JsonField, Value) || !FMath::IsFinite(Value) || Value < Minimum || Value > Maximum)
+    {
+        InvalidField = FString::Printf(TEXT("%s must be between %g and %g"), JsonField, Minimum, Maximum);
+        return;
+    }
+    if (SetPostProcessNumber(Settings, PropertyName, Value))
+    {
+        Applied.Add(MakeShared<FJsonValueString>(JsonField));
+    }
+    else
+    {
+        Unsupported.Add(MakeShared<FJsonValueString>(PropertyName));
+    }
+}
+
+static void AddPostProcessEnum(
+    const TSharedPtr<FJsonObject>& Payload,
+    FPostProcessSettings& Settings,
+    const TCHAR* JsonField,
+    const TCHAR* PropertyName,
+    TArray<TSharedPtr<FJsonValue>>& Applied,
+    TArray<TSharedPtr<FJsonValue>>& Unsupported,
+    FString& InvalidField)
+{
+    if (!Payload->HasField(JsonField)) return;
+    FString Value;
+    if (!Payload->TryGetStringField(JsonField, Value) || !SetPostProcessEnum(Settings, PropertyName, Value))
+    {
+        InvalidField = FString::Printf(TEXT("%s is not a supported enum value"), JsonField);
+        return;
+    }
+    Applied.Add(MakeShared<FJsonValueString>(JsonField));
+}
+
+static void ApplyPostProcessSettings(
+    const TSharedPtr<FJsonObject>& Payload,
+    APostProcessVolume* Volume,
+    TArray<TSharedPtr<FJsonValue>>& Applied,
+    TArray<TSharedPtr<FJsonValue>>& Unsupported,
+    FString& InvalidField)
+{
+    FPostProcessSettings& Settings = Volume->Settings;
+    struct FNumberBinding { const TCHAR* Json; const TCHAR* Property; double Min; double Max; };
+    const FNumberBinding Bindings[] = {
+        { TEXT("bloomIntensity"), TEXT("BloomIntensity"), 0.0, 100.0 },
+        { TEXT("bloomThreshold"), TEXT("BloomThreshold"), -1.0, 100.0 },
+        { TEXT("bloomSizeScale"), TEXT("BloomSizeScale"), 0.0, 64.0 },
+        { TEXT("lensFlareIntensity"), TEXT("LensFlareIntensity"), 0.0, 100.0 },
+        { TEXT("lensFlareBokehSize"), TEXT("LensFlareBokehSize"), 0.0, 100.0 },
+        { TEXT("lensFlareThreshold"), TEXT("LensFlareThreshold"), 0.0, 100.0 },
+        { TEXT("dofFocalDistance"), TEXT("DepthOfFieldFocalDistance"), 0.0, 1000000.0 },
+        { TEXT("dofFocalRegion"), TEXT("DepthOfFieldFocalRegion"), 0.0, 1000000.0 },
+        { TEXT("dofFstop"), TEXT("DepthOfFieldFstop"), 0.0, 100.0 },
+        { TEXT("dofMinFstop"), TEXT("DepthOfFieldMinFstop"), 0.0, 100.0 },
+        { TEXT("dofNearBlurSize"), TEXT("DepthOfFieldNearBlurSize"), 0.0, 100.0 },
+        { TEXT("dofFarBlurSize"), TEXT("DepthOfFieldFarBlurSize"), 0.0, 100.0 },
+        { TEXT("dofNearTransitionRegion"), TEXT("DepthOfFieldNearTransitionRegion"), 0.0, 1000000.0 },
+        { TEXT("dofFarTransitionRegion"), TEXT("DepthOfFieldFarTransitionRegion"), 0.0, 1000000.0 },
+        { TEXT("dofScale"), TEXT("DepthOfFieldScale"), 0.0, 100.0 },
+        { TEXT("dofBladeCount"), TEXT("DepthOfFieldBladeCount"), 4.0, 16.0 },
+        { TEXT("motionBlurAmount"), TEXT("MotionBlurAmount"), 0.0, 1.0 },
+        { TEXT("motionBlurMax"), TEXT("MotionBlurMax"), 0.0, 100.0 },
+        { TEXT("motionBlurTargetFPS"), TEXT("MotionBlurTargetFPS"), 0.0, 240.0 },
+        { TEXT("motionBlurPerObjectSize"), TEXT("MotionBlurPerObjectSize"), 0.0, 100.0 },
+        { TEXT("exposureCompensation"), TEXT("AutoExposureBias"), -15.0, 15.0 },
+        { TEXT("exposureMinBrightness"), TEXT("AutoExposureMinBrightness"), -10.0, 100.0 },
+        { TEXT("exposureMaxBrightness"), TEXT("AutoExposureMaxBrightness"), -10.0, 100.0 },
+        { TEXT("exposureSpeedUp"), TEXT("AutoExposureSpeedUp"), 0.02, 100.0 },
+        { TEXT("exposureSpeedDown"), TEXT("AutoExposureSpeedDown"), 0.02, 100.0 },
+        { TEXT("exposureLowPercent"), TEXT("AutoExposureLowPercent"), 0.0, 100.0 },
+        { TEXT("exposureHighPercent"), TEXT("AutoExposureHighPercent"), 0.0, 100.0 },
+        { TEXT("whiteBalanceTemperature"), TEXT("WhiteTemp"), 1000.0, 15000.0 },
+        { TEXT("whiteBalanceTint"), TEXT("WhiteTint"), -1.0, 1.0 },
+        { TEXT("lutIntensity"), TEXT("ColorGradingLUTIntensity"), 0.0, 1.0 },
+        { TEXT("toneCurveAmount"), TEXT("ToneCurveAmount"), 0.0, 1.0 },
+        { TEXT("expandGamut"), TEXT("ExpandGamut"), 0.0, 1.0 },
+        { TEXT("filmBlackClip"), TEXT("FilmBlackClip"), 0.0, 1.0 },
+        { TEXT("filmWhiteClip"), TEXT("FilmWhiteClip"), 0.0, 1.0 },
+        { TEXT("ssaoIntensity"), TEXT("AmbientOcclusionIntensity"), 0.0, 100.0 },
+        { TEXT("ssaoRadius"), TEXT("AmbientOcclusionRadius"), 0.0, 100000.0 },
+        { TEXT("ssaoPower"), TEXT("AmbientOcclusionPower"), 0.0, 100.0 },
+        { TEXT("ssaoBias"), TEXT("AmbientOcclusionBias"), -100.0, 100.0 },
+        { TEXT("ssaoDistance"), TEXT("AmbientOcclusionDistance"), 0.0, 100000.0 },
+        { TEXT("ssaoStaticFraction"), TEXT("AmbientOcclusionStaticFraction"), 0.0, 1.0 },
+        { TEXT("ssaoFadeDistance"), TEXT("AmbientOcclusionFadeDistance"), 0.0, 100000.0 },
+        { TEXT("gtaoIntensity"), TEXT("AmbientOcclusionIntensity"), 0.0, 100.0 },
+        { TEXT("gtaoPower"), TEXT("AmbientOcclusionPower"), 0.0, 100.0 },
+        { TEXT("gtaoRadius"), TEXT("AmbientOcclusionRadius"), 0.0, 100000.0 },
+        { TEXT("vignetteIntensity"), TEXT("VignetteIntensity"), 0.0, 1.0 },
+        { TEXT("chromaticAberrationIntensity"), TEXT("SceneFringeIntensity"), 0.0, 5.0 },
+        { TEXT("grainIntensity"), TEXT("FilmGrainIntensity"), 0.0, 1.0 }
+    };
+    for (const FNumberBinding& Binding : Bindings)
+    {
+        AddPostProcessNumber(Payload, Settings, Binding.Json, Binding.Property, Binding.Min, Binding.Max, Applied, Unsupported, InvalidField);
+    }
+
+    AddPostProcessEnum(Payload, Settings, TEXT("bloomMethod"), TEXT("BloomMethod"), Applied, Unsupported, InvalidField);
+    // UE 5.8 exposes this legacy enum as DepthOfFieldMethod_DEPRECATED;
+    // resolve the documented enum while retaining source compatibility.
+    AddPostProcessEnum(Payload, Settings, TEXT("dofMethod"), TEXT("DepthOfFieldMethod_DEPRECATED"), Applied, Unsupported, InvalidField);
+    AddPostProcessEnum(Payload, Settings, TEXT("exposureMethod"), TEXT("AutoExposureMethod"), Applied, Unsupported, InvalidField);
+
+    struct FVectorBinding { const TCHAR* Json; const TCHAR* Property; };
+    const FVectorBinding VectorBindings[] = {
+        { TEXT("colorSaturation"), TEXT("ColorSaturation") },
+        { TEXT("colorContrast"), TEXT("ColorContrast") },
+        { TEXT("colorGamma"), TEXT("ColorGamma") },
+        { TEXT("colorGain"), TEXT("ColorGain") },
+        { TEXT("colorOffset"), TEXT("ColorOffset") }
+    };
+    for (const FVectorBinding& Binding : VectorBindings)
+    {
+        if (!Payload->HasField(Binding.Json)) continue;
+        FVector4 Value;
+        if (!ReadPostProcessVector(Payload, Binding.Json, Value) ||
+            !FMath::IsFinite(Value.X) || !FMath::IsFinite(Value.Y) || !FMath::IsFinite(Value.Z) || !FMath::IsFinite(Value.W))
+        {
+            InvalidField = FString::Printf(TEXT("%s must be an array/object with finite color values"), Binding.Json);
+        }
+        else if (SetPostProcessVector(Settings, Binding.Property, Value))
+        {
+            Applied.Add(MakeShared<FJsonValueString>(Binding.Json));
+        }
+        else
+        {
+            Unsupported.Add(MakeShared<FJsonValueString>(Binding.Property));
+        }
+    }
+
+    if (Payload->HasField(TEXT("lutPath")))
+    {
+        FString LutPath;
+        if (!Payload->TryGetStringField(TEXT("lutPath"), LutPath) ||
+            !SetPostProcessTexture(Settings, TEXT("ColorGradingLUT"), LutPath))
+        {
+            InvalidField = TEXT("lutPath must reference an existing /Game or /Engine texture asset");
+        }
+        else
+        {
+            Applied.Add(MakeShared<FJsonValueString>(TEXT("lutPath")));
+        }
+    }
+
+    if (Payload->HasField(TEXT("screenPercentage")))
+    {
+        double Value = 0.0;
+        const int32 Rounded = Payload->TryGetNumberField(TEXT("screenPercentage"), Value) ? FMath::RoundToInt(Value) : 0;
+        if (!Payload->TryGetNumberField(TEXT("screenPercentage"), Value) || Rounded != Value || Rounded < 1 || Rounded > 200)
+        {
+            InvalidField = TEXT("screenPercentage must be an integer from 1 to 200");
+        }
+        else if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage")))
+        {
+            CVar->Set(Rounded);
+            Applied.Add(MakeShared<FJsonValueString>(TEXT("r.ScreenPercentage")));
+        }
+        else
+        {
+            Unsupported.Add(MakeShared<FJsonValueString>(TEXT("r.ScreenPercentage")));
+        }
+    }
+
+    if (Payload->HasField(TEXT("tonemapperType")))
+    {
+        double Value = 0.0;
+        if (!Payload->TryGetNumberField(TEXT("tonemapperType"), Value) || !FMath::IsFinite(Value) || Value < 0.0 || Value > 10.0)
+        {
+            InvalidField = TEXT("tonemapperType must be a number from 0 to 10");
+        }
+        else if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Tonemapper.Type")))
+        {
+            CVar->Set(FMath::RoundToInt(Value));
+            Applied.Add(MakeShared<FJsonValueString>(TEXT("r.Tonemapper.Type")));
+        }
+        else
+        {
+            Unsupported.Add(MakeShared<FJsonValueString>(TEXT("r.Tonemapper.Type")));
+        }
+    }
+
+    if (Payload->HasField(TEXT("gtaoThickness")))
+    {
+        double Value = 0.0;
+        if (!Payload->TryGetNumberField(TEXT("gtaoThickness"), Value) || !FMath::IsFinite(Value) || Value < 0.0 || Value > 100.0)
+        {
+            InvalidField = TEXT("gtaoThickness must be between 0 and 100");
+        }
+        else if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GTAO.Thickness")))
+        {
+            CVar->Set(static_cast<float>(Value));
+            Applied.Add(MakeShared<FJsonValueString>(TEXT("r.GTAO.Thickness")));
+        }
+        else
+        {
+            Unsupported.Add(MakeShared<FJsonValueString>(TEXT("r.GTAO.Thickness")));
+        }
+    }
+}
+
+static TSharedPtr<FJsonObject> MakePostProcessVolumeResult(APostProcessVolume* Volume)
+{
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetBoolField(TEXT("success"), true);
+    Response->SetStringField(TEXT("volumeName"), Volume->GetActorLabel());
+    Response->SetStringField(TEXT("volumePath"), Volume->GetPathName());
+    Response->SetBoolField(TEXT("enabled"), Volume->bEnabled);
+    Response->SetBoolField(TEXT("bUnbound"), Volume->bUnbound);
+    Response->SetNumberField(TEXT("blendRadius"), Volume->BlendRadius);
+    Response->SetNumberField(TEXT("blendWeight"), Volume->BlendWeight);
+    Response->SetNumberField(TEXT("priority"), Volume->Priority);
+    const FPostProcessSettings& Settings = Volume->Settings;
+    Response->SetNumberField(TEXT("bloomIntensity"), Settings.BloomIntensity);
+    Response->SetNumberField(TEXT("bloomThreshold"), Settings.BloomThreshold);
+    Response->SetNumberField(TEXT("vignetteIntensity"), Settings.VignetteIntensity);
+    Response->SetNumberField(TEXT("motionBlurAmount"), Settings.MotionBlurAmount);
+    Response->SetNumberField(TEXT("exposureCompensation"), Settings.AutoExposureBias);
+    Response->SetNumberField(TEXT("screenPercentage"), IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"))
+        ? IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"))->GetInt() : 100);
+    McpHandlerUtils::AddVerification(Response, Volume);
+    return Response;
+}
 #endif
 }
 
@@ -426,7 +879,37 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         Lower.StartsWith(TEXT("configure_planar_reflection")) ||
         Lower.StartsWith(TEXT("configure_ssr_settings")) ||
         Lower.StartsWith(TEXT("configure_lumen_reflection_settings")) ||
-        Lower.StartsWith(TEXT("inspect_reflection_captures"));
+        Lower.StartsWith(TEXT("inspect_reflection_captures")) ||
+        Lower.StartsWith(TEXT("create_post_process_volume")) ||
+        Lower.StartsWith(TEXT("configure_pp_blend")) ||
+        Lower.StartsWith(TEXT("set_pp_white_balance")) ||
+        Lower.StartsWith(TEXT("set_pp_color_grading")) ||
+        Lower.StartsWith(TEXT("set_pp_lut")) ||
+        Lower.StartsWith(TEXT("configure_tonemapper")) ||
+        Lower.StartsWith(TEXT("set_tonemapper_type")) ||
+        Lower.StartsWith(TEXT("configure_bloom")) ||
+        Lower.StartsWith(TEXT("set_bloom_intensity")) ||
+        Lower.StartsWith(TEXT("set_bloom_threshold")) ||
+        Lower.StartsWith(TEXT("configure_lens_flare")) ||
+        Lower.StartsWith(TEXT("configure_dof")) ||
+        Lower.StartsWith(TEXT("set_dof_method")) ||
+        Lower.StartsWith(TEXT("set_focal_distance")) ||
+        Lower.StartsWith(TEXT("set_aperture")) ||
+        Lower.StartsWith(TEXT("configure_bokeh")) ||
+        Lower.StartsWith(TEXT("configure_motion_blur")) ||
+        Lower.StartsWith(TEXT("set_motion_blur_amount")) ||
+        Lower.StartsWith(TEXT("set_motion_blur_max")) ||
+        Lower.StartsWith(TEXT("configure_exposure")) ||
+        Lower.StartsWith(TEXT("set_exposure_method")) ||
+        Lower.StartsWith(TEXT("set_exposure_compensation")) ||
+        Lower.StartsWith(TEXT("set_exposure_min_max")) ||
+        Lower.StartsWith(TEXT("configure_ssao")) ||
+        Lower.StartsWith(TEXT("configure_gtao")) ||
+        Lower.StartsWith(TEXT("configure_vignette")) ||
+        Lower.StartsWith(TEXT("configure_chromatic_aberration")) ||
+        Lower.StartsWith(TEXT("configure_grain")) ||
+        Lower.StartsWith(TEXT("configure_screen_percentage")) ||
+        Lower.StartsWith(TEXT("inspect_post_process_volume"));
     if (!bKnownLightingAction)
     {
         if (Action.Equals(TEXT("manage_lighting"), ESearchCase::IgnoreCase))
@@ -2269,6 +2752,175 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         Response->SetArrayField(TEXT("captures"), Reflections);
         SendAutomationResponse(RequestingSocket, RequestId, true,
             TEXT("Reflection captures inspected"), Response);
+        return true;
+    }
+
+    // =========================================================================
+    // Phase 29.5: Post Process Volume and FPostProcessSettings
+    // =========================================================================
+    if (Lower == TEXT("create_post_process_volume") ||
+        Lower == TEXT("configure_pp_blend") ||
+        Lower == TEXT("set_pp_white_balance") ||
+        Lower == TEXT("set_pp_color_grading") ||
+        Lower == TEXT("set_pp_lut") ||
+        Lower == TEXT("configure_tonemapper") ||
+        Lower == TEXT("set_tonemapper_type") ||
+        Lower == TEXT("configure_bloom") ||
+        Lower == TEXT("set_bloom_intensity") ||
+        Lower == TEXT("set_bloom_threshold") ||
+        Lower == TEXT("configure_lens_flare") ||
+        Lower == TEXT("configure_dof") ||
+        Lower == TEXT("set_dof_method") ||
+        Lower == TEXT("set_focal_distance") ||
+        Lower == TEXT("set_aperture") ||
+        Lower == TEXT("configure_bokeh") ||
+        Lower == TEXT("configure_motion_blur") ||
+        Lower == TEXT("set_motion_blur_amount") ||
+        Lower == TEXT("set_motion_blur_max") ||
+        Lower == TEXT("configure_exposure") ||
+        Lower == TEXT("set_exposure_method") ||
+        Lower == TEXT("set_exposure_compensation") ||
+        Lower == TEXT("set_exposure_min_max") ||
+        Lower == TEXT("configure_ssao") ||
+        Lower == TEXT("configure_gtao") ||
+        Lower == TEXT("configure_vignette") ||
+        Lower == TEXT("configure_chromatic_aberration") ||
+        Lower == TEXT("configure_grain") ||
+        Lower == TEXT("configure_screen_percentage") ||
+        Lower == TEXT("inspect_post_process_volume"))
+    {
+        const FString Target = GetReflectionTarget(Payload);
+        if (Lower == TEXT("inspect_post_process_volume"))
+        {
+            TArray<TSharedPtr<FJsonValue>> Volumes;
+            if (!Target.IsEmpty())
+            {
+                if (APostProcessVolume* Volume = FindPostProcessVolume(ActorSS, Target))
+                {
+                    Volumes.Add(MakeShared<FJsonValueObject>(MakePostProcessVolumeResult(Volume)));
+                }
+            }
+            else
+            {
+                for (AActor* Actor : ActorSS->GetAllLevelActors())
+                {
+                    if (APostProcessVolume* Volume = Cast<APostProcessVolume>(Actor))
+                    {
+                        Volumes.Add(MakeShared<FJsonValueObject>(MakePostProcessVolumeResult(Volume)));
+                    }
+                }
+            }
+
+            TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+            Response->SetBoolField(TEXT("success"), true);
+            Response->SetNumberField(TEXT("count"), Volumes.Num());
+            Response->SetArrayField(TEXT("volumes"), Volumes);
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                TEXT("Post Process Volumes inspected"), Response);
+            return true;
+        }
+
+        APostProcessVolume* Volume = nullptr;
+        if (Lower == TEXT("create_post_process_volume"))
+        {
+            UWorld* World = GEditor->GetEditorWorldContext().World();
+            if (World)
+            {
+                FVector Location = FVector::ZeroVector;
+                ReadJsonVector(Payload, TEXT("location"), Location);
+                FRotator Rotation = FRotator::ZeroRotator;
+                const TSharedPtr<FJsonObject>* RotationObject = nullptr;
+                if (Payload->TryGetObjectField(TEXT("rotation"), RotationObject) && RotationObject && RotationObject->IsValid())
+                {
+                    Rotation.Pitch = GetJsonNumberField(*RotationObject, TEXT("pitch"));
+                    Rotation.Yaw = GetJsonNumberField(*RotationObject, TEXT("yaw"));
+                    Rotation.Roll = GetJsonNumberField(*RotationObject, TEXT("roll"));
+                }
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                Volume = World->SpawnActor<APostProcessVolume>(Location, Rotation, SpawnParams);
+                if (Volume)
+                {
+                    FString VolumeName;
+                    if (Payload->TryGetStringField(TEXT("volumeName"), VolumeName) && !VolumeName.IsEmpty())
+                    {
+                        Volume->SetActorLabel(VolumeName);
+                    }
+                    else if (Payload->TryGetStringField(TEXT("name"), VolumeName) && !VolumeName.IsEmpty())
+                    {
+                        Volume->SetActorLabel(VolumeName);
+                    }
+                    FVector Extent;
+                    if (ReadJsonVector(Payload, TEXT("extent"), Extent) && Extent.X > 0.0 && Extent.Y > 0.0 && Extent.Z > 0.0)
+                    {
+                        Volume->SetActorScale3D(Extent / 100.0f);
+                    }
+                }
+            }
+        }
+        else
+        {
+            Volume = FindPostProcessVolume(ActorSS, Target);
+        }
+
+        if (!Volume)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("A Post Process Volume target was not found or could not be created"),
+                TEXT("ACTOR_NOT_FOUND"));
+            return true;
+        }
+
+        Volume->Modify();
+        FString InvalidField;
+        double NumberValue = 0.0;
+        bool BoolValue = false;
+        if (Payload->HasField(TEXT("bUnbound")))
+        {
+            if (!Payload->TryGetBoolField(TEXT("bUnbound"), BoolValue)) InvalidField = TEXT("bUnbound must be boolean");
+            else Volume->bUnbound = BoolValue;
+        }
+        if (Payload->HasField(TEXT("enabled")))
+        {
+            if (!Payload->TryGetBoolField(TEXT("enabled"), BoolValue)) InvalidField = TEXT("enabled must be boolean");
+            else Volume->bEnabled = BoolValue;
+        }
+        if (Payload->HasField(TEXT("blendRadius")))
+        {
+            if (!Payload->TryGetNumberField(TEXT("blendRadius"), NumberValue) || !FMath::IsFinite(NumberValue) || NumberValue < 0.0)
+                InvalidField = TEXT("blendRadius must be non-negative");
+            else Volume->BlendRadius = static_cast<float>(NumberValue);
+        }
+        if (Payload->HasField(TEXT("blendWeight")))
+        {
+            if (!Payload->TryGetNumberField(TEXT("blendWeight"), NumberValue) || !FMath::IsFinite(NumberValue) || NumberValue < 0.0 || NumberValue > 1.0)
+                InvalidField = TEXT("blendWeight must be between 0 and 1");
+            else Volume->BlendWeight = static_cast<float>(NumberValue);
+        }
+        if (Payload->HasField(TEXT("priority")))
+        {
+            if (!Payload->TryGetNumberField(TEXT("priority"), NumberValue) || !FMath::IsFinite(NumberValue))
+                InvalidField = TEXT("priority must be finite");
+            else Volume->Priority = static_cast<float>(NumberValue);
+        }
+
+        TArray<TSharedPtr<FJsonValue>> AppliedSettings;
+        TArray<TSharedPtr<FJsonValue>> UnsupportedSettings;
+        ApplyPostProcessSettings(Payload, Volume, AppliedSettings, UnsupportedSettings, InvalidField);
+        if (!InvalidField.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId, InvalidField, TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        Volume->PostEditChange();
+        Volume->MarkPackageDirty();
+        TSharedPtr<FJsonObject> Response = MakePostProcessVolumeResult(Volume);
+        Response->SetArrayField(TEXT("appliedSettings"), AppliedSettings);
+        Response->SetArrayField(TEXT("unsupportedSettings"), UnsupportedSettings);
+        Response->SetNumberField(TEXT("appliedCount"), AppliedSettings.Num());
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            Lower == TEXT("create_post_process_volume") ? TEXT("Post Process Volume created") : TEXT("Post Process Volume configured"), Response);
         return true;
     }
 

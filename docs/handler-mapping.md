@@ -168,6 +168,36 @@ This document maps the TypeScript tool definitions to their corresponding C++ ha
 | `configure_ssr_settings` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; applies supported SSR CVars |
 | `configure_lumen_reflection_settings` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; applies supported Lumen reflection CVars |
 | `inspect_reflection_captures` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.4; lists capture and planar reflection actors with readback |
+| `create_post_process_volume` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; creates a configurable Post Process Volume |
+| `configure_pp_blend` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures volume extent, priority, blend radius, weight, and unbound state |
+| `set_pp_white_balance` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; sets temperature and tint |
+| `set_pp_color_grading` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; sets saturation, contrast, gamma, gain, and offset vectors |
+| `set_pp_lut` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; assigns a safe `/Game` or `/Engine` LUT texture |
+| `configure_tonemapper` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures tone curve, gamut, and film clips |
+| `set_tonemapper_type` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; applies the renderer tonemapper CVar when available |
+| `configure_bloom` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures bloom method, intensity, threshold, and size |
+| `set_bloom_intensity` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates bloom intensity |
+| `set_bloom_threshold` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates bloom threshold |
+| `configure_lens_flare` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures lens flare intensity, bokeh size, and threshold |
+| `configure_dof` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures depth of field focus, aperture, blur, and bokeh |
+| `set_dof_method` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; selects the available DOF method enum |
+| `set_focal_distance` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates DOF focal distance |
+| `set_aperture` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates DOF F-stop |
+| `configure_bokeh` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates DOF blade/minimum aperture settings |
+| `configure_motion_blur` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures motion blur amount, maximum, target FPS, and object size |
+| `set_motion_blur_amount` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates motion blur amount |
+| `set_motion_blur_max` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates motion blur maximum |
+| `configure_exposure` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures metering, compensation, range, and adaptation speeds |
+| `set_exposure_method` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; selects histogram, basic, or manual exposure |
+| `set_exposure_compensation` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates exposure compensation |
+| `set_exposure_min_max` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; updates exposure adaptation limits |
+| `configure_ssao` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures ambient occlusion volume settings |
+| `configure_gtao` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures AO settings and optional GTAO renderer CVar |
+| `configure_vignette` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures vignette intensity |
+| `configure_chromatic_aberration` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures scene fringe/chromatic aberration |
+| `configure_grain` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; configures film grain intensity |
+| `configure_screen_percentage` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; applies renderer screen percentage CVar |
+| `inspect_post_process_volume` | `NebulaForgeBridge_LightingHandlers.cpp` | `HandleLightingAction` | Phase 29.5; lists volumes and representative post-process settings |
 
 ## Performance Manager (`system_control`)
 

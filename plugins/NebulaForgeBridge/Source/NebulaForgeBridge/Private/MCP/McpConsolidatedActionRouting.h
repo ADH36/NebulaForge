@@ -285,7 +285,19 @@ inline const TArray<FString>& Lighting()
 		TEXT("configure_capture_resolution"), TEXT("configure_capture_offset"),
 		TEXT("recapture_scene"), TEXT("create_planar_reflection"),
 		TEXT("configure_planar_reflection"), TEXT("configure_ssr_settings"),
-		TEXT("configure_lumen_reflection_settings"), TEXT("inspect_reflection_captures")
+		TEXT("configure_lumen_reflection_settings"), TEXT("inspect_reflection_captures"),
+		// Phase 29.5: Post Process Volume and FPostProcessSettings.
+		TEXT("create_post_process_volume"), TEXT("configure_pp_blend"),
+		TEXT("set_pp_white_balance"), TEXT("set_pp_color_grading"), TEXT("set_pp_lut"),
+		TEXT("configure_tonemapper"), TEXT("set_tonemapper_type"),
+		TEXT("configure_bloom"), TEXT("set_bloom_intensity"), TEXT("set_bloom_threshold"),
+		TEXT("configure_lens_flare"), TEXT("configure_dof"), TEXT("set_dof_method"),
+		TEXT("set_focal_distance"), TEXT("set_aperture"), TEXT("configure_bokeh"),
+		TEXT("configure_motion_blur"), TEXT("set_motion_blur_amount"), TEXT("set_motion_blur_max"),
+		TEXT("configure_exposure"), TEXT("set_exposure_method"), TEXT("set_exposure_compensation"),
+		TEXT("set_exposure_min_max"), TEXT("configure_ssao"), TEXT("configure_gtao"),
+		TEXT("configure_vignette"), TEXT("configure_chromatic_aberration"), TEXT("configure_grain"),
+		TEXT("configure_screen_percentage"), TEXT("inspect_post_process_volume")
 	};
 	return Actions;
 }

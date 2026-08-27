@@ -1268,16 +1268,21 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Research references**: [Reflection Captures](https://dev.epicgames.com/documentation/en-us/unreal-engine/reflections-captures-in-unreal-engine), [Planar Reflections](https://dev.epicgames.com/documentation/en-us/unreal-engine/planar-reflections-in-unreal-engine), [Reflections Environment](https://dev.epicgames.com/documentation/en-us/unreal-engine/reflections-environment-in-unreal-engine), [Rendering Settings](https://dev.epicgames.com/documentation/en-us/unreal-engine/rendering-settings-in-the-unreal-engine-project-settings), and [Lumen Reflections](https://dev.epicgames.com/documentation/en-us/unreal-engine/lumen-global-illumination-and-reflections-in-unreal-engine).
 
 ### 29.5 Post Processing
-- [ ] `create_post_process_volume`
-- [ ] `configure_pp_blend` (infinite_unbound, weight)
-- [ ] Color Grading: `set_pp_white_balance`, `set_pp_color_grading`, `set_pp_lut`, saturation, contrast, gamma, gain, offset
-- [ ] `configure_tonemapper`, `set_tonemapper_type`
-- [ ] Bloom: `configure_bloom`, `set_bloom_intensity`, `set_bloom_threshold`, `configure_lens_flare`
-- [ ] DOF: `configure_dof`, `set_dof_method`, `set_focal_distance`, `set_aperture`, `configure_bokeh`
-- [ ] Motion Blur: `configure_motion_blur`, `set_motion_blur_amount`, `set_motion_blur_max`
-- [ ] Exposure: `configure_exposure`, `set_exposure_method`, `set_exposure_compensation`, `set_exposure_min_max`
-- [ ] AO: `configure_ssao`, `configure_gtao`
-- [ ] Effects: `configure_vignette`, `configure_chromatic_aberration`, `configure_grain`, `configure_screen_percentage`
+- [x] `create_post_process_volume` (location, rotation, extent, enabled, and named-volume targeting)
+- [x] `configure_pp_blend` (infinite extent/unbound, priority, blend radius, blend weight)
+- [x] Color Grading: `set_pp_white_balance`, `set_pp_color_grading`, `set_pp_lut` (temperature, tint, saturation, contrast, gamma, gain, offset, LUT intensity)
+- [x] Tonemapper: `configure_tonemapper`, `set_tonemapper_type` (tone curve, gamut, film clips, engine CVar fallback)
+- [x] Bloom/Lens: `configure_bloom`, `set_bloom_intensity`, `set_bloom_threshold`, `configure_lens_flare` (size and threshold controls)
+- [x] DOF: `configure_dof`, `set_dof_method`, `set_focal_distance`, `set_aperture`, `configure_bokeh` (focus, F-stop, transitions, blur, blades)
+- [x] Motion Blur: `configure_motion_blur`, `set_motion_blur_amount`, `set_motion_blur_max` (amount, max, target FPS, per-object size)
+- [x] Exposure: `configure_exposure`, `set_exposure_method`, `set_exposure_compensation`, `set_exposure_min_max` (histogram/basic/manual, limits, adaptation speeds)
+- [x] AO: `configure_ssao`, `configure_gtao` (volume AO properties plus optional GTAO CVar)
+- [x] Effects: `configure_vignette`, `configure_chromatic_aberration`, `configure_grain`, `configure_screen_percentage`
+- [x] `inspect_post_process_volume` (volume/blend and representative settings readback)
+
+**Implementation notes**: The implementation uses `APostProcessVolume` and reflection-backed `FPostProcessSettings` writes so optional properties can report as unsupported on older UE5 versions instead of breaking compilation or silently changing unrelated settings. Post-process override flags are enabled for every applied setting; unsupported engine CVars are returned in `unsupportedSettings`. LUT paths are restricted to `/Game` and `/Engine` assets, and screen percentage/tonemapper/GTAO controls use CVars when exposed by the active renderer.
+
+**Research references**: [Post Process Effects](https://dev.epicgames.com/documentation/en-us/unreal-engine/post-process-effects-in-unreal-engine), [FPostProcessSettings API](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/FPostProcessSettings), [Post Process Volume API](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/APostProcessVolume), [Color Grading and Filmic Tonemapper](https://dev.epicgames.com/documentation/en-us/unreal-engine/color-grading-and-the-filmic-tonemapper-in-unreal-engine), and [Rendering Features Reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/rendering-features-reference).
 
 ### 29.6 Scene Capture
 - [ ] `create_scene_capture_2d`, `create_scene_capture_cube`

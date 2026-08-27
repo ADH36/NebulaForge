@@ -1232,6 +1232,29 @@ with `UReflectionCaptureComponent::UpdateReflectionCaptureContents()`. The
 bridge also exposes supported SSR and Lumen reflection controls through the
 Phase 29.4 actions.
 
+### Post Process Volume
+```cpp
+APostProcessVolume* Volume;
+Volume->bUnbound = true;
+Volume->BlendWeight = 1.0f;
+Volume->BlendRadius = 1500.0f;
+Volume->Priority = 10.0f;
+
+FPostProcessSettings& Settings = Volume->Settings;
+Settings.bOverride_BloomIntensity = true;
+Settings.BloomIntensity = 0.8f;
+Settings.bOverride_AutoExposureMethod = true;
+Settings.AutoExposureMethod = AEM_Manual;
+Settings.bOverride_ColorSaturation = true;
+Settings.ColorSaturation = FVector4(1.1f, 1.1f, 1.1f, 1.0f);
+```
+
+Phase 29.5 writes the corresponding `bOverride_*` flags with each setting,
+supports named-volume targeting, and reports unsupported version-specific
+properties/CVars. The action groups cover volume blending, color grading/LUTs,
+tonemapping, bloom and lens flare, depth of field, motion blur, exposure, SSAO,
+GTAO, vignette, chromatic aberration, film grain, and screen percentage.
+
 ---
 
 ## Phase 30: Sequencer & Cinematics

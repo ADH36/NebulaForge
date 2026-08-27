@@ -3477,14 +3477,15 @@ static bool McpBuildCollisionResponseConfig(const TSharedPtr<FJsonObject> &Paylo
   }
   TArray<FString> Parts;
   for (const auto &Pair : (*Responses)->Values) {
+    const FString ChannelName = FString(*Pair.Key);
     FString ResponseName;
     ECollisionResponse Response;
     if (!Pair.Value.IsValid() || !Pair.Value->TryGetString(ResponseName) ||
-        !McpParseCollisionResponse(ResponseName, Response) || !McpCollisionNameIsSafe(Pair.Key)) {
-      OutError = FString::Printf(TEXT("Invalid collision response entry for channel '%s'."), *Pair.Key);
+        !McpParseCollisionResponse(ResponseName, Response) || !McpCollisionNameIsSafe(ChannelName)) {
+      OutError = FString::Printf(TEXT("Invalid collision response entry for channel '%s'."), *ChannelName);
       return false;
     }
-    Parts.Add(FString::Printf(TEXT("(Channel=%s,Response=ECR_%s)"), *Pair.Key,
+    Parts.Add(FString::Printf(TEXT("(Channel=%s,Response=ECR_%s)"), *ChannelName,
                               *McpCollisionResponseName(Response).ToUpper()));
   }
   OutConfig = FString::Join(Parts, TEXT(",")); return true;
@@ -3626,8 +3627,9 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorCollision(
     const TSharedPtr<FJsonObject> *Responses = nullptr;
     if (!Payload->TryGetObjectField(TEXT("responses"), Responses) || !Responses || !Responses->IsValid()) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("MISSING_PARAM"), TEXT("responses is required."), nullptr); return true; }
     for (const auto &Pair : (*Responses)->Values) {
+      const FString ChannelName = FString(*Pair.Key);
       FString ResponseName; ECollisionChannel Channel; ECollisionResponse Response;
-      if (!Pair.Value.IsValid() || !Pair.Value->TryGetString(ResponseName) || !McpResolveCollisionChannel(Pair.Key, Channel) || !McpParseCollisionResponse(ResponseName, Response)) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("responses contains an invalid channel or response."), nullptr); return true; }
+      if (!Pair.Value.IsValid() || !Pair.Value->TryGetString(ResponseName) || !McpResolveCollisionChannel(ChannelName, Channel) || !McpParseCollisionResponse(ResponseName, Response)) { SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("responses contains an invalid channel or response."), nullptr); return true; }
       for (UPrimitiveComponent *Component : Components) Component->SetCollisionResponseToChannel(Channel, Response);
     }
   } else if (Action == TEXT("get_actor_collision") || Action == TEXT("get_component_collision")) {

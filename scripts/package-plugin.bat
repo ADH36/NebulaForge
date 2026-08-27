@@ -47,6 +47,7 @@ for %%I in ("!OUTPUT_DIR!") do set "OUTPUT_DIR=%%~fI"
 set "SCRIPT_DIR=%~dp0"
 set "REPO_ROOT=%SCRIPT_DIR%.."
 set "PLUGIN_FILE=%REPO_ROOT%\plugins\NebulaForgeBridge\NebulaForgeBridge.uplugin"
+set "POWERSHELL_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 if not exist "%PLUGIN_FILE%" (
     echo ERROR: Plugin file not found: %PLUGIN_FILE%
@@ -65,11 +66,11 @@ REM ─── Extract version info ───────────────
 set "UE_VER=unknown"
 set "UE_VERSION_FILE=%ENGINE_DIR%\Engine\Build\Build.version"
 if exist "%UE_VERSION_FILE%" (
-    for /f "delims=" %%V in ('powershell -NoProfile -Command "$v = Get-Content -LiteralPath $args[0] -Raw | ConvertFrom-Json; Write-Output \"$($v.MajorVersion).$($v.MinorVersion)\"" "%UE_VERSION_FILE%"') do set "UE_VER=%%V"
+    for /f "delims=" %%V in ('"%POWERSHELL_EXE%" -NoProfile -File "%SCRIPT_DIR%read-package-version.ps1" -Path "%UE_VERSION_FILE%" -Engine') do set "UE_VER=%%V"
 )
 
 set "PLUGIN_VER=0.0.0"
-for /f "delims=" %%V in ('powershell -NoProfile -Command "$d = Get-Content -LiteralPath $args[0] -Raw | ConvertFrom-Json; Write-Output $d.VersionName" "%PLUGIN_FILE%"') do set "PLUGIN_VER=%%V"
+for /f "delims=" %%V in ('"%POWERSHELL_EXE%" -NoProfile -File "%SCRIPT_DIR%read-package-version.ps1" -Path "%PLUGIN_FILE%"') do set "PLUGIN_VER=%%V"
 
 set "ZIP_NAME=NebulaForgeBridge-v%PLUGIN_VER%-UE%UE_VER%-Win64.zip"
 set "ZIP_PATH=%OUTPUT_DIR%\%ZIP_NAME%"

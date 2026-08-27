@@ -6,6 +6,7 @@
 #include "NebulaForgeBridgeGlobals.h"
 #include "NebulaForgeBridgeHelpers.h"
 #include "NebulaForgeBridgeSubsystem.h"
+#include "McpHandlerUtils.h"
 #include "McpPropertyReflection.h"
 
 #if WITH_EDITOR
@@ -134,9 +135,9 @@ bool BuildInvocationParameters(UFunction* Function,
       continue;
     }
 
-    const TSharedPtr<FJsonValue>* Value =
-        Values.IsValid() ? Values->Values.Find(Property->GetName()) : nullptr;
-    if (!Value || !Value->IsValid())
+    const TSharedPtr<FJsonValue> Value =
+        Values.IsValid() ? Values->TryGetField(*Property->GetName()) : nullptr;
+    if (!Value.IsValid())
     {
       OutError = FString::Printf(TEXT("Missing parameter value: %s"), *Property->GetName());
       if (Function->ParmsSize > 0) Function->DestroyStruct(Storage.GetData());
@@ -145,7 +146,7 @@ bool BuildInvocationParameters(UFunction* Function,
 
     FString PropertyError;
     if (!McpPropertyReflection::ApplyJsonValueToProperty(
-            Storage.GetData(), Property, *Value, PropertyError))
+            Storage.GetData(), Property, Value, PropertyError))
     {
       OutError = FString::Printf(TEXT("Parameter %s: %s"), *Property->GetName(), *PropertyError);
       if (Function->ParmsSize > 0) Function->DestroyStruct(Storage.GetData());
@@ -208,7 +209,7 @@ void AddDelegateState(UObject* Object, FProperty* Property,
         if (BoundObject) BoundObjects.Add(MakeShared<FJsonValueString>(BoundObject->GetPathName()));
       }
       Result->SetBoolField(TEXT("bound"), Delegate->IsBound());
-      Result->SetStringField(TEXT("delegateState"), Delegate->ToString());
+      Result->SetStringField(TEXT("delegateState"), Delegate->ToString<UObject>());
     }
     Result->SetArrayField(TEXT("boundObjects"), BoundObjects);
     Result->SetNumberField(TEXT("bindingCount"), BoundObjects.Num());
@@ -708,7 +709,7 @@ bool UNebulaForgeBridgeSubsystem::HandleDelegateInterfaceAction(
     }
     void* ValuePtr = Property->ContainerPtrToValuePtr<void>(DelegateObject);
     const FMulticastScriptDelegate* Delegate = Multi->GetMulticastDelegate(ValuePtr);
-    if (Delegate) Delegate->ProcessMulticastDelegate(Signature && Signature->ParmsSize > 0 ? Storage.GetData() : nullptr);
+    if (Delegate) Delegate->ProcessDelegate<UObject>(Signature && Signature->ParmsSize > 0 ? Storage.GetData() : nullptr);
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("delegateObject"), DelegateObject->GetPathName());
     Result->SetStringField(TEXT("delegateName"), DelegateName);

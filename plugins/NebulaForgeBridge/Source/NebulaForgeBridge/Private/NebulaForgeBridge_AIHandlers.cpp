@@ -802,7 +802,7 @@ static bool HandleInspectRuntimeAI(
     FVector PreviousLocation = FVector::ZeroVector;
     if (const TSharedPtr<FJsonObject>* PreviousLocationObject = nullptr;
         Payload->TryGetObjectField(TEXT("previousLocation"), PreviousLocationObject) &&
-        PreviousLocationObject && (*PreviousLocationObject)->IsValid())
+        PreviousLocationObject && (*PreviousLocationObject).IsValid())
     {
         PreviousLocation.X = GetNumberFieldAI(*PreviousLocationObject, TEXT("x"), 0.0);
         PreviousLocation.Y = GetNumberFieldAI(*PreviousLocationObject, TEXT("y"), 0.0);

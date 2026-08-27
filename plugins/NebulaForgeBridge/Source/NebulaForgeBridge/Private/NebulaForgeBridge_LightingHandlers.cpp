@@ -567,7 +567,7 @@ static APostProcessVolume* FindPostProcessVolume(
 {
     if (!Target.IsEmpty())
     {
-        return Cast<APostProcessVolume>(FindActorByName(Target, true));
+        return Cast<APostProcessVolume>(McpHandlerUtils::FindActorByName(Target, true));
     }
     if (!ActorSubsystem)
     {
@@ -2087,7 +2087,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
             return true;
         };
 
-        auto SetBool = [&](const TCHAR* JsonName, uint8& Setting) {
+        auto SetBool = [&](const TCHAR* JsonName, TFunctionRef<void(bool)> Setter) {
             if (!Payload->HasField(JsonName))
             {
                 return true;
@@ -2098,7 +2098,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
                 InvalidField = FString::Printf(TEXT("%s must be a boolean"), JsonName);
                 return false;
             }
-            Setting = Value ? 1 : 0;
+            Setter(Value);
             ChangedFields.Add(JsonName);
             return true;
         };
@@ -2115,11 +2115,11 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
             bValid = SetFloat(TEXT("environmentIntensity"), Settings.EnvironmentIntensity, 0.0, 100.0) && bValid;
             bValid = SetFloat(TEXT("diffuseBoost"), Settings.DiffuseBoost, 0.0, 100.0) && bValid;
             bValid = SetFloat(TEXT("emissiveBoost"), Settings.EmissiveBoost, 0.0, 100.0) && bValid;
-            bValid = SetBool(TEXT("useAmbientOcclusion"), Settings.bUseAmbientOcclusion) && bValid;
-            bValid = SetBool(TEXT("generateAmbientOcclusionMaterialMask"), Settings.bGenerateAmbientOcclusionMaterialMask) && bValid;
-            bValid = SetBool(TEXT("visualizeMaterialDiffuse"), Settings.bVisualizeMaterialDiffuse) && bValid;
-            bValid = SetBool(TEXT("visualizeAmbientOcclusion"), Settings.bVisualizeAmbientOcclusion) && bValid;
-            bValid = SetBool(TEXT("compressLightmaps"), Settings.bCompressLightmaps) && bValid;
+            bValid = SetBool(TEXT("useAmbientOcclusion"), [&](bool Value) { Settings.bUseAmbientOcclusion = Value; }) && bValid;
+            bValid = SetBool(TEXT("generateAmbientOcclusionMaterialMask"), [&](bool Value) { Settings.bGenerateAmbientOcclusionMaterialMask = Value; }) && bValid;
+            bValid = SetBool(TEXT("visualizeMaterialDiffuse"), [&](bool Value) { Settings.bVisualizeMaterialDiffuse = Value; }) && bValid;
+            bValid = SetBool(TEXT("visualizeAmbientOcclusion"), [&](bool Value) { Settings.bVisualizeAmbientOcclusion = Value; }) && bValid;
+            bValid = SetBool(TEXT("compressLightmaps"), [&](bool Value) { Settings.bCompressLightmaps = Value; }) && bValid;
             bValid = SetFloat(TEXT("volumetricLightmapDetailCellSize"), Settings.VolumetricLightmapDetailCellSize, 1.0, 20000.0) && bValid;
             bValid = SetFloat(TEXT("volumetricLightmapMaximumBrickMemoryMb"), Settings.VolumetricLightmapMaximumBrickMemoryMb, 1.0, 100000.0) && bValid;
             bValid = SetFloat(TEXT("volumetricLightmapSphericalHarmonicSmoothing"), Settings.VolumetricLightmapSphericalHarmonicSmoothing, 0.0, 1.0) && bValid;
@@ -2909,7 +2909,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
             FProperty* Property = Component->GetClass()->FindPropertyByName(FName(TEXT("CaptureSource")));
             FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property);
             FByteProperty* ByteProperty = CastField<FByteProperty>(Property);
-            UEnum* Enum = EnumProperty ? EnumProperty->GetEnum() : (ByteProperty ? ByteProperty->Enum : nullptr);
+            UEnum* Enum = EnumProperty ? EnumProperty->GetEnum() : (ByteProperty ? ByteProperty->Enum.Get() : nullptr);
             FNumericProperty* Numeric = EnumProperty ? EnumProperty->GetUnderlyingProperty() : CastField<FNumericProperty>(ByteProperty);
             if (!Enum || !Numeric) return false;
             const int64 Value = ResolvePostProcessEnumValue(Enum, Requested);

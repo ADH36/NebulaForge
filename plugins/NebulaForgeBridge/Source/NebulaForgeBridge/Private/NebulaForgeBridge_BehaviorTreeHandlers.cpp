@@ -601,11 +601,11 @@ bool UNebulaForgeBridgeSubsystem::HandleBehaviorTreeAction(
                 static_cast<uint8>(NodeType == TEXT("Fail")
                                        ? EBTNodeResult::Failed
                                        : EBTNodeResult::Succeeded);
-            if (FStructProperty *ResultProp = FindField<FStructProperty>(
+            if (FStructProperty *ResultProp = FindFProperty<FStructProperty>(
                     FinishTask->GetClass(), TEXT("Result"))) {
               void *ResultStructPtr =
                   ResultProp->ContainerPtrToValuePtr<void>(FinishTask);
-              if (UInt8Property *DefaultValueProp = FindField<UInt8Property>(
+              if (FByteProperty *DefaultValueProp = FindFProperty<FByteProperty>(
                       ResultProp->Struct, TEXT("DefaultValue"))) {
                 DefaultValueProp->SetPropertyValue_InContainer(ResultStructPtr,
                                                                DesiredResult);

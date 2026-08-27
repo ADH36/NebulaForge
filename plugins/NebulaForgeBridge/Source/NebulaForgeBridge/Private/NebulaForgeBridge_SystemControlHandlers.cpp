@@ -29,7 +29,7 @@
 #include "IPythonScriptPlugin.h"
 #include "Misc/FileHelper.h"
 #include "Subsystems/EngineSubsystem.h"
-#include "Subsystems/EditorSubsystem.h"
+#include "EditorSubsystem.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Subsystems/LocalPlayerSubsystem.h"
 #include "Subsystems/Subsystem.h"

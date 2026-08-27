@@ -2599,7 +2599,7 @@ static bool HandleInspectHlodLayer(UNebulaForgeBridgeSubsystem* Subsystem, const
     // Current-world only: count actors actually assigned to this resolved layer.
     int32 AssignedActorCount = 0;
     TArray<TSharedPtr<FJsonValue>> SampleAssignedActors;
-    if (UWorld* CurrentWorld = GetEditorWorld())
+    if (UWorld* CurrentWorld = LevelStructureHelpers::GetEditorWorld())
     {
         for (TActorIterator<AActor> It(CurrentWorld); It; ++It)
         {

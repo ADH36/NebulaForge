@@ -246,7 +246,8 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
   const FString Lower = Action.ToLower();
   if (Lower != TEXT("create_landscape_edit_layer") &&
       Lower != TEXT("list_landscape_edit_layers") &&
-      Lower != TEXT("verify_landscape_edit_layers")) return false;
+      Lower != TEXT("verify_landscape_edit_layers") &&
+      Lower != TEXT("remove_landscape_edit_layer")) return false;
 #if WITH_EDITOR
   if (!Payload.IsValid() || !GEditor || !GEditor->GetEditorWorldContext().World()) {
     SendAutomationError(RequestingSocket, RequestId, TEXT("Editor world and payload are required."), TEXT("EDITOR_NOT_AVAILABLE"));
@@ -306,6 +307,35 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
     }
   }
 
+  if (Lower == TEXT("remove_landscape_edit_layer")) {
+    int32 LayerIndex = INDEX_NONE;
+    for (int32 Index = 0; Index < Landscape->GetLayersConst().Num(); ++Index) {
+      const FLandscapeLayer& Layer = Landscape->GetLayersConst()[Index];
+      if (Layer.EditLayer && Layer.EditLayer->GetName().ToString().Equals(RequestedLayerName, ESearchCase::IgnoreCase)) {
+        LayerIndex = Index;
+        if (Layer.EditLayer->IsLocked()) {
+          SendAutomationError(RequestingSocket, RequestId, TEXT("Landscape Edit Layer is locked."), TEXT("EDIT_LAYER_LOCKED"));
+          return true;
+        }
+        break;
+      }
+    }
+    if (LayerIndex == INDEX_NONE) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Landscape Edit Layer not found."), TEXT("EDIT_LAYER_NOT_FOUND"));
+      return true;
+    }
+    if (Landscape->GetLayersConst().Num() <= 1) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("The last Landscape Edit Layer cannot be removed."), TEXT("EDIT_LAYER_LAST_REMAINING"));
+      return true;
+    }
+    Landscape->Modify();
+    if (!Landscape->DeleteLayer(LayerIndex)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Landscape Edit Layer removal failed."), TEXT("EDIT_LAYER_REMOVE_FAILED"));
+      return true;
+    }
+    Landscape->MarkPackageDirty();
+  }
+
   TArray<TSharedPtr<FJsonValue>> Layers;
   bool bAllRequestedFound = true;
   const TArray<TSharedPtr<FJsonValue>>* RequestedNames = nullptr;
@@ -330,7 +360,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
 
   FString SaveError;
   bool bSaved = true;
-  if (Lower == TEXT("create_landscape_edit_layer") || Lower == TEXT("verify_landscape_edit_layers"))
+  if (Lower == TEXT("create_landscape_edit_layer") || Lower == TEXT("verify_landscape_edit_layers") || Lower == TEXT("remove_landscape_edit_layer"))
     bSaved = McpSaveLandscapePersistence(World, Landscape, SaveError);
   bool bReloadVerified = false;
   bool bReloadRequested = false;
@@ -374,7 +404,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
       (!bReloadRequested || bReloadVerified);
 
   TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
-  Result->SetBoolField(TEXT("success"), bVerified);
+  Result->SetBoolField(TEXT("success"), Lower == TEXT("remove_landscape_edit_layer") ? bSaved : bVerified);
   Result->SetStringField(TEXT("status"), bVerified ? TEXT("PASS") : (Layers.Num() > 0 ? TEXT("PARTIAL") : TEXT("FAIL")));
   Result->SetStringField(TEXT("landscapePath"), Landscape->GetPathName());
   Result->SetArrayField(TEXT("editLayers"), Layers);
@@ -393,8 +423,8 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
   Result->SetStringField(TEXT("evidence"), FString::Printf(TEXT("%d edit layer(s) enumerated; package=%s; reload=%s"), Layers.Num(), *McpLandscapePackagePath(Landscape), ReloadEvidence));
   if (!SaveError.IsEmpty()) Result->SetStringField(TEXT("saveError"), SaveError);
   SendAutomationResponse(RequestingSocket, RequestId, Result->GetBoolField(TEXT("success")),
-      Result->GetBoolField(TEXT("success")) ? TEXT("Landscape edit layers verified") : TEXT("Landscape edit-layer verification failed"), Result,
-      Result->GetBoolField(TEXT("success")) ? FString() : TEXT("EDIT_LAYER_VERIFICATION_FAILED"));
+      Result->GetBoolField(TEXT("success")) ? (Lower == TEXT("remove_landscape_edit_layer") ? TEXT("Landscape edit layer removed") : TEXT("Landscape edit layers verified")) : TEXT("Landscape edit-layer verification failed"), Result,
+      Result->GetBoolField(TEXT("success")) ? FString() : (Lower == TEXT("remove_landscape_edit_layer") ? TEXT("EDIT_LAYER_REMOVE_FAILED") : TEXT("EDIT_LAYER_VERIFICATION_FAILED")));
   return true;
 #else
   SendAutomationError(RequestingSocket, RequestId, TEXT("Landscape edit layers require an editor build."), TEXT("NOT_IMPLEMENTED"));

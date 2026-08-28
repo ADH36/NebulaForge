@@ -4082,6 +4082,13 @@ bool UNebulaForgeBridgeSubsystem::HandleManageLevelStructureAction(
     {
         bHandled = HandleConfigureGridSize(this, RequestId, Payload, Socket);
     }
+    else if (SubAction == TEXT("get_wp_cell_status") ||
+             SubAction == TEXT("pin_wp_cells") ||
+             SubAction == TEXT("unpin_wp_cells") ||
+             SubAction == TEXT("unload_cells"))
+    {
+        bHandled = HandleWorldPartitionAction(RequestId, TEXT("manage_world_partition"), Payload, Socket);
+    }
     else if (SubAction == TEXT("prepare_pie_capture"))
     {
         UWorld* World = GEditor ? (GEditor->PlayWorld ? GEditor->PlayWorld.Get() : GEditor->GetEditorWorldContext().World()) : nullptr;

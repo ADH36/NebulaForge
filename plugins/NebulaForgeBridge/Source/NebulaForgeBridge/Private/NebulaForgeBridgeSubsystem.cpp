@@ -1068,6 +1068,10 @@ void UNebulaForgeBridgeSubsystem::InitializeHandlers() {
                   [this](const FString &R, const FString &A, const TSharedPtr<FJsonObject> &P, TSharedPtr<FMcpBridgeWebSocket> S) {
                     return HandleLandscapeEditLayers(R, A, P, S);
                   });
+  RegisterHandler(TEXT("remove_landscape_edit_layer"),
+                  [this](const FString &R, const FString &A, const TSharedPtr<FJsonObject> &P, TSharedPtr<FMcpBridgeWebSocket> S) {
+                    return HandleLandscapeEditLayers(R, A, P, S);
+                  });
 
   // Foliage
   RegisterHandler(TEXT("add_foliage_type"),

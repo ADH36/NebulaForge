@@ -85,6 +85,7 @@ const ENVIRONMENT_PATH_FIELDS_BY_ACTION: Record<string, readonly string[]> = {
   create_landscape_edit_layer: ['landscapePath'],
   list_landscape_edit_layers: ['landscapePath'],
   verify_landscape_edit_layers: ['landscapePath'],
+  remove_landscape_edit_layer: ['landscapePath'],
   generate_lods: ['assetPath', 'landscapePath', 'path'],
   configure_landscape_lod: ['assetPath', 'landscapePath', 'path'],
   create_sky_sphere: ['path'],
@@ -412,6 +413,7 @@ export async function handleEnvironmentTools(action: string, args: HandlerArgs, 
     case 'create_landscape_edit_layer':
     case 'list_landscape_edit_layers':
     case 'verify_landscape_edit_layers':
+    case 'remove_landscape_edit_layer':
       return cleanObject(await executeAutomationRequest(tools, 'build_environment', {
         ...argsRecord,
         action: envAction

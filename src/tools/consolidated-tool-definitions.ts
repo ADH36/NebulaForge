@@ -1162,7 +1162,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'create_procedural_terrain', 'create_procedural_foliage', 'add_foliage_instances',
             'get_foliage_instances', 'remove_foliage', 'paint_landscape', 'paint_landscape_layer',
             'modify_heightmap', 'set_landscape_material', 'create_landscape_grass_type',
-            'create_landscape_edit_layer', 'list_landscape_edit_layers', 'verify_landscape_edit_layers',
+            'create_landscape_edit_layer', 'list_landscape_edit_layers', 'verify_landscape_edit_layers', 'remove_landscape_edit_layer',
             // UE 5.8.1 landscape / foliage authoring. These intentionally stay
             // on the consolidated environment tool so existing clients keep the
             // same tool budget and routing contract.
@@ -4031,6 +4031,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'create_level', 'create_sublevel', 'configure_level_streaming',
             'set_streaming_distance', 'configure_level_bounds',
             'enable_world_partition', 'configure_grid_size', 'create_data_layer',
+            'get_wp_cell_status', 'pin_wp_cells', 'unpin_wp_cells', 'unload_cells',
             'assign_actor_to_data_layer', 'configure_hlod_layer', 'create_hlod_layer',
             'list_hlod_layers', 'inspect_hlod_layer', 'assign_hlod_layer', 'remove_hlod_layer',
             'report_missing_hlod_assignments', 'build_hlods', 'rebuild_hlods', 'delete_hlod_output',

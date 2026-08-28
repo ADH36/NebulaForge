@@ -116,6 +116,12 @@ export async function handleLevelStructureTools(
     case 'configure_grid_size':
       return sendRequest('configure_grid_size');
 
+    case 'get_wp_cell_status':
+    case 'pin_wp_cells':
+    case 'unpin_wp_cells':
+    case 'unload_cells':
+      return sendRequest(action);
+
     case 'prepare_pie_capture':
       return sendRequest('prepare_pie_capture');
 

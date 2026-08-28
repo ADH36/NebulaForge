@@ -259,11 +259,16 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
   ALandscape* Landscape = nullptr;
   for (TActorIterator<ALandscape> It(World); It; ++It) {
     ALandscape* Candidate = *It;
-    if (Candidate && ((!LandscapeName.IsEmpty() && Candidate->GetActorLabel().Equals(LandscapeName, ESearchCase::IgnoreCase)) ||
-        (!LandscapePath.IsEmpty() && (Candidate->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase) ||
-          Candidate->GetPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase)))) {
-      Landscape = Candidate;
-      break;
+    if (Candidate) {
+      const bool bNameMatches = !LandscapeName.IsEmpty() &&
+          Candidate->GetActorLabel().Equals(LandscapeName, ESearchCase::IgnoreCase);
+      const bool bPathMatches = !LandscapePath.IsEmpty() &&
+          (Candidate->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase) ||
+           Candidate->GetPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase));
+      if (bNameMatches || bPathMatches) {
+        Landscape = Candidate;
+        break;
+      }
     }
   }
   if (!Landscape) {
@@ -286,7 +291,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
   if (Lower == TEXT("create_landscape_edit_layer")) {
     bool bExists = false;
     for (const FLandscapeLayer& Layer : Landscape->GetLayersConst()) {
-      if (Layer.EditLayer && Layer.EditLayer->GetName().Equals(FName(*RequestedLayerName))) { bExists = true; break; }
+      if (Layer.EditLayer.Get() != nullptr && Layer.EditLayer->GetName() == FName(*RequestedLayerName)) { bExists = true; break; }
     }
     if (!bExists) {
       Landscape->Modify();
@@ -382,7 +387,10 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
   // actually reopening the map through the editor world context.
   Result->SetBoolField(TEXT("reloadRequested"), bReloadRequested);
   Result->SetBoolField(TEXT("reloadVerified"), bReloadVerified);
-  Result->SetStringField(TEXT("evidence"), FString::Printf(TEXT("%d edit layer(s) enumerated; package=%s; reload=%s"), Layers.Num(), *McpLandscapePackagePath(Landscape), bReloadRequested ? (bReloadVerified ? TEXT("verified") : TEXT("failed")) : TEXT("not_requested")));
+  const TCHAR* ReloadEvidence = TEXT("not_requested");
+  if (bReloadRequested)
+    ReloadEvidence = bReloadVerified ? TEXT("verified") : TEXT("failed");
+  Result->SetStringField(TEXT("evidence"), FString::Printf(TEXT("%d edit layer(s) enumerated; package=%s; reload=%s"), Layers.Num(), *McpLandscapePackagePath(Landscape), ReloadEvidence));
   if (!SaveError.IsEmpty()) Result->SetStringField(TEXT("saveError"), SaveError);
   SendAutomationResponse(RequestingSocket, RequestId, Result->GetBoolField(TEXT("success")),
       Result->GetBoolField(TEXT("success")) ? TEXT("Landscape edit layers verified") : TEXT("Landscape edit-layer verification failed"), Result,

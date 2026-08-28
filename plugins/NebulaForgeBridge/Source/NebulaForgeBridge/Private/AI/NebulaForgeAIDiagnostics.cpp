@@ -8,7 +8,7 @@ bool FNebulaAIDiagnostics::IsSensitiveHeaderName(const FString& HeaderName)
         TEXT("cookie"), TEXT("proxy-authorization"), TEXT("openai-organization")
     };
     FString Lower = HeaderName.ToLower();
-    Lower.TrimStartAndEnd();
+    Lower = Lower.TrimStartAndEnd();
     return SensitiveNames.Contains(Lower) || Lower.Contains(TEXT("token")) || Lower.Contains(TEXT("secret"));
 }
 

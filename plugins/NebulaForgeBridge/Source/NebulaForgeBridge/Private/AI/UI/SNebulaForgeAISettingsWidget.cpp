@@ -3,9 +3,10 @@
 #include "AI/NebulaForgeAIProviderService.h"
 #include "AI/NebulaForgeAISecretStore.h"
 #include "AI/NebulaForgeAIService.h"
+#include "AI/NebulaForgeAIConversationService.h"
 #include "AI/UI/NebulaForgeAIStyle.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Framework/Application/SWindow.h"
+#include "Widgets/SWindow.h"
 #include "Misc/MessageDialog.h"
 #include "Styling/AppStyle.h"
 #include "Widgets/Input/SButton.h"
@@ -488,7 +489,7 @@ void SNebulaForgeAISettingsWidget::OpenSettingsWindow()
         {
             if (Window->GetTitle().ToString() == WindowTitle)
             {
-                FSlateApplication::Get().BringWindowToFront(Window);
+                Window->BringToFront();
                 return;
             }
         }

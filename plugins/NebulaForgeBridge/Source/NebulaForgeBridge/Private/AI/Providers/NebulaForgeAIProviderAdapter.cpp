@@ -5,6 +5,8 @@
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Misc/Guid.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonReader.h"
 
 FNebulaAIHttpTransportBase::FNebulaAIHttpTransportBase(const FNebulaAIProviderProfile& InProfile, const FString& InApiKey)
     : Profile(InProfile)
@@ -15,7 +17,7 @@ FNebulaAIHttpTransportBase::FNebulaAIHttpTransportBase(const FNebulaAIProviderPr
 FString FNebulaAIHttpTransportBase::NormalizeBaseUrl(const FString& BaseUrl)
 {
     FString Url = BaseUrl;
-    Url.TrimStartAndEnd();
+    Url = Url.TrimStartAndEnd();
     while (Url.EndsWith(TEXT("/")))
     {
         Url.LeftChopInline(1);

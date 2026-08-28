@@ -10,8 +10,9 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/SBoxPanel.h"
 #include "Widgets/Views/STableRow.h"
-#include "Widgets/Views/STableView.h"
+#include "Widgets/Views/SListView.h"
 #include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "NebulaForgeAIConversationList"
@@ -37,13 +38,13 @@ void SNebulaForgeAIConversationList::Construct(const FArguments& InArgs)
         ]
         + SVerticalBox::Slot()
         .FillHeight(1.0f)
-        .Padding(4.0f, 2.0f)
+        .Padding(FMargin(4.0f, 2.0f))
         [
-            SAssignNew(ListView, SListView<FNebulaAIConversationMeta>)
+            SAssignNew(ListView, SListView<TSharedPtr<FNebulaAIConversationMeta> >)
             .ListItemsSource(&Items)
-            .OnGenerateRow_Raw(this, &SNebulaForgeAIConversationList::GenerateRow)
-            .OnSelectionChanged_Raw(this, &SNebulaForgeAIConversationList::OnSelectionChanged)
-            .SelectionRule(ESelectionMode::Single)
+            .OnGenerateRow(this, &SNebulaForgeAIConversationList::GenerateRow)
+            .OnSelectionChanged(this, &SNebulaForgeAIConversationList::OnSelectionChanged)
+            .SelectionMode(ESelectionMode::Single)
         ]
     ];
 }
@@ -53,7 +54,10 @@ void SNebulaForgeAIConversationList::Refresh()
     Items.Reset();
     if (FNebulaForgeAIConversationService* Conversations = FNebulaForgeAIService::Get().Conversations())
     {
-        Items = Conversations->GetConversationMetas();
+        for (const FNebulaAIConversationMeta& Meta : Conversations->GetConversationMetas())
+        {
+            Items.Add(MakeShared<FNebulaAIConversationMeta>(Meta));
+        }
     }
     if (ListView.IsValid())
     {
@@ -61,10 +65,11 @@ void SNebulaForgeAIConversationList::Refresh()
     }
 }
 
-TSharedRef<STableRow<FNebulaAIConversationMeta>> SNebulaForgeAIConversationList::GenerateRow(
-    FNebulaAIConversationMeta Item, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<ITableRow> SNebulaForgeAIConversationList::GenerateRow(
+    TSharedPtr<FNebulaAIConversationMeta> Item, const TSharedRef<STableViewBase>& OwnerTable) const
 {
-    return SNew(STableRow<FNebulaAIConversationMeta>, OwnerTable)
+    SNebulaForgeAIConversationList* MutableThis = const_cast<SNebulaForgeAIConversationList*>(this);
+    return SNew(STableRow<TSharedPtr<FNebulaAIConversationMeta>>, OwnerTable)
         .Padding(2.0f)
         [
             SNew(SHorizontalBox)
@@ -73,35 +78,35 @@ TSharedRef<STableRow<FNebulaAIConversationMeta>> SNebulaForgeAIConversationList:
             .VAlign(VAlign_Center)
             [
                 SNew(STextBlock)
-                .Text(FText::FromString(Item.Title))
+                .Text(FText::FromString(Item->Title))
                 .ToolTipText(FText::FromString(
-                    Item.Model.IsEmpty() ? Item.Title : (Item.Title + TEXT("  ·  ") + Item.Model)))
+                    Item->Model.IsEmpty() ? Item->Title : (Item->Title + TEXT("  ·  ") + Item->Model)))
             ]
             + SHorizontalBox::Slot()
             .AutoWidth()
             .VAlign(VAlign_Center)
-            .Padding(2.0f, 0.0f)
+            .Padding(FMargin(2.0f, 0.0f))
             [
                 SNew(SButton)
                 .Text(LOCTEXT("Delete", "Delete"))
-                .OnClickedLambda([this, Item]()
+                .OnClicked(FOnClicked::CreateLambda([MutableThis, Item]()
                 {
-                    return OnDeleteClicked(Item);
-                })
+                    return MutableThis->OnDeleteClicked(*Item);
+                }))
                 .ToolTipText(LOCTEXT("DeleteTooltip", "Delete this conversation after confirmation."))
             ]
         ];
 }
 
 void SNebulaForgeAIConversationList::OnSelectionChanged(
-    FNebulaAIConversationMeta Item, ESelectInfo::Type SelectInfo)
+    TSharedPtr<FNebulaAIConversationMeta> Item, ESelectInfo::Type SelectInfo)
 {
-    if (Item.Id.IsEmpty() || Item.Id == ActiveConversationId)
+    if (!Item.IsValid() || Item->Id.IsEmpty() || Item->Id == ActiveConversationId)
     {
         return;
     }
-    ActiveConversationId = Item.Id;
-    OnConversationSelected.ExecuteIfBound(Item.Id);
+    ActiveConversationId = Item->Id;
+    OnConversationSelected.ExecuteIfBound(Item->Id);
 }
 
 FReply SNebulaForgeAIConversationList::OnNewChatClicked()

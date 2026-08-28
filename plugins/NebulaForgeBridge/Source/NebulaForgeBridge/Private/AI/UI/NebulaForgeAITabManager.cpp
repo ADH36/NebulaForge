@@ -14,6 +14,7 @@
 namespace
 {
     const FName MenuOwner(TEXT("NebulaForgeAIChat"));
+    void RegisterMenuEntries();
 
     /** Tiny registrar object so the startup callback can be unregistered by
      *  pointer on every supported UE version (5.0-5.8). */
@@ -48,14 +49,13 @@ namespace
         if (WindowMenu)
         {
             FToolMenuSection& Section = WindowMenu->FindOrAddSection(TEXT("WindowLayoutSection"));
-            Section.AddMenuEntryWithCommandList(
+            Section.AddEntry(FToolMenuEntry::InitMenuEntry(
                 TEXT("NebulaForgeAIChatTabEntry"),
-                nullptr,
                 NSLOCTEXT("NebulaForgeAI", "OpenAIChatLabel", "NebulaForge AI Chat"),
                 NSLOCTEXT("NebulaForgeAI", "OpenAIChatTooltip",
                     "Open the dockable NebulaForge AI chat window."),
                 FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Stats"),
-                FUIAction(FExecuteAction::CreateStatic(&FNebulaForgeAITabManager::InvokeTab)));
+                FToolUIActionChoice(FUIAction(FExecuteAction::CreateStatic(&FNebulaForgeAITabManager::InvokeTab)))));
         }
 
         // Optional Level Editor toolbar button (behind a plugin setting).
@@ -86,7 +86,7 @@ void FNebulaForgeAITabManager::RegisterTabSpawner()
         .SetDisplayName(NSLOCTEXT("NebulaForgeAI", "TabDisplayName", "NebulaForge AI"))
         .SetTooltipText(NSLOCTEXT("NebulaForgeAI", "TabTooltip",
             "Chat with an AI about the current Unreal project."))
-        .SetGroup(WorkspaceMenu::GetMenuStructureMenuRoot())
+        .SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
         .SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Stats"));
 
     UToolMenus::RegisterStartupCallback(
@@ -105,7 +105,7 @@ void FNebulaForgeAITabManager::UnregisterTabSpawner()
 
 void FNebulaForgeAITabManager::InvokeTab()
 {
-    FGlobalTabmanager::Get()->TryInvokeTab(TabName);
+    FGlobalTabmanager::Get()->TryInvokeTab(FTabId(TabName));
 }
 
 bool FNebulaForgeAITabManager::IsToolbarButtonEnabled()

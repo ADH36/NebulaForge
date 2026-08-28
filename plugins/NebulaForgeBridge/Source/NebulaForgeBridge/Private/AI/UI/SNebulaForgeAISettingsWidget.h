@@ -13,6 +13,7 @@
 #include "NebulaForgeAIModels.h"
 #include "NebulaForgeAISettings.h"
 #include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/SComboBox.h"
 
 class SEditableTextBox;
 class STextBlock;

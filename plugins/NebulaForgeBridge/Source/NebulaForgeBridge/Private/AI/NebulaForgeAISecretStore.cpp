@@ -5,6 +5,7 @@
 #include "Misc/Paths.h"
 #include "Misc/App.h"
 #include "Misc/Crc.h"
+#include "Misc/Base64.h"
 #include "Misc/SecureHash.h"
 #include "Serialization/BufferArchive.h"
 #include "Serialization/MemoryReader.h"
@@ -161,24 +162,22 @@ bool FNebulaAISecretStore::LastUsedFallback()
 #if PLATFORM_WINDOWS
 bool FNebulaAISecretStore::StoreCredentialManager(const FString& TargetName, const FString& Secret)
 {
-    const FTCHARToUTF16 Utf16Target(*TargetName);
     const FTCHARToUTF8 Utf8Secret(*Secret);
 
     CREDENTIALW Credential = {};
     Credential.Type = CRED_TYPE_GENERIC;
-    Credential.TargetName = const_cast<LPWSTR>(Utf16Target.Get());
+    Credential.TargetName = const_cast<LPWSTR>(TCHAR_TO_WCHAR(*TargetName));
     Credential.CredentialBlobSize = static_cast<DWORD>(Utf8Secret.Length());
     Credential.CredentialBlob = reinterpret_cast<LPBYTE>(const_cast<ANSICHAR*>(Utf8Secret.Get()));
     Credential.Persist = CRED_PERSIST_LOCAL_MACHINE;
 
-    return ::CredWriteW(&Credential, 0) == TRUE;
+    return ::CredWriteW(&Credential, 0) != 0;
 }
 
 bool FNebulaAISecretStore::ReadCredentialManager(const FString& TargetName, FString& OutSecret)
 {
-    const FTCHARToUTF16 Utf16Target(*TargetName);
     PCREDENTIALW Credential = nullptr;
-    if (::CredReadW(Utf16Target.Get(), CRED_TYPE_GENERIC, 0, &Credential) != TRUE)
+    if (::CredReadW(TCHAR_TO_WCHAR(*TargetName), CRED_TYPE_GENERIC, 0, &Credential) == 0)
     {
         return false;
     }
@@ -199,8 +198,7 @@ bool FNebulaAISecretStore::ReadCredentialManager(const FString& TargetName, FStr
 
 bool FNebulaAISecretStore::DeleteCredentialManager(const FString& TargetName)
 {
-    const FTCHARToUTF16 Utf16Target(*TargetName);
-    return ::CredDeleteW(Utf16Target.Get(), CRED_TYPE_GENERIC, 0) == TRUE;
+    return ::CredDeleteW(TCHAR_TO_WCHAR(*TargetName), CRED_TYPE_GENERIC, 0) != 0;
 }
 #endif
 

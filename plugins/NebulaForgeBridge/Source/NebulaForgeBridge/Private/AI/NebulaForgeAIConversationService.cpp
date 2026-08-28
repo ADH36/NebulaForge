@@ -1,7 +1,7 @@
 #include "AI/NebulaForgeAIConversationService.h"
 #include "AI/NebulaForgeAIDiagnostics.h"
 #include "AI/NebulaForgeAISecretStore.h"
-#include "AI/NebulaForgeAISettings.h"
+#include "NebulaForgeAISettings.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Guid.h"
 #include "Misc/Paths.h"

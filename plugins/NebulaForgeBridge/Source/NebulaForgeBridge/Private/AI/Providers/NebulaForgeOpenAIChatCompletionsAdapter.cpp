@@ -7,7 +7,7 @@
 #include "Interfaces/IHttpResponse.h"
 #include "Misc/DateTime.h"
 #include "Misc/Guid.h"
-#include "Misc/PlatformTime.h"
+#include "HAL/PlatformTime.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 
@@ -484,11 +484,10 @@ void FNebulaOpenAIChatCompletionsAdapter::HandleSsePayload(
     const TSharedPtr<FJsonObject>* Delta = nullptr;
     if ((*ChoiceObj)->TryGetObjectField(TEXT("delta"), Delta) && Delta && Delta->IsValid())
     {
-        const TSharedPtr<FJsonValue>* ContentField = nullptr;
-        if ((*Delta)->TryGetField(TEXT("content"), ContentField) && ContentField->IsValid() &&
-            !ContentField->IsNull())
+        const TSharedPtr<FJsonValue> ContentField = (*Delta)->TryGetField(TEXT("content"));
+        if (ContentField.IsValid() && !ContentField->IsNull())
         {
-            const FString Text = (*ContentField)->AsString();
+            const FString Text = ContentField->AsString();
             if (!Text.IsEmpty())
             {
                 Event.Type = ENebulaAIEventType::TextDelta;

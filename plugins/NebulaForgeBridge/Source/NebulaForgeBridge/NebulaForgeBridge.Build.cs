@@ -134,6 +134,8 @@ public class NebulaForgeBridge : ModuleRules
         // Disable PCH to prevent virtual memory exhaustion
         PCHUsage = PCHUsageMode.NoPCHs;
 
+        PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Private", "AI"));
+
         bUseUnity = true;
         TrySetIntMember(this, "NumIncludedBytesPerUnityCPPOverride", 256 * 1024);
 
@@ -164,8 +166,8 @@ public class NebulaForgeBridge : ModuleRules
                 "Kismet","KismetCompiler","AssetRegistry","AssetTools","CollectionManager","ContentBrowser","SourceControl",
                 "AudioEditor", "AudioMixer", "PythonScriptPlugin",
                 // AI chat feature: provider HTTP transport (FHttpModule) and
-                // dockable tab/menu integration (WorkspaceMenu for nomad tabs).
-                "HTTP", "WorkspaceMenu", "DesktopPlatform",
+                // dockable tab/menu integration (WorkspaceMenuStructure for nomad tabs).
+                "HTTP", "WorkspaceMenuStructure", "DesktopPlatform",
                 // Native MCP uses raw sockets (Sockets/Networking already listed above)
                 // Optional plugins are handled by AddOptionalDynamicModule() below with delay-load
             });

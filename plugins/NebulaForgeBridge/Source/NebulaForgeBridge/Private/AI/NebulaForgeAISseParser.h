@@ -38,7 +38,7 @@ public:
 
 private:
     /** Consume the buffered line currently in LineBuffer. */
-    void ConsumeLine(TArray<FParsedEvent>& OutEvents);
+    void ConsumeLine(const FString& Line, TArray<FParsedEvent>& OutEvents);
 
     FString LineBuffer;
     FString PendingEventName;

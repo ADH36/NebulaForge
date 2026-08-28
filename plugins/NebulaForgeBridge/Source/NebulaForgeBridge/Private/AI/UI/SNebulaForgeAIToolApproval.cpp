@@ -1,4 +1,7 @@
 #include "AI/UI/SNebulaForgeAIToolApproval.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
 #include "AI/NebulaForgeAISecretStore.h"
 #include "AI/NebulaForgeAIService.h"
 #include "AI/UI/NebulaForgeAIStyle.h"

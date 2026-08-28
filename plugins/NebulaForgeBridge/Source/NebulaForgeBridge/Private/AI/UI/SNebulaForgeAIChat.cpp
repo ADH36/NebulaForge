@@ -14,7 +14,7 @@
 #include "AI/UI/SNebulaForgeAIToolApproval.h"
 #include "DesktopPlatformModule.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Framework/Application/SWindow.h"
+#include "Widgets/SWindow.h"
 #include "Misc/MessageDialog.h"
 #include "Styling/AppStyle.h"
 #include "Widgets/Input/SButton.h"

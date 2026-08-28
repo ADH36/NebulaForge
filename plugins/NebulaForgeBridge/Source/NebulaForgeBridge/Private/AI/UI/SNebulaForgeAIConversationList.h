@@ -10,8 +10,8 @@
 #include "CoreMinimal.h"
 #include "NebulaForgeAIModels.h"
 #include "Widgets/SCompoundWidget.h"
-
-class SListView;
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Views/STableRow.h"
 
 DECLARE_DELEGATE_OneParam(FOnNebulaAIConversationSelected, const FString& /*ConversationId*/);
 
@@ -29,15 +29,15 @@ public:
     void Refresh();
 
 private:
-    TSharedRef<class STableRow<FNebulaAIConversationMeta>> GenerateRow(
-        FNebulaAIConversationMeta Item, const TSharedRef<STableViewBase>& OwnerTable);
+    TSharedRef<ITableRow> GenerateRow(
+        TSharedPtr<FNebulaAIConversationMeta> Item, const TSharedRef<STableViewBase>& OwnerTable) const;
 
-    void OnSelectionChanged(FNebulaAIConversationMeta Item, ESelectInfo::Type SelectInfo);
+    void OnSelectionChanged(TSharedPtr<FNebulaAIConversationMeta> Item, ESelectInfo::Type SelectInfo);
     FReply OnNewChatClicked();
     FReply OnDeleteClicked(const FNebulaAIConversationMeta& Item);
 
-    TArray<FNebulaAIConversationMeta> Items;
-    TSharedPtr<SListView<FNebulaAIConversationMeta>> ListView;
+    TArray<TSharedPtr<FNebulaAIConversationMeta>> Items;
+    TSharedPtr<SListView<TSharedPtr<FNebulaAIConversationMeta>>> ListView;
     FString ActiveConversationId;
     FOnNebulaAIConversationSelected OnConversationSelected;
 };

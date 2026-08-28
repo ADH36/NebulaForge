@@ -1,7 +1,7 @@
 #include "AI/NebulaForgeAIContextCollector.h"
 #include "AI/NebulaForgeAIDiagnostics.h"
-#include "AI/NebulaForgeAIService.h"
-#include "AI/NebulaForgeAISettings.h"
+#include "NebulaForgeAIService.h"
+#include "NebulaForgeAISettings.h"
 #include "Async/Async.h"
 #include "Editor.h"
 #include "EditorModeManager.h"
@@ -131,8 +131,19 @@ FNebulaAIContextChip FNebulaForgeAIContextCollector::BuildCurrentLevelChip() con
         if (const UWorld* World = GEditor->GetEditorWorldContext().World())
         {
             Obj->SetStringField(TEXT("mapName"), World->GetMapName());
-            Obj->SetStringField(TEXT("worldType"), StaticEnum<EWorldType::Type>()->GetNameStringByValue(
-                static_cast<int64>(World->WorldType)));
+            FString WorldTypeName;
+            switch (World->WorldType)
+            {
+            case EWorldType::Editor: WorldTypeName = TEXT("Editor"); break;
+            case EWorldType::Game: WorldTypeName = TEXT("Game"); break;
+            case EWorldType::PIE: WorldTypeName = TEXT("PIE"); break;
+            case EWorldType::EditorPreview: WorldTypeName = TEXT("EditorPreview"); break;
+            case EWorldType::GamePreview: WorldTypeName = TEXT("GamePreview"); break;
+            case EWorldType::Inactive: WorldTypeName = TEXT("Inactive"); break;
+            case EWorldType::GameRPC: WorldTypeName = TEXT("GameRPC"); break;
+            default: WorldTypeName = TEXT("None"); break;
+            }
+            Obj->SetStringField(TEXT("worldType"), WorldTypeName);
             Obj->SetBoolField(TEXT("isPlayInEditor"), World->WorldType == EWorldType::PIE);
             int32 ActorCount = 0;
             for (TActorIterator<AActor> It(const_cast<UWorld*>(World)); It; ++It)
@@ -227,7 +238,8 @@ FNebulaAIContextChip FNebulaForgeAIContextCollector::BuildSelectedAssetsChip() c
 FNebulaAIContextChip FNebulaForgeAIContextCollector::BuildEditorModeChip() const
 {
     TSharedRef<FJsonObject> Obj = MakeShared<FJsonObject>();
-    Obj->SetStringField(TEXT("mode"), GLevelEditorModeTools().GetActiveMode().ToString());
+    const FEdMode* ActiveMode = GLevelEditorModeTools().GetActiveMode(FEditorModeID());
+    Obj->SetStringField(TEXT("mode"), ActiveMode ? ActiveMode->GetID().ToString() : TEXT("Default"));
 
     FNebulaAIContextChip Chip;
     Chip.Id = TEXT("editor-mode");

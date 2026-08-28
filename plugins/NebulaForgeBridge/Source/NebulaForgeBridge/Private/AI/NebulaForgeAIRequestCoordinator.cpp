@@ -2,13 +2,13 @@
 #include "AI/NebulaForgeAIConversationService.h"
 #include "AI/NebulaForgeAIDiagnostics.h"
 #include "AI/NebulaForgeAISecretStore.h"
-#include "AI/NebulaForgeAIService.h"
+#include "NebulaForgeAIService.h"
 #include "AI/NebulaForgeAISettings.h"
 #include "AI/NebulaForgeAIProviderService.h"
 #include "AI/NebulaForgeAIToolGateway.h"
 #include "Async/Async.h"
 #include "Dom/JsonObject.h"
-#include "Misc/PlatformTime.h"
+#include "HAL/PlatformTime.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 
@@ -144,7 +144,7 @@ void FNebulaForgeAIRequestCoordinator::ContinueConversation(const FString& Conve
 }
 
 bool FNebulaForgeAIRequestCoordinator::BuildRequest(
-    const FString& ConversationId, FNebulaAIRequest& OutRequest, FString& OutError) const
+    const FString& ConversationId, FNebulaAIRequest& OutRequest, FString& OutError)
 {
     const UNebulaForgeAISettings* Settings = GetDefault<UNebulaForgeAISettings>();
     const FNebulaAIProviderProfile* Profile = Settings ? Settings->GetActiveProfile() : nullptr;

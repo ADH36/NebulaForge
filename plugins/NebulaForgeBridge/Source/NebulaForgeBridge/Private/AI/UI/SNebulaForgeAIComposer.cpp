@@ -12,6 +12,7 @@
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
+#include "NebulaForgeAISettings.h"
 
 #define LOCTEXT_NAMESPACE "NebulaForgeAIComposer"
 

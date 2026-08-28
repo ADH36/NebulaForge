@@ -10,6 +10,7 @@
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Text/SMultiLineEditableText.h"
 #include "Widgets/Text/STextBlock.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 #define LOCTEXT_NAMESPACE "NebulaForgeAIMessageView"
 
@@ -170,7 +171,7 @@ TSharedRef<SWidget> SNebulaForgeAIMessageView::BuildMessageContent(const FNebula
             SNew(STextBlock)
             .Text(FText::FromString(Message.Content))
             .AutoWrapText(true)
-            .SetFont(FAppStyle::GetFontStyle(Message.Role == ENebulaAIChatRole::User
+            .Font(FAppStyle::GetFontStyle(Message.Role == ENebulaAIChatRole::User
                 ? "BoldText"
                 : "NormalText"))
         ];
@@ -188,7 +189,7 @@ TSharedRef<SWidget> SNebulaForgeAIMessageView::BuildMessageContent(const FNebula
             {
                 if (FSlateApplication::IsInitialized())
                 {
-                    FSlateApplication::Get().CopyToClipboard(FText::FromString(CopyText));
+                    FPlatformApplicationMisc::ClipboardCopy(*CopyText);
                 }
                 return FReply::Handled();
             }))
@@ -235,7 +236,7 @@ TSharedRef<SWidget> SNebulaForgeAIMessageView::BuildMessageContent(const FNebula
                     {
                         const FString Diagnostic = FString::Printf(
                             TEXT("Error: %s\nMessage: %s"), *Message.ErrorCode, *Message.ErrorMessage);
-                        FSlateApplication::Get().CopyToClipboard(FText::FromString(Diagnostic));
+                        FPlatformApplicationMisc::ClipboardCopy(*Diagnostic);
                     }
                     return FReply::Handled();
                 }))

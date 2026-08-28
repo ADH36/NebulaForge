@@ -163,6 +163,9 @@ public class NebulaForgeBridge : ModuleRules
                 "Sockets","Networking","EditorSubsystem","EditorScriptingUtilities","BlueprintGraph","SSL",
                 "Kismet","KismetCompiler","AssetRegistry","AssetTools","CollectionManager","ContentBrowser","SourceControl",
                 "AudioEditor", "AudioMixer", "PythonScriptPlugin",
+                // AI chat feature: provider HTTP transport (FHttpModule) and
+                // dockable tab/menu integration (WorkspaceMenu for nomad tabs).
+                "HTTP", "WorkspaceMenu", "DesktopPlatform",
                 // Native MCP uses raw sockets (Sockets/Networking already listed above)
                 // Optional plugins are handled by AddOptionalDynamicModule() below with delay-load
             });

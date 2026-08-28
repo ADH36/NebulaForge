@@ -7,8 +7,10 @@
 #include "NebulaForgeBridgeSubsystem.h"
 #include "MCP/McpNativeTransport.h"
 #include "MCP/McpConsolidatedActionRouting.h"
+#include "Async/Async.h"
 #include "HAL/PlatformTLS.h"
 #include "Interfaces/IPluginManager.h"
+#include "Misc/Guid.h"
 
 // =============================================================================
 // FMcpRequestErrorDevice - Custom log device for per-request error capture
@@ -589,6 +591,7 @@ bool UNebulaForgeBridgeSubsystem::Tick(float DeltaTime) {
   {
     NativeTransport->CleanupStaleRequests();
   }
+  TimeoutStaleLocalAIRequests();
   return true;
 }
 
@@ -612,6 +615,95 @@ void UNebulaForgeBridgeSubsystem::QueueAutomationRequest(
   UE_LOG(LogNebulaForgeBridgeSubsystem, Verbose,
          TEXT("Queued automation request for core ticker: RequestId=%s action=%s"),
          *RequestId, *Action);
+}
+
+void UNebulaForgeBridgeSubsystem::ExecuteLocalAutomationRequest(
+    const FString &Action, const TSharedPtr<FJsonObject> &Payload,
+    float TimeoutSeconds, FLocalAICompletion OnComplete)
+{
+  if (!IsInGameThread())
+  {
+    // Local AI execution always starts on the game thread.
+    AsyncTask(ENamedThreads::GameThread,
+              [this, Action, Payload, TimeoutSeconds, OnComplete]()
+              {
+                ExecuteLocalAutomationRequest(Action, Payload, TimeoutSeconds, OnComplete);
+              });
+    return;
+  }
+
+  const FString RequestId =
+      FString::Printf(TEXT("localai-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Digits));
+  {
+    FScopeLock Lock(&LocalAIPendingRequestsMutex);
+    FLocalAIPendingRequest Pending;
+    Pending.OnComplete = OnComplete;
+    Pending.DeadlineSeconds = FPlatformTime::Seconds() + FMath::Max(1.0f, TimeoutSeconds);
+    LocalAIPendingRequests.Add(RequestId, MoveTemp(Pending));
+  }
+
+  UE_LOG(LogNebulaForgeBridgeSubsystem, Verbose,
+         TEXT("ExecuteLocalAutomationRequest: RequestId=%s action=%s"), *RequestId,
+         *Action);
+
+  // Standard registry dispatch; no socket. Handlers report through
+  // SendAutomationResponse with Origin=LocalAI which routes the response to
+  // CompleteLocalAIRequest below.
+  ProcessAutomationRequest(RequestId, Action, Payload, nullptr,
+                           ERequestOrigin::LocalAI);
+}
+
+void UNebulaForgeBridgeSubsystem::CompleteLocalAIRequest(
+    const FString &RequestId, bool bSuccess, const FString &Message,
+    const TSharedPtr<FJsonObject> &Result)
+{
+  FLocalAICompletion Completion;
+  {
+    FScopeLock Lock(&LocalAIPendingRequestsMutex);
+    FLocalAIPendingRequest Pending;
+    if (LocalAIPendingRequests.RemoveAndCopyValue(RequestId, Pending))
+    {
+      Completion = MoveTemp(Pending.OnComplete);
+    }
+  }
+  if (Completion)
+  {
+    if (IsInGameThread())
+    {
+      Completion(bSuccess, Message, Result);
+    }
+    else
+    {
+      AsyncTask(ENamedThreads::GameThread,
+                [Completion, bSuccess, Message, Result]()
+                {
+                  Completion(bSuccess, Message, Result);
+                });
+    }
+  }
+}
+
+void UNebulaForgeBridgeSubsystem::TimeoutStaleLocalAIRequests()
+{
+  TArray<FString> Expired;
+  const double Now = FPlatformTime::Seconds();
+  {
+    FScopeLock Lock(&LocalAIPendingRequestsMutex);
+    for (TPair<FString, FLocalAIPendingRequest> &Pair : LocalAIPendingRequests)
+    {
+      if (Pair.Value.DeadlineSeconds < Now)
+      {
+        Expired.Add(Pair.Key);
+      }
+    }
+  }
+  for (const FString &RequestId : Expired)
+  {
+    UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+           TEXT("Local AI request %s timed out; completing with failure."), *RequestId);
+    CompleteLocalAIRequest(RequestId, false,
+                           TEXT("The Unreal operation timed out."), nullptr);
+  }
 }
 
 // The in-file implementation of ProcessAutomationRequest was intentionally
@@ -730,6 +822,11 @@ void UNebulaForgeBridgeSubsystem::SendAutomationResponse(
         TEXT("Native HTTP response for %s dropped — request already expired or unknown"),
         *RequestId);
     }
+    return;
+  }
+  if (EffectiveOrigin == ERequestOrigin::LocalAI)
+  {
+    CompleteLocalAIRequest(RequestId, bEffectiveSuccess, EffectiveMessage, EffectiveResult);
     return;
   }
   if (ConnectionManager.IsValid()) {

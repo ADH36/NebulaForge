@@ -99,7 +99,9 @@ DECLARE_LOG_CATEGORY_EXTERN(LogNebulaForgeBridgeSubsystem, Log, All);
 enum class ERequestOrigin : uint8
 {
 	WebSocket,
-	NativeHTTP
+	NativeHTTP,
+	/** In-editor AI chat tool execution (no socket / SSE transport). */
+	LocalAI
 };
 
 UCLASS()
@@ -250,6 +252,36 @@ public:
                               const TSharedPtr<FJsonObject> &Payload,
                               TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
                               ERequestOrigin Origin = ERequestOrigin::WebSocket);
+
+  // =========================================================================
+  // Local AI tool execution (NebulaForge AI Chat)
+  // =========================================================================
+  // Executes an automation action through the standard registry path
+  // (ProcessAutomationRequest + handler map) without a socket. Responses are
+  // delivered to OnComplete on the game thread. Used by the AI tool gateway;
+  // the UI never bypasses handler validation or safe wrappers.
+  using FLocalAICompletion =
+      TFunction<void(bool bSuccess, const FString &Message,
+                     const TSharedPtr<FJsonObject> &Result)>;
+  void ExecuteLocalAutomationRequest(const FString &Action,
+                                     const TSharedPtr<FJsonObject> &Payload,
+                                     float TimeoutSeconds,
+                                     FLocalAICompletion OnComplete);
+
+private:
+  struct FLocalAIPendingRequest
+  {
+    FLocalAICompletion OnComplete;
+    double DeadlineSeconds = 0.0;
+  };
+  TMap<FString, FLocalAIPendingRequest> LocalAIPendingRequests;
+  FCriticalSection LocalAIPendingRequestsMutex;
+  void CompleteLocalAIRequest(const FString &RequestId, bool bSuccess,
+                              const FString &Message,
+                              const TSharedPtr<FJsonObject> &Result);
+  void TimeoutStaleLocalAIRequests();
+
+public:
 
   // Connection Manager
   TSharedPtr<class FMcpConnectionManager> ConnectionManager;

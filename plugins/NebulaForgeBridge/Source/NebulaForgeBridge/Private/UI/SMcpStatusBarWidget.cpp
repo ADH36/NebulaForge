@@ -1,8 +1,13 @@
 #include "UI/SMcpStatusBarWidget.h"
+#include "AI/UI/NebulaForgeAITabManager.h"
+#include "AI/UI/SNebulaForgeAISettingsWidget.h"
 #include "NebulaForgeBridgeSubsystem.h"
 #include "NebulaForgeBridgeSettings.h"
 #include "MCP/McpNativeTransport.h"
 #include "Editor.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Styling/AppStyle.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
@@ -11,6 +16,8 @@
 #include "ISettingsModule.h"
 #include "Modules/ModuleManager.h"
 
+#define LOCTEXT_NAMESPACE "SMcpStatusBarWidget"
+
 void SMcpStatusBarWidget::Construct(const FArguments& InArgs)
 {
 	ChildSlot
@@ -18,13 +25,13 @@ void SMcpStatusBarWidget::Construct(const FArguments& InArgs)
 		SNew(SButton)
 		.ButtonStyle(&FAppStyle::Get().GetWidgetStyle<FButtonStyle>("SimpleButton"))
 		.OnClicked_Raw(this, &SMcpStatusBarWidget::OnClicked)
-		.ToolTipText(FText::FromString(TEXT("Open NebulaForge Bridge settings")))
+		.ToolTipText(FText::FromString(TEXT("NebulaForge Bridge: click to open bridge settings or the AI chat")))
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
-			.Padding(4.f, 0.f, 2.f, 0.f)
+			.Padding(4.f, 0.f, 2.f)
 			[
 				SNew(SImage)
 				.ColorAndOpacity_Raw(this, &SMcpStatusBarWidget::GetStatusColor)
@@ -34,7 +41,7 @@ void SMcpStatusBarWidget::Construct(const FArguments& InArgs)
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
-			.Padding(2.f, 0.f, 4.f, 0.f)
+			.Padding(2.f, 0.f, 4.f)
 			[
 				SNew(STextBlock)
 				.Text_Raw(this, &SMcpStatusBarWidget::GetStatusText)
@@ -46,11 +53,44 @@ void SMcpStatusBarWidget::Construct(const FArguments& InArgs)
 
 FReply SMcpStatusBarWidget::OnClicked()
 {
-	ISettingsModule* SettingsModule = FModuleManager::LoadModulePtr<ISettingsModule>("Settings");
-	if (SettingsModule)
-	{
-		SettingsModule->ShowViewer("Project", "Plugins", "NebulaForgeBridgeSettings");
-	}
+	// Open a small context menu with bridge settings plus the AI chat
+	// entry points (plan section 3.1 status bar actions).
+	FMenuBuilder MenuBuilder(true, nullptr);
+
+	MenuBuilder.AddMenuEntry(
+		NSLOCTEXT("NebulaForgeAI", "OpenAIChat", "Open AI Chat"),
+		NSLOCTEXT("NebulaForgeAI", "OpenAIChatTooltip", "Open the dockable NebulaForge AI chat window."),
+		FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Stats"),
+		FUIAction(FExecuteAction::CreateStatic(&FNebulaForgeAITabManager::InvokeTab)));
+
+	MenuBuilder.AddMenuEntry(
+		NSLOCTEXT("NebulaForgeAI", "OpenAISettings", "Open AI Settings"),
+		NSLOCTEXT("NebulaForgeAI", "OpenAISettingsTooltip", "Configure AI providers, models, permissions, and privacy."),
+		FSlateIcon(FAppStyle::GetAppStyleSetName(), "Editor.Settings"),
+		FUIAction(FExecuteAction::CreateStatic(&SNebulaForgeAISettingsWidget::OpenSettingsWindowStatic)));
+
+	MenuBuilder.AddMenuSeparator();
+
+	MenuBuilder.AddMenuEntry(
+		NSLOCTEXT("NebulaForgeBridge", "OpenBridgeSettings", "Open Bridge Settings"),
+		NSLOCTEXT("NebulaForgeBridge", "OpenBridgeSettingsTooltip", "Open NebulaForge Bridge project settings."),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateLambda([]()
+		{
+			ISettingsModule* SettingsModule = FModuleManager::LoadModulePtr<ISettingsModule>("Settings");
+			if (SettingsModule)
+			{
+				SettingsModule->ShowViewer("Project", "Plugins", "NebulaForgeBridgeSettings");
+			}
+		})));
+
+	FSlateApplication::Get().PushMenu(
+		SharedThis(this),
+		FWidgetPath(),
+		MenuBuilder.MakeWidget(),
+		FSlateApplication::Get().GetCursorPos(),
+		FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
+
 	return FReply::Handled();
 }
 
@@ -81,3 +121,5 @@ FSlateColor SMcpStatusBarWidget::GetStatusColor() const
 
 	return FSlateColor(FLinearColor(0.4f, 0.4f, 0.4f)); // Gray
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -2,8 +2,10 @@
 #include "ISettingsSection.h"
 #include "NebulaForgeBridgeSettings.h"
 
+#include "AI/UI/NebulaForgeAITabManager.h"
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
+#include "NebulaForgeAIService.h"
 #include "ToolMenus.h"
 #include "UI/SMcpStatusBarWidget.h"
 
@@ -21,7 +23,8 @@ public:
      * @brief Initializes the NebulaForge Bridge module.
      *
      * Performs module startup tasks required by the plugin. In editor builds, it records that
-     * UNebulaForgeBridgeSettings are exposed via the Project Settings UI.
+     * UNebulaForgeBridgeSettings are exposed via the Project Settings UI, initializes the AI
+     * chat services, and registers the dockable AI chat tab.
      */
     virtual void StartupModule() override
     {
@@ -34,6 +37,11 @@ public:
         // automatically in PostEditChangeProperty.
         UE_LOG(LogNebulaForgeBridge, Verbose, TEXT("UNebulaForgeBridgeSettings are exposed via Project Settings (auto-registered)."));
 
+        // AI chat feature: services first (conversations, coordinator,
+        // context collector, tool gateway), then the dockable tab + menus.
+        FNebulaForgeAIService::Get().Initialize();
+        FNebulaForgeAITabManager::RegisterTabSpawner();
+
         UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(
             this, &FNebulaForgeBridgeModule::RegisterStatusBarWidget));
 #endif
@@ -42,14 +50,18 @@ public:
     /**
      * @brief Shuts down the NebulaForge Bridge module.
      *
-     * Logs a shutdown message. In editor builds the function does not attempt to unregister project
-     * settings because UDeveloperSettings instances are managed by the engine.
+     * Logs a shutdown message, unregisters the AI chat tab/services, and does
+     * not attempt to unregister project settings because UDeveloperSettings
+     * instances are managed by the engine.
      */
     virtual void ShutdownModule() override
     {
         UE_LOG(LogNebulaForgeBridge, Log, TEXT("NebulaForge Bridge module shut down."));
 
 #if WITH_EDITOR
+        FNebulaForgeAITabManager::UnregisterTabSpawner();
+        FNebulaForgeAIService::Get().Shutdown();
+
         UToolMenus::UnRegisterStartupCallback(this);
         UToolMenus::UnregisterOwner(this);
 #endif

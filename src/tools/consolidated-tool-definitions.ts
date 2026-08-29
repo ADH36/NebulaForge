@@ -136,7 +136,7 @@ export const SPLINE_ACTIONS = [
   'create_spline_mesh_component', 'set_spline_mesh_asset', 'configure_spline_mesh_axis',
   'set_spline_mesh_material', 'generate_spline_mesh_segments', 'rebuild_spline_mesh_segments', 'clear_generated_spline_segments', 'scatter_meshes_along_spline', 'configure_mesh_spacing',
   'configure_mesh_randomization', 'create_road_spline', 'create_river_spline', 'create_fence_spline',
-  'create_wall_spline', 'create_cable_spline', 'create_pipe_spline', 'create_path_spline', 'find_spline_actors', 'find_spline_components', 'inspect_spline_points', 'get_splines_info'
+  'create_wall_spline', 'create_cable_spline', 'create_pipe_spline', 'create_path_spline', 'conform_spline_to_landscape', 'find_spline_actors', 'find_spline_components', 'inspect_spline_points', 'get_splines_info'
 ] as const;
 
 export const PHASE_28_ENVIRONMENT_ACTIONS = [
@@ -1339,6 +1339,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         forwardAxis: commonSchemas.stringProp,
         initialPoints: commonSchemas.arrayOfObjects,
         leaveTangent: commonSchemas.location,
+        conformToLandscape: { type: 'boolean', description: 'Project spline points onto the landscape surface (default: true for road/path templates).' },
+        maxPointSpacing: { type: 'number', description: 'Densify the route with curve samples at this spacing before conforming (0 = keep points).' },
+        maxSegmentLength: { type: 'number', description: 'Split over-length spline segments into distance-sampled sub-segments (0 = one mesh per segment).' },
         lightType: commonSchemas.stringProp,
         // Phase 29.1 ray-tracing configuration.
         rayTracedShadows: commonSchemas.booleanProp,

@@ -49,6 +49,7 @@ describe('UE 5.8 spline routing contract', () => {
       'generate_spline_mesh_segments',
       'rebuild_spline_mesh_segments',
       'clear_generated_spline_segments',
+      'conform_spline_to_landscape',
       'find_spline_actors',
       'find_spline_components',
       'inspect_spline_points'
@@ -56,12 +57,38 @@ describe('UE 5.8 spline routing contract', () => {
       await handleSplineTools(action, { action, actorName: 'UE58SplineRoute' }, tools);
     }
 
-    expect(executeAutomationRequestMock).toHaveBeenCalledTimes(8);
+    expect(executeAutomationRequestMock).toHaveBeenCalledTimes(9);
     expect(executeAutomationRequestMock.mock.calls.map(call => call[1].subAction)).toEqual([
       'insert_spline_point', 'update_spline_point', 'generate_spline_mesh_segments',
-      'rebuild_spline_mesh_segments', 'clear_generated_spline_segments', 'find_spline_actors',
-      'find_spline_components', 'inspect_spline_points'
+      'rebuild_spline_mesh_segments', 'clear_generated_spline_segments', 'conform_spline_to_landscape',
+      'find_spline_actors', 'find_spline_components', 'inspect_spline_points'
     ]);
+  });
+
+  it('keeps terrain conformance and segment subdivision fields intact on road creation', async () => {
+    await handleSplineTools('create_road_spline', {
+      action: 'create_road_spline',
+      actorName: 'UE58ConformedRoad',
+      coordinateSpace: 'World',
+      points: [{ location: { x: 0, y: 0, z: 0 } }, { location: { x: 5000, y: 0, z: 0 } }],
+      conformToLandscape: true,
+      surfaceOffset: 25,
+      maxPointSpacing: 1000,
+      meshPath: '/Game/Meshes/Road',
+      maxSegmentLength: 2000
+    }, tools);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      'manage_splines',
+      expect.objectContaining({
+        subAction: 'create_road_spline',
+        conformToLandscape: true,
+        surfaceOffset: 25,
+        maxPointSpacing: 1000,
+        maxSegmentLength: 2000
+      }),
+      expect.any(Object)
+    );
   });
 
   it('exposes the UE 5.8 spline fields and actions in build_environment', () => {
@@ -73,12 +100,17 @@ describe('UE 5.8 spline routing contract', () => {
     expect(actions).toEqual(expect.arrayContaining([
       'insert_spline_point', 'update_spline_point', 'set_spline_point_roll',
       'generate_spline_mesh_segments', 'rebuild_spline_mesh_segments',
-      'clear_generated_spline_segments', 'find_spline_actors', 'find_spline_components',
+      'clear_generated_spline_segments', 'conform_spline_to_landscape',
+      'find_spline_actors', 'find_spline_components',
       'inspect_spline_points'
     ]));
     expect(schema?.properties).toHaveProperty('points');
     expect(schema?.properties).toHaveProperty('routePoints');
     expect(schema?.properties).toHaveProperty('coordinateSpace');
     expect(schema?.properties).toHaveProperty('collisionEnabled');
+    expect(schema?.properties).toHaveProperty('conformToLandscape');
+    expect(schema?.properties).toHaveProperty('surfaceOffset');
+    expect(schema?.properties).toHaveProperty('maxPointSpacing');
+    expect(schema?.properties).toHaveProperty('maxSegmentLength');
   });
 });

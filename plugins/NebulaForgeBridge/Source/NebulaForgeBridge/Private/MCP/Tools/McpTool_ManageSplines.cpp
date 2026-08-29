@@ -1,4 +1,4 @@
-// McpTool_ManageSplines.cpp — manage_splines tool definition (22 actions)
+// McpTool_ManageSplines.cpp — manage_splines tool definition (33 actions)
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -50,6 +50,7 @@ public:
 				TEXT("create_cable_spline"),
 				TEXT("create_pipe_spline"),
 				TEXT("create_path_spline"),
+				TEXT("conform_spline_to_landscape"),
 				TEXT("find_spline_actors"),
 				TEXT("find_spline_components"),
 				TEXT("inspect_spline_points"),
@@ -195,7 +196,15 @@ public:
 			}, TEXT("Type of spline template to create."))
 			.Number(TEXT("width"), TEXT("Width value."))
 			.Number(TEXT("segmentLength"),
-				TEXT("Length of mesh segments for deformation."))
+				TEXT("Legacy alias for maxSegmentLength: split over-length spline segments into sub-segments."))
+			.Number(TEXT("maxSegmentLength"),
+				TEXT("Split over-length spline segments into distance-sampled sub-segments (0 = one mesh per segment)."))
+			.Bool(TEXT("conformToLandscape"),
+				TEXT("Project spline points onto the landscape surface (default: true for road/path templates)."))
+			.Number(TEXT("surfaceOffset"),
+				TEXT("Vertical offset applied above the landscape surface when conforming."))
+			.Number(TEXT("maxPointSpacing"),
+				TEXT("Densify the route with curve samples at this spacing before conforming (0 = keep points)."))
 			.Number(TEXT("postSpacing"),
 				TEXT("Spacing between fence posts."))
 			.Number(TEXT("railHeight"), TEXT("Height of fence rails."))

@@ -337,7 +337,8 @@ inline const TArray<FString>& Splines()
 		TEXT("configure_mesh_randomization"), TEXT("create_road_spline"),
 		TEXT("create_river_spline"), TEXT("create_fence_spline"),
 		TEXT("create_wall_spline"), TEXT("create_cable_spline"),
-        TEXT("create_pipe_spline"), TEXT("create_path_spline"), TEXT("find_spline_actors"),
+        TEXT("create_pipe_spline"), TEXT("create_path_spline"), TEXT("conform_spline_to_landscape"),
+        TEXT("find_spline_actors"),
         TEXT("find_spline_components"), TEXT("inspect_spline_points"), TEXT("get_splines_info")
 	};
 	return Actions;

@@ -7,6 +7,7 @@
  * - Spline Mesh: create_spline_mesh_component, create_spline_mesh_actor, set_spline_mesh_asset, configure_spline_mesh_axis, set_spline_mesh_material
  * - Spline Mesh Array: scatter_meshes_along_spline, configure_mesh_spacing, configure_mesh_randomization
  * - Quick Templates: create_road_spline, create_river_spline, create_fence_spline, create_wall_spline, create_cable_spline, create_pipe_spline
+ * - Terrain Conformance: conform_spline_to_landscape
  * - Utility: get_splines_info
  *
  * @module spline-handlers
@@ -129,6 +130,12 @@ export async function handleSplineTools(
 
     case 'create_path_spline':
       return sendRequest('create_path_spline');
+
+    // ========================================================================
+    // Terrain Conformance (1 action)
+    // ========================================================================
+    case 'conform_spline_to_landscape':
+      return sendRequest('conform_spline_to_landscape');
 
     // ========================================================================
     // Utility (1 action)

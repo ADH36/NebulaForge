@@ -77,6 +77,7 @@
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "LandscapeProxy.h"
 #include "Materials/MaterialInterface.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/WorldSettings.h"
@@ -2238,6 +2239,145 @@ static int32 ClearGeneratedSplineMeshComponents(AActor* Actor)
     return Generated.Num();
 }
 
+// ============================================================================
+// Landscape Conformance Helpers
+// ============================================================================
+
+struct FMcpSplineConformStats
+{
+    int32 PointCount = 0;
+    int32 ConformedPoints = 0;
+    int32 MissedPoints = 0;
+    int32 InsertedPoints = 0;
+    double MaxDeltaZ = 0.0;
+};
+
+// Traces straight down over the given world XY and returns the highest
+// landscape surface Z found. Non-landscape blockers (foliage, buildings) are
+// skipped so routes conform to terrain rather than props.
+static bool TraceLandscapeSurfaceZ(UWorld* World, const FVector2D& WorldXY, double& OutZ)
+{
+    if (!World) return false;
+    const FVector Start(WorldXY.X, WorldXY.Y, 5000000.0);
+    const FVector End(WorldXY.X, WorldXY.Y, -5000000.0);
+    FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(McpLandscapeConformTrace), false);
+    TArray<FHitResult> Hits;
+    if (!World->LineTraceMultiByChannel(Hits, Start, End, ECC_Visibility, QueryParams))
+    {
+        return false;
+    }
+    for (const FHitResult& Hit : Hits)
+    {
+        if (!Hit.bBlockingHit) continue;
+        if (Cast<ALandscapeProxy>(Hit.GetActor()))
+        {
+            OutZ = Hit.ImpactPoint.Z;
+            return true;
+        }
+    }
+    return false;
+}
+
+// Projects spline points onto the landscape surface with an optional vertical
+// offset. When MaxPointSpacing > 0 the route is first densified by inserting
+// curve samples along the path so the spline follows terrain contours between
+// sparse control points. Points without a landscape hit below them are left
+// unchanged and reported through MissedPoints.
+static bool ConformSplinePointsToLandscape(
+    UWorld* World,
+    USplineComponent* SplineComp,
+    double SurfaceOffset,
+    double MaxPointSpacing,
+    FMcpSplineConformStats& OutStats,
+    FString& OutError)
+{
+    OutStats = FMcpSplineConformStats();
+    if (!World || !SplineComp)
+    {
+        OutError = TEXT("world and spline component are required");
+        return false;
+    }
+
+    SplineComp->UpdateSpline();
+
+    if (MaxPointSpacing > KINDA_SMALL_NUMBER)
+    {
+        struct FMcpDistanceSample
+        {
+            double Distance = 0.0;
+            FVector Location = FVector::ZeroVector;
+            bool bOriginal = false;
+            FMcpDistanceSample() = default;
+            FMcpDistanceSample(double InDistance, const FVector& InLocation, bool bInOriginal)
+                : Distance(InDistance), Location(InLocation), bOriginal(bInOriginal) {}
+        };
+        TArray<FMcpDistanceSample> Samples;
+        const int32 OriginalCount = SplineComp->GetNumberOfSplinePoints();
+        Samples.Reserve(OriginalCount * 2);
+        for (int32 Index = 0; Index < OriginalCount; ++Index)
+        {
+            Samples.Emplace(
+                static_cast<double>(SplineComp->GetDistanceAlongSplineAtSplinePoint(Index)),
+                SplineComp->GetLocationAtSplinePoint(Index, ESplineCoordinateSpace::World),
+                true);
+        }
+        const double SplineLength = SplineComp->GetSplineLength();
+        for (double Distance = MaxPointSpacing; Distance < SplineLength - KINDA_SMALL_NUMBER; Distance += MaxPointSpacing)
+        {
+            bool bNearOriginal = false;
+            for (const FMcpDistanceSample& Sample : Samples)
+            {
+                if (Sample.bOriginal && FMath::Abs(Sample.Distance - Distance) < MaxPointSpacing * 0.5)
+                {
+                    bNearOriginal = true;
+                    break;
+                }
+            }
+            if (!bNearOriginal)
+            {
+                Samples.Emplace(Distance,
+                    SplineComp->GetLocationAtDistanceAlongSpline(static_cast<float>(Distance), ESplineCoordinateSpace::World),
+                    false);
+            }
+        }
+        Samples.Sort([](const FMcpDistanceSample& A, const FMcpDistanceSample& B) { return A.Distance < B.Distance; });
+
+        const bool bClosedLoop = SplineComp->IsClosedLoop();
+        SplineComp->ClearSplinePoints(false);
+        for (const FMcpDistanceSample& Sample : Samples)
+        {
+            SplineComp->AddSplinePoint(Sample.Location, ESplineCoordinateSpace::World, false);
+        }
+        SplineComp->SetClosedLoop(bClosedLoop);
+        // Auto-tangent curve points re-flow smoothly across the new spacing so
+        // densified routes stay visually continuous.
+        for (int32 Index = 0; Index < SplineComp->GetNumberOfSplinePoints(); ++Index)
+        {
+            SplineComp->SetSplinePointType(Index, ESplinePointType::Curve, false);
+        }
+        OutStats.InsertedPoints = SplineComp->GetNumberOfSplinePoints() - OriginalCount;
+        SplineComp->UpdateSpline();
+    }
+
+    OutStats.PointCount = SplineComp->GetNumberOfSplinePoints();
+    for (int32 Index = 0; Index < OutStats.PointCount; ++Index)
+    {
+        const FVector PointWorld = SplineComp->GetLocationAtSplinePoint(Index, ESplineCoordinateSpace::World);
+        double LandscapeZ = 0.0;
+        if (!TraceLandscapeSurfaceZ(World, FVector2D(PointWorld.X, PointWorld.Y), LandscapeZ))
+        {
+            ++OutStats.MissedPoints;
+            continue;
+        }
+        const FVector NewWorld(PointWorld.X, PointWorld.Y, LandscapeZ + SurfaceOffset);
+        SplineComp->SetLocationAtSplinePoint(Index, NewWorld, ESplineCoordinateSpace::World, false);
+        OutStats.MaxDeltaZ = FMath::Max(OutStats.MaxDeltaZ, FMath::Abs(NewWorld.Z - PointWorld.Z));
+        ++OutStats.ConformedPoints;
+    }
+    SplineComp->UpdateSpline();
+    return true;
+}
+
 static bool GenerateSplineMeshSegments(
     AActor* Actor,
     USplineComponent* SplineComp,
@@ -2245,6 +2385,7 @@ static bool GenerateSplineMeshSegments(
     UMaterialInterface* Material,
     ESplineMeshAxis::Type ForwardAxis,
     bool bCollisionEnabled,
+    double MaxSegmentLength,
     TArray<USplineMeshComponent*>& OutComponents,
     FString& OutError)
 {
@@ -2261,51 +2402,106 @@ static bool GenerateSplineMeshSegments(
         return false;
     }
 
+    // Long spline segments stretch spline meshes and warp their silhouettes;
+    // subdividing each over-length segment into distance-sampled sub-segments
+    // keeps curvature and UVs faithful to the mesh.
+    const bool bUseMaxSegmentLength = MaxSegmentLength > KINDA_SMALL_NUMBER;
+
     ClearGeneratedSplineMeshComponents(Actor);
     OutComponents.Reset();
     for (int32 SegmentIndex = 0; SegmentIndex < SegmentCount; ++SegmentIndex)
     {
         const int32 StartIndex = SegmentIndex;
         const int32 EndIndex = (SegmentIndex + 1) % PointCount;
-        const FVector Start = SplineComp->GetLocationAtSplinePoint(StartIndex, ESplineCoordinateSpace::Local);
-        const FVector End = SplineComp->GetLocationAtSplinePoint(EndIndex, ESplineCoordinateSpace::Local);
-        if (FVector::DistSquared(Start, End) <= KINDA_SMALL_NUMBER)
+        const FVector SegmentStart = SplineComp->GetLocationAtSplinePoint(StartIndex, ESplineCoordinateSpace::Local);
+        const FVector SegmentEnd = SplineComp->GetLocationAtSplinePoint(EndIndex, ESplineCoordinateSpace::Local);
+        if (FVector::DistSquared(SegmentStart, SegmentEnd) <= KINDA_SMALL_NUMBER)
         {
             OutError = FString::Printf(TEXT("spline segment %d has zero length"), SegmentIndex);
             ClearGeneratedSplineMeshComponents(Actor);
             return false;
         }
 
-        const FString ComponentName = FString::Printf(TEXT("MCP_SplineSegment_%03d"), SegmentIndex);
-        USplineMeshComponent* Component = NewObject<USplineMeshComponent>(Actor, *ComponentName);
-        if (!Component)
+        const float SegmentLength = SplineComp->GetSegmentLength(StartIndex);
+        const int32 SubCount = bUseMaxSegmentLength && SegmentLength > static_cast<float>(MaxSegmentLength)
+            ? FMath::Clamp(FMath::CeilToInt(SegmentLength / static_cast<float>(MaxSegmentLength)), 1, 256)
+            : 1;
+
+        for (int32 SubIndex = 0; SubIndex < SubCount; ++SubIndex)
         {
-            OutError = FString::Printf(TEXT("failed to create spline mesh segment %d"), SegmentIndex);
-            ClearGeneratedSplineMeshComponents(Actor);
-            return false;
+            FVector Start;
+            FVector StartTangent;
+            FVector2D StartScale;
+            float StartRoll = 0.0f;
+            if (SubIndex == 0)
+            {
+                Start = SegmentStart;
+                StartTangent = SplineComp->GetTangentAtSplinePoint(StartIndex, ESplineCoordinateSpace::Local);
+                const FVector PointScale = SplineComp->GetScaleAtSplinePoint(StartIndex);
+                StartScale = FVector2D(PointScale.X, PointScale.Y);
+                StartRoll = FMath::DegreesToRadians(SplineComp->GetRollAtSplinePoint(StartIndex, ESplineCoordinateSpace::Local));
+            }
+            else
+            {
+                const float SubStartDist = SplineComp->GetDistanceAlongSplineAtSplinePoint(StartIndex) +
+                    SegmentLength * static_cast<float>(SubIndex) / static_cast<float>(SubCount);
+                Start = SplineComp->GetLocationAtDistanceAlongSpline(SubStartDist, ESplineCoordinateSpace::Local);
+                StartTangent = SplineComp->GetTangentAtDistanceAlongSpline(SubStartDist, ESplineCoordinateSpace::Local);
+                const FVector PointScale = SplineComp->GetScaleAtDistanceAlongSpline(SubStartDist, ESplineCoordinateSpace::Local);
+                StartScale = FVector2D(PointScale.X, PointScale.Y);
+                StartRoll = FMath::DegreesToRadians(SplineComp->GetRollAtDistanceAlongSpline(SubStartDist, ESplineCoordinateSpace::Local));
+            }
+
+            FVector End;
+            FVector EndTangent;
+            FVector2D EndScale;
+            float EndRoll = 0.0f;
+            if (SubIndex == SubCount - 1)
+            {
+                End = SegmentEnd;
+                EndTangent = SplineComp->GetTangentAtSplinePoint(EndIndex, ESplineCoordinateSpace::Local);
+                const FVector PointScale = SplineComp->GetScaleAtSplinePoint(EndIndex);
+                EndScale = FVector2D(PointScale.X, PointScale.Y);
+                EndRoll = FMath::DegreesToRadians(SplineComp->GetRollAtSplinePoint(EndIndex, ESplineCoordinateSpace::Local));
+            }
+            else
+            {
+                const float SubEndDist = SplineComp->GetDistanceAlongSplineAtSplinePoint(StartIndex) +
+                    SegmentLength * static_cast<float>(SubIndex + 1) / static_cast<float>(SubCount);
+                End = SplineComp->GetLocationAtDistanceAlongSpline(SubEndDist, ESplineCoordinateSpace::Local);
+                EndTangent = SplineComp->GetTangentAtDistanceAlongSpline(SubEndDist, ESplineCoordinateSpace::Local);
+                const FVector PointScale = SplineComp->GetScaleAtDistanceAlongSpline(SubEndDist, ESplineCoordinateSpace::Local);
+                EndScale = FVector2D(PointScale.X, PointScale.Y);
+                EndRoll = FMath::DegreesToRadians(SplineComp->GetRollAtDistanceAlongSpline(SubEndDist, ESplineCoordinateSpace::Local));
+            }
+
+            const FString ComponentName = SubCount > 1
+                ? FString::Printf(TEXT("MCP_SplineSegment_%03d_%02d"), SegmentIndex, SubIndex)
+                : FString::Printf(TEXT("MCP_SplineSegment_%03d"), SegmentIndex);
+            USplineMeshComponent* Component = NewObject<USplineMeshComponent>(Actor, *ComponentName);
+            if (!Component)
+            {
+                OutError = FString::Printf(TEXT("failed to create spline mesh segment %d"), SegmentIndex);
+                ClearGeneratedSplineMeshComponents(Actor);
+                return false;
+            }
+            Component->ComponentTags.Add(FName(TEXT("MCP.GeneratedSplineSegment")));
+            Component->ComponentTags.Add(FName(*FString::Printf(TEXT("MCP.SplineSegmentIndex=%d"), SegmentIndex)));
+            Component->SetStaticMesh(Mesh);
+            Component->SetForwardAxis(ForwardAxis);
+            Component->SetCollisionEnabled(bCollisionEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+            if (Material) Component->SetMaterial(0, Material);
+            Component->SetStartAndEnd(Start, StartTangent, End, EndTangent);
+            Component->SetStartScale(StartScale);
+            Component->SetEndScale(EndScale);
+            Component->SetStartRoll(StartRoll, false);
+            Component->SetEndRoll(EndRoll, false);
+            Component->RegisterComponent();
+            Actor->AddInstanceComponent(Component);
+            Component->AttachToComponent(SplineComp, FAttachmentTransformRules::KeepRelativeTransform);
+            Component->UpdateMesh();
+            OutComponents.Add(Component);
         }
-        Component->ComponentTags.Add(FName(TEXT("MCP.GeneratedSplineSegment")));
-        Component->ComponentTags.Add(FName(*FString::Printf(TEXT("MCP.SplineSegmentIndex=%d"), SegmentIndex)));
-        Component->SetStaticMesh(Mesh);
-        Component->SetForwardAxis(ForwardAxis);
-        Component->SetCollisionEnabled(bCollisionEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
-        if (Material) Component->SetMaterial(0, Material);
-        Component->SetStartAndEnd(
-            Start,
-            SplineComp->GetTangentAtSplinePoint(StartIndex, ESplineCoordinateSpace::Local),
-            End,
-            SplineComp->GetTangentAtSplinePoint(EndIndex, ESplineCoordinateSpace::Local));
-        const FVector StartScale = SplineComp->GetScaleAtSplinePoint(StartIndex);
-        const FVector EndScale = SplineComp->GetScaleAtSplinePoint(EndIndex);
-        Component->SetStartScale(FVector2D(StartScale.X, StartScale.Y));
-        Component->SetEndScale(FVector2D(EndScale.X, EndScale.Y));
-        Component->SetStartRoll(FMath::DegreesToRadians(SplineComp->GetRollAtSplinePoint(StartIndex, ESplineCoordinateSpace::Local)), false);
-        Component->SetEndRoll(FMath::DegreesToRadians(SplineComp->GetRollAtSplinePoint(EndIndex, ESplineCoordinateSpace::Local)), false);
-        Component->RegisterComponent();
-        Actor->AddInstanceComponent(Component);
-        Component->AttachToComponent(SplineComp, FAttachmentTransformRules::KeepRelativeTransform);
-        Component->UpdateMesh();
-        OutComponents.Add(Component);
     }
     return true;
 }
@@ -2323,6 +2519,7 @@ static bool ResolveSplineMeshSettings(
     UMaterialInterface*& OutMaterial,
     ESplineMeshAxis::Type& OutAxis,
     bool& OutCollisionEnabled,
+    double& OutMaxSegmentLength,
     FString& OutSafeMeshPath,
     FString& OutSafeMaterialPath,
     FString& OutError)
@@ -2366,6 +2563,13 @@ static bool ResolveSplineMeshSettings(
     }
     OutAxis = ParseSplineMeshAxis(GetJsonStringFieldSpline(Payload, TEXT("forwardAxis"), TEXT("X")));
     OutCollisionEnabled = GetJsonBoolFieldSpline(Payload, TEXT("collisionEnabled"), true);
+    // maxSegmentLength splits over-length spline segments into distance-sampled
+    // sub-segments; segmentLength is honored as a legacy alias.
+    OutMaxSegmentLength = GetJsonNumberFieldSpline(Payload, TEXT("maxSegmentLength"), 0.0);
+    if (OutMaxSegmentLength <= 0.0)
+    {
+        OutMaxSegmentLength = GetJsonNumberFieldSpline(Payload, TEXT("segmentLength"), 0.0);
+    }
     return true;
 }
 
@@ -2394,10 +2598,11 @@ static bool HandleGenerateSplineMeshSegments(
     UMaterialInterface* Material = nullptr;
     ESplineMeshAxis::Type Axis = ESplineMeshAxis::X;
     bool bCollisionEnabled = true;
+    double MaxSegmentLength = 0.0;
     FString SafeMeshPath;
     FString SafeMaterialPath;
     FString Error;
-    if (!ResolveSplineMeshSettings(Payload, Mesh, Material, Axis, bCollisionEnabled,
+    if (!ResolveSplineMeshSettings(Payload, Mesh, Material, Axis, bCollisionEnabled, MaxSegmentLength,
         SafeMeshPath, SafeMaterialPath, Error))
     {
         Self->SendAutomationResponse(Socket, RequestId, false, Error, nullptr, TEXT("INVALID_PARAM"));
@@ -2408,7 +2613,8 @@ static bool HandleGenerateSplineMeshSegments(
     Actor->Modify();
     SplineComp->Modify();
     TArray<USplineMeshComponent*> Components;
-    if (!GenerateSplineMeshSegments(Actor, SplineComp, Mesh, Material, Axis, bCollisionEnabled, Components, Error))
+    if (!GenerateSplineMeshSegments(Actor, SplineComp, Mesh, Material, Axis, bCollisionEnabled,
+        MaxSegmentLength, Components, Error))
     {
         Self->SendAutomationResponse(Socket, RequestId, false, Error, nullptr, TEXT("GENERATE_FAILED"));
         return true;
@@ -2421,6 +2627,11 @@ static bool HandleGenerateSplineMeshSegments(
     Result->SetStringField(TEXT("materialPath"), SafeMaterialPath);
     Result->SetNumberField(TEXT("segmentCount"), Components.Num());
     Result->SetBoolField(TEXT("collisionEnabled"), bCollisionEnabled);
+    Result->SetNumberField(TEXT("maxSegmentLength"), MaxSegmentLength);
+    const int32 BaseSegmentCount = SplineComp->IsClosedLoop()
+        ? SplineComp->GetNumberOfSplinePoints()
+        : SplineComp->GetNumberOfSplinePoints() - 1;
+    Result->SetNumberField(TEXT("subdividedSegments"), FMath::Max(0, Components.Num() - BaseSegmentCount));
     TArray<TSharedPtr<FJsonValue>> SegmentArray;
     const int32 PointCount = SplineComp->GetNumberOfSplinePoints();
     for (int32 SegmentIndex = 0; SegmentIndex < Components.Num(); ++SegmentIndex)
@@ -2475,7 +2686,8 @@ static bool HandleCreateTemplateSpline(
     const TSharedPtr<FJsonObject>& Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket,
     const FString& TemplateName,
-    const FString& DefaultMeshPath)
+    const FString& DefaultMeshPath,
+    bool bDefaultConform)
 {
     FString ActorName = GetJsonStringFieldSpline(Payload, TEXT("actorName"), TemplateName + TEXT("_Spline"));
     FVector Location = GetJsonVectorFieldSpline(Payload, TEXT("location"));
@@ -2574,6 +2786,31 @@ static bool HandleCreateTemplateSpline(
     }
     SplineComp->UpdateSpline();
 
+    // Terrain conformance keeps routes pinned to the landscape surface so
+    // roads and paths do not float above or sink under generated terrain.
+    const bool bConformToLandscape = GetJsonBoolFieldSpline(Payload, TEXT("conformToLandscape"), bDefaultConform);
+    int32 ConformedPoints = 0;
+    int32 ConformMissedPoints = 0;
+    int32 ConformInsertedPoints = 0;
+    double ConformMaxDeltaZ = 0.0;
+    if (bConformToLandscape)
+    {
+        const double SurfaceOffset = GetJsonNumberFieldSpline(Payload, TEXT("surfaceOffset"), 0.0);
+        const double MaxPointSpacing = GetJsonNumberFieldSpline(Payload, TEXT("maxPointSpacing"), 0.0);
+        FMcpSplineConformStats ConformStats;
+        FString ConformError;
+        if (!ConformSplinePointsToLandscape(World, SplineComp, SurfaceOffset, MaxPointSpacing, ConformStats, ConformError))
+        {
+            NewActor->Destroy();
+            Self->SendAutomationResponse(Socket, RequestId, false, ConformError, nullptr, TEXT("CONFORM_FAILED"));
+            return true;
+        }
+        ConformedPoints = ConformStats.ConformedPoints;
+        ConformMissedPoints = ConformStats.MissedPoints;
+        ConformInsertedPoints = ConformStats.InsertedPoints;
+        ConformMaxDeltaZ = ConformStats.MaxDeltaZ;
+    }
+
     int32 GeneratedSegmentCount = 0;
     const FString MeshPath = GetJsonStringFieldSpline(Payload, TEXT("meshPath"));
     if (!MeshPath.IsEmpty())
@@ -2582,10 +2819,11 @@ static bool HandleCreateTemplateSpline(
         UMaterialInterface* Material = nullptr;
         ESplineMeshAxis::Type Axis = ESplineMeshAxis::X;
         bool bCollisionEnabled = true;
+        double MaxSegmentLength = 0.0;
         FString SafeMeshPath;
         FString SafeMaterialPath;
         FString MeshError;
-        if (!ResolveSplineMeshSettings(Payload, Mesh, Material, Axis, bCollisionEnabled,
+        if (!ResolveSplineMeshSettings(Payload, Mesh, Material, Axis, bCollisionEnabled, MaxSegmentLength,
             SafeMeshPath, SafeMaterialPath, MeshError))
         {
             NewActor->Destroy();
@@ -2594,7 +2832,7 @@ static bool HandleCreateTemplateSpline(
         }
         TArray<USplineMeshComponent*> Generated;
         if (!GenerateSplineMeshSegments(NewActor, SplineComp, Mesh, Material, Axis,
-            bCollisionEnabled, Generated, MeshError))
+            bCollisionEnabled, MaxSegmentLength, Generated, MeshError))
         {
             NewActor->Destroy();
             Self->SendAutomationResponse(Socket, RequestId, false, MeshError, nullptr, TEXT("GENERATE_FAILED"));
@@ -2613,6 +2851,14 @@ static bool HandleCreateTemplateSpline(
     Result->SetNumberField(TEXT("segmentCount"), GeneratedSegmentCount);
     Result->SetBoolField(TEXT("closedLoop"), bClosedLoop);
     Result->SetStringField(TEXT("coordinateSpace"), CoordinateSpace == ESplineCoordinateSpace::World ? TEXT("World") : TEXT("Local"));
+    Result->SetBoolField(TEXT("conformToLandscape"), bConformToLandscape);
+    if (bConformToLandscape)
+    {
+        Result->SetNumberField(TEXT("conformedPoints"), ConformedPoints);
+        Result->SetNumberField(TEXT("missedPoints"), ConformMissedPoints);
+        Result->SetNumberField(TEXT("insertedPoints"), ConformInsertedPoints);
+        Result->SetNumberField(TEXT("maxDeltaZ"), ConformMaxDeltaZ);
+    }
 
     // Add verification data
     McpHandlerUtils::AddVerification(Result, NewActor);
@@ -2628,7 +2874,9 @@ static bool HandleCreateRoadSpline(
     const TSharedPtr<FJsonObject>& Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
-    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Road"), TEXT(""));
+    // Roads and paths conform to the landscape by default so generated
+    // terrain does not clip through or float over the surface.
+    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Road"), TEXT(""), true);
 }
 
 static bool HandleCreateRiverSpline(
@@ -2637,7 +2885,7 @@ static bool HandleCreateRiverSpline(
     const TSharedPtr<FJsonObject>& Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
-    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("River"), TEXT(""));
+    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("River"), TEXT(""), false);
 }
 
 static bool HandleCreateFenceSpline(
@@ -2646,7 +2894,7 @@ static bool HandleCreateFenceSpline(
     const TSharedPtr<FJsonObject>& Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
-    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Fence"), TEXT(""));
+    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Fence"), TEXT(""), false);
 }
 
 static bool HandleCreateWallSpline(
@@ -2655,7 +2903,7 @@ static bool HandleCreateWallSpline(
     const TSharedPtr<FJsonObject>& Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
-    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Wall"), TEXT(""));
+    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Wall"), TEXT(""), false);
 }
 
 static bool HandleCreateCableSpline(
@@ -2664,7 +2912,7 @@ static bool HandleCreateCableSpline(
     const TSharedPtr<FJsonObject>& Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
-    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Cable"), TEXT(""));
+    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Cable"), TEXT(""), false);
 }
 
 static bool HandleCreatePipeSpline(
@@ -2673,7 +2921,7 @@ static bool HandleCreatePipeSpline(
     const TSharedPtr<FJsonObject>& Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
-    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Pipe"), TEXT(""));
+    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Pipe"), TEXT(""), false);
 }
 
 static bool HandleCreatePathSpline(
@@ -2682,12 +2930,70 @@ static bool HandleCreatePathSpline(
     const TSharedPtr<FJsonObject>& Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
-    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Path"), TEXT(""));
+    return HandleCreateTemplateSpline(Self, RequestId, Payload, Socket, TEXT("Path"), TEXT(""), true);
 }
 
 // ============================================================================
 // Utility Handlers
 // ============================================================================
+
+static bool HandleConformSplineToLandscape(
+    UNebulaForgeBridgeSubsystem* Self,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+    const FString ActorName = GetJsonStringFieldSpline(Payload, TEXT("actorName"));
+    UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+    if (!World)
+    {
+        Self->SendAutomationResponse(Socket, RequestId, false, TEXT("No editor world available"), nullptr, TEXT("NO_WORLD"));
+        return true;
+    }
+    AActor* Actor = FindActorByName(World, ActorName);
+    USplineComponent* SplineComp = FindSplineComponent(Actor);
+    if (!Actor || !SplineComp)
+    {
+        Self->SendAutomationResponse(Socket, RequestId, false, TEXT("Spline actor or component not found"), nullptr, TEXT("NOT_FOUND"));
+        return true;
+    }
+
+    const double SurfaceOffset = GetJsonNumberFieldSpline(Payload, TEXT("surfaceOffset"), 0.0);
+    const double MaxPointSpacing = GetJsonNumberFieldSpline(Payload, TEXT("maxPointSpacing"), 0.0);
+
+    const FScopedTransaction Transaction(FText::FromString(TEXT("Conform MCP Spline To Landscape")));
+    Actor->Modify();
+    SplineComp->Modify();
+
+    FMcpSplineConformStats Stats;
+    FString Error;
+    if (!ConformSplinePointsToLandscape(World, SplineComp, SurfaceOffset, MaxPointSpacing, Stats, Error))
+    {
+        Self->SendAutomationResponse(Socket, RequestId, false, Error, nullptr, TEXT("CONFORM_FAILED"));
+        return true;
+    }
+    World->MarkPackageDirty();
+
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("actorName"), Actor->GetActorLabel());
+    Result->SetNumberField(TEXT("pointCount"), Stats.PointCount);
+    Result->SetNumberField(TEXT("conformedPoints"), Stats.ConformedPoints);
+    Result->SetNumberField(TEXT("missedPoints"), Stats.MissedPoints);
+    Result->SetNumberField(TEXT("insertedPoints"), Stats.InsertedPoints);
+    Result->SetNumberField(TEXT("maxDeltaZ"), Stats.MaxDeltaZ);
+    Result->SetNumberField(TEXT("surfaceOffset"), SurfaceOffset);
+    Result->SetNumberField(TEXT("maxPointSpacing"), MaxPointSpacing);
+    Result->SetNumberField(TEXT("splineLength"), SplineComp->GetSplineLength());
+    McpHandlerUtils::AddVerification(Result, Actor);
+
+    const FString Message = Stats.MissedPoints > 0
+        ? FString::Printf(TEXT("Spline conformed to landscape: %d/%d points projected, %d missed (no landscape below)"),
+            Stats.ConformedPoints, Stats.PointCount, Stats.MissedPoints)
+        : FString::Printf(TEXT("Spline conformed to landscape: %d/%d points projected"),
+            Stats.ConformedPoints, Stats.PointCount);
+    Self->SendAutomationResponse(Socket, RequestId, true, Message, Result);
+    return true;
+}
 
 static bool HandleFindSplineActors(
     UNebulaForgeBridgeSubsystem* Self,
@@ -3077,6 +3383,8 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSplinesAction(
         return HandleCreatePathSpline(this, RequestId, Payload, Socket);
 
     // Utility
+    if (SubAction == TEXT("conform_spline_to_landscape"))
+        return HandleConformSplineToLandscape(this, RequestId, Payload, Socket);
     if (SubAction == TEXT("find_spline_actors"))
         return HandleFindSplineActors(this, RequestId, Payload, Socket);
     if (SubAction == TEXT("find_spline_components"))

@@ -10,6 +10,7 @@ import { TestRunner } from '../../test-runner.mjs';
 const suffix = Date.now();
 const actorName = `MCP_UE58_Spline_${suffix}`;
 const closedActorName = `MCP_UE58_Closed_${suffix}`;
+const conformActorName = `MCP_UE58_Conform_${suffix}`;
 const levelPath = `/Game/MCPTest/UE58Spline_${suffix}`;
 const meshPath = '/Engine/EngineMeshes/Cube';
 const route = [
@@ -166,6 +167,37 @@ runner.addStep('create and inspect a closed-loop route', async (tools) => {
   return true;
 });
 
+runner.addStep('conform a road spline to the landscape and subdivide long segments', async (tools) => {
+  const createResponse = await tools.executeTool('build_environment', {
+    action: 'create_road_spline', actorName: conformActorName,
+    coordinateSpace: 'World',
+    points: [
+      { x: 0, y: 2000, z: 0 },
+      { x: 4000, y: 2200, z: 0 },
+      { x: 8000, y: 2000, z: 0 }
+    ],
+    meshPath, forwardAxis: 'X', collisionEnabled: true,
+    conformToLandscape: true, surfaceOffset: 20, maxPointSpacing: 1000,
+    maxSegmentLength: 500
+  });
+  const result = ensureSuccess(createResponse, 'create conformed road');
+  if (result.conformToLandscape !== true) {
+    throw new Error(`conformToLandscape was not applied: ${JSON.stringify(result)}`);
+  }
+  if (Number(result.conformedPoints) + Number(result.missedPoints) !== Number(result.pointCount)) {
+    throw new Error(`conform accounting did not cover every point: ${JSON.stringify(result)}`);
+  }
+  if (Number(result.insertedPoints) < 1) {
+    throw new Error(`maxPointSpacing did not densify the route: ${JSON.stringify(result)}`);
+  }
+  // Route spans ~8000uu with maxSegmentLength 500, so generated meshes must
+  // exceed the two original spline segments.
+  if (Number(result.segmentCount) <= 2) {
+    throw new Error(`maxSegmentLength did not subdivide segments: ${JSON.stringify(result)}`);
+  }
+  return true;
+});
+
 runner.addStep('save, reload, and verify route persistence', async (tools) => {
   ensureSuccess(await tools.executeTool('manage_level', {
     action: 'save_level_as', path: levelPath
@@ -187,6 +219,7 @@ runner.addStep('clear generated segments and delete temporary actors', async (to
   }), 'clear generated segments');
   ensureSuccess(await tools.executeTool('control_actor', { action: 'delete', actorName }), 'delete open spline');
   ensureSuccess(await tools.executeTool('control_actor', { action: 'delete', actorName: closedActorName }), 'delete closed spline');
+  ensureSuccess(await tools.executeTool('control_actor', { action: 'delete', actorName: conformActorName }), 'delete conformed spline');
   return true;
 });
 

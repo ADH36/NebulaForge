@@ -1549,6 +1549,10 @@ export interface SplinesArgs extends HandlerArgs {
     templateType?: 'road' | 'river' | 'fence' | 'wall' | 'cable' | 'pipe';
     width?: number;
     segmentLength?: number;
+    maxSegmentLength?: number;
+    conformToLandscape?: boolean;
+    surfaceOffset?: number;
+    maxPointSpacing?: number;
     postSpacing?: number;
     railHeight?: number;
     pipeRadius?: number;

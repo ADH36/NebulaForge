@@ -171,6 +171,10 @@ public:
 				TEXT("Offset from spline end for last mesh."))
 			.Bool(TEXT("bAlignToSpline"),
 				TEXT("Align scattered meshes to spline direction."))
+			.Bool(TEXT("projectToSurface"),
+				TEXT("Project scattered meshes onto the landscape surface."))
+			.Number(TEXT("surfaceOffset"),
+				TEXT("Vertical offset applied above the landscape surface when projecting."))
 			.Bool(TEXT("bRandomizeRotation"),
 				TEXT("Apply random rotation to scattered meshes."))
 			.Object(TEXT("rotationRandomRange"),

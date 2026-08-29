@@ -1132,14 +1132,49 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         bool bEnabled = true;
         Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
 
+        // Feature-specific enable aliases keep the declared schema fields
+        // truthful: rayTracedGI / rayTracedReflections / rayTracedAO /
+        // rayTracedTranslucency / pathTracing select the feature switch for
+        // the matching action when a client omits the generic enabled flag.
+        if (Lower == TEXT("configure_ray_traced_gi") && Payload->HasField(TEXT("rayTracedGI")))
+        {
+            Payload->TryGetBoolField(TEXT("rayTracedGI"), bEnabled);
+        }
+        else if (Lower == TEXT("configure_ray_traced_reflections") && Payload->HasField(TEXT("rayTracedReflections")))
+        {
+            Payload->TryGetBoolField(TEXT("rayTracedReflections"), bEnabled);
+        }
+        else if (Lower == TEXT("configure_ray_traced_ao") && Payload->HasField(TEXT("rayTracedAO")))
+        {
+            Payload->TryGetBoolField(TEXT("rayTracedAO"), bEnabled);
+        }
+        else if (Lower == TEXT("configure_ray_traced_translucency") && Payload->HasField(TEXT("rayTracedTranslucency")))
+        {
+            Payload->TryGetBoolField(TEXT("rayTracedTranslucency"), bEnabled);
+        }
+        else if (Lower == TEXT("configure_path_tracing") && Payload->HasField(TEXT("pathTracing")))
+        {
+            Payload->TryGetBoolField(TEXT("pathTracing"), bEnabled);
+        }
+
         double SamplesPerPixel = 0.0;
         const bool bHasSamples = Payload->TryGetNumberField(TEXT("samplesPerPixel"), SamplesPerPixel);
         double MaxBounces = 0.0;
         const bool bHasMaxBounces = Payload->TryGetNumberField(TEXT("maxBounces"), MaxBounces);
         double Radius = 0.0;
-        const bool bHasRadius = Payload->TryGetNumberField(TEXT("radius"), Radius);
+        bool bHasRadius = Payload->TryGetNumberField(TEXT("radius"), Radius);
+        if (!bHasRadius)
+        {
+            // aoRadius is the schema-declared alias for the RTAO radius.
+            bHasRadius = Payload->TryGetNumberField(TEXT("aoRadius"), Radius);
+        }
         double Intensity = 0.0;
-        const bool bHasIntensity = Payload->TryGetNumberField(TEXT("intensity"), Intensity);
+        bool bHasIntensity = Payload->TryGetNumberField(TEXT("intensity"), Intensity);
+        if (!bHasIntensity)
+        {
+            // aoIntensity is the schema-declared alias for the RTAO intensity.
+            bHasIntensity = Payload->TryGetNumberField(TEXT("aoIntensity"), Intensity);
+        }
         double RefractionRays = 0.0;
         const bool bHasRefractionRays = Payload->TryGetNumberField(TEXT("refractionRays"), RefractionRays);
         double MaxRoughness = 0.0;

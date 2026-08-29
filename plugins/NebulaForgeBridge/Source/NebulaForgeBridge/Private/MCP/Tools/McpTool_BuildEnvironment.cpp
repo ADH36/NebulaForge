@@ -198,6 +198,11 @@ public:
 			.Number(TEXT("outerCone"), TEXT("Spot light outer cone angle."))
 			.Number(TEXT("width"), TEXT("Width value."))
 			.Number(TEXT("height"), TEXT("Height value."))
+			.Bool(TEXT("projectToSurface"),
+				TEXT("Project scattered meshes onto the landscape surface."))
+			.Bool(TEXT("snapToLandscape"),
+				TEXT("Snap generated buildings onto the landscape surface (default: true)."))
+			.String(TEXT("storefrontMaterial"), TEXT("Material asset path for storefront glass on shop buildings."))
 			.StringEnum(TEXT("sourceType"), {
 				TEXT("CapturedScene"),
 				TEXT("SpecifiedCubemap")

@@ -2289,6 +2289,20 @@ bool UNebulaForgeBridgeSubsystem::HandleBlueprintGraphAction(
     Payload->TryGetStringField(TEXT("propertyName"), PropertyName);
     FString Value;
     Payload->TryGetStringField(TEXT("value"), Value);
+    if (Value.IsEmpty() && Payload->HasField(TEXT("propertyValue"))) {
+      // propertyValue is the schema-declared alias for value.
+      const TSharedPtr<FJsonValue> AliasValue =
+          Payload->TryGetField(TEXT("propertyValue"));
+      if (AliasValue.IsValid()) {
+        if (AliasValue->Type == EJson::String) {
+          Value = AliasValue->AsString();
+        } else if (AliasValue->Type == EJson::Number) {
+          Value = FString::SanitizeFloat(AliasValue->AsNumber());
+        } else if (AliasValue->Type == EJson::Boolean) {
+          Value = AliasValue->AsBool() ? TEXT("true") : TEXT("false");
+        }
+      }
+    }
 
     UEdGraphNode *TargetNode = FindNodeByIdOrName(NodeId);
 

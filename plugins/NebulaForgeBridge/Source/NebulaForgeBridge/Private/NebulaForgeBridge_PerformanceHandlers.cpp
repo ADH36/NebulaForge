@@ -58,6 +58,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Dom/JsonObject.h"
 #include "Engine/StaticMeshActor.h"
+#include "Engine/GameUserSettings.h"
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5
 #include "MeshMerge/MeshMergingSettings.h"
 #else
@@ -133,7 +134,8 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
       !Lower.StartsWith(TEXT("show_fps")) &&
       !Lower.StartsWith(TEXT("show_stats")) &&
       !Lower.StartsWith(TEXT("set_scalability")) &&
-      !Lower.StartsWith(TEXT("set_resolution_scale")) &&
+      !Lower.StartsWith(TEXT("set_resolution")) &&
+      !Lower.StartsWith(TEXT("set_fullscreen")) &&
       !Lower.StartsWith(TEXT("set_vsync")) &&
       !Lower.StartsWith(TEXT("set_frame_rate_limit")) &&
       !Lower.StartsWith(TEXT("configure_nanite")) &&
@@ -302,6 +304,75 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
 
     SendAutomationResponse(RequestingSocket, RequestId, true,
                            TEXT("Scalability set"), nullptr);
+    return true;
+  }
+  // ===========================================================================
+  // set_fullscreen - Toggle fullscreen / windowed display mode
+  // ===========================================================================
+  else if (Lower == TEXT("set_fullscreen")) {
+    bool bEnabled = true;
+    Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+    if (Payload->HasField(TEXT("windowed"))) {
+      bool bWindowed = false;
+      Payload->TryGetBoolField(TEXT("windowed"), bWindowed);
+      bEnabled = !bWindowed;
+    }
+    UGameUserSettings *Settings = UGameUserSettings::GetGameUserSettings();
+    if (!Settings) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Game user settings unavailable"), nullptr,
+                             TEXT("UNAVAILABLE"));
+      return true;
+    }
+    Settings->SetFullscreenMode(bEnabled ? EWindowMode::Fullscreen
+                                         : EWindowMode::Windowed);
+    Settings->ApplySettings(false);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           bEnabled ? TEXT("Fullscreen mode enabled")
+                                    : TEXT("Windowed mode enabled"),
+                           nullptr);
+    return true;
+  }
+  // ===========================================================================
+  // set_resolution - Set window/screen resolution
+  // ===========================================================================
+  else if (Lower == TEXT("set_resolution")) {
+    double Width = 0.0;
+    double Height = 0.0;
+    const bool bHasSize = Payload->TryGetNumberField(TEXT("width"), Width) &&
+                          Payload->TryGetNumberField(TEXT("height"), Height);
+    if (!bHasSize) {
+      FString Resolution;
+      Payload->TryGetStringField(TEXT("resolution"), Resolution);
+      FString Left;
+      FString Right;
+      if (Resolution.Split(TEXT("x"), &Left, &Right, ESearchCase::IgnoreCase)) {
+        Width = FCString::Atod(*Left);
+        Height = FCString::Atod(*Right);
+      }
+    }
+    if (Width <= 0.0 || Height <= 0.0) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("resolution (WIDTHxHEIGHT) or width and height required"),
+                             nullptr, TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UGameUserSettings *Settings = UGameUserSettings::GetGameUserSettings();
+    if (!Settings) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Game user settings unavailable"), nullptr,
+                             TEXT("UNAVAILABLE"));
+      return true;
+    }
+    const int32 RoundedWidth = FMath::RoundToInt(Width);
+    const int32 RoundedHeight = FMath::RoundToInt(Height);
+    Settings->SetScreenResolution(FIntPoint(RoundedWidth, RoundedHeight));
+    Settings->ApplySettings(false);
+    SendAutomationResponse(
+        RequestingSocket, RequestId, true,
+        FString::Printf(TEXT("Resolution set to %dx%d"), RoundedWidth,
+                        RoundedHeight),
+        nullptr);
     return true;
   }
   // ===========================================================================

@@ -1342,6 +1342,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         conformToLandscape: { type: 'boolean', description: 'Project spline points onto the landscape surface (default: true for road/path templates).' },
         maxPointSpacing: { type: 'number', description: 'Densify the route with curve samples at this spacing before conforming (0 = keep points).' },
         maxSegmentLength: { type: 'number', description: 'Split over-length spline segments into distance-sampled sub-segments (0 = one mesh per segment).' },
+        projectToSurface: { type: 'boolean', description: 'Project scattered meshes onto the landscape surface.' },
+        snapToLandscape: { type: 'boolean', description: 'Snap generated buildings onto the landscape surface (default: true).' },
         lightType: commonSchemas.stringProp,
         // Phase 29.1 ray-tracing configuration.
         rayTracedShadows: commonSchemas.booleanProp,

@@ -26,6 +26,7 @@
 #include "Engine/SCS_Node.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetToolsModule.h"
+#include "LandscapeProxy.h"
 #include "Materials/MaterialInterface.h"
 #include "NavigationSystem.h"
 #endif
@@ -58,6 +59,9 @@ struct FMcpBuildingSpec
     FString RoofMaterial;
     FString TrimMaterial;
     FString InteriorMaterial;
+    FString StorefrontMaterial;
+    bool bSnapToLandscape = true;
+    float SurfaceOffset = 0.f;
     bool bDoors = true;
     bool bWindows = true;
     bool bBalconies = false;
@@ -118,6 +122,10 @@ static FMcpBuildingSpec McpReadBuildingSpec(const TSharedPtr<FJsonObject>& Json)
     Json->TryGetStringField(TEXT("roofMaterial"), Spec.RoofMaterial);
     Json->TryGetStringField(TEXT("trimMaterial"), Spec.TrimMaterial);
     Json->TryGetStringField(TEXT("interiorMaterial"), Spec.InteriorMaterial);
+    Json->TryGetStringField(TEXT("storefrontMaterial"), Spec.StorefrontMaterial);
+    Spec.bSnapToLandscape = true;
+    Json->TryGetBoolField(TEXT("snapToLandscape"), Spec.bSnapToLandscape);
+    Spec.SurfaceOffset = McpNumber(Json, TEXT("surfaceOffset"), Spec.SurfaceOffset);
     McpReadVector(Json, TEXT("location"), Spec.Location);
     Spec.Width = McpNumber(Json, TEXT("width"), Spec.Width);
     Spec.Depth = McpNumber(Json, TEXT("depth"), Spec.Depth);
@@ -154,6 +162,61 @@ static FMcpBuildingSpec McpReadBuildingSpec(const TSharedPtr<FJsonObject>& Json)
 static UMaterialInterface* McpLoadBuildingMaterial(const FString& Path)
 {
     return Path.IsEmpty() ? nullptr : LoadObject<UMaterialInterface>(nullptr, *Path);
+}
+
+// Traces straight down over the given world XY and returns the highest
+// landscape surface Z found. Mirrors the spline terrain-conformance trace so
+// buildings share one definition of "the ground".
+static bool McpTraceLandscapeSurfaceZ(UWorld* World, const FVector2D& WorldXY, double& OutZ)
+{
+    if (!World) return false;
+    const FVector Start(WorldXY.X, WorldXY.Y, 5000000.0);
+    const FVector End(WorldXY.X, WorldXY.Y, -5000000.0);
+    FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(McpBuildingLandscapeTrace), false);
+    TArray<FHitResult> Hits;
+    if (!World->LineTraceMultiByChannel(Hits, Start, End, ECC_Visibility, QueryParams))
+    {
+        return false;
+    }
+    for (const FHitResult& Hit : Hits)
+    {
+        if (!Hit.bBlockingHit) continue;
+        if (Cast<ALandscapeProxy>(Hit.GetActor()))
+        {
+            OutZ = Hit.ImpactPoint.Z;
+            return true;
+        }
+    }
+    return false;
+}
+
+// Snaps the building base onto the landscape: samples the footprint center and
+// all four corners, then takes the highest hit so a foundation never buries
+// the ground floor on slopes. Returns false when no landscape was found below
+// (open test levels); the authored Z is kept in that case.
+static bool McpSnapSpecToLandscape(UWorld* World, FMcpBuildingSpec& Spec)
+{
+    if (!Spec.bSnapToLandscape || !World) return false;
+    const float HalfW = Spec.Width * .5f, HalfD = Spec.Depth * .5f;
+    const FVector2D Samples[] = {
+        FVector2D(Spec.Location.X, Spec.Location.Y),
+        FVector2D(Spec.Location.X - HalfW, Spec.Location.Y - HalfD),
+        FVector2D(Spec.Location.X + HalfW, Spec.Location.Y - HalfD),
+        FVector2D(Spec.Location.X - HalfW, Spec.Location.Y + HalfD),
+        FVector2D(Spec.Location.X + HalfW, Spec.Location.Y + HalfD)
+    };
+    float HighestZ = 0.f;
+    bool bFound = false;
+    for (const FVector2D& XY : Samples)
+    {
+        double LandscapeZ = 0.0;
+        if (!McpTraceLandscapeSurfaceZ(World, XY, LandscapeZ)) continue;
+        HighestZ = bFound ? FMath::Max(HighestZ, static_cast<float>(LandscapeZ)) : static_cast<float>(LandscapeZ);
+        bFound = true;
+    }
+    if (!bFound) return false;
+    Spec.Location.Z = HighestZ + Spec.SurfaceOffset;
+    return true;
 }
 
 static UHierarchicalInstancedStaticMeshComponent* McpAddHism(
@@ -235,6 +298,8 @@ static AActor* McpGenerateBuilding(UWorld* World, const FMcpBuildingSpec& Spec, 
     UHierarchicalInstancedStaticMeshComponent* Trim = McpAddHism(Building, Root, TEXT("Trim_HISM"), Cube, McpLoadBuildingMaterial(Spec.TrimMaterial), true, true);
     UHierarchicalInstancedStaticMeshComponent* Interior = McpAddHism(Building, Root, TEXT("Interior_HISM"), Cube, McpLoadBuildingMaterial(Spec.InteriorMaterial), true, true);
     UHierarchicalInstancedStaticMeshComponent* Roof = McpAddHism(Building, Root, TEXT("Roof_HISM"), Cube, McpLoadBuildingMaterial(Spec.RoofMaterial), true, false);
+    UHierarchicalInstancedStaticMeshComponent* Storefront = McpAddHism(Building, Root, TEXT("Storefront_HISM"), Cube,
+        Spec.StorefrontMaterial.IsEmpty() ? McpLoadBuildingMaterial(Spec.WindowMaterial) : McpLoadBuildingMaterial(Spec.StorefrontMaterial), true, true);
 
     const float HalfW = Spec.Width * .5f, HalfD = Spec.Depth * .5f, TotalH = Spec.Floors * Spec.FloorHeight;
     const float EntranceW = FMath::Min(McpEntranceWidth, Spec.Width * .45f), EntranceH = FMath::Min(220.f, Spec.FloorHeight - 20.f);
@@ -269,7 +334,7 @@ static AActor* McpGenerateBuilding(UWorld* World, const FMcpBuildingSpec& Spec, 
         const int32 Steps = FMath::Max(4, FMath::CeilToInt(Spec.FloorHeight / 18.f));
         for (int32 I = 0; I < Steps; ++I) McpAddBox(Interior, FVector(-HalfW * .55f, -HalfD * .35f + I * 28.f, I * Spec.FloorHeight / Steps), FVector(120.f, 30.f, 18.f));
     }
-    if (Spec.bStorefront) McpAddBox(Windows, FVector(0, -HalfD - 2.f, EntranceH * .55f), FVector(Spec.Width * .75f, 10.f, EntranceH * .7f));
+    if (Spec.bStorefront) McpAddBox(Storefront, FVector(0, -HalfD - 2.f, EntranceH * .55f), FVector(Spec.Width * .75f, 10.f, EntranceH * .7f));
     if (Spec.RoofType.Equals(TEXT("gable"), ESearchCase::IgnoreCase))
     {
         McpAddBox(Roof, FVector(0, -Spec.Depth * .25f, TotalH + 35.f), FVector(Spec.Width + 30.f, Spec.Depth * .55f, 60.f), FRotator(0, 0, 25.f));
@@ -385,12 +450,17 @@ bool UNebulaForgeBridgeSubsystem::HandleProceduralBuildingAction(
         if (!Spline) { SendAutomationError(RequestingSocket, RequestId, TEXT("generate_city_block requires a valid roadSplineActor with a spline component."), TEXT("INVALID_ROAD_SPLINE")); return true; }
         const int32 MaxBuildings = FMath::Clamp(FMath::RoundToInt(McpNumber(Payload, TEXT("maxBuildings"), 8)), 1, 256); const float Spacing = FMath::Max(Spec.Width + Spec.RoadClearance * 2.f, 300.f); const float Length = Spline->GetSplineLength();
         const FScopedTransaction Transaction(FText::FromString(TEXT("Generate MCP Procedural City Block"))); TArray<TSharedPtr<FJsonValue>> Names; int32 Generated = 0;
-        for (int32 Index = 0; Index < MaxBuildings && Index * Spacing < Length; ++Index) { const float Distance = Index * Spacing + Spacing * .5f; const FVector Pos = Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World); const FVector Tangent = Spline->GetDirectionAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World); FMcpBuildingSpec Item = Spec; Item.Location = Pos + FVector(-Tangent.Y, Tangent.X, 0.f).GetSafeNormal() * (Spec.RoadClearance + Spec.Depth * .5f); Item.Name = FString::Printf(TEXT("%s_%03d"), *Spec.Name, Index); FString Error; if (AActor* Created = McpGenerateBuilding(World, Item, Error)) { ++Generated; Names.Add(MakeShared<FJsonValueString>(Created->GetActorLabel())); } }
+        for (int32 Index = 0; Index < MaxBuildings && Index * Spacing < Length; ++Index) { const float Distance = Index * Spacing + Spacing * .5f; const FVector Pos = Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World); const FVector Tangent = Spline->GetDirectionAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World); FMcpBuildingSpec Item = Spec; Item.Location = Pos + FVector(-Tangent.Y, Tangent.X, 0.f).GetSafeNormal() * (Spec.RoadClearance + Spec.Depth * .5f); Item.Name = FString::Printf(TEXT("%s_%03d"), *Spec.Name, Index); McpSnapSpecToLandscape(World, Item); FString Error; if (AActor* Created = McpGenerateBuilding(World, Item, Error)) { ++Generated; Names.Add(MakeShared<FJsonValueString>(Created->GetActorLabel())); } }
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); Result->SetArrayField(TEXT("buildingNames"), Names); Result->SetNumberField(TEXT("buildingCount"), Generated); Result->SetBoolField(TEXT("zeroRoadOverlap"), true); Result->SetBoolField(TEXT("zeroOverlappingFootprints"), true); SendAutomationResponse(RequestingSocket, RequestId, Generated > 0, Generated > 0 ? TEXT("Procedural city block generated.") : TEXT("No clear city-block placements were available."), Result, Generated > 0 ? FString() : TEXT("NO_CLEAR_PLACEMENTS")); return true;
     }
     if (Lower != TEXT("generate_procedural_building")) { SendAutomationError(RequestingSocket, RequestId, TEXT("Unknown procedural building action."), TEXT("INVALID_ACTION")); return true; }
-    const FScopedTransaction Transaction(FText::FromString(TEXT("Generate MCP Procedural Building"))); FString Error; AActor* Building = McpGenerateBuilding(World, Spec, Error);
+    const FScopedTransaction Transaction(FText::FromString(TEXT("Generate MCP Procedural Building"))); FString Error;
+    const bool bLandscapeSnapped = McpSnapSpecToLandscape(World, Spec);
+    AActor* Building = McpGenerateBuilding(World, Spec, Error);
     if (!Building) { SendAutomationError(RequestingSocket, RequestId, Error, TEXT("PLACEMENT_REJECTED")); return true; }
-    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); McpAddBuildingStats(Result, Building); Result->SetNumberField(TEXT("seed"), Spec.Seed); Result->SetStringField(TEXT("buildingType"), Spec.Type); Result->SetStringField(TEXT("roofType"), Spec.RoofType); Result->SetBoolField(TEXT("naniteReady"), Spec.bNaniteReady); Result->SetBoolField(TEXT("lodReady"), Spec.bLODsReady); Result->SetBoolField(TEXT("overlapFree"), true); Result->SetBoolField(TEXT("roadClear"), true); SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Optimized procedural building generated."), Result); return true;
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); McpAddBuildingStats(Result, Building); Result->SetNumberField(TEXT("seed"), Spec.Seed); Result->SetStringField(TEXT("buildingType"), Spec.Type); Result->SetStringField(TEXT("roofType"), Spec.RoofType); Result->SetBoolField(TEXT("naniteReady"), Spec.bNaniteReady); Result->SetBoolField(TEXT("lodReady"), Spec.bLODsReady); Result->SetBoolField(TEXT("overlapFree"), true); Result->SetBoolField(TEXT("roadClear"), true);
+    Result->SetBoolField(TEXT("snapToLandscape"), bLandscapeSnapped);
+    if (bLandscapeSnapped) Result->SetNumberField(TEXT("groundZ"), Spec.Location.Z);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Optimized procedural building generated."), Result); return true;
 #endif
 }

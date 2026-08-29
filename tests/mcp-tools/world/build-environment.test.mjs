@@ -226,17 +226,18 @@ const testCases = [
     { scenario: 'CONFIG: configure_spline_mesh_axis', toolName: 'build_environment', arguments: { action: 'configure_spline_mesh_axis', actorName: SPLINE_MESH_ACTOR, componentName: SPLINE_MESH_COMPONENT, forwardAxis: 'Y' }, expected: 'success' },
     { scenario: 'CONFIG: set_spline_mesh_material', toolName: 'build_environment', arguments: { action: 'set_spline_mesh_material', actorName: SPLINE_MESH_ACTOR, componentName: SPLINE_MESH_COMPONENT, materialPath: TEST_MATERIAL_OBJECT, materialIndex: 0 }, expected: 'success' },
     // === ACTION ===
-    { scenario: 'ACTION: scatter_meshes_along_spline', toolName: 'build_environment', arguments: { action: 'scatter_meshes_along_spline', actorName: SPLINE_ACTOR, meshPath: TEST_MESH_OBJECT, spacing: 100, alignToSpline: true }, expected: 'success' },
+    { scenario: 'ACTION: scatter_meshes_along_spline', toolName: 'build_environment', arguments: { action: 'scatter_meshes_along_spline', actorName: SPLINE_ACTOR, meshPath: TEST_MESH_OBJECT, spacing: 100, alignToSpline: true, projectToSurface: true, surfaceOffset: 0 }, expected: 'success' },
     // === CONFIG ===
     { scenario: 'CONFIG: configure_mesh_spacing', toolName: 'build_environment', arguments: { action: 'configure_mesh_spacing', spacing: 125, useRandomOffset: true, randomOffsetRange: 10 }, expected: 'success' },
     { scenario: 'CONFIG: configure_mesh_randomization', toolName: 'build_environment', arguments: { action: 'configure_mesh_randomization', randomizeScale: true, minScale: 0.9, maxScale: 1.1, randomizeRotation: true, rotationRange: 45 }, expected: 'success' },
     // === CREATE ===
-    { scenario: 'CREATE: create_road_spline', toolName: 'build_environment', arguments: { action: 'create_road_spline', actorName: ROAD_SPLINE, location: { x: 0, y: 500, z: 0 } }, expected: 'success|already exists' },
+    { scenario: 'CREATE: create_road_spline', toolName: 'build_environment', arguments: { action: 'create_road_spline', actorName: ROAD_SPLINE, location: { x: 0, y: 500, z: 0 }, conformToLandscape: true, surfaceOffset: 0, maxPointSpacing: 500, maxSegmentLength: 1000 }, expected: 'success|already exists' },
     { scenario: 'CREATE: create_river_spline', toolName: 'build_environment', arguments: { action: 'create_river_spline', actorName: RIVER_SPLINE, location: { x: 0, y: 650, z: 0 } }, expected: 'success|already exists' },
     { scenario: 'CREATE: create_fence_spline', toolName: 'build_environment', arguments: { action: 'create_fence_spline', actorName: FENCE_SPLINE, location: { x: 0, y: 800, z: 0 } }, expected: 'success|already exists' },
     { scenario: 'CREATE: create_wall_spline', toolName: 'build_environment', arguments: { action: 'create_wall_spline', actorName: WALL_SPLINE, location: { x: 0, y: 950, z: 0 } }, expected: 'success|already exists' },
     { scenario: 'CREATE: create_cable_spline', toolName: 'build_environment', arguments: { action: 'create_cable_spline', actorName: CABLE_SPLINE, location: { x: 0, y: 1100, z: 0 } }, expected: 'success|already exists' },
     { scenario: 'CREATE: create_pipe_spline', toolName: 'build_environment', arguments: { action: 'create_pipe_spline', actorName: PIPE_SPLINE, location: { x: 0, y: 1250, z: 0 } }, expected: 'success|already exists' },
+    { scenario: 'CREATE: generate_procedural_building', toolName: 'build_environment', arguments: { action: 'generate_procedural_building', buildingName: `TestBuilding_${ts}`, buildingType: 'house', location: { x: 5000, y: 5000, z: 0 }, width: 800, depth: 800, floors: 1, snapToLandscape: true, surfaceOffset: 0, storefrontMaterial: TEST_MATERIAL_ALIAS }, expected: 'success' },
     // === INFO ===
     { scenario: 'INFO: get_splines_info', toolName: 'build_environment', arguments: { action: 'get_splines_info', actorName: SPLINE_ACTOR }, expected: 'success' },
 
@@ -250,6 +251,7 @@ const testCases = [
     { scenario: 'Cleanup: delete wall spline actor', toolName: 'control_actor', arguments: { action: 'delete', actorName: WALL_SPLINE }, expected: 'success|not found' },
     { scenario: 'Cleanup: delete cable spline actor', toolName: 'control_actor', arguments: { action: 'delete', actorName: CABLE_SPLINE }, expected: 'success|not found' },
     { scenario: 'Cleanup: delete pipe spline actor', toolName: 'control_actor', arguments: { action: 'delete', actorName: PIPE_SPLINE }, expected: 'success|not found' },
+    { scenario: 'Cleanup: delete procedural building', toolName: 'control_actor', arguments: { action: 'delete', actorName: `TestBuilding_${ts}` }, expected: 'success|not found' },
     { scenario: 'Cleanup: delete spline mesh blueprint', toolName: 'manage_asset', arguments: { action: 'delete', path: SPLINE_MESH_BP_PATH, force: true }, expected: 'success|not found' },
     { scenario: 'Cleanup: delete spline test mesh', toolName: 'manage_asset', arguments: { action: 'delete', path: TEST_MESH, force: true }, expected: 'success|not found' },
     { scenario: 'Cleanup: delete spline test material', toolName: 'manage_asset', arguments: { action: 'delete', path: TEST_MATERIAL, force: true }, expected: 'success|not found' },

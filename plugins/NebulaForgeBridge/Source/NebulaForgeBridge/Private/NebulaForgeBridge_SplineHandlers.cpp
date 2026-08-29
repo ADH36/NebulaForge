@@ -1928,6 +1928,10 @@ static bool HandleCreateSplineMeshActor(
 // Mesh Scattering Handlers
 // ============================================================================
 
+// Defined with the landscape conformance helpers below; used to project
+// scattered meshes onto terrain.
+static bool TraceLandscapeSurfaceZ(UWorld* World, const FVector2D& WorldXY, double& OutZ);
+
 static bool HandleScatterMeshesAlongSpline(
     UNebulaForgeBridgeSubsystem* Self,
     const FString& RequestId,
@@ -1937,6 +1941,8 @@ static bool HandleScatterMeshesAlongSpline(
     FString ActorName = GetJsonStringFieldSpline(Payload, TEXT("actorName"));
     FString MeshPath = GetJsonStringFieldSpline(Payload, TEXT("meshPath"));
     bool bAlignToSpline = GetJsonBoolFieldSpline(Payload, TEXT("alignToSpline"), true);
+    const bool bProjectToSurface = GetJsonBoolFieldSpline(Payload, TEXT("projectToSurface"), false);
+    const double SurfaceOffset = GetJsonNumberFieldSpline(Payload, TEXT("surfaceOffset"), 0.0);
 
     // Sanitize mesh path
     FString SafeMeshPath = SanitizeProjectRelativePath(MeshPath);
@@ -2033,6 +2039,8 @@ static bool HandleScatterMeshesAlongSpline(
     int32 MeshCount = FMath::FloorToInt(SplineLength / Spacing);
 
     TArray<FString> CreatedMeshes;
+    int32 ProjectedMeshes = 0;
+    int32 MissedMeshes = 0;
 
     for (int32 i = 0; i <= MeshCount; i++)
     {
@@ -2046,6 +2054,22 @@ static bool HandleScatterMeshesAlongSpline(
         FRotator Rotation = bAlignToSpline
             ? SplineComp->GetRotationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World)
             : FRotator::ZeroRotator;
+
+        // Optional terrain projection keeps fences, posts and props pinned to
+        // the landscape instead of floating over dips or sinking into mounds.
+        if (bProjectToSurface)
+        {
+            double LandscapeZ = 0.0;
+            if (TraceLandscapeSurfaceZ(World, FVector2D(Location.X, Location.Y), LandscapeZ))
+            {
+                Location.Z = LandscapeZ + SurfaceOffset;
+                ++ProjectedMeshes;
+            }
+            else
+            {
+                ++MissedMeshes;
+            }
+        }
 
         if (bRandomizeRotation && RotationRange > 0.0)
         {
@@ -2083,6 +2107,13 @@ static bool HandleScatterMeshesAlongSpline(
     Result->SetNumberField(TEXT("maxScale"), MaxScale);
     Result->SetBoolField(TEXT("randomizeRotation"), bRandomizeRotation);
     Result->SetNumberField(TEXT("rotationRange"), RotationRange);
+    Result->SetBoolField(TEXT("projectToSurface"), bProjectToSurface);
+    if (bProjectToSurface)
+    {
+        Result->SetNumberField(TEXT("projectedMeshes"), ProjectedMeshes);
+        Result->SetNumberField(TEXT("missedMeshes"), MissedMeshes);
+        Result->SetNumberField(TEXT("surfaceOffset"), SurfaceOffset);
+    }
 
     // Add verification data
     McpHandlerUtils::AddVerification(Result, Actor);

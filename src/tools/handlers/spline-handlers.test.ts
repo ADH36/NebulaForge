@@ -112,5 +112,7 @@ describe('UE 5.8 spline routing contract', () => {
     expect(schema?.properties).toHaveProperty('surfaceOffset');
     expect(schema?.properties).toHaveProperty('maxPointSpacing');
     expect(schema?.properties).toHaveProperty('maxSegmentLength');
+    expect(schema?.properties).toHaveProperty('projectToSurface');
+    expect(schema?.properties).toHaveProperty('snapToLandscape');
   });
 });

@@ -1544,6 +1544,7 @@ export interface SplinesArgs extends HandlerArgs {
     scaleMin?: number;
     scaleMax?: number;
     randomSeed?: number;
+    projectToSurface?: boolean;
 
     // Template-specific options
     templateType?: 'road' | 'river' | 'fence' | 'wall' | 'cable' | 'pipe';

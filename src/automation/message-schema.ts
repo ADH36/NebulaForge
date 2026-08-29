@@ -32,6 +32,10 @@ export const bridgeAckSchema = z.looseObject({
     supportedOpcodes: stringArray.optional(),
     expectedResponseOpcodes: stringArray.optional(),
     capabilities: stringArray.optional(),
+    executionMode: z.enum(['editor', 'runtime']).optional(),
+    editorAutomation: z.boolean().optional(),
+    pieRuntimeWorld: z.boolean().optional(),
+    packagedRuntimeAuthoring: z.boolean().optional(),
     heartbeatIntervalMs: nonNegativeInteger.optional()
 });
 

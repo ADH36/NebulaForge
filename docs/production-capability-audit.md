@@ -184,7 +184,9 @@ Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [Envir
 | Capability | Status | Gap |
 |---|:---:|---|
 | Editor automation | ✅ | Strongest supported execution mode. |
-| Packaged/runtime authoring | ❌ | Many tools require `WITH_EDITOR` and do not operate in packaged builds. |
+| Packaged plugin loading | ❌ | The shipped module is intentionally `Type: Editor` and the bridge subsystem derives from `UEditorSubsystem`; packaged targets do not load the MCP bridge. |
+| In-process PIE runtime authoring | ⚠️ | Actor, environment, effect, input, and inspection actions can target an editor-owned PIE world. This is runtime-world mutation for verification, not packaged-game authoring or persistent asset creation. |
+| Packaged/runtime asset authoring | ❌ | Blueprint, material, landscape, Niagara graph, sequence, import, save, and other asset-authoring actions depend on editor-only APIs and are not available in packaged builds. |
 | In-process viewport PIE | ✅ | Best-supported runtime verification mode. |
 | Standalone PIE probes/input | ❌ | In-process probes and input delivery are not supported because standalone runs in another process. |
 | Standalone-window screenshots | ⚠️ | Direct external-window capture remains unsupported, but `mode: standalone_window` now safely reads a PNG written by the standalone game under `Saved/Screenshots` through `screenshotPath`. |
@@ -192,7 +194,9 @@ Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [Envir
 | Completion proof | ⚠️ | Several actions report “started” without proving final state. |
 | Undo/redo transactions | ⚠️ | Undo/redo now report success only when the editor accepts the command; transactional coverage remains incomplete across authoring handlers. |
 
-Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md#pie-and-capture-modes), [native-automation-progress.md](./native-automation-progress.md#niagara--effect-handlers)
+The WebSocket handshake now advertises `executionMode: editor`, `pieRuntimeWorld: true`, and `packagedRuntimeAuthoring: false` so clients can select a supported execution path explicitly. A true packaged authoring implementation still requires a separate Runtime module, runtime-safe handler set, and packaged transport; changing `WITH_EDITOR` guards alone would be unsafe.
+
+Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md#pie-and-capture-modes), [NebulaForgeBridge.uplugin](../plugins/NebulaForgeBridge/NebulaForgeBridge.uplugin#L21), [NebulaForgeBridgeSubsystem.h](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Public/NebulaForgeBridgeSubsystem.h#L108), [native-automation-progress.md](./native-automation-progress.md#niagara--effect-handlers)
 
 ## Documentation and test-quality gaps
 

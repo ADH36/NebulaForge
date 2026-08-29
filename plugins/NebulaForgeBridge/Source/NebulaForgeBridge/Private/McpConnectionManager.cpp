@@ -705,6 +705,13 @@ void FMcpConnectionManager::HandleMessage(
       ActiveSessionId = FGuid::NewGuid().ToString();
     Ack->SetStringField(TEXT("sessionId"), ActiveSessionId);
     Ack->SetNumberField(TEXT("protocolVersion"), 1);
+    // Keep the execution boundary explicit. The current bridge is an editor
+    // module, but several handlers can target an editor-owned PIE world. Do
+    // not make clients infer packaged-runtime support from the tool list.
+    Ack->SetStringField(TEXT("executionMode"), TEXT("editor"));
+    Ack->SetBoolField(TEXT("editorAutomation"), true);
+    Ack->SetBoolField(TEXT("pieRuntimeWorld"), true);
+    Ack->SetBoolField(TEXT("packagedRuntimeAuthoring"), false);
 
     TArray<TSharedPtr<FJsonValue>> SupportedOps;
     SupportedOps.Add(MakeShared<FJsonValueString>(TEXT("automation_request")));
@@ -715,6 +722,9 @@ void FMcpConnectionManager::HandleMessage(
     Ack->SetArrayField(TEXT("expectedResponseOpcodes"), ExpectedOps);
 
     TArray<TSharedPtr<FJsonValue>> Caps;
+    Caps.Add(MakeShared<FJsonValueString>(TEXT("editor_automation")));
+    Caps.Add(MakeShared<FJsonValueString>(TEXT("pie_runtime_world")));
+    Caps.Add(MakeShared<FJsonValueString>(TEXT("packaged_runtime_authoring_unavailable")));
     Caps.Add(MakeShared<FJsonValueString>(TEXT("console_commands")));
     Caps.Add(MakeShared<FJsonValueString>(TEXT("native_plugin")));
     Ack->SetArrayField(TEXT("capabilities"), Caps);

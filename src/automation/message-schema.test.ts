@@ -15,6 +15,18 @@ describe('automationMessageSchema', () => {
         expect(automationMessageSchema.parse(message)).toEqual(message);
     });
 
+    it('accepts explicit editor and packaged-runtime capability metadata', () => {
+        const message = {
+            type: 'bridge_ack',
+            executionMode: 'editor',
+            editorAutomation: true,
+            pieRuntimeWorld: true,
+            packagedRuntimeAuthoring: false
+        };
+
+        expect(automationMessageSchema.parse(message)).toEqual(message);
+    });
+
     it('rejects negative bridge heartbeat intervals', () => {
         expect(() => automationMessageSchema.parse({
             type: 'bridge_ack',

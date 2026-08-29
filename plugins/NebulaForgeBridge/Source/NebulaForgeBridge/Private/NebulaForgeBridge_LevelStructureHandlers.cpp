@@ -4090,8 +4090,9 @@ bool UNebulaForgeBridgeSubsystem::HandleManageLevelStructureAction(
     {
         bHandled = HandleConfigureGridSize(this, RequestId, Payload, Socket);
     }
-    else if (SubAction == TEXT("get_wp_cell_status") ||
-             SubAction == TEXT("pin_wp_cells") ||
+	else if (SubAction == TEXT("get_wp_cell_status") ||
+			 SubAction == TEXT("load_cells") ||
+			 SubAction == TEXT("pin_wp_cells") ||
              SubAction == TEXT("unpin_wp_cells") ||
              SubAction == TEXT("unload_cells"))
     {

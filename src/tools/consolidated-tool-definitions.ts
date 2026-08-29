@@ -4031,7 +4031,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'create_level', 'create_sublevel', 'configure_level_streaming',
             'set_streaming_distance', 'configure_level_bounds',
             'enable_world_partition', 'configure_grid_size', 'create_data_layer',
-            'get_wp_cell_status', 'pin_wp_cells', 'unpin_wp_cells', 'unload_cells',
+            'get_wp_cell_status', 'load_cells', 'pin_wp_cells', 'unpin_wp_cells', 'unload_cells',
             'assign_actor_to_data_layer', 'configure_hlod_layer', 'create_hlod_layer',
             'list_hlod_layers', 'inspect_hlod_layer', 'assign_hlod_layer', 'remove_hlod_layer',
             'report_missing_hlod_assignments', 'build_hlods', 'rebuild_hlods', 'delete_hlod_output',

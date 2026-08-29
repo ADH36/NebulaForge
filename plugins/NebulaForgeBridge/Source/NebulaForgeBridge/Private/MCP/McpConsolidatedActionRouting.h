@@ -640,7 +640,7 @@ inline const TArray<FString>& ManageLevelStructureCore()
 		TEXT("create_level"), TEXT("create_sublevel"),
 		TEXT("configure_level_streaming"), TEXT("set_streaming_distance"),
 		TEXT("configure_level_bounds"), TEXT("enable_world_partition"),
-		TEXT("get_wp_cell_status"), TEXT("pin_wp_cells"), TEXT("unpin_wp_cells"), TEXT("unload_cells"),
+		TEXT("get_wp_cell_status"), TEXT("load_cells"), TEXT("pin_wp_cells"), TEXT("unpin_wp_cells"), TEXT("unload_cells"),
 		TEXT("configure_grid_size"), TEXT("create_data_layer"),
 		TEXT("assign_actor_to_data_layer"), TEXT("configure_hlod_layer"),
 		TEXT("create_hlod_layer"), TEXT("list_hlod_layers"),

@@ -105,6 +105,8 @@ public:
 			.Bool(TEXT("confirm"), TEXT("Required true before deleting generated HLOD output."))
 			.Array(TEXT("dataLayerNames"), TEXT("Requested Data Layer scope; UE 5.8 commandlets do not support this scope."), TEXT("string"))
 			.Array(TEXT("cellIds"), TEXT("Requested cell scope; UE 5.8 commandlets do not support this scope."), TEXT("string"))
+			.Array(TEXT("origin"), TEXT("World Partition load-region origin [x, y, z]."), TEXT("number"))
+			.Array(TEXT("extent"), TEXT("World Partition load-region half-extent [x, y, z]."), TEXT("number"))
 			.String(TEXT("layerType"), TEXT("HLOD layer type."))
 			.Bool(TEXT("bIsSpatiallyLoaded"),
 				TEXT("HLOD is spatially loaded."))

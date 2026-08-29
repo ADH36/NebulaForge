@@ -678,7 +678,13 @@ static bool McpConfigureActorAndComponent(const TSharedPtr<FJsonObject> &Payload
 static ALandscape *McpFindLandscape(const TSharedPtr<FJsonObject> &Payload)
 {
     const FString LandscapeName = McpGetFirstStringField(Payload, {TEXT("landscapeName"), TEXT("name"), TEXT("targetActor")});
-    FString LandscapePath = McpGetFirstStringField(Payload, {TEXT("landscapePath"), TEXT("landscapeActorPath"), TEXT("actorPath")});
+    FString LandscapePath = McpGetFirstStringField(Payload, {TEXT("landscapePath"), TEXT("landscapeActorPath"), TEXT("actorPath"), TEXT("externalActorPath"), TEXT("externalPackagePath"), TEXT("actorPackagePath")});
+    FString LandscapeGuid = McpGetFirstStringField(Payload, {TEXT("landscapeGuid"), TEXT("guid"), TEXT("actorGuid")});
+    const TSharedPtr<FJsonObject>* Descriptor = nullptr;
+    if (Payload.IsValid() && Payload->TryGetObjectField(TEXT("externalActorDescriptor"), Descriptor) && Descriptor && Descriptor->IsValid()) {
+        LandscapePath = McpGetFirstStringField(*Descriptor, {TEXT("path"), TEXT("objectPath"), TEXT("actorPath"), TEXT("packagePath"), TEXT("externalPackagePath")});
+        if (LandscapeGuid.IsEmpty()) LandscapeGuid = McpGetFirstStringField(*Descriptor, {TEXT("guid"), TEXT("actorGuid"), TEXT("landscapeGuid")});
+    }
     LandscapePath.TrimStartAndEndInline();
     if (!LandscapePath.IsEmpty() && !LandscapePath.StartsWith(TEXT("/")))
     {
@@ -695,12 +701,17 @@ static ALandscape *McpFindLandscape(const TSharedPtr<FJsonObject> &Payload)
             {
                 continue;
             }
+            if (!LandscapeGuid.IsEmpty() && Landscape->GetLandscapeGuid().ToString().Equals(LandscapeGuid, ESearchCase::IgnoreCase))
+            {
+                return Landscape;
+            }
             if (!LandscapeName.IsEmpty() && Landscape->GetActorLabel().Equals(LandscapeName, ESearchCase::IgnoreCase))
             {
                 return Landscape;
             }
             if (!LandscapePath.IsEmpty() &&
                 ((Landscape->GetPackage() && Landscape->GetPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase)) ||
+                 (Landscape->GetExternalPackage() && Landscape->GetExternalPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase)) ||
                  Landscape->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase) ||
                  Landscape->GetPathName(nullptr).Equals(LandscapePath, ESearchCase::IgnoreCase)))
             {

@@ -116,6 +116,7 @@
 #include "McpSafeOperations.h"
 #include "ScopedTransaction.h"
 #include "Misc/PackageName.h"
+#include <initializer_list>
 
 // =============================================================================
 // Editor-Only Includes
@@ -174,6 +175,16 @@ DEFINE_LOG_CATEGORY_STATIC(LogMcpLandscapeHandlers, Log, All);
 #if WITH_EDITOR
 namespace
 {
+static FString McpLandscapeFirstString(const TSharedPtr<FJsonObject>& Payload, std::initializer_list<const TCHAR*> Fields)
+{
+  if (!Payload.IsValid()) return FString();
+  for (const TCHAR* Field : Fields) {
+    FString Value;
+    if (Payload->TryGetStringField(Field, Value) && !Value.IsEmpty()) return Value;
+  }
+  return FString();
+}
+
 static FString McpLandscapePackagePath(const UObject* Object)
 {
   if (!Object) return FString();
@@ -255,17 +266,27 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeEditLayers(
   }
   UWorld* World = GEditor->GetEditorWorldContext().World();
   FString LandscapeName, LandscapePath;
-  Payload->TryGetStringField(TEXT("landscapeName"), LandscapeName);
-  Payload->TryGetStringField(TEXT("landscapePath"), LandscapePath);
+  LandscapeName = McpLandscapeFirstString(Payload, {TEXT("landscapeName"), TEXT("name"), TEXT("targetActor")});
+  LandscapePath = McpLandscapeFirstString(Payload, {TEXT("landscapePath"), TEXT("landscapeActorPath"), TEXT("actorPath"), TEXT("externalActorPath"), TEXT("externalPackagePath"), TEXT("actorPackagePath")});
+  const FString LandscapeGuid = McpLandscapeFirstString(Payload, {TEXT("landscapeGuid"), TEXT("guid"), TEXT("actorGuid")});
+  const TSharedPtr<FJsonObject>* Descriptor = nullptr;
+  if (Payload->TryGetObjectField(TEXT("externalActorDescriptor"), Descriptor) && Descriptor && Descriptor->IsValid()) {
+    LandscapePath = McpLandscapeFirstString(*Descriptor, {TEXT("path"), TEXT("objectPath"), TEXT("actorPath"), TEXT("packagePath"), TEXT("externalPackagePath")});
+  }
   ALandscape* Landscape = nullptr;
   for (TActorIterator<ALandscape> It(World); It; ++It) {
     ALandscape* Candidate = *It;
-    if (Candidate) {
+      if (Candidate) {
+      if (!LandscapeGuid.IsEmpty() && Candidate->GetLandscapeGuid().ToString().Equals(LandscapeGuid, ESearchCase::IgnoreCase)) {
+        Landscape = Candidate;
+        break;
+      }
       const bool bNameMatches = !LandscapeName.IsEmpty() &&
           Candidate->GetActorLabel().Equals(LandscapeName, ESearchCase::IgnoreCase);
       const bool bPathMatches = !LandscapePath.IsEmpty() &&
           (Candidate->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase) ||
-           Candidate->GetPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase));
+           (Candidate->GetPackage() && Candidate->GetPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase)) ||
+           (Candidate->GetExternalPackage() && Candidate->GetExternalPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase)));
       if (bNameMatches || bPathMatches) {
         Landscape = Candidate;
         break;
@@ -871,10 +892,13 @@ bool UNebulaForgeBridgeSubsystem::HandleModifyHeightmap(
     return true;
   }
 
-  FString LandscapePath;
-  Payload->TryGetStringField(TEXT("landscapePath"), LandscapePath);
-  FString LandscapeName;
-  Payload->TryGetStringField(TEXT("landscapeName"), LandscapeName);
+  FString LandscapePath = McpLandscapeFirstString(Payload, {TEXT("landscapePath"), TEXT("landscapeActorPath"), TEXT("actorPath"), TEXT("externalActorPath"), TEXT("externalPackagePath"), TEXT("actorPackagePath")});
+  FString LandscapeName = McpLandscapeFirstString(Payload, {TEXT("landscapeName"), TEXT("name"), TEXT("targetActor")});
+  const FString LandscapeGuid = McpLandscapeFirstString(Payload, {TEXT("landscapeGuid"), TEXT("guid"), TEXT("actorGuid")});
+  const TSharedPtr<FJsonObject>* Descriptor = nullptr;
+  if (Payload->TryGetObjectField(TEXT("externalActorDescriptor"), Descriptor) && Descriptor && Descriptor->IsValid()) {
+    LandscapePath = McpLandscapeFirstString(*Descriptor, {TEXT("path"), TEXT("objectPath"), TEXT("actorPath"), TEXT("packagePath"), TEXT("externalPackagePath")});
+  }
 
   // Security: Validate landscape path if provided (not strictly required since we can find by name)
   if (!LandscapePath.IsEmpty()) {
@@ -1905,10 +1929,13 @@ bool UNebulaForgeBridgeSubsystem::HandleSetLandscapeMaterial(
     return true;
   }
 
-  FString LandscapePath;
-  Payload->TryGetStringField(TEXT("landscapePath"), LandscapePath);
-  FString LandscapeName;
-  Payload->TryGetStringField(TEXT("landscapeName"), LandscapeName);
+  FString LandscapePath = McpLandscapeFirstString(Payload, {TEXT("landscapePath"), TEXT("landscapeActorPath"), TEXT("actorPath"), TEXT("externalActorPath"), TEXT("externalPackagePath"), TEXT("actorPackagePath")});
+  FString LandscapeName = McpLandscapeFirstString(Payload, {TEXT("landscapeName"), TEXT("name"), TEXT("targetActor")});
+  const FString LandscapeGuid = McpLandscapeFirstString(Payload, {TEXT("landscapeGuid"), TEXT("guid"), TEXT("actorGuid")});
+  const TSharedPtr<FJsonObject>* Descriptor = nullptr;
+  if (Payload->TryGetObjectField(TEXT("externalActorDescriptor"), Descriptor) && Descriptor && Descriptor->IsValid()) {
+    LandscapePath = McpLandscapeFirstString(*Descriptor, {TEXT("path"), TEXT("objectPath"), TEXT("actorPath"), TEXT("packagePath"), TEXT("externalPackagePath")});
+  }
   FString MaterialPath;
   if (!Payload->TryGetStringField(TEXT("materialPath"), MaterialPath) ||
       MaterialPath.IsEmpty()) {
@@ -1932,7 +1959,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSetLandscapeMaterial(
 
   AsyncTask(ENamedThreads::GameThread, [WeakSubsystem, RequestId,
                                         RequestingSocket, LandscapePath,
-                                        LandscapeName, MaterialPath]() {
+                                        LandscapeName, LandscapeGuid, MaterialPath]() {
     UNebulaForgeBridgeSubsystem *Subsystem = WeakSubsystem.Get();
     if (!Subsystem)
       return;
@@ -1946,6 +1973,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSetLandscapeMaterial(
 
         for (AActor *A : AllActors) {
           if (ALandscape *L = Cast<ALandscape>(A)) {
+            if (!LandscapeGuid.IsEmpty() && L->GetLandscapeGuid().ToString().Equals(LandscapeGuid, ESearchCase::IgnoreCase)) {
+              Landscape = L;
+              break;
+            }
             // Match by landscapeName if provided (actor label)
             if (!LandscapeName.IsEmpty() &&
                 L->GetActorLabel().Equals(LandscapeName,
@@ -1955,7 +1986,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSetLandscapeMaterial(
             }
             // Match by path: compare asset path from the landscape's package
             if (!LandscapePath.IsEmpty()) {
-              FString ActorAssetPath = L->GetPackage()->GetPathName();
+              FString ActorAssetPath = L->GetPackage() ? L->GetPackage()->GetPathName() : FString();
               // Normalize both paths for comparison
               FString NormalizedRequest = LandscapePath;
               FString NormalizedActor = ActorAssetPath;
@@ -1965,7 +1996,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSetLandscapeMaterial(
               if (NormalizedActor.EndsWith(TEXT(".uasset"))) {
                 NormalizedActor = NormalizedActor.LeftChop(7);
               }
-              if (NormalizedActor.Equals(NormalizedRequest, ESearchCase::IgnoreCase)) {
+              const bool bExternalPathMatches = L->GetExternalPackage() && L->GetExternalPackage()->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase);
+              if (NormalizedActor.Equals(NormalizedRequest, ESearchCase::IgnoreCase) || bExternalPathMatches || L->GetPathName().Equals(LandscapePath, ESearchCase::IgnoreCase)) {
                 Landscape = L;
                 break;
               }

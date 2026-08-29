@@ -4880,7 +4880,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
     return HandleControlEditorSetGameSpeed(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("open_asset"))
     return HandleControlEditorOpenAsset(RequestId, Payload, RequestingSocket);
-  if (LowerSub == TEXT("screenshot") || LowerSub == TEXT("take_screenshot"))
+  if (LowerSub == TEXT("screenshot") || LowerSub == TEXT("take_screenshot") || LowerSub == TEXT("capture_pie_screenshot"))
     return HandleControlEditorScreenshot(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("pause"))
     return HandleControlEditorPause(RequestId, Payload, RequestingSocket);

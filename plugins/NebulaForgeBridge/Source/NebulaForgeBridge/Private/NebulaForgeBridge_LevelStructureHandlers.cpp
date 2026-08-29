@@ -3865,12 +3865,20 @@ static bool HandleGetLevelStructureInfo(
     {
         // Get data layers
         TArray<TSharedPtr<FJsonValue>> DataLayersArray;
-        UDataLayerSubsystem* DataLayerSubsystem = World->GetSubsystem<UDataLayerSubsystem>();
-        if (DataLayerSubsystem)
+        if (UDataLayerEditorSubsystem* DataLayerEditorSubsystem = GEditor ? GEditor->GetEditorSubsystem<UDataLayerEditorSubsystem>() : nullptr)
         {
-            // Data layer enumeration would go here
+            for (UDataLayerInstance* Instance : DataLayerEditorSubsystem->GetAllDataLayers())
+            {
+                if (!Instance) continue;
+                TSharedPtr<FJsonObject> DataLayerJson = McpHandlerUtils::CreateResultObject();
+                DataLayerJson->SetStringField(TEXT("name"), Instance->GetDataLayerShortName());
+                DataLayerJson->SetStringField(TEXT("fullName"), Instance->GetDataLayerFullName());
+                DataLayerJson->SetBoolField(TEXT("isRuntime"), Instance->IsRuntime());
+                DataLayersArray.Add(MakeShared<FJsonValueObject>(DataLayerJson));
+            }
         }
         InfoJson->SetArrayField(TEXT("dataLayers"), DataLayersArray);
+        InfoJson->SetNumberField(TEXT("dataLayerCount"), DataLayersArray.Num());
     }
 
     // Get level instances

@@ -223,13 +223,16 @@ function getInputType(args: EditorArgs): string {
 }
 
 function getScreenshotMode(args: EditorArgs): { mode?: string; error?: string } {
-  if (typeof args.mode !== 'string' || args.mode.trim() === '') {
+  const suppliedMode = typeof args.mode === 'string' && args.mode.trim() !== ''
+    ? args.mode
+    : args.captureMode;
+  if (typeof suppliedMode !== 'string' || suppliedMode.trim() === '') {
     return {};
   }
 
-  const mode = args.mode.trim().toLowerCase();
+  const mode = suppliedMode.trim().toLowerCase();
   if (!SUPPORTED_SCREENSHOT_MODES.has(mode)) {
-    return { error: `Unknown screenshot mode: ${args.mode}. Supported: editor_viewport, game_viewport, full_editor_window` };
+    return { error: `Unknown screenshot mode: ${suppliedMode}. Supported: editor_viewport, game_viewport, full_editor_window, standalone_window` };
   }
 
   return { mode };

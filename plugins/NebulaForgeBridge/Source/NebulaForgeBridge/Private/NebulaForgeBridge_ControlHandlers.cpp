@@ -383,6 +383,44 @@ bool TryResolveScreenshotOutputPathForMcp(const FString &RawPath,
   return true;
 }
 
+bool TryLoadStandaloneScreenshotForMcp(const TSharedPtr<FJsonObject> &Payload,
+                                       FString &OutFullPath,
+                                       TArray<uint8> &OutPngData,
+                                       FString &OutError) {
+  OutFullPath.Empty();
+  OutPngData.Empty();
+  OutError.Empty();
+
+  FString RelativePath;
+  if (!Payload.IsValid() || !Payload->TryGetStringField(TEXT("screenshotPath"), RelativePath) ||
+      !TryResolveScreenshotOutputPathForMcp(RelativePath, OutFullPath)) {
+    OutError = TEXT("standalone_window requires screenshotPath relative to Saved/Screenshots (for example Screenshots/Windows/Game.png)");
+    return false;
+  }
+
+  RelativePath.ReplaceInline(TEXT("\\"), TEXT("/"));
+  if (!RelativePath.StartsWith(TEXT("Screenshots/"), ESearchCase::IgnoreCase) ||
+      !FPaths::GetExtension(OutFullPath).Equals(TEXT("png"), ESearchCase::IgnoreCase)) {
+    OutError = TEXT("standalone screenshotPath must be a PNG below Saved/Screenshots");
+    return false;
+  }
+
+  if (!FFileHelper::LoadFileToArray(OutPngData, *OutFullPath)) {
+    OutError = TEXT("standalone screenshot file was not found or could not be read");
+    return false;
+  }
+
+  static constexpr uint8 PngSignature[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+  if (OutPngData.Num() < UE_ARRAY_COUNT(PngSignature) ||
+      FMemory::Memcmp(OutPngData.GetData(), PngSignature, UE_ARRAY_COUNT(PngSignature)) != 0) {
+    OutError = TEXT("standalone screenshotPath does not contain a valid PNG file");
+    OutPngData.Empty();
+    return false;
+  }
+
+  return true;
+}
+
 void AddStringArrayFieldForMcp(const TSharedPtr<FJsonObject> &Object,
                                const TCHAR *FieldName,
                                const TArray<FString> &Values) {
@@ -5051,18 +5089,38 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorScreenshot(
   }
 
   if (Mode == TEXT("standalone_window")) {
-    McpStandaloneSession::ResolvePendingPid();
-    if (McpStandaloneSession::IsRunning()) {
-      SendStandardErrorResponse(
-          this, Socket, RequestId, TEXT("NOT_SUPPORTED_FOR_STANDALONE_WINDOW"),
-          TEXT("NOT_SUPPORTED_FOR_STANDALONE_WINDOW: capturing an external standalone game window is not supported; use PIE game_viewport or read the standalone window screenshot path"),
-          nullptr);
-    } else {
-      SendStandardErrorResponse(
-          this, Socket, RequestId, TEXT("STANDALONE_NOT_RUNNING"),
-          TEXT("standalone_not_running: no tracked standalone game process is running"),
-          nullptr);
+    FString ScreenshotPath;
+    FString ScreenshotError;
+    TArray<uint8> PngData;
+    if (!TryLoadStandaloneScreenshotForMcp(Payload, ScreenshotPath, PngData, ScreenshotError)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_STANDALONE_SCREENSHOT"),
+                                ScreenshotError, nullptr);
+      return true;
     }
+
+    bool bReturnBase64 = true;
+    Payload->TryGetBoolField(TEXT("returnBase64"), bReturnBase64);
+    if (bReturnBase64 && PngData.Num() > MaxScreenshotPngBytesForBase64ForMcp) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("IMAGE_TOO_LARGE"),
+                                MakeScreenshotTooLargeMessageForMcp(PngData.Num()), nullptr);
+      return true;
+    }
+
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetBoolField(TEXT("success"), true);
+    Resp->SetStringField(TEXT("mode"), TEXT("standalone_window"));
+    Resp->SetStringField(TEXT("path"), ScreenshotPath);
+    Resp->SetStringField(TEXT("screenshotPath"), ScreenshotPath);
+    Resp->SetStringField(TEXT("mimeType"), TEXT("image/png"));
+    Resp->SetNumberField(TEXT("sizeBytes"), PngData.Num());
+    Resp->SetStringField(TEXT("captureSource"), TEXT("standalone_game_file"));
+    Resp->SetBoolField(TEXT("externalWindowCapture"), false);
+    if (bReturnBase64) {
+      Resp->SetStringField(TEXT("imageBase64"), FBase64::Encode(PngData));
+    }
+    AddScreenshotMetadataForMcp(Resp, Payload);
+    SendAutomationResponse(Socket, RequestId, true,
+                           TEXT("Standalone game screenshot file read"), Resp, FString());
     return true;
   }
   if (Mode == TEXT("game_viewport")) {
@@ -6759,12 +6817,17 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorUndo(
     return true;
   }
 
-  // Execute undo via console command
-  GEditor->Exec(GEditor->GetEditorWorldContext().World(), TEXT("Undo"));
+  const bool bAccepted = GEditor->Exec(GEditor->GetEditorWorldContext().World(), TEXT("Undo"));
+  if (!bAccepted) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("UNDO_NOT_AVAILABLE"),
+                              TEXT("Undo command was not accepted by the editor"), nullptr);
+    return true;
+  }
 
   TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
   Resp->SetStringField(TEXT("command"), TEXT("Undo"));
-  SendAutomationResponse(Socket, RequestId, true, TEXT("Undo executed"), Resp, FString());
+  Resp->SetBoolField(TEXT("accepted"), true);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Undo command accepted"), Resp, FString());
   return true;
 #else
   return false;
@@ -6781,12 +6844,17 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorRedo(
     return true;
   }
 
-  // Execute redo via console command
-  GEditor->Exec(GEditor->GetEditorWorldContext().World(), TEXT("Redo"));
+  const bool bAccepted = GEditor->Exec(GEditor->GetEditorWorldContext().World(), TEXT("Redo"));
+  if (!bAccepted) {
+    SendStandardErrorResponse(this, Socket, RequestId, TEXT("REDO_NOT_AVAILABLE"),
+                              TEXT("Redo command was not accepted by the editor"), nullptr);
+    return true;
+  }
 
   TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
   Resp->SetStringField(TEXT("command"), TEXT("Redo"));
-  SendAutomationResponse(Socket, RequestId, true, TEXT("Redo executed"), Resp, FString());
+  Resp->SetBoolField(TEXT("accepted"), true);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Redo command accepted"), Resp, FString());
   return true;
 #else
   return false;

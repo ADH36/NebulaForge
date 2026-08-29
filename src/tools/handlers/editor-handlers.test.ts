@@ -129,6 +129,42 @@ describe('handleEditorTools', () => {
     }, {});
   });
 
+  it('forwards a standalone screenshot path for safe file-backed capture', async () => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+
+    await handleEditorTools('screenshot', {
+      action: 'screenshot',
+      mode: 'standalone_window',
+      screenshotPath: 'Screenshots/Windows/MCP_Standalone.png',
+      returnBase64: false
+    }, tools);
+
+    expect(sendAutomationRequest).toHaveBeenCalledWith('control_editor', {
+      action: 'screenshot',
+      filename: undefined,
+      resolution: undefined,
+      mode: 'standalone_window',
+      screenshotPath: 'Screenshots/Windows/MCP_Standalone.png',
+      returnBase64: false
+    }, {});
+  });
+
+  it('uses captureMode when mode is omitted for screenshot routing', async () => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+
+    await handleEditorTools('screenshot', {
+      action: 'screenshot',
+      captureMode: 'standalone_window',
+      screenshotPath: 'Screenshots/Windows/MCP_Standalone.png'
+    }, tools);
+
+    expect(sendAutomationRequest).toHaveBeenCalledWith('control_editor', expect.objectContaining({
+      action: 'screenshot',
+      mode: 'standalone_window',
+      screenshotPath: 'Screenshots/Windows/MCP_Standalone.png'
+    }), {});
+  });
+
   it('routes capture_pie_screenshot through the consolidated image path', async () => {
     const { tools, sendAutomationRequest } = createConnectedTools();
 

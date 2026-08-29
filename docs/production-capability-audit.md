@@ -186,11 +186,11 @@ Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [Envir
 | Editor automation | ✅ | Strongest supported execution mode. |
 | Packaged/runtime authoring | ❌ | Many tools require `WITH_EDITOR` and do not operate in packaged builds. |
 | In-process viewport PIE | ✅ | Best-supported runtime verification mode. |
-| Standalone PIE probes/input | ❌ | In-process probes and input delivery are not supported. |
-| Standalone-window screenshots | ❌ | External standalone-window capture is rejected. |
+| Standalone PIE probes/input | ❌ | In-process probes and input delivery are not supported because standalone runs in another process. |
+| Standalone-window screenshots | ⚠️ | Direct external-window capture remains unsupported, but `mode: standalone_window` now safely reads a PNG written by the standalone game under `Saved/Screenshots` through `screenshotPath`. |
 | Unified asynchronous job system | ❌ | PCG, HLOD, shader, texture, and asset jobs use separate polling/timeout patterns. |
 | Completion proof | ⚠️ | Several actions report “started” without proving final state. |
-| Undo/redo transactions | ⚠️ | Missing or incomplete for multiple authoring handlers. |
+| Undo/redo transactions | ⚠️ | Undo/redo now report success only when the editor accepts the command; transactional coverage remains incomplete across authoring handlers. |
 
 Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md#pie-and-capture-modes), [native-automation-progress.md](./native-automation-progress.md#niagara--effect-handlers)
 

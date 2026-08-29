@@ -1037,6 +1037,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         screenshotDelayMs: { type: 'number', minimum: 0, maximum: 5000, description: 'Delay after warm-up before screenshot capture.' },
         captureMode: { type: 'string', enum: ['game_viewport', 'editor_viewport', 'standalone_window'] },
         outputPath: { type: 'string', description: 'Optional sanitized project-relative subpath under Saved/ for an additional screenshot copy.' },
+        screenshotPath: { type: 'string', description: 'For standalone_window, a sanitized path relative to Saved/ that identifies an existing PNG written by the standalone game. The editor reads this file; it does not capture another process window.' },
         interfaceName: { type: 'string', description: 'Interface class name checked against the hit actor during interact camera trace.' },
         standalone: { type: 'boolean', description: 'When true, read_pie_logs also tails the tracked standalone game process log.' },
         timeoutMs: { type: 'number', minimum: 1, maximum: 300000, description: 'Client-side deadline for this operation; sent nowhere else.' },

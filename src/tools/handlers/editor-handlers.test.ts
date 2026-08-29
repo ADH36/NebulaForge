@@ -69,6 +69,7 @@ describe('handleEditorTools', () => {
       expect(properties).toHaveProperty('playerIndex');
       expect(properties).toHaveProperty('warmupFrames');
       expect(properties).toHaveProperty('screenshotDelayMs');
+      expect(properties).toHaveProperty('screenshotPath');
     }
   });
 

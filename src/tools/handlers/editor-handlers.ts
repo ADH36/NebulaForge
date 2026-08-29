@@ -99,7 +99,7 @@ const ACTION_ALLOWED_PARAMS: Record<string, string[]> = {
   'set_camera_fov': ['fov'],
   'set_game_speed': ['speed'],
   'set_fixed_delta_time': ['deltaTime'],
-  'screenshot': ['filename', 'path', 'outputPath', 'resolution', 'mode', 'returnBase64', 'includeMetadata', 'metadata', 'warmupFrames', 'screenshotDelayMs', 'captureMode'],
+  'screenshot': ['filename', 'path', 'outputPath', 'screenshotPath', 'resolution', 'mode', 'returnBase64', 'includeMetadata', 'metadata', 'warmupFrames', 'screenshotDelayMs', 'captureMode'],
   'set_preferences': ['category', 'preferences'],
   'configure_editor_preferences': ['category', 'preferences'],
   'set_grid_settings': ['gridEnabled', 'gridSize', 'usePowerOf2SnapSize'],
@@ -470,6 +470,9 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       const payload: Record<string, unknown> = { action: 'screenshot', filename, resolution: args.resolution };
       if (typeof args.outputPath === 'string' && args.outputPath.trim().length > 0) {
         payload.outputPath = args.outputPath.trim();
+      }
+      if (typeof args.screenshotPath === 'string' && args.screenshotPath.trim().length > 0) {
+        payload.screenshotPath = args.screenshotPath.trim();
       }
       if (mode !== undefined) {
         payload.mode = mode;

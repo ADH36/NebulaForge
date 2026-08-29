@@ -361,6 +361,7 @@ export interface EditorArgs extends HandlerArgs {
     screenshotDelayMs?: number;
     captureMode?: string;
     outputPath?: string;
+    screenshotPath?: string;
     interfaceName?: string;
     standalone?: boolean;
     minMovementCm?: number;

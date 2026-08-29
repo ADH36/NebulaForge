@@ -440,6 +440,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
         warmupFrames: { type: 'integer', minimum: 0, maximum: 120, description: 'Frames to render before screenshot capture.' },
         screenshotDelayMs: { type: 'number', minimum: 0, maximum: 5000, description: 'Delay after warm-up before screenshot capture.' },
         captureMode: { type: 'string', enum: ['game_viewport', 'editor_viewport', 'standalone_window'] },
+        screenshotPath: { type: 'string', description: 'For standalone_window, a sanitized path relative to Saved/ that identifies an existing PNG written by the standalone game. The editor reads this file; it does not capture another process window.' },
         timeoutMs: { type: 'number', minimum: 1, maximum: 300000, description: 'Client-side deadline for this operation; sent nowhere else.' },
         axisX: commonSchemas.numberProp,
         axisY: commonSchemas.numberProp,

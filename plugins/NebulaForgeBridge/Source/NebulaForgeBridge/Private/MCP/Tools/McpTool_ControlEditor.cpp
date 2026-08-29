@@ -158,6 +158,7 @@ public:
 			.Integer(TEXT("warmupFrames"), TEXT("Frames to render before screenshot capture."))
 			.Number(TEXT("screenshotDelayMs"), TEXT("Delay after warm-up before screenshot capture."))
 			.StringEnum(TEXT("captureMode"), { TEXT("game_viewport"), TEXT("editor_viewport"), TEXT("standalone_window") }, TEXT("Screenshot capture mode."))
+			.String(TEXT("screenshotPath"), TEXT("For standalone_window, a sanitized path relative to Saved/ for an existing PNG written by the standalone game. The editor reads this file; it does not capture another process window."))
 			.Number(TEXT("timeoutMs"), TEXT("Client-side operation deadline in milliseconds."))
 			.Number(TEXT("axisX"), TEXT("Horizontal movement input."))
 			.Number(TEXT("axisY"), TEXT("Vertical movement input."))

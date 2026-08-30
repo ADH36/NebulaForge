@@ -10,6 +10,10 @@ Inspect worlds. Author assets. Build gameplay. Run tests. Profile performance. S
 
 </div>
 
+<p align="center">
+  <img src="docs/images/nebula-forge-banner.svg" alt="NebulaForge — Unreal Engine MCP automation" width="100%">
+</p>
+
 <div align="center">
 
 <img src="https://img.shields.io/badge/Unreal%20Engine-5.0--5.8-0E1128?style=for-the-badge&logo=unrealengine" alt="Unreal Engine 5.0 to 5.8">
@@ -19,13 +23,14 @@ Inspect worlds. Author assets. Build gameplay. Run tests. Profile performance. S
 
 </div>
 
+<div align="center">
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![NPM Package](https://img.shields.io/npm/v/unreal-nebula-forge-mcp-server)](https://www.npmjs.com/package/unreal-nebula-forge-mcp-server)
-[![MCP SDK](https://img.shields.io/badge/MCP%20SDK-TypeScript-blue)](https://github.com/modelcontextprotocol/sdk)
-[![Unreal Engine](https://img.shields.io/badge/Unreal%20Engine-5.0--5.8-orange)](https://www.unrealengine.com/)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-Published-green)](https://registry.modelcontextprotocol.io/)
-[![Project Board](https://img.shields.io/badge/Project-Roadmap-blueviolet?logo=github)](https://github.com/users/ADH36/projects/3)
-[![Discussions](https://img.shields.io/badge/Discussions-Join-brightgreen?logo=github)](https://github.com/ADH36/NebulaForge/discussions)
+[![Roadmap](https://img.shields.io/badge/Roadmap-Explore-blueviolet?logo=github)](https://github.com/users/ADH36/projects/3)
+
+</div>
 
 A production-minded Model Context Protocol (MCP) server and Unreal Engine 5 bridge that lets AI assistants inspect, author, test, play, profile, and package Unreal projects. Built with TypeScript and C++.
 

@@ -111,4 +111,21 @@ describe('JobManager', () => {
     expect(waited.job?.status).toBe('running');
     jobManager.cancel(started.jobId);
   });
+
+  it('tracks non-process tasks and supports cooperative cancellation', async () => {
+    let observedAbort = false;
+    const started = jobManager.startTask({
+      label: 'test-task',
+      task: async (signal) => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        observedAbort = signal.aborted;
+        if (signal.aborted) throw new Error('task observed cancellation');
+      }
+    });
+    const cancelled = jobManager.cancel(started.jobId);
+    expect(cancelled).toMatchObject({ jobId: started.jobId, status: 'cancelled' });
+    await new Promise(resolve => setTimeout(resolve, 125));
+    expect(observedAbort).toBe(true);
+    expect(jobManager.get(started.jobId)?.status).toBe('cancelled');
+  });
 });

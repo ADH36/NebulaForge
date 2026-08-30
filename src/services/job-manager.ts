@@ -22,6 +22,7 @@ export interface JobSnapshot {
 interface ManagedJob extends JobSnapshot {
   process?: ChildProcessWithoutNullStreams;
   deadlineTimer?: NodeJS.Timeout;
+  abortController?: AbortController;
 }
 
 const MAX_OUTPUT_SIZE = 256 * 1024;
@@ -103,6 +104,68 @@ class JobManager {
     return this.snapshot(job);
   }
 
+  /**
+   * Register a bounded host task that does not require a child process.
+   * Tasks receive an AbortSignal and must check it at safe interruption points.
+   */
+  public startTask(options: {
+    label: string;
+    task: (signal: AbortSignal) => Promise<void>;
+    timeoutMs?: number;
+    onComplete?: (job: JobSnapshot) => void | Promise<void>;
+  }): JobSnapshot {
+    this.pruneFinishedJobs();
+    const job: ManagedJob = {
+      jobId: randomUUID(),
+      label: options.label,
+      status: 'running',
+      startedAt: new Date().toISOString(),
+      output: '',
+      errorOutput: '',
+      outputTruncated: false,
+      completionPending: Boolean(options.onComplete),
+      abortController: new AbortController(),
+    };
+    this.jobs.set(job.jobId, job);
+
+    const finish = (status: JobStatus, error?: string): void => {
+      if (job.status !== 'running' && job.status !== 'queued') return;
+      if (job.deadlineTimer) clearTimeout(job.deadlineTimer);
+      job.status = status;
+      job.exitCode = status === 'completed' ? 0 : 1;
+      job.error = error;
+      job.finishedAt = new Date().toISOString();
+      if (options.onComplete) {
+        Promise.resolve()
+          .then(() => options.onComplete?.(this.snapshot(job)))
+          .then(
+            () => { job.completionPending = false; },
+            (completionError: unknown) => {
+              job.completionPending = false;
+              job.completionError = completionError instanceof Error ? completionError.message : String(completionError);
+            }
+          );
+      }
+    };
+
+    if (options.timeoutMs !== undefined && Number.isFinite(options.timeoutMs) && options.timeoutMs > 0) {
+      job.deadlineTimer = setTimeout(() => {
+        if (job.status !== 'running' && job.status !== 'queued') return;
+        job.abortController?.abort();
+        finish('failed', `Job exceeded timeout of ${options.timeoutMs}ms`);
+      }, options.timeoutMs);
+    }
+
+    void Promise.resolve()
+      .then(() => options.task(job.abortController!.signal))
+      .then(
+        () => finish('completed'),
+        (error: unknown) => finish('failed', error instanceof Error ? error.message : String(error))
+      );
+
+    return this.snapshot(job);
+  }
+
   public get(jobId: string): JobSnapshot | undefined {
     const job = this.jobs.get(jobId);
     return job ? this.snapshot(job) : undefined;
@@ -121,6 +184,7 @@ class JobManager {
       job.status = 'cancelled';
       job.finishedAt = new Date().toISOString();
       if (job.deadlineTimer) clearTimeout(job.deadlineTimer);
+      job.abortController?.abort();
       job.process?.kill();
     }
     return this.snapshot(job);

@@ -547,8 +547,9 @@ async function waitForJobOutputPattern(
 
 async function deployPackage(args: PipelineArgs): Promise<Record<string, unknown>> {
   const platform = (args.platform || '').trim();
-  if (platform !== 'Android' && platform !== 'IOS' && platform !== 'TVOS') {
-    return { success: false, error: 'UNSUPPORTED_DEPLOYMENT_PLATFORM', message: 'deploy_package supports Android, IOS, and TVOS simulator/device installation.' };
+  const isDesktop = platform === 'Win64' || platform === 'Linux' || platform === 'Mac';
+  if (!isDesktop && platform !== 'Android' && platform !== 'IOS' && platform !== 'TVOS') {
+    return { success: false, error: 'UNSUPPORTED_DEPLOYMENT_PLATFORM', message: 'deploy_package supports Win64, Linux, Mac, Android, IOS, and TVOS.' };
   }
   const artifactInput = typeof args.artifactPath === 'string' ? args.artifactPath.trim() : '';
   if (!artifactInput) return { success: false, error: 'INVALID_ARGUMENT', message: 'artifactPath is required for deploy_package' };
@@ -558,8 +559,53 @@ async function deployPackage(args: PipelineArgs): Promise<Record<string, unknown
   const artifactPath = path.isAbsolute(artifactInput) ? path.resolve(artifactInput) : path.resolve(root, artifactInput);
   if (!isPathInside(root, artifactPath)) return { success: false, error: 'PATH_SECURITY_VIOLATION', message: 'artifactPath must remain inside archiveDirectory/projectPath', artifactPath };
   const artifactStat = await fs.promises.stat(artifactPath).catch(() => undefined);
-  if (!artifactStat || (!artifactStat.isFile() && !(platform !== 'Android' && artifactStat.isDirectory()))) {
+  if (!artifactStat || (!artifactStat.isFile() && !(isDesktop && artifactStat.isDirectory()))) {
     return { success: false, error: 'ARTIFACT_NOT_FOUND', message: `Deployable artifact not found: ${artifactPath}`, artifactPath };
+  }
+  if (isDesktop) {
+    const destinationInput = typeof args.destinationDirectory === 'string' ? args.destinationDirectory.trim() : '';
+    if (!destinationInput) {
+      return { success: false, error: 'DESTINATION_REQUIRED', message: 'destinationDirectory is required for desktop deployment.' };
+    }
+    const destinationDirectory = path.isAbsolute(destinationInput)
+      ? path.resolve(destinationInput)
+      : path.resolve(root, destinationInput);
+    if (!isPathInside(root, destinationDirectory)) {
+      return { success: false, error: 'PATH_SECURITY_VIOLATION', message: 'destinationDirectory must remain inside archiveDirectory/projectPath', destinationDirectory };
+    }
+    const destinationPath = path.join(destinationDirectory, path.basename(artifactPath));
+    if (destinationPath === artifactPath || isPathInside(artifactPath, destinationPath)) {
+      return { success: false, error: 'INVALID_ARGUMENT', message: 'destinationDirectory cannot be the artifact or one of its children.', destinationPath };
+    }
+    const destinationStat = await fs.promises.stat(destinationPath).catch(() => undefined);
+    const overwrite = args.overwrite === true;
+    if (destinationStat && !overwrite) {
+      return { success: false, error: 'DESTINATION_EXISTS', message: `Deployment destination already exists: ${destinationPath}`, destinationPath };
+    }
+    const result = {
+      success: true,
+      dryRun: args.dryRun === true,
+      platform,
+      artifactPath,
+      destinationDirectory,
+      destinationPath,
+      overwrite,
+      command: 'local_copy',
+      arguments: ['<artifact>', '<destination>']
+    };
+    if (result.dryRun) return result;
+    const copyArtifact = async (signal: AbortSignal): Promise<void> => {
+      if (signal.aborted) throw new Error('Deployment cancelled before copy started.');
+      await fs.promises.mkdir(destinationDirectory, { recursive: true });
+      await fs.promises.cp(artifactPath, destinationPath, { recursive: artifactStat.isDirectory(), force: overwrite, errorOnExist: !overwrite });
+      if (signal.aborted) throw new Error('Deployment cancelled after copy completed.');
+    };
+    if (args.async === true) {
+      const job = jobManager.startTask({ label: `deploy_package:${platform}/local`, task: copyArtifact, timeoutMs: getProcessTimeoutMs(args) });
+      return { ...result, started: true, jobId: job.jobId, status: job.status };
+    }
+    await copyArtifact(new AbortController().signal);
+    return result;
   }
   const deviceId = typeof args.deviceId === 'string' ? args.deviceId.trim() : '';
   if (!deviceId || !/^[A-Za-z0-9._:-]{1,128}$/.test(deviceId)) {

@@ -2188,7 +2188,8 @@ void SchedulePCGGenerationWait(
     const FString& GraphPath,
     FPCGTaskId TaskId,
     bool bSave,
-    int32 TimeoutMs)
+    int32 TimeoutMs,
+    const FString& AsyncId)
 {
     const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakSubsystem(Subsystem);
     const TWeakObjectPtr<UPCGComponent> WeakComponent(Component);
@@ -2204,17 +2205,36 @@ void SchedulePCGGenerationWait(
             {
                 if (LiveSubsystem)
                 {
-                    LiveSubsystem->SendAutomationError(Socket, RequestId, TEXT("PCG component was destroyed while waiting for generation."), TEXT("COMPONENT_DESTROYED"));
+                    if (!AsyncId.IsEmpty())
+                    {
+                        LiveSubsystem->CompleteManagedAsyncAction(AsyncId, false, TEXT("pcg_generation_completed"), nullptr);
+                    }
+                    else
+                    {
+                        LiveSubsystem->SendAutomationError(Socket, RequestId, TEXT("PCG component was destroyed while waiting for generation."), TEXT("COMPONENT_DESTROYED"));
+                    }
                 }
                 return false;
             }
 
             const double ElapsedSeconds = FPlatformTime::Seconds() - StartSeconds;
+            if (!AsyncId.IsEmpty() && LiveSubsystem->IsManagedAsyncActionCancelled(AsyncId))
+            {
+                LiveSubsystem->CompleteManagedAsyncAction(AsyncId, false, TEXT("pcg_generation_completed"), nullptr);
+                return false;
+            }
             if (LiveComponent->IsGenerating())
             {
                 if (ElapsedSeconds >= TimeoutSeconds)
                 {
-                    LiveSubsystem->SendAutomationError(Socket, RequestId, TEXT("Timed out waiting for PCG generation to materialize ISM/HISM output."), TEXT("GENERATION_TIMEOUT"));
+                    if (!AsyncId.IsEmpty())
+                    {
+                        LiveSubsystem->CompleteManagedAsyncAction(AsyncId, false, TEXT("pcg_generation_completed"), nullptr);
+                    }
+                    else
+                    {
+                        LiveSubsystem->SendAutomationError(Socket, RequestId, TEXT("Timed out waiting for PCG generation to materialize ISM/HISM output."), TEXT("GENERATION_TIMEOUT"));
+                    }
                     return false;
                 }
                 LiveSubsystem->SendProgressUpdate(RequestId, -1.0f, TEXT("Waiting for PCG generation and materialized ISM/HISM components."), true);
@@ -2227,7 +2247,16 @@ void SchedulePCGGenerationWait(
             FString SaveError;
             if (!SaveEditorWorldIfRequested(World, bSave, bLevelSaved, SaveError, SavedExternalActorPackages, SavedExternalActorPackageNames))
             {
-                LiveSubsystem->SendAutomationError(Socket, RequestId, SaveError, TEXT("SAVE_FAILED"));
+                if (!AsyncId.IsEmpty())
+                {
+                    TSharedPtr<FJsonObject> Failure = McpHandlerUtils::CreateResultObject();
+                    Failure->SetStringField(TEXT("error"), SaveError);
+                    LiveSubsystem->CompleteManagedAsyncAction(AsyncId, false, TEXT("pcg_generation_completed"), Failure);
+                }
+                else
+                {
+                    LiveSubsystem->SendAutomationError(Socket, RequestId, SaveError, TEXT("SAVE_FAILED"));
+                }
                 return false;
             }
 
@@ -2262,20 +2291,41 @@ void SchedulePCGGenerationWait(
                     }
                     Warnings.Add(MakeShared<FJsonValueString>(TEXT("spawlers present but zero instances")));
                     Result->SetArrayField(TEXT("warnings"), Warnings);
-                    LiveSubsystem->SendAutomationResponse(Socket, RequestId, false,
-                        TEXT("PCG generation completed with zero instances; spawner components exist but produced no output."),
-                        Result, TEXT("NO_INSTANCES_MATERIALIZED"));
+                    if (!AsyncId.IsEmpty())
+                    {
+                        LiveSubsystem->CompleteManagedAsyncAction(AsyncId, false, TEXT("pcg_generation_completed"), Result);
+                    }
+                    else
+                    {
+                        LiveSubsystem->SendAutomationResponse(Socket, RequestId, false,
+                            TEXT("PCG generation completed with zero instances; spawner components exist but produced no output."),
+                            Result, TEXT("NO_INSTANCES_MATERIALIZED"));
+                    }
                 }
                 else
                 {
-                    LiveSubsystem->SendAutomationResponse(Socket, RequestId, false,
-                        TEXT("PCG generation completed with zero instances; no ISM/HISM components were materialized."),
-                        Result, TEXT("NO_INSTANCES_MATERIALIZED"));
+                    if (!AsyncId.IsEmpty())
+                    {
+                        LiveSubsystem->CompleteManagedAsyncAction(AsyncId, false, TEXT("pcg_generation_completed"), Result);
+                    }
+                    else
+                    {
+                        LiveSubsystem->SendAutomationResponse(Socket, RequestId, false,
+                            TEXT("PCG generation completed with zero instances; no ISM/HISM components were materialized."),
+                            Result, TEXT("NO_INSTANCES_MATERIALIZED"));
+                    }
                 }
                 return false;
             }
 
-            LiveSubsystem->SendAutomationResponse(Socket, RequestId, true, TEXT("PCG generation completed; output was verified from materialized ISM/HISM components."), Result);
+            if (!AsyncId.IsEmpty())
+            {
+                LiveSubsystem->CompleteManagedAsyncAction(AsyncId, true, TEXT("pcg_generation_completed"), Result);
+            }
+            else
+            {
+                LiveSubsystem->SendAutomationResponse(Socket, RequestId, true, TEXT("PCG generation completed; output was verified from materialized ISM/HISM components."), Result);
+            }
             return false;
         }));
 }
@@ -2611,8 +2661,24 @@ bool UNebulaForgeBridgeSubsystem::HandleManagePCGAction(
             GetJsonBoolField(Payload, TEXT("waitForGeneration"), false);
         if (bWaitForGeneration)
         {
+            FString AsyncId;
+            if (GetJsonBoolField(Payload, TEXT("async"), false))
+            {
+                AsyncId = BeginManagedAsyncAction(TEXT("pcg_generation"), FString::Printf(TEXT("PCG:%s"), *Component->GetPathName()));
+                if (AsyncId.IsEmpty())
+                {
+                    SendAutomationError(Socket, RequestId, TEXT("Too many active or recently completed async actions"), TEXT("ASYNC_ACTION_CAPACITY"));
+                    return true;
+                }
+                TSharedPtr<FJsonObject> AsyncResult = McpHandlerUtils::CreateResultObject();
+                AsyncResult->SetStringField(TEXT("asyncId"), AsyncId);
+                AsyncResult->SetNumberField(TEXT("taskId"), static_cast<double>(TaskId));
+                AsyncResult->SetStringField(TEXT("state"), TEXT("running"));
+                AsyncResult->SetBoolField(TEXT("waited"), true);
+                SendAutomationResponse(Socket, RequestId, true, TEXT("PCG generation wait started; poll asyncId with get_async_action."), AsyncResult);
+            }
             SchedulePCGGenerationWait(this, Socket, RequestId, World, Actor, Component, FString(), TaskId, bSave,
-                FMath::Clamp(GetJsonIntField(Payload, TEXT("timeoutMs"), 120000), 1000, 600000));
+                FMath::Clamp(GetJsonIntField(Payload, TEXT("timeoutMs"), 120000), 1000, 600000), AsyncId);
             return true;
         }
         bool bLevelSaved = false;
@@ -2706,8 +2772,25 @@ bool UNebulaForgeBridgeSubsystem::HandleManagePCGAction(
             GetJsonBoolField(Payload, TEXT("waitForGeneration"), false);
         if (bWaitForGeneration)
         {
+            FString AsyncId;
+            if (GetJsonBoolField(Payload, TEXT("async"), false))
+            {
+                AsyncId = BeginManagedAsyncAction(TEXT("pcg_generation"), FString::Printf(TEXT("PCG:%s"), *Component->GetPathName()));
+                if (AsyncId.IsEmpty())
+                {
+                    SendAutomationError(Socket, RequestId, TEXT("Too many active or recently completed async actions"), TEXT("ASYNC_ACTION_CAPACITY"));
+                    return true;
+                }
+                TSharedPtr<FJsonObject> AsyncResult = McpHandlerUtils::CreateResultObject();
+                AsyncResult->SetStringField(TEXT("asyncId"), AsyncId);
+                AsyncResult->SetNumberField(TEXT("taskId"), static_cast<double>(TaskId));
+                AsyncResult->SetStringField(TEXT("graphPath"), GraphPath);
+                AsyncResult->SetStringField(TEXT("state"), TEXT("running"));
+                AsyncResult->SetBoolField(TEXT("waited"), true);
+                SendAutomationResponse(Socket, RequestId, true, TEXT("PCG graph generation wait started; poll asyncId with get_async_action."), AsyncResult);
+            }
             SchedulePCGGenerationWait(this, Socket, RequestId, World, Actor, Component, GraphPath, TaskId, bSave,
-                FMath::Clamp(GetJsonIntField(Payload, TEXT("timeoutMs"), 120000), 1000, 600000));
+                FMath::Clamp(GetJsonIntField(Payload, TEXT("timeoutMs"), 120000), 1000, 600000), AsyncId);
             return true;
         }
 

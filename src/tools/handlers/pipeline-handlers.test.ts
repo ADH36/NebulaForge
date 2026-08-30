@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import type { ITools } from '../../types/tool-interfaces.js';
 import type { PipelineArgs } from '../../types/handler-types.js';
 import { handlePipelineTools } from './pipeline-handlers.js';
+import { jobManager } from '../../services/job-manager.js';
 
 const tools = {} as unknown as ITools;
 
@@ -233,6 +234,66 @@ describe('handlePipelineTools release_gate', () => {
 });
 
 describe('handlePipelineTools deploy_package', () => {
+  it('copies desktop artifacts into a confined local deployment directory', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-desktop-deploy-'));
+    try {
+      const artifactPath = path.join(tempRoot, 'Game');
+      const destinationDirectory = path.join(tempRoot, 'Staged');
+      await fs.mkdir(artifactPath);
+      await fs.writeFile(path.join(artifactPath, 'Game.exe'), 'binary');
+      const result = await handlePipelineTools('deploy_package', {
+        platform: 'Win64',
+        archiveDirectory: tempRoot,
+        artifactPath: 'Game',
+        destinationDirectory: 'Staged',
+        overwrite: true
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({ success: true, platform: 'Win64', command: 'local_copy', destinationPath: path.join(destinationDirectory, 'Game') });
+      await expect(fs.readFile(path.join(destinationDirectory, 'Game', 'Game.exe'), 'utf8')).resolves.toBe('binary');
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('supports a side-effect-free desktop deployment dry run', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-desktop-deploy-dry-'));
+    try {
+      await fs.writeFile(path.join(tempRoot, 'Game.exe'), 'binary');
+      const result = await handlePipelineTools('deploy_package', {
+        platform: 'Linux',
+        archiveDirectory: tempRoot,
+        artifactPath: 'Game.exe',
+        destinationDirectory: 'Staged',
+        dryRun: true
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({ success: true, dryRun: true, platform: 'Linux', command: 'local_copy' });
+      await expect(fs.stat(path.join(tempRoot, 'Staged'))).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('returns a pollable managed job for asynchronous desktop deployment', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-desktop-deploy-async-'));
+    try {
+      await fs.writeFile(path.join(tempRoot, 'Game.exe'), 'binary');
+      const result = await handlePipelineTools('deploy_package', {
+        platform: 'Mac',
+        archiveDirectory: tempRoot,
+        artifactPath: 'Game.exe',
+        destinationDirectory: 'Staged',
+        async: true
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({ success: true, started: true, command: 'local_copy', status: 'running' });
+      const jobId = String(result.jobId);
+      const waited = await jobManager.waitForTerminal(jobId, 2000);
+      expect(waited.job).toMatchObject({ status: 'completed', exitCode: 0 });
+      await expect(fs.readFile(path.join(tempRoot, 'Staged', 'Game.exe'), 'utf8')).resolves.toBe('binary');
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('builds a confined Android deployment command in dry-run mode', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-deploy-'));
     try {

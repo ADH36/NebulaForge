@@ -70,6 +70,7 @@ public:
 			.Bool(TEXT("force"), TEXT("Force PCG generation."))
 			.Bool(TEXT("wait"), TEXT("Wait for PCG generation to finish and verify materialized ISM/HISM output."))
 			.Bool(TEXT("waitForGeneration"), TEXT("Alias for wait."))
+			.Bool(TEXT("async"), TEXT("For waited generation, return a managed asyncId immediately and poll with system_control.get_async_action."))
 			.Number(TEXT("gridSize"), TEXT("PCG partition grid size in centimeters."))
 			.FreeformObject(TEXT("settings"), TEXT("Node settings keyed by reflected PCG settings property name."))
 			.Number(TEXT("x"), TEXT("Node editor X position."))

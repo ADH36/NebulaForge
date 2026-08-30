@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { AutomationBridge } from '../automation/index.js';
 import type { ITools } from '../types/tool-interfaces.js';
 import { handleConsolidatedToolCall } from './consolidated-tool-handlers.js';
@@ -250,6 +253,32 @@ describe('consolidated action params compatibility', () => {
       mode: 'full_editor_window',
       returnBase64: true
     }, {});
+  });
+
+  it('routes host-only deployment and soak actions to the pipeline handler', async () => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+    const root = await mkdtemp(join(tmpdir(), 'nebula-consolidated-pipeline-'));
+    try {
+      await writeFile(join(root, 'Game.apk'), 'apk');
+      const result = await handleConsolidatedToolCall('system_control', {
+        action: 'deploy_package',
+        platform: 'Android',
+        archiveDirectory: root,
+        artifactPath: 'Game.apk',
+        deviceId: 'emulator-5554',
+        dryRun: true
+      }, tools);
+
+      expect(result).toMatchObject({
+        success: true,
+        dryRun: true,
+        platform: 'Android',
+        command: 'adb'
+      });
+      expect(sendAutomationRequest).not.toHaveBeenCalled();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('forwards screenshot metadata opt-in for system control screenshots', async () => {

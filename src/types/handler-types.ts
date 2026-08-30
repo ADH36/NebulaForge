@@ -1050,6 +1050,8 @@ export interface PipelineArgs extends HandlerArgs {
     server?: boolean;
     serverConfiguration?: string;
     artifactPath?: string;
+    destinationDirectory?: string;
+    overwrite?: boolean;
     certificatePath?: string;
     signingIdentity?: string;
     keystorePath?: string;

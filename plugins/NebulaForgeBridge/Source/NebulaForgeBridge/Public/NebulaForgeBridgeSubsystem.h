@@ -141,6 +141,13 @@ public:
                             const FString &RequestId, const FString &Message,
                             const FString &ErrorCode);
 
+  /** Register an editor-side operation in the shared async lifecycle registry. */
+  FString BeginManagedAsyncAction(const FString &Execution, const FString &Label);
+  bool IsManagedAsyncActionCancelled(const FString &AsyncId) const;
+  void CompleteManagedAsyncAction(const FString &AsyncId, bool bSucceeded,
+                                  const FString &EventName,
+                                  const TSharedPtr<FJsonObject> &Result = nullptr);
+
   /** Track MRQ executor lifecycle so status polling can distinguish success,
    * failure, and cancellation instead of treating every idle executor as a
    * successful render. */

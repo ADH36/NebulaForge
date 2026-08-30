@@ -10,7 +10,7 @@ Media update: guarded Media Framework asset creation (`UMediaPlayer`, file/strea
 
 Persistence update: `manage_asset.list_primary_assets` and `manage_asset.get_primary_asset` now expose registered Unreal Asset Manager primary IDs, paths, pagination, and loaded state. `system_control.get_runtime_gameplay_tag` and `control_actor.get_gameplay_tags`/`add_gameplay_tag`/`remove_gameplay_tag` verify and safely mutate supported actor-owned Gameplay Tag containers. SaveGame slot save/load now supports managed async lifecycle IDs and completion events in editor and packaged/runtime builds; terminal async records are bounded and pruned after retention to prevent long-session state growth, and terminal operations cannot be retroactively cancelled. Project-specific primary-asset registration/rules/bundles and SaveGame schema/version orchestration remain project-dependent.
 
-Platform update: `system_control.inspect_platform_capabilities` now reports host/target platform support, discovered UAT/UBT paths, signing-tool categories, and Android/Apple deployment prerequisites. `deploy_package` provides bounded local Android ADB and iOS/tvOS simulator installation with dry-run and managed-job modes; external stores, hosting, and device provisioning remain out of scope.
+Platform update: `system_control.inspect_platform_capabilities` now reports host/target platform support, discovered UAT/UBT paths, signing-tool categories, and Android/Apple deployment prerequisites. `deploy_package` provides bounded local desktop staging for Win64/Linux/Mac plus Android ADB and iOS/tvOS simulator installation with dry-run and managed-job modes; non-process filesystem tasks use the same poll/cancel/timeout job registry, while external stores, hosting, and device provisioning remain out of scope.
 
 Platform readiness update: capability discovery now probes Android (`adb`, `sdkmanager`) and Apple (`xcodebuild`) deployment prerequisites and returns per-target readiness instead of treating broad target enumeration as deployability.
 
@@ -68,7 +68,7 @@ NebulaForge provides broad Unreal Editor automation, but it is not yet a complet
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Build and deployment tool | ⚠️ | TypeScript `system_control` provides validated `run_uat` BuildCookRun operations, controlled signing, bounded local packaged launch, Android/iOS/tvOS local deployment, and host job polling; external stores and hosting remain absent, while native `/mcp` reports host-only actions explicitly. |
+| Build and deployment tool | ⚠️ | TypeScript `system_control` provides validated `run_uat` BuildCookRun operations, controlled signing, bounded local packaged launch, Win64/Linux/Mac local staging, Android/iOS/tvOS local deployment, and host job polling; external stores and hosting remain absent, while native `/mcp` reports host-only actions explicitly. |
 | Cook content | ⚠️ | `run_uat` supports cook through BuildCookRun, but live Unreal verification is still required. |
 | Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations, `validate_release`, controlled signing, bounded local packaged launch, local device deployment, and optional architecture-manifest release gating exist; external stores and hosting remain absent. |
 | Platform builds and signing | ⚠️ | Host signing is supported for Win64, Mac/iOS, and Android when tools and credentials are supplied; Linux and console signing/provider deployment remain project/toolchain dependent. |
@@ -129,7 +129,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-30-cinematics--media)
 | Basic Blueprint creation | ✅ | Native editor path exists. |
 | Blueprint graph editing | ⚠️ | Coverage depends on available K2 schemas, headers, and node types. |
 | Arbitrary K2 node support | ⚠️ | Generic reflected `nodeClass` creation now supports project/plugin `UEdGraphNode` classes when loaded; node-specific pin configuration and unsupported editor-only classes still require project/engine validation. |
-| Blueprint compilation | ⚠️ | Can be asynchronous and is not always proven complete. |
+| Blueprint compilation | ⚠️ | `validate_blueprints` synchronously invokes Unreal's compiler for each discovered Blueprint, records compiler errors/warnings, and verifies an up-to-date status; project/plugin discovery and live asset availability remain prerequisites. |
 | Project-specific gameplay architecture | ⚠️ | Host-managed architecture manifests now let AI declare required modules, assets, files, directories, and tests and validate their presence; generated gameplay classes, wiring, and behavioral proof remain project-specific. |
 | Gameplay error handling and validation | ⚠️ | `release_gate` can run project Unreal automation tests and fail on test failure; project-authored gameplay assertions and coverage remain required. |
 
@@ -226,7 +226,7 @@ Evidence: [AssetWorkflowHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebula
 | Landscape creation/editing | ⚠️ | Core creation/editing plus advertised heightmap, erosion, regional sculpt, rule-paint, inspection, deletion, and foliage actions route to native handlers; topology resize remains an explicit heightmap-reimport boundary. |
 | Procedural heightmap/erosion workflow | ✅ | Native deterministic heightmap generation supports terrain features, seeded frequency/scale, optional source height data, and bounded thermal erosion iterations; writes use the existing persistence-aware landscape heightmap path. |
 | Foliage authoring/scattering | ✅ | Native foliage types, instances, deterministic HISM scattering, inspection, regeneration, and generated-only clearing are implemented; valid assets and editor/world prerequisites are reported by `inspect_world_building_capabilities`. |
-| PCG graph authoring | ⚠️ | Native graph/node authoring exists; the PCG plugin/editor module is required and generation remains asynchronous. Capability availability is reported before authoring. |
+| PCG graph authoring | ⚠️ | Native graph/node authoring exists; the PCG plugin/editor module is required and generation remains asynchronous. Waited generation can now use the shared managed native async registry with cancellation, timeout, completion events, and `get_async_action` polling; the `async` contract is exposed on both TS and native PCG schemas. Capability availability is reported before authoring. |
 | World Partition conversion | ⚠️ | New World Partition levels and configuration are supported; existing non-World-Partition maps return an explicit `editor_conversion_required` capability instead of claiming conversion succeeded. |
 | Scoped HLOD rebuilds | ⚠️ | Whole-map and HLOD-layer commandlet rebuilds are supported; UE 5.8 does not expose cell/Data Layer scopes through the commandlet, and the limitation is reported explicitly. |
 | Water systems | ⚠️ | Require the Water plugin and available classes. |
@@ -247,7 +247,7 @@ Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [Envir
 | In-process viewport PIE | ✅ | Best-supported runtime verification mode. |
 | Standalone PIE probes/input | ❌ | In-process probes and input delivery are not supported because standalone runs in another process. |
 | Standalone-window screenshots | ⚠️ | Direct external-window capture remains unsupported, but `mode: standalone_window` now safely reads a PNG written by the standalone game under `Saved/Screenshots` through `screenshotPath`. |
-| Unified asynchronous job system | ⚠️ | Host processes now share managed job lifecycle, output caps, cancellation, and polling; `wait_for_async_action` provides bounded terminal waiting for native editor async actions, while editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
+| Unified asynchronous job system | ⚠️ | Host processes, bounded filesystem tasks, and waited PCG generation share managed lifecycle controls; host jobs provide output caps, while native PCG provides cancellation, timeout, completion events, and polling. HLOD/shader/asset jobs still use separate Unreal-side state machines. |
 | Completion proof | ⚠️ | Host jobs expose `wait_for_job`, and native managed async actions expose `wait_for_async_action` with timeout/cancel/success state reporting; editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
 | Undo/redo transactions | ⚠️ | Undo/redo now report success only when the editor accepts the command; transactional coverage remains incomplete across authoring handlers. |
 
@@ -287,3 +287,5 @@ Cinematics update: `manage_sequence.add_subsequence` now creates a real `MovieSc
 The historical capability tables above contain several stale gap markers. The current implementation also includes project/plugin validation, release archive and SHA-256 manifest gates, functional-test actor authoring, map checks, blueprint compile sweeps, redirector fixup, Insights session and file-trace capture, headless trace launch, memory/stat/network/visual profiling controls, platform toolchain inspection, local signing, packaged launch, Android/iOS simulator deployment, and bounded packaged server/client soak orchestration. These are still conditional on the required UE editor, optional plugins, platform SDKs, and project-specific assertions being available; native compilation and live project verification remain required release gates.
 
 UE 5.8 packaging verification: the current bridge source compiled successfully through all 142 UnrealBuildTool actions and produced `NebulaForgeBridge-v0.5.30-UE5.8-Win64.zip` with the short-path package workflow on 2026-08-31. The plugin manifest now declares the optional `MovieRenderPipeline` dependency so MRQ module loading is explicit. This validates native compilation and packaging only; it does not replace live project, editor, PIE, packaged-game, or platform-service verification.
+
+Host dispatch correction: consolidated `system_control` now routes `deploy_package`, `run_network_soak`, `analyze_trace`, and `release_gate` to their implemented host pipeline handlers. Previously these actions could fall through to the native bridge and be rejected as host-only even though the host implementations were available.

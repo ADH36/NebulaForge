@@ -151,6 +151,42 @@ void SendManagedLifecycleEvent(UNebulaForgeBridgeSubsystem *Owner,
 }
 #endif
 
+#if WITH_EDITOR
+FString UNebulaForgeBridgeSubsystem::BeginManagedAsyncAction(const FString &Execution,
+                                                             const FString &Label) {
+  if (!CanRegisterManagedAsyncAction()) return FString();
+  const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+  FMcpAsyncRecord Record;
+  Record.AsyncId = AsyncId;
+  Record.Execution = Execution;
+  Record.Label = Label;
+  Record.State = MakeShared<FMcpAsyncState>();
+  ManagedAsyncActions.Add(AsyncId, Record);
+  return AsyncId;
+}
+
+bool UNebulaForgeBridgeSubsystem::IsManagedAsyncActionCancelled(const FString &AsyncId) const {
+  const FMcpAsyncRecord *Record = ManagedAsyncActions.Find(AsyncId);
+  return Record && Record->State.IsValid() && Record->State->bCancelled.load();
+}
+
+void UNebulaForgeBridgeSubsystem::CompleteManagedAsyncAction(
+    const FString &AsyncId, bool bSucceeded, const FString &EventName,
+    const TSharedPtr<FJsonObject> &Result) {
+  FMcpAsyncRecord *Record = ManagedAsyncActions.Find(AsyncId);
+  if (!Record || !Record->State.IsValid()) return;
+  const bool bCancelled = Record->State->bCancelled.load();
+  Record->State->bSucceeded.store(bSucceeded && !bCancelled);
+  Record->State->bCompleted.store(true);
+  TSharedPtr<FJsonObject> EventResult = Result.IsValid() ? Result : McpHandlerUtils::CreateResultObject();
+  EventResult->SetStringField(TEXT("asyncId"), AsyncId);
+  EventResult->SetBoolField(TEXT("succeeded"), bSucceeded && !bCancelled);
+  EventResult->SetBoolField(TEXT("cancelled"), bCancelled);
+  EventResult->SetStringField(TEXT("state"), bCancelled ? TEXT("cancelled") : (bSucceeded ? TEXT("completed") : TEXT("failed")));
+  SendManagedLifecycleEvent(this, EventName, AsyncId, EventResult);
+}
+#endif
+
 #if !WITH_EDITOR
 bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
     const FString &RequestId, const FString &Action,

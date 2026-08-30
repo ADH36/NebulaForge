@@ -1848,6 +1848,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         projectPath: commonSchemas.stringProp,
         enginePath: commonSchemas.stringProp,
         artifactPath: commonSchemas.stringProp,
+        destinationDirectory: { type: 'string', description: 'Confined local deployment directory for Win64, Linux, and Mac artifacts.' },
+        overwrite: commonSchemas.overwrite,
         certificatePath: commonSchemas.stringProp,
         signingIdentity: commonSchemas.stringProp,
         keystorePath: commonSchemas.stringProp,
@@ -2489,6 +2491,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         posY: commonSchemas.numberProp,
         save: commonSchemas.save,
         overwrite: commonSchemas.overwrite,
+        async: { type: 'boolean', description: 'For waited generation, return a managed asyncId immediately and poll with system_control.get_async_action.' },
         timeoutMs: commonSchemas.numberProp
       },
       required: ['action']
@@ -2550,6 +2553,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         previousGridSize: commonSchemas.numberProp,
         saved: commonSchemas.booleanProp,
         waited: commonSchemas.booleanProp,
+        asyncId: commonSchemas.stringProp,
+        state: commonSchemas.stringProp,
         created: commonSchemas.booleanProp
       }
     }

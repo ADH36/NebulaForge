@@ -171,3 +171,58 @@ describe('handlePipelineTools validate_release', () => {
     }
   });
 });
+
+describe('handlePipelineTools deploy_package', () => {
+  it('builds a confined Android deployment command in dry-run mode', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-deploy-'));
+    try {
+      const artifactPath = path.join(tempRoot, 'Game.apk');
+      await fs.writeFile(artifactPath, 'apk');
+      const result = await handlePipelineTools('deploy_package', {
+        platform: 'Android',
+        archiveDirectory: tempRoot,
+        artifactPath: 'Game.apk',
+        deviceId: 'emulator-5554',
+        dryRun: true
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({ success: true, dryRun: true, platform: 'Android', command: 'adb', arguments: ['-s', 'emulator-5554', 'install', '-r', '<artifact>'] });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects deployment paths that escape the configured archive root', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-deploy-path-'));
+    try {
+      const result = await handlePipelineTools('deploy_package', {
+        platform: 'Android',
+        archiveDirectory: tempRoot,
+        artifactPath: '../Game.apk',
+        deviceId: 'emulator-5554',
+        dryRun: true
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({ success: false, error: 'PATH_SECURITY_VIOLATION' });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('handlePipelineTools run_network_soak', () => {
+  it('rejects missing packaged server/client artifacts before launching processes', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-soak-'));
+    try {
+      const result = await handlePipelineTools('run_network_soak', {
+        archiveDirectory: tempRoot,
+        serverArtifactPath: 'Server.exe',
+        clientArtifactPath: 'Client.exe',
+        clientCount: 2,
+        serverPort: 7777,
+        durationMs: 5000
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({ success: false, error: 'ARTIFACT_NOT_FOUND' });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+});

@@ -157,6 +157,21 @@ function resolveAutomationReport(root: string, reportPath: unknown): { absolute:
   return { absolute: path.join(root, 'Saved', 'AutomationReports', filename), relative: path.join('Saved', 'AutomationReports', filename) };
 }
 
+export function summarizeAutomationOutput(output: string, errorOutput: string): Record<string, unknown> {
+  const counts = { passed: 0, failed: 0, skipped: 0, detected: 0 };
+  const statuses = new Set(['passed', 'succeeded', 'success', 'failed', 'error', 'skipped', 'notrun']);
+  for (const line of `${output}\n${errorOutput}`.split(/\r?\n/)) {
+    const match = line.match(/\b(Passed|Succeeded|Success|Failed|Error|Skipped|NotRun)\b/i);
+    if (!match || !statuses.has(match[1].toLowerCase())) continue;
+    const status = match[1].toLowerCase();
+    counts.detected += 1;
+    if (status === 'passed' || status === 'succeeded' || status === 'success') counts.passed += 1;
+    else if (status === 'failed' || status === 'error') counts.failed += 1;
+    else counts.skipped += 1;
+  }
+  return { ...counts, source: 'output_heuristic', authoritative: false };
+}
+
 export async function runUnrealAutomationTests(options: UnrealAutomationTestOptions = {}): Promise<Record<string, unknown>> {
   const root = resolveRoot(options.projectPath);
   if (!root) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'projectPath or UE_PROJECT_PATH is required' };
@@ -210,6 +225,7 @@ export async function runUnrealAutomationTests(options: UnrealAutomationTestOpti
         projectFile,
         filter,
         command: automationCommand,
+        testSummary: summarizeAutomationOutput(completedJob.output, completedJob.errorOutput),
         output: completedJob.output,
         errorOutput: completedJob.errorOutput,
         outputTruncated: completedJob.outputTruncated

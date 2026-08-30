@@ -507,14 +507,14 @@ inline const TArray<FString>& SystemControlCore()
 		TEXT("screenshot"), TEXT("set_resolution"), TEXT("set_fullscreen"),
 		TEXT("execute_command"), TEXT("console_command"), TEXT("run_ubt"),
       TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("validate_project"), TEXT("inspect_platform_capabilities"), TEXT("manage_project_plugin"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
-      TEXT("read_project_file"), TEXT("write_project_file"),
+      TEXT("read_project_file"), TEXT("write_project_file"), TEXT("validate_blueprints"), TEXT("start_memory_report"), TEXT("configure_stat_commands"), TEXT("check_for_errors"),
       TEXT("generate_save_game_class"),
       TEXT("list_gameplay_tags"), TEXT("get_runtime_gameplay_tag"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
       TEXT("list_config_layers"), TEXT("get_config_value"), TEXT("set_config_value"),
       TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("delete_save_game_slot"),
       TEXT("check_save_game_slot"), TEXT("list_save_game_slots"),
       TEXT("subscribe"), TEXT("unsubscribe"),
-		TEXT("spawn_category"), TEXT("start_session"), TEXT("stop_session"), TEXT("get_session_status"), TEXT("check_map_errors"), TEXT("create_functional_test"),
+		TEXT("spawn_category"), TEXT("start_session"), TEXT("stop_session"), TEXT("get_session_status"), TEXT("capture_insights_trace"), TEXT("check_map_errors"), TEXT("create_functional_test"),
 		TEXT("lumen_update_scene"), TEXT("play_sound"), TEXT("create_widget"),
 		TEXT("show_widget"), TEXT("add_widget_child"), TEXT("set_cvar"),
 		TEXT("get_project_settings"), TEXT("validate_assets"),
@@ -556,7 +556,7 @@ inline const TArray<FString>& Performance()
 		TEXT("merge_actors"), TEXT("configure_occlusion_culling"),
 		TEXT("optimize_shaders"), TEXT("configure_nanite"),
 		TEXT("configure_world_partition")
-		, TEXT("sign_release"), TEXT("run_packaged")
+		, TEXT("sign_release"), TEXT("run_packaged"), TEXT("deploy_package"), TEXT("run_network_soak")
 	};
 	return Actions;
 }

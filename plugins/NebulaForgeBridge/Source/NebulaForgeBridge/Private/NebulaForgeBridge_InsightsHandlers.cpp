@@ -37,6 +37,9 @@
 // Engine Includes
 // -----------------------------------------------------------------------------
 #include "Dom/JsonObject.h"
+#include "HAL/FileManager.h"
+#include "Misc/Guid.h"
+#include "Misc/Paths.h"
 
 // =============================================================================
 // Handler Implementation
@@ -146,6 +149,53 @@ bool UNebulaForgeBridgeSubsystem::HandleInsightsAction(
 #endif
         SendAutomationResponse(RequestingSocket, RequestId, true,
             bTraceActive ? TEXT("Trace session is active.") : TEXT("Trace session is inactive."), Result);
+        return true;
+    }
+
+    if (SubAction == TEXT("capture_insights_trace"))
+    {
+        FString FileName;
+        Payload->TryGetStringField(TEXT("tracePath"), FileName);
+        FileName.TrimStartAndEndInline();
+        if (FileName.IsEmpty()) FileName = FString::Printf(TEXT("MCP_%s.utrace"), *FGuid::NewGuid().ToString(EGuidFormats::Digits));
+        const bool bSafeFileName = FileName.Len() <= 128 && FileName.EndsWith(TEXT(".utrace"), ESearchCase::IgnoreCase) &&
+            !FileName.Contains(TEXT("/")) && !FileName.Contains(TEXT("\\")) && !FileName.Contains(TEXT("..")) && !McpContainsUnsafeCommandSeparator(FileName);
+        if (!bSafeFileName)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("tracePath must be a .utrace filename without directories or traversal."), TEXT("INVALID_TRACE_PATH"));
+            return true;
+        }
+        FString Channels;
+        const bool bHasChannels = Payload->TryGetStringField(TEXT("channels"), Channels) && !Channels.TrimStartAndEnd().IsEmpty();
+        if (bHasChannels)
+        {
+            Channels.TrimStartAndEndInline();
+            for (int32 Index = 0; Index < Channels.Len(); ++Index)
+            {
+                const TCHAR Character = Channels[Index];
+                if (!(FChar::IsAlnum(Character) || Character == TEXT('_') || Character == TEXT('-') || Character == TEXT(',') || Character == TEXT(' ')))
+                {
+                    SendAutomationError(RequestingSocket, RequestId, TEXT("Trace channels contain unsupported characters."), TEXT("INVALID_CHANNELS"));
+                    return true;
+                }
+            }
+        }
+        const FString TraceDirectory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Profiling"), TEXT("Traces"));
+        IFileManager::Get().MakeDirectory(*TraceDirectory, true);
+        const FString TracePath = FPaths::Combine(TraceDirectory, FileName);
+        const bool bStarted = FTraceAuxiliary::Start(FTraceAuxiliary::EConnectionType::File, *TracePath, bHasChannels ? *Channels : nullptr, nullptr, LogNebulaForgeBridgeSubsystem);
+        if (!bStarted)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Failed to start file-backed trace; an active trace may already exist or the trace module is unavailable."), TEXT("TRACE_START_FAILED"));
+            return true;
+        }
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetStringField(TEXT("action"), TEXT("manage_insights"));
+        Result->SetStringField(TEXT("subAction"), TEXT("capture_insights_trace"));
+        Result->SetStringField(TEXT("status"), TEXT("started"));
+        Result->SetStringField(TEXT("tracePath"), TracePath);
+        if (bHasChannels) Result->SetStringField(TEXT("channels"), Channels);
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("File-backed trace capture started."), Result);
         return true;
     }
 

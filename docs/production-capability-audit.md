@@ -10,13 +10,21 @@ Media update: guarded Media Framework asset creation (`UMediaPlayer`, file/strea
 
 Persistence update: `manage_asset.list_primary_assets` and `manage_asset.get_primary_asset` now expose registered Unreal Asset Manager primary IDs, paths, pagination, and loaded state. `system_control.get_runtime_gameplay_tag` and `control_actor.get_gameplay_tags`/`add_gameplay_tag`/`remove_gameplay_tag` verify and safely mutate supported actor-owned Gameplay Tag containers. SaveGame slot save/load now supports managed async lifecycle IDs and completion events in editor and packaged/runtime builds. Project-specific primary-asset registration/rules/bundles and SaveGame schema/version orchestration remain project-dependent.
 
-Platform update: `system_control.inspect_platform_capabilities` now reports host/target platform support, discovered UAT/UBT paths, and available signing-tool categories without attempting an unsafe signing or deployment operation.
+Platform update: `system_control.inspect_platform_capabilities` now reports host/target platform support, discovered UAT/UBT paths, signing-tool categories, and Android/Apple deployment prerequisites. `deploy_package` provides bounded local Android ADB and iOS/tvOS simulator installation with dry-run and managed-job modes; external stores, hosting, and device provisioning remain out of scope.
+
+Platform readiness update: capability discovery now probes Android (`adb`, `sdkmanager`) and Apple (`xcodebuild`) deployment prerequisites and returns per-target readiness instead of treating broad target enumeration as deployability.
 
 Profiling update: native `system_control` now exposes `start_session`, `get_session_status`, and `stop_session` for Unreal trace sessions. Status and stop operations use guarded `FTraceAuxiliary` APIs where supported by the engine version; trace-file export, analysis, and persisted report generation remain follow-up work.
 
+Profiling gate update: native `system_control.start_memory_report` requests a full Unreal memory report, `configure_stat_commands` applies only bounded stat names with structured rejection reporting, and `capture_insights_trace` starts a confined file-backed `.utrace` capture. Trace analysis, network-profiler file export, and visual-log authoring remain follow-up work.
+
 Automation update: `system_control.run_tests` can now persist a bounded terminal JSON report under `Saved/AutomationReports`, including job state, exit code, command, stdout, stderr, and truncation metadata.
 
+The report also includes a conservative, explicitly non-authoritative `testSummary` heuristic; raw output and process exit state remain the source of truth.
+
 Release update: `system_control.validate_release` can optionally verify an in-archive SHA-256 manifest, in addition to required files and `.pak` presence, so build output can be integrity-gated before signing or distribution.
+
+Packaging update: host `system_control.run_uat` now exposes explicit BuildCookRun controls for compressed output, encrypted INI files, encrypted PAK indexes, and platform prerequisites; project key management and platform-specific encryption policy remain required for a valid release.
 
 Map validation update: editor `system_control.check_map_errors` executes Unreal's Map Check against the loaded editor world and returns structured error/warning counts from the MapCheck log; it intentionally reports an unavailable-world error when no map is loaded.
 
@@ -24,9 +32,15 @@ Functional-test update: editor `system_control.create_functional_test` creates a
 
 Capability-report update: `inspect.production_capabilities` now advertises the automation-report, SHA-256 release-manifest, Map Check, and Functional Testing additions so AI clients do not have to infer them from documentation.
 
+Blueprint validation update: `system_control.validate_blueprints` now performs a bounded editor sweep over `/Game` or explicitly selected asset paths, compiles each Blueprint, returns compiler messages and counts, and optionally saves only successful compilations.
+
 Online update: `manage_networking.get_online_session_status` reports the provider, session existence, and native Online Subsystem lifecycle state for a named session, allowing automation to verify asynchronous create/join/destroy progress.
 
+Online reliability update: OnlineSubsystem create/find/join/destroy delegates now have bounded `timeoutMs` deadlines and exactly-once terminal response handling, so a provider that never completes cannot leave an MCP request hanging indefinitely.
+
 Network-test update: editor `manage_networking.configure_network_conditions` safely applies bounded packet lag, loss, duplication, and ordering conditions through Unreal's network test console controls, with an explicit reset operation for soak/reconnect scenarios.
+
+Network soak update: host `system_control.run_network_soak` launches a bounded packaged server and configurable packaged-client set with managed job IDs, a validated managed port argument, argument validation, and terminal outcomes. Project-specific replication assertions, reconnect triggers, provider matchmaking, and external hosting remain explicit integration responsibilities.
 
 The provider-specific session stack still requires a configured Online Subsystem and live multiplayer project; this action provides controlled fault injection, not a claim that a universal backend-independent soak harness exists.
 
@@ -42,9 +56,9 @@ NebulaForge provides broad Unreal Editor automation, but it is not yet a complet
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Build and deployment tool | ⚠️ | TypeScript `system_control` provides validated `run_uat` BuildCookRun operations, controlled `sign_release`, bounded local `run_packaged`, and host job polling; external deployment remains absent, while native `/mcp` reports host-only actions explicitly. |
+| Build and deployment tool | ⚠️ | TypeScript `system_control` provides validated `run_uat` BuildCookRun operations, controlled signing, bounded local packaged launch, Android/iOS/tvOS local deployment, and host job polling; external stores and hosting remain absent, while native `/mcp` reports host-only actions explicitly. |
 | Cook content | ⚠️ | `run_uat` supports cook through BuildCookRun, but live Unreal verification is still required. |
-| Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations, `validate_release`, controlled signing, and bounded local packaged launch exist; external deployment remains absent. |
+| Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations, `validate_release`, controlled signing, bounded local packaged launch, and local device deployment exist; external stores and hosting remain absent. |
 | Platform builds and signing | ⚠️ | Host signing is supported for Win64, Mac/iOS, and Android when tools and credentials are supplied; Linux and console signing/provider deployment remain project/toolchain dependent. |
 | Plugin enable/disable management | ❌ | No complete project dependency/plugin management workflow. |
 | Asset chunking, compression, encryption, PAK creation | ❌ | Release packaging controls are absent. |

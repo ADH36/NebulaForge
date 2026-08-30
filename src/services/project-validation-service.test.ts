@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { runUnrealAutomationTests, validateProject } from './project-validation-service.js';
+import { runUnrealAutomationTests, summarizeAutomationOutput, validateProject } from './project-validation-service.js';
 
 async function fixture(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-project-'));
@@ -94,5 +94,17 @@ describe('validateProject', () => {
     });
     expect(result.success).toBe(false);
     expect(result.error).toBe('INVALID_REPORT_PATH');
+  });
+});
+
+describe('summarizeAutomationOutput', () => {
+  it('keeps output-derived counts explicitly non-authoritative', () => {
+    expect(summarizeAutomationOutput('[AutomationTest] Passed\n[AutomationTest] Failed', '')).toMatchObject({
+      passed: 1,
+      failed: 1,
+      detected: 2,
+      source: 'output_heuristic',
+      authoritative: false
+    });
   });
 });

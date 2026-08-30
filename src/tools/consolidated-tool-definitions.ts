@@ -159,7 +159,7 @@ export const PERFORMANCE_ACTIONS = [
   'set_scalability', 'set_resolution_scale', 'set_vsync', 'set_frame_rate_limit', 'enable_gpu_timing',
   'configure_texture_streaming', 'configure_lod', 'apply_baseline_settings', 'optimize_draw_calls',
   'merge_actors', 'configure_occlusion_culling', 'optimize_shaders', 'configure_nanite',
-  'configure_world_partition', 'sign_release', 'run_packaged'
+  'configure_world_partition', 'sign_release', 'run_packaged', 'deploy_package'
 ] as const;
 
 export const BEHAVIOR_TREE_ACTIONS = [
@@ -1779,7 +1779,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
           type: 'string',
           enum: [
             'profile', 'show_fps', 'set_quality', 'screenshot', 'set_resolution', 'set_fullscreen', 'execute_command', 'console_command',
-            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'inspect_platform_capabilities', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'lumen_update_scene',
+            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'check_for_errors', 'capture_insights_trace', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'lumen_update_scene',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python'
@@ -1815,6 +1815,10 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         pluginName: commonSchemas.name,
         requirePak: commonSchemas.booleanProp,
         manifestPath: { type: 'string', description: 'Optional release JSON manifest inside archiveDirectory mapping files to SHA-256 hashes.' },
+        compressed: commonSchemas.booleanProp,
+        encryptIniFiles: commonSchemas.booleanProp,
+        encryptPakIndex: commonSchemas.booleanProp,
+        includePrerequisites: commonSchemas.booleanProp,
         filePath: commonSchemas.stringProp,
         projectPath: commonSchemas.stringProp,
         enginePath: commonSchemas.stringProp,
@@ -1824,6 +1828,19 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         keystorePath: commonSchemas.stringProp,
         signingAlias: commonSchemas.stringProp,
         signingPasswordEnv: commonSchemas.stringProp,
+        deviceId: commonSchemas.stringProp,
+        maxAssets: commonSchemas.numberProp,
+        saveAfterCompile: commonSchemas.booleanProp,
+        statNames: commonSchemas.arrayOfStrings,
+        logCategories: commonSchemas.arrayOfStrings,
+        tracePath: commonSchemas.stringProp,
+        serverArtifactPath: commonSchemas.stringProp,
+        clientArtifactPath: commonSchemas.stringProp,
+        serverArguments: commonSchemas.stringProp,
+        clientArguments: commonSchemas.stringProp,
+        clientCount: commonSchemas.numberProp,
+        serverPort: commonSchemas.numberProp,
+        durationMs: commonSchemas.numberProp,
         dryRun: commonSchemas.booleanProp,
         configName: commonSchemas.stringProp,
         content: { type: 'string', maxLength: 1048576 },

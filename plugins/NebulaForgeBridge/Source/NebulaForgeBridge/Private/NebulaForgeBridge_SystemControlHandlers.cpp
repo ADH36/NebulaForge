@@ -48,6 +48,10 @@
 #include "LatentActions.h"
 #include "Tickable.h"
 #include "UObject/UObjectIterator.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "Engine/Blueprint.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #endif
 
 #if WITH_EDITOR
@@ -1208,10 +1212,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
       Lower == TEXT("list_save_game_slots");
   const bool bHostWorkflowAction =
-      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("validate_project") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("manage_project_plugin") ||
+      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("validate_project") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("deploy_package") || Lower == TEXT("run_network_soak") || Lower == TEXT("manage_project_plugin") ||
       Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
       Lower == TEXT("cancel_job") || Lower == TEXT("read_project_file") ||
-      Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") ||
+      Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") || Lower == TEXT("validate_blueprints") || Lower == TEXT("capture_insights_trace") ||
       Lower == TEXT("list_gameplay_tags") || Lower == TEXT("get_runtime_gameplay_tag") || Lower == TEXT("add_gameplay_tag") ||
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
       Lower == TEXT("get_config_value") || Lower == TEXT("set_config_value");
@@ -1228,6 +1232,11 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("check_map_errors") &&
       Lower != TEXT("create_functional_test") &&
       Lower != TEXT("validate_assets") &&
+      Lower != TEXT("validate_blueprints") &&
+      Lower != TEXT("start_memory_report") &&
+      Lower != TEXT("configure_stat_commands") &&
+      Lower != TEXT("check_for_errors") &&
+      Lower != TEXT("capture_insights_trace") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction &&
        !bHostWorkflowAction) {
@@ -1441,6 +1450,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     return true;
   }
 
+  if (Lower == TEXT("capture_insights_trace")) {
+    return HandleInsightsAction(RequestId, TEXT("manage_insights"), Payload, RequestingSocket);
+  }
+
   if (Lower == TEXT("start_session") ||
       Lower == TEXT("stop_session") ||
       Lower == TEXT("get_session_status")) {
@@ -1617,6 +1630,192 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
                            bAllValid ? TEXT("Asset validation completed")
                                      : TEXT("Asset validation failed"),
                            Result, bAllValid ? FString() : TEXT("VALIDATION_FAILED"));
+    return true;
+  }
+
+  if (Lower == TEXT("validate_blueprints")) {
+    TArray<FString> CandidatePaths;
+    const TArray<TSharedPtr<FJsonValue>>* PathsArray = nullptr;
+    if (Payload->TryGetArrayField(TEXT("paths"), PathsArray) && PathsArray) {
+      for (const TSharedPtr<FJsonValue>& Value : *PathsArray) {
+        if (Value.IsValid() && Value->Type == EJson::String) {
+          FString Path = Value->AsString();
+          Path.TrimStartAndEndInline();
+          if (!Path.IsEmpty()) CandidatePaths.Add(Path);
+        }
+      }
+    }
+
+    bool bRecursive = true;
+    if (Payload->HasField(TEXT("recursive"))) {
+      Payload->TryGetBoolField(TEXT("recursive"), bRecursive);
+    }
+    int32 MaxAssets = 1000;
+    double MaxAssetsNumber = 0.0;
+    if (Payload->TryGetNumberField(TEXT("maxAssets"), MaxAssetsNumber)) {
+      MaxAssets = FMath::Clamp(FMath::RoundToInt(MaxAssetsNumber), 1, 5000);
+    }
+
+    if (CandidatePaths.IsEmpty()) CandidatePaths.Add(TEXT("/Game"));
+    TArray<FString> BlueprintPaths;
+    for (const FString& RawPath : CandidatePaths) {
+      FString Path = RawPath;
+      if (Path.StartsWith(TEXT("/Content"), ESearchCase::IgnoreCase)) {
+        Path = FString::Printf(TEXT("/Game%s"), *Path.RightChop(8));
+      }
+      const FString SafePath = SanitizeProjectRelativePath(Path);
+      if (SafePath.IsEmpty()) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("paths must contain safe Unreal asset or directory paths"), TEXT("INVALID_PATH"));
+        return true;
+      }
+      if (UEditorAssetLibrary::DoesAssetExist(SafePath)) {
+        UObject* Asset = UEditorAssetLibrary::LoadAsset(SafePath);
+        if (Cast<UBlueprint>(Asset)) BlueprintPaths.AddUnique(SafePath);
+      } else if (UEditorAssetLibrary::DoesDirectoryExist(SafePath)) {
+        const TArray<FString> Assets = UEditorAssetLibrary::ListAssets(SafePath, bRecursive, false);
+        for (const FString& AssetPath : Assets) {
+          if (BlueprintPaths.Num() >= MaxAssets) break;
+          UObject* Asset = UEditorAssetLibrary::LoadAsset(AssetPath);
+          if (Cast<UBlueprint>(Asset)) BlueprintPaths.AddUnique(AssetPath);
+        }
+      } else {
+        SendAutomationError(RequestingSocket, RequestId, FString::Printf(TEXT("Blueprint path or directory not found: %s"), *SafePath), TEXT("ASSET_NOT_FOUND"));
+        return true;
+      }
+      if (BlueprintPaths.Num() >= MaxAssets) break;
+    }
+
+    bool bSaveAfterCompile = false;
+    Payload->TryGetBoolField(TEXT("saveAfterCompile"), bSaveAfterCompile);
+    TArray<TSharedPtr<FJsonValue>> Results;
+    int32 ErrorCount = 0;
+    int32 WarningCount = 0;
+    for (const FString& BlueprintPath : BlueprintPaths) {
+      UBlueprint* Blueprint = Cast<UBlueprint>(UEditorAssetLibrary::LoadAsset(BlueprintPath));
+      if (!Blueprint) continue;
+      FCompilerResultsLog CompilerResults;
+      FKismetEditorUtilities::CompileBlueprint(Blueprint, EBlueprintCompileOptions::SkipGarbageCollection, &CompilerResults);
+      const bool bCompiled = CompilerResults.NumErrors == 0 &&
+          (Blueprint->Status == BS_UpToDate || Blueprint->Status == BS_UpToDateWithWarnings);
+      ErrorCount += CompilerResults.NumErrors;
+      WarningCount += CompilerResults.NumWarnings;
+      if (bSaveAfterCompile && bCompiled) McpSafeAssetSave(Blueprint);
+      TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+      Item->SetStringField(TEXT("assetPath"), BlueprintPath);
+      Item->SetBoolField(TEXT("compiled"), bCompiled);
+      Item->SetNumberField(TEXT("compilerErrorCount"), CompilerResults.NumErrors);
+      Item->SetNumberField(TEXT("compilerWarningCount"), CompilerResults.NumWarnings);
+      TArray<TSharedPtr<FJsonValue>> Messages;
+      for (const TSharedRef<FTokenizedMessage>& Message : CompilerResults.Messages) {
+        Messages.Add(MakeShared<FJsonValueString>(Message->ToText().ToString()));
+      }
+      Item->SetArrayField(TEXT("compilerMessages"), Messages);
+      Results.Add(MakeShared<FJsonValueObject>(Item));
+    }
+
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("success"), ErrorCount == 0);
+    Result->SetNumberField(TEXT("checkedCount"), Results.Num());
+    Result->SetNumberField(TEXT("errorCount"), ErrorCount);
+    Result->SetNumberField(TEXT("warningCount"), WarningCount);
+    Result->SetBoolField(TEXT("truncated"), BlueprintPaths.Num() >= MaxAssets);
+    Result->SetArrayField(TEXT("results"), Results);
+    SendAutomationResponse(RequestingSocket, RequestId, ErrorCount == 0,
+        ErrorCount == 0 ? TEXT("Blueprint validation completed") : TEXT("Blueprint validation found compiler errors"),
+        Result, ErrorCount == 0 ? FString() : TEXT("BLUEPRINT_VALIDATION_FAILED"));
+    return true;
+  }
+
+  if (Lower == TEXT("start_memory_report")) {
+    if (!GEngine || !GEngine->Exec(nullptr, TEXT("memreport -full"))) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to start Unreal memory report"), TEXT("MEMORY_REPORT_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("command"), TEXT("memreport -full"));
+    Result->SetBoolField(TEXT("commandHandled"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Memory report requested; inspect the Unreal log for the generated report path."), Result);
+    return true;
+  }
+
+  if (Lower == TEXT("configure_stat_commands")) {
+    const TArray<TSharedPtr<FJsonValue>>* StatValues = nullptr;
+    if (!Payload->TryGetArrayField(TEXT("statNames"), StatValues) || !StatValues || StatValues->IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("configure_stat_commands requires a non-empty statNames array"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    bool bEnabled = true;
+    if (Payload->HasField(TEXT("enabled"))) Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+    TArray<TSharedPtr<FJsonValue>> Applied;
+    TArray<TSharedPtr<FJsonValue>> Rejected;
+    for (const TSharedPtr<FJsonValue>& Value : *StatValues) {
+      const FString StatName = Value.IsValid() && Value->Type == EJson::String ? Value->AsString().TrimStartAndEnd() : FString();
+      bool bSafeStatName = !StatName.IsEmpty() && StatName.Len() <= 64 &&
+          ((StatName[0] >= TEXT('A') && StatName[0] <= TEXT('Z')) || (StatName[0] >= TEXT('a') && StatName[0] <= TEXT('z')));
+      for (int32 Index = 1; bSafeStatName && Index < StatName.Len(); ++Index) {
+        const TCHAR Character = StatName[Index];
+        bSafeStatName = (Character >= TEXT('A') && Character <= TEXT('Z')) || (Character >= TEXT('a') && Character <= TEXT('z')) || (Character >= TEXT('0') && Character <= TEXT('9')) || Character == TEXT('_');
+      }
+      if (!bSafeStatName) {
+        Rejected.Add(MakeShared<FJsonValueString>(StatName));
+        continue;
+      }
+      const FString Command = FString::Printf(TEXT("stat %s%s"), *StatName, bEnabled ? TEXT("") : TEXT(" 0"));
+      if (GEngine && GEngine->Exec(nullptr, *Command)) Applied.Add(MakeShared<FJsonValueString>(StatName));
+      else Rejected.Add(MakeShared<FJsonValueString>(StatName));
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("success"), Rejected.IsEmpty() && !Applied.IsEmpty());
+    Result->SetBoolField(TEXT("enabled"), bEnabled);
+    Result->SetArrayField(TEXT("applied"), Applied);
+    Result->SetArrayField(TEXT("rejected"), Rejected);
+    Result->SetNumberField(TEXT("appliedCount"), Applied.Num());
+    Result->SetNumberField(TEXT("rejectedCount"), Rejected.Num());
+    SendAutomationResponse(RequestingSocket, RequestId, Rejected.IsEmpty() && !Applied.IsEmpty(),
+        Rejected.IsEmpty() ? TEXT("Stat commands configured") : TEXT("One or more stat commands were rejected"), Result,
+        Rejected.IsEmpty() ? FString() : TEXT("STAT_CONFIGURATION_FAILED"));
+    return true;
+  }
+
+  if (Lower == TEXT("check_for_errors")) {
+    const TArray<TSharedPtr<FJsonValue>>* CategoryValues = nullptr;
+    TArray<FString> Categories;
+    if (Payload->TryGetArrayField(TEXT("logCategories"), CategoryValues) && CategoryValues) {
+      for (const TSharedPtr<FJsonValue>& Value : *CategoryValues) {
+        if (!Value.IsValid() || Value->Type != EJson::String) continue;
+        FString Category = Value->AsString().TrimStartAndEnd();
+        if (!Category.IsEmpty() && Category.Len() <= 64 && Category.Contains(FString(TEXT("/"))) == false && Category.Contains(FString(TEXT("\\"))) == false) {
+          Categories.AddUnique(Category);
+        }
+      }
+    }
+    if (Categories.IsEmpty()) {
+      Categories = { TEXT("MapCheck"), TEXT("BlueprintLog"), TEXT("LoadErrors"), TEXT("DataValidation") };
+    }
+    TArray<TSharedPtr<FJsonValue>> Results;
+    int32 ErrorCount = 0;
+    int32 WarningCount = 0;
+    for (const FString& Category : Categories) {
+      FMessageLog MessageLog(FName(*Category));
+      const int32 CategoryErrors = MessageLog.NumMessages(EMessageSeverity::Error);
+      const int32 CategoryWarnings = MessageLog.NumMessages(EMessageSeverity::Warning);
+      ErrorCount += CategoryErrors;
+      WarningCount += CategoryWarnings;
+      TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+      Item->SetStringField(TEXT("category"), Category);
+      Item->SetNumberField(TEXT("errorCount"), CategoryErrors);
+      Item->SetNumberField(TEXT("warningCount"), CategoryWarnings);
+      Item->SetBoolField(TEXT("valid"), CategoryErrors == 0);
+      Results.Add(MakeShared<FJsonValueObject>(Item));
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("success"), ErrorCount == 0);
+    Result->SetNumberField(TEXT("errorCount"), ErrorCount);
+    Result->SetNumberField(TEXT("warningCount"), WarningCount);
+    Result->SetArrayField(TEXT("categories"), Results);
+    SendAutomationResponse(RequestingSocket, RequestId, ErrorCount == 0,
+        ErrorCount == 0 ? TEXT("No errors found in requested message-log categories") : TEXT("Editor errors found in requested message-log categories"),
+        Result, ErrorCount == 0 ? FString() : TEXT("EDITOR_ERRORS_FOUND"));
     return true;
   }
 

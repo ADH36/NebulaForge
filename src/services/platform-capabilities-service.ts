@@ -44,16 +44,30 @@ export async function inspectPlatformCapabilities(enginePath?: string): Promise<
       path.join(engineRoot, 'Binaries', 'DotNET', 'UnrealBuildTool', 'UnrealBuildTool.exe')
     ]
     : [];
-  const [uatPath, ubtPath, signtool, codesign, jarsigner, apksigner] = await Promise.all([
+  const [uatPath, ubtPath, signtool, codesign, jarsigner, apksigner, adb, sdkmanager, xcodebuild] = await Promise.all([
     Promise.all(uatCandidates.map(existingFile)).then((paths) => paths.find(Boolean)),
     Promise.all(ubtCandidates.map(existingFile)).then((paths) => paths.find(Boolean)),
     findCommand('signtool'),
     findCommand('codesign'),
     findCommand('jarsigner'),
-    findCommand('apksigner')
+    findCommand('apksigner'),
+    findCommand('adb'),
+    findCommand('sdkmanager'),
+    findCommand('xcodebuild')
   ]);
 
   const hostPlatform = process.platform === 'win32' ? 'Win64' : process.platform === 'darwin' ? 'Mac' : 'Linux';
+  const platformReadiness = {
+    Win64: hostPlatform === 'Win64' && Boolean(uatPath && ubtPath),
+    Linux: hostPlatform === 'Linux' && Boolean(uatPath && ubtPath),
+    LinuxArm64: hostPlatform === 'Linux' && Boolean(uatPath && ubtPath),
+    Mac: hostPlatform === 'Mac' && Boolean(uatPath && ubtPath && xcodebuild),
+    Android: Boolean(uatPath && ubtPath && (adb || sdkmanager) && (jarsigner || apksigner)),
+    IOS: hostPlatform === 'Mac' && Boolean(uatPath && ubtPath && xcodebuild && codesign),
+    TVOS: hostPlatform === 'Mac' && Boolean(uatPath && ubtPath && xcodebuild && codesign),
+    HoloLens: hostPlatform === 'Win64' && Boolean(uatPath && ubtPath),
+    VisionOS: hostPlatform === 'Mac' && Boolean(uatPath && ubtPath && xcodebuild && codesign)
+  };
   return {
     success: true,
     hostPlatform,
@@ -69,7 +83,10 @@ export async function inspectPlatformCapabilities(enginePath?: string): Promise<
       android: jarsigner || apksigner,
       linux: undefined
     },
-    deployableTargets: TARGET_PLATFORMS.filter((target) => target === hostPlatform || target === 'Linux' || target === 'LinuxArm64'),
-    message: 'Platform capability discovery completed; SDK, certificates, and deployment credentials must still be configured per target.'
+    deploymentTools: { adb, sdkmanager, xcodebuild },
+    androidSdkRoot: process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT,
+    platformReadiness,
+    deployableTargets: TARGET_PLATFORMS.filter((target) => platformReadiness[target]),
+    message: 'Platform capability discovery completed; readiness is based on detected engine, SDK, signing, and deployment tools. Credentials and device provisioning remain target-specific.'
   };
 }

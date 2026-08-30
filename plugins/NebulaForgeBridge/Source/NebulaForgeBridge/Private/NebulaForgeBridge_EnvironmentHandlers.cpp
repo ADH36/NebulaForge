@@ -4291,17 +4291,18 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectAction(
             Capabilities->SetStringField(TEXT("executionMode"), TEXT("editor"));
 
             TSharedPtr<FJsonObject> Status = MakeShared<FJsonObject>();
-            Status->SetStringField(TEXT("productionPipeline"), TEXT("partial_build_cook_stage_package_archive_platform_signing_local_runtime_launch_release_manifest_no_deployment"));
-            Status->SetStringField(TEXT("platformIntegration"), TEXT("partial_host_target_toolchain_discovery_signing_local_runtime_no_deployment"));
+            Status->SetStringField(TEXT("productionPipeline"), TEXT("partial_build_cook_stage_package_archive_platform_signing_local_runtime_launch_release_manifest_local_device_deployment_no_external_hosting"));
+            Status->SetStringField(TEXT("platformIntegration"), TEXT("partial_host_target_toolchain_discovery_signing_android_ios_simulator_deployment_no_external_hosting"));
             Status->SetStringField(TEXT("releaseValidation"), TEXT("partial_artifact_gate_required_files_pak_sha256_manifest_no_projectwide_unreal_validation"));
-            Status->SetStringField(TEXT("testingQuality"), TEXT("partial_automation_tests_terminal_json_reports_data_validation_map_check_functional_test_actor_authoring"));
+            Status->SetStringField(TEXT("testingQuality"), TEXT("partial_automation_tests_terminal_json_reports_data_validation_map_check_functional_test_actor_authoring_blueprint_compile_sweep"));
+            Status->SetStringField(TEXT("profilingQuality"), TEXT("partial_insights_session_lifecycle_memory_report_stat_configuration_no_trace_analysis_or_visual_log_capture"));
             Status->SetStringField(TEXT("persistence"), TEXT("partial_data_asset_datatable_curvetable_primary_asset_registry_runtime_savegame_slots_async_save_load_gameplay_tag_config_runtime_tag_queries_actor_tag_mutation"));
             Status->SetStringField(TEXT("cinematicsMedia"), TEXT("partial_sequencer_mrq_png_output_demo_replay_media_assets_player_controls_take_recorder_lifecycle_no_media_sources"));
             Status->SetStringField(TEXT("blueprintGameplay"), TEXT("partial_project_architecture_required"));
             Status->SetStringField(TEXT("animationCharacters"), TEXT("partial_engine_version_and_plugin_dependent"));
             Status->SetStringField(TEXT("niagaraEffects"), TEXT("conditional_editor_and_plugin_dependent"));
             Status->SetStringField(TEXT("audio"), TEXT("partial_plugin_and_project_backend_dependent"));
-            Status->SetStringField(TEXT("multiplayerOnline"), TEXT("partial_replication_lan_voice_online_subsystem_sessions_session_status_network_fault_injection_no_provider_specific_lobbies_identity_or_matchmaking_soak_harness"));
+            Status->SetStringField(TEXT("multiplayerOnline"), TEXT("partial_replication_lan_voice_online_subsystem_sessions_session_status_network_fault_injection_packaged_server_client_soak_runner_no_provider_specific_lobbies_identity_or_matchmaking_assertions"));
             Status->SetStringField(TEXT("aiRuntimeGameplay"), TEXT("partial_runtime_pie_and_project_assets_required"));
             Status->SetStringField(TEXT("assetsContent"), TEXT("partial_release_migration_and_audit_gates_required"));
             Status->SetStringField(TEXT("worldBuilding"), TEXT("partial_plugin_assets_and_world_partition_boundaries"));

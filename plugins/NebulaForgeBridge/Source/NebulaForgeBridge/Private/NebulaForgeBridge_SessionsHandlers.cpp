@@ -68,6 +68,8 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Kismet/GameplayStatics.h"
+#include "Containers/Ticker.h"
+#include "HAL/PlatformTime.h"
 
 // Voice Chat interfaces (conditional availability)
 // Note: VoiceChat is ClientOnly (only loads during PIE/gameplay, not in Editor)
@@ -217,6 +219,40 @@ static bool HandleNetworkConditions(
 #endif
 
 #if WITH_EDITOR && MCP_HAS_ONLINE_SUBSYSTEM
+struct FOnlineRequestGuard
+{
+    bool bCompleted = false;
+    FTSTicker::FDelegateHandle TickerHandle;
+};
+
+static TSharedRef<FOnlineRequestGuard> StartOnlineRequestGuard(
+    const TSharedRef<FOnlineRequestGuard>& Guard,
+    double TimeoutSeconds,
+    TFunction<void()> OnTimeout)
+{
+    const double StartedAt = FPlatformTime::Seconds();
+    Guard->TickerHandle = FTSTicker::GetCoreTicker().AddTicker(
+        FTickerDelegate::CreateLambda([Guard, StartedAt, TimeoutSeconds, OnTimeout](float)
+        {
+            if (Guard->bCompleted) return false;
+            if (FPlatformTime::Seconds() - StartedAt >= TimeoutSeconds)
+            {
+                Guard->bCompleted = true;
+                OnTimeout();
+                return false;
+            }
+            return true;
+        }), 0.1f);
+    return Guard;
+}
+
+static void FinishOnlineRequestGuard(const TSharedRef<FOnlineRequestGuard>& Guard)
+{
+    if (Guard->bCompleted) return;
+    Guard->bCompleted = true;
+    FTSTicker::GetCoreTicker().RemoveTicker(Guard->TickerHandle);
+}
+
 static bool HandleOnlineSessionLifecycle(
     UNebulaForgeBridgeSubsystem* Subsystem,
     const FString& RequestId,
@@ -251,6 +287,7 @@ static bool HandleOnlineSessionLifecycle(
         return true;
     }
     const FName SessionName(*SessionNameString);
+    const double OnlineTimeoutSeconds = FMath::Clamp(GetNumberFieldSess(Payload, TEXT("timeoutMs"), 30000.0) / 1000.0, 1.0, 300.0);
 
     if (SubAction == TEXT("get_online_capabilities"))
     {
@@ -301,10 +338,13 @@ static bool HandleOnlineSessionLifecycle(
         Settings.bUseLobbiesIfAvailable = GetJsonBoolField(Payload, TEXT("bUseLobbiesIfAvailable"), true);
         Settings.bShouldAdvertise = GetJsonBoolField(Payload, TEXT("bShouldAdvertise"), true);
         const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+        const TSharedRef<FOnlineRequestGuard> Guard = MakeShared<FOnlineRequestGuard>();
         *Handle = Sessions->AddOnCreateSessionCompleteDelegate_Handle(
             FOnCreateSessionCompleteDelegate::CreateLambda(
-                [Subsystem, RequestId, Socket, SessionNameString, Sessions, Handle](FName, bool bSuccess)
+                [Subsystem, RequestId, Socket, SessionNameString, Sessions, Handle, Guard](FName, bool bSuccess)
                 {
+                    if (Guard->bCompleted) return;
+                    FinishOnlineRequestGuard(Guard);
                     Sessions->ClearOnCreateSessionCompleteDelegate_Handle(*Handle);
                     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
                     Result->SetStringField(TEXT("sessionName"), SessionNameString);
@@ -313,8 +353,16 @@ static bool HandleOnlineSessionLifecycle(
                         bSuccess ? TEXT("Online session created") : TEXT("Online session creation failed"),
                         Result, bSuccess ? FString() : TEXT("CREATE_SESSION_FAILED"));
                 }));
+        StartOnlineRequestGuard(Guard, OnlineTimeoutSeconds, [Subsystem, RequestId, Socket, Sessions, Handle, SessionNameString]()
+        {
+            Sessions->ClearOnCreateSessionCompleteDelegate_Handle(*Handle);
+            TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+            Result->SetStringField(TEXT("sessionName"), SessionNameString);
+            Subsystem->SendAutomationResponse(Socket, RequestId, false, TEXT("Online session creation timed out."), Result, TEXT("CREATE_SESSION_TIMEOUT"));
+        });
         if (!Sessions->CreateSession(LocalUserNum, SessionName, Settings))
         {
+            FinishOnlineRequestGuard(Guard);
             Sessions->ClearOnCreateSessionCompleteDelegate_Handle(*Handle);
             Subsystem->SendAutomationError(Socket, RequestId, TEXT("Online Subsystem rejected the create request."), TEXT("CREATE_SESSION_REJECTED"));
         }
@@ -324,10 +372,13 @@ static bool HandleOnlineSessionLifecycle(
     if (SubAction == TEXT("destroy_online_session"))
     {
         const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+        const TSharedRef<FOnlineRequestGuard> Guard = MakeShared<FOnlineRequestGuard>();
         *Handle = Sessions->AddOnDestroySessionCompleteDelegate_Handle(
             FOnDestroySessionCompleteDelegate::CreateLambda(
-                [Subsystem, RequestId, Socket, SessionNameString, Sessions, Handle](FName, bool bSuccess)
+                [Subsystem, RequestId, Socket, SessionNameString, Sessions, Handle, Guard](FName, bool bSuccess)
                 {
+                    if (Guard->bCompleted) return;
+                    FinishOnlineRequestGuard(Guard);
                     Sessions->ClearOnDestroySessionCompleteDelegate_Handle(*Handle);
                     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
                     Result->SetStringField(TEXT("sessionName"), SessionNameString);
@@ -336,8 +387,16 @@ static bool HandleOnlineSessionLifecycle(
                         bSuccess ? TEXT("Online session destroyed") : TEXT("Online session destruction failed"),
                         Result, bSuccess ? FString() : TEXT("DESTROY_SESSION_FAILED"));
                 }));
+        StartOnlineRequestGuard(Guard, OnlineTimeoutSeconds, [Subsystem, RequestId, Socket, Sessions, Handle, SessionNameString]()
+        {
+            Sessions->ClearOnDestroySessionCompleteDelegate_Handle(*Handle);
+            TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+            Result->SetStringField(TEXT("sessionName"), SessionNameString);
+            Subsystem->SendAutomationResponse(Socket, RequestId, false, TEXT("Online session destruction timed out."), Result, TEXT("DESTROY_SESSION_TIMEOUT"));
+        });
         if (!Sessions->DestroySession(SessionName))
         {
+            FinishOnlineRequestGuard(Guard);
             Sessions->ClearOnDestroySessionCompleteDelegate_Handle(*Handle);
             Subsystem->SendAutomationError(Socket, RequestId, TEXT("Online Subsystem rejected the destroy request."), TEXT("DESTROY_SESSION_REJECTED"));
         }
@@ -352,10 +411,13 @@ static bool HandleOnlineSessionLifecycle(
         Search->bIsLanQuery = GetJsonBoolField(Payload, TEXT("bIsLANMatch"), false);
         Search->QuerySettings.Set(SEARCH_PRESENCE, GetJsonBoolField(Payload, TEXT("bUsesPresence"), true), EOnlineComparisonOp::Equals);
         const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+        const TSharedRef<FOnlineRequestGuard> Guard = MakeShared<FOnlineRequestGuard>();
         *Handle = Sessions->AddOnFindSessionsCompleteDelegate_Handle(
             FOnFindSessionsCompleteDelegate::CreateLambda(
-                [Subsystem, RequestId, Socket, Search, Sessions, Handle](bool bSuccess)
+                [Subsystem, RequestId, Socket, Search, Sessions, Handle, Guard](bool bSuccess)
                 {
+                    if (Guard->bCompleted) return;
+                    FinishOnlineRequestGuard(Guard);
                     Sessions->ClearOnFindSessionsCompleteDelegate_Handle(*Handle);
                     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
                     const FString SearchId = FString::Printf(TEXT("online-search-%d"), ++SessionsHelpers::OnlineSearchSequence);
@@ -382,8 +444,14 @@ static bool HandleOnlineSessionLifecycle(
                         bSuccess ? TEXT("Online sessions found") : TEXT("Online session search failed"),
                         Result, bSuccess ? FString() : TEXT("FIND_SESSIONS_FAILED"));
                 }));
+        StartOnlineRequestGuard(Guard, OnlineTimeoutSeconds, [Subsystem, RequestId, Socket, Sessions, Handle]()
+        {
+            Sessions->ClearOnFindSessionsCompleteDelegate_Handle(*Handle);
+            Subsystem->SendAutomationResponse(Socket, RequestId, false, TEXT("Online session search timed out."), nullptr, TEXT("FIND_SESSIONS_TIMEOUT"));
+        });
         if (!Sessions->FindSessions(LocalUserNum, Search))
         {
+            FinishOnlineRequestGuard(Guard);
             Sessions->ClearOnFindSessionsCompleteDelegate_Handle(*Handle);
             Subsystem->SendAutomationError(Socket, RequestId, TEXT("Online Subsystem rejected the search request."), TEXT("FIND_SESSIONS_REJECTED"));
         }
@@ -401,10 +469,13 @@ static bool HandleOnlineSessionLifecycle(
             return true;
         }
         const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+        const TSharedRef<FOnlineRequestGuard> Guard = MakeShared<FOnlineRequestGuard>();
         *Handle = Sessions->AddOnJoinSessionCompleteDelegate_Handle(
             FOnJoinSessionCompleteDelegate::CreateLambda(
-                [Subsystem, RequestId, Socket, Sessions, SessionNameString, Handle](FName, EOnJoinSessionCompleteResult::Type ResultCode)
+                [Subsystem, RequestId, Socket, Sessions, SessionNameString, Handle, Guard](FName, EOnJoinSessionCompleteResult::Type ResultCode)
                 {
+                    if (Guard->bCompleted) return;
+                    FinishOnlineRequestGuard(Guard);
                     Sessions->ClearOnJoinSessionCompleteDelegate_Handle(*Handle);
                     const bool bSuccess = ResultCode == EOnJoinSessionCompleteResult::Success;
                     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -416,8 +487,16 @@ static bool HandleOnlineSessionLifecycle(
                         bSuccess ? TEXT("Joined online session") : TEXT("Online session join failed"),
                         Result, bSuccess ? FString() : TEXT("JOIN_SESSION_FAILED"));
                 }));
+        StartOnlineRequestGuard(Guard, OnlineTimeoutSeconds, [Subsystem, RequestId, Socket, Sessions, Handle, SessionNameString]()
+        {
+            Sessions->ClearOnJoinSessionCompleteDelegate_Handle(*Handle);
+            TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+            Result->SetStringField(TEXT("sessionName"), SessionNameString);
+            Subsystem->SendAutomationResponse(Socket, RequestId, false, TEXT("Online session join timed out."), Result, TEXT("JOIN_SESSION_TIMEOUT"));
+        });
         if (!Sessions->JoinSession(LocalUserNum, SessionName, *SearchResult))
         {
+            FinishOnlineRequestGuard(Guard);
             Sessions->ClearOnJoinSessionCompleteDelegate_Handle(*Handle);
             Subsystem->SendAutomationError(Socket, RequestId, TEXT("Online Subsystem rejected the join request."), TEXT("JOIN_SESSION_REJECTED"));
         }

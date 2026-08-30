@@ -2,7 +2,7 @@ import { cleanObject } from '../../utils/safe-json.js';
 import { ITools } from '../../types/tool-interfaces.js';
 import type { PipelineArgs } from '../../types/handler-types.js';
 import { executeAutomationRequest } from './common-handlers.js';
-import { spawn, exec } from 'node:child_process';
+import { spawn, exec, execFile } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import util from 'node:util';
@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 
 /** Promisified child_process.exec for async shell commands. */
 const execAsync = util.promisify(exec);
+const execFileAsync = util.promisify(execFile);
 const ALLOWED_UBT_PLATFORMS = new Set(['Win64', 'Mac', 'Linux', 'LinuxArm64', 'Android', 'IOS', 'TVOS', 'HoloLens', 'VisionOS']);
 const ALLOWED_UBT_CONFIGURATIONS = new Set(['Debug', 'DebugGame', 'Development', 'Shipping', 'Test']);
 const BLOCKED_UBT_OVERRIDE_OPTIONS = new Set(['project', 'projectfile', 'target', 'mode']);
@@ -343,6 +344,109 @@ async function runPackaged(args: PipelineArgs): Promise<Record<string, unknown>>
   });
 }
 
+async function findHostCommand(command: string): Promise<string | undefined> {
+  try {
+    const lookup = process.platform === 'win32' ? 'where.exe' : 'which';
+    const result = await execFileAsync(lookup, [command], { windowsHide: true, timeout: 2000, maxBuffer: 16 * 1024 });
+    return result.stdout.split(/\r?\n/).map(line => line.trim()).find(Boolean);
+  } catch {
+    return undefined;
+  }
+}
+
+async function deployPackage(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const platform = (args.platform || '').trim();
+  if (platform !== 'Android' && platform !== 'IOS' && platform !== 'TVOS') {
+    return { success: false, error: 'UNSUPPORTED_DEPLOYMENT_PLATFORM', message: 'deploy_package supports Android, IOS, and TVOS simulator/device installation.' };
+  }
+  const artifactInput = typeof args.artifactPath === 'string' ? args.artifactPath.trim() : '';
+  if (!artifactInput) return { success: false, error: 'INVALID_ARGUMENT', message: 'artifactPath is required for deploy_package' };
+  const rootInput = args.archiveDirectory || args.projectPath || process.env.UE_PROJECT_PATH;
+  if (!rootInput) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'archiveDirectory, projectPath, or UE_PROJECT_PATH is required to constrain artifactPath' };
+  const root = path.resolve(rootInput.toLowerCase().endsWith('.uproject') ? path.dirname(rootInput) : rootInput);
+  const artifactPath = path.isAbsolute(artifactInput) ? path.resolve(artifactInput) : path.resolve(root, artifactInput);
+  if (!isPathInside(root, artifactPath)) return { success: false, error: 'PATH_SECURITY_VIOLATION', message: 'artifactPath must remain inside archiveDirectory/projectPath', artifactPath };
+  const artifactStat = await fs.promises.stat(artifactPath).catch(() => undefined);
+  if (!artifactStat || (!artifactStat.isFile() && !(platform !== 'Android' && artifactStat.isDirectory()))) {
+    return { success: false, error: 'ARTIFACT_NOT_FOUND', message: `Deployable artifact not found: ${artifactPath}`, artifactPath };
+  }
+  const deviceId = typeof args.deviceId === 'string' ? args.deviceId.trim() : '';
+  if (!deviceId || !/^[A-Za-z0-9._:-]{1,128}$/.test(deviceId)) {
+    return { success: false, error: 'INVALID_DEVICE_ID', message: 'deviceId is required and may contain only letters, numbers, dot, underscore, colon, and hyphen.' };
+  }
+  const command = platform === 'Android' ? 'adb' : 'xcrun';
+  const commandArgs = platform === 'Android' ? ['-s', deviceId, 'install', '-r', artifactPath] : ['simctl', 'install', deviceId, artifactPath];
+  const dryRun = args.dryRun === true;
+  const toolPath = dryRun ? undefined : await findHostCommand(command);
+  if (!dryRun && !toolPath) return { success: false, error: 'DEPLOYMENT_TOOL_NOT_FOUND', message: `${command} was not found on the host.`, platform };
+  const result = { success: true, dryRun, platform, deviceId, artifactPath, command: toolPath || command, arguments: commandArgs.map(value => value === artifactPath ? '<artifact>' : value) };
+  if (dryRun) return result;
+  const child = spawn(toolPath || command, commandArgs, { shell: false, windowsHide: true });
+  const job = jobManager.startProcess({ label: `deploy_package:${platform}/${deviceId}`, process: child, timeoutMs: getProcessTimeoutMs(args) });
+  if (args.async === true) return { ...result, started: true, jobId: job.jobId, status: job.status };
+  return await new Promise(resolve => {
+    child.once('close', code => resolve({ ...result, success: code === 0, error: code === 0 ? undefined : 'DEPLOYMENT_FAILED', exitCode: code, jobId: job.jobId }));
+    child.once('error', error => resolve({ ...result, success: false, error: 'SPAWN_FAILED', message: error.message, jobId: job.jobId }));
+  });
+}
+
+async function runNetworkSoak(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const rootInput = args.archiveDirectory || args.projectPath || process.env.UE_PROJECT_PATH;
+  if (!rootInput) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'archiveDirectory, projectPath, or UE_PROJECT_PATH is required to constrain packaged artifacts' };
+  const root = path.resolve(rootInput.toLowerCase().endsWith('.uproject') ? path.dirname(rootInput) : rootInput);
+  const serverInput = typeof args.serverArtifactPath === 'string' ? args.serverArtifactPath.trim() : '';
+  const clientInput = typeof args.clientArtifactPath === 'string' ? args.clientArtifactPath.trim() : '';
+  if (!serverInput || !clientInput) return { success: false, error: 'INVALID_ARGUMENT', message: 'serverArtifactPath and clientArtifactPath are required for run_network_soak' };
+  const resolveArtifact = async (input: string): Promise<{ path?: string; error?: Record<string, unknown> }> => {
+    const artifactPath = path.isAbsolute(input) ? path.resolve(input) : path.resolve(root, input);
+    if (!isPathInside(root, artifactPath)) return { error: { success: false, error: 'PATH_SECURITY_VIOLATION', message: 'Packaged artifacts must remain inside archiveDirectory/projectPath', artifactPath } };
+    const stat = await fs.promises.stat(artifactPath).catch(() => undefined);
+    if (!stat || !stat.isFile()) return { error: { success: false, error: 'ARTIFACT_NOT_FOUND', message: `Packaged executable not found: ${artifactPath}`, artifactPath } };
+    return { path: artifactPath };
+  };
+  const server = await resolveArtifact(serverInput);
+  if (server.error) return server.error;
+  const client = await resolveArtifact(clientInput);
+  if (client.error) return client.error;
+  const clientCount = Number.isInteger(args.clientCount) ? args.clientCount as number : 2;
+  if (clientCount < 1 || clientCount > 32) return { success: false, error: 'INVALID_CLIENT_COUNT', message: 'clientCount must be between 1 and 32' };
+  const serverPort = Number.isInteger(args.serverPort) ? args.serverPort as number : 7777;
+  if (serverPort < 1024 || serverPort > 65535) return { success: false, error: 'INVALID_SERVER_PORT', message: 'serverPort must be between 1024 and 65535' };
+  const durationMs = Number.isFinite(args.durationMs) && (args.durationMs as number) > 0 ? Math.min(args.durationMs as number, 24 * 60 * 60 * 1000) : 60_000;
+  const serverArguments = args.serverArguments || '';
+  const clientArguments = args.clientArguments || '';
+  validateUbtArgumentsString(serverArguments);
+  validateUbtArgumentsString(clientArguments);
+  const hasPortOverride = [...tokenizeArgs(serverArguments), ...tokenizeArgs(clientArguments)].some(token => getUbtOptionName(token) === 'port');
+  if (hasPortOverride) return { success: false, error: 'INVALID_ARGUMENT', message: 'serverArguments and clientArguments cannot override the managed serverPort' };
+  const serverArgs = [...tokenizeArgs(serverArguments), `-port=${serverPort}`];
+  const clientArgs = [...tokenizeArgs(clientArguments), `127.0.0.1:${serverPort}`];
+  const launches: Array<{ role: string; executable: string; arguments: string[] }> = [
+    { role: 'server', executable: server.path as string, arguments: serverArgs },
+    ...Array.from({ length: clientCount }, (_, index) => ({ role: `client-${index + 1}`, executable: client.path as string, arguments: clientArgs }))
+  ];
+  const jobs = launches.map(launch => {
+    const child = spawn(launch.executable, launch.arguments, { shell: false, cwd: path.dirname(launch.executable), windowsHide: true });
+    const job = jobManager.startProcess({ label: `run_network_soak:${launch.role}`, process: child, timeoutMs: durationMs });
+    return { ...launch, jobId: job.jobId, status: job.status, child };
+  });
+  const baseResult = {
+    success: true,
+    serverPort,
+    clientCount,
+    durationMs,
+    serverArtifactPath: server.path,
+    clientArtifactPath: client.path,
+    jobs: jobs.map(({ child: _child, ...job }) => ({ ...job, arguments: job.arguments.map(value => value === '127.0.0.1:' + serverPort ? '<server>' : value) }))
+  };
+  if (args.async === true) return { ...baseResult, started: true, message: 'Network soak processes started; poll each returned jobId for terminal state.' };
+  const outcomes = await Promise.all(jobs.map(job => new Promise<{ role: string; success: boolean; exitCode: number | null; jobId: string }>(resolve => {
+    job.child.once('close', code => resolve({ role: job.role, success: code === 0, exitCode: code, jobId: job.jobId }));
+    job.child.once('error', () => resolve({ role: job.role, success: false, exitCode: null, jobId: job.jobId }));
+  })));
+  return { ...baseResult, success: outcomes.every(outcome => outcome.success), outcomes };
+}
+
 /** Split a UBT argument string into tokens, respecting quoted segments. */
 function tokenizeArgs(extraArgs: string): string[] {
   if (!extraArgs) {
@@ -614,6 +718,10 @@ export async function handlePipelineTools(action: string, args: PipelineArgs, to
       return signRelease(args);
     case 'run_packaged':
       return runPackaged(args);
+    case 'deploy_package':
+      return deployPackage(args);
+    case 'run_network_soak':
+      return runNetworkSoak(args);
     case 'validate_release':
       return validateReleaseArtifact(args);
     case 'run_uat': {
@@ -642,6 +750,10 @@ export async function handlePipelineTools(action: string, args: PipelineArgs, to
       if (baseOperation === 'cook' || baseOperation === 'stage' || baseOperation === 'package' || baseOperation === 'archive' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-cook');
       if (baseOperation === 'stage' || baseOperation === 'package' || baseOperation === 'archive' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-stage');
       if (baseOperation === 'package' || baseOperation === 'archive' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-pak');
+      if (args.compressed === true) buildCookRunArgs.push('-compressed');
+      if (args.encryptIniFiles === true) buildCookRunArgs.push('-encryptinifiles');
+      if (args.encryptPakIndex === true) buildCookRunArgs.push('-encryptpakindex');
+      if (args.includePrerequisites === true) buildCookRunArgs.push('-prereqs');
       if (baseOperation === 'archive' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-archive', `-archivedirectory=${archiveDirectory}`);
       buildCookRunArgs.push(...tokenizeArgs(extraArgs));
 

@@ -1441,22 +1441,22 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 33.2 Profiling
 - [x] `start_unreal_insights` (via `system_control.start_session`)
 - [x] `stop_unreal_insights` / `get_unreal_insights_status` (via `system_control`)
-- [ ] `capture_insights_trace`
+- [x] `capture_insights_trace` (confined file-backed `.utrace` capture)
 - [ ] `analyze_trace`
-- [ ] `start_memory_report`
+- [x] `start_memory_report`
 - [ ] `start_network_profiler`
 - [ ] `enable_visual_logger`
 - [ ] `add_visual_log_entry`
 - [ ] `enable_gameplay_debugger`
-- [ ] `configure_stat_commands`
+- [x] `configure_stat_commands`
 
 ### 33.3 Validation
 - [ ] `create_asset_validator`
 - [ ] `run_data_validation`
-- [ ] `check_for_errors`
+- [x] `check_for_errors` (bounded message-log category error gate)
 - [ ] `fix_redirectors`
 - [ ] `check_map_errors`
-- [ ] `validate_blueprints`
+- [x] `validate_blueprints` (bounded project or path sweep with compiler diagnostics)
 
 ---
 

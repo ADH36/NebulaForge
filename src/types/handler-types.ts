@@ -1024,6 +1024,10 @@ export interface PipelineArgs extends HandlerArgs {
     requiredFiles?: string[];
     requirePak?: boolean;
     manifestPath?: string;
+    compressed?: boolean;
+    encryptIniFiles?: boolean;
+    encryptPakIndex?: boolean;
+    includePrerequisites?: boolean;
     server?: boolean;
     serverConfiguration?: string;
     artifactPath?: string;
@@ -1032,6 +1036,14 @@ export interface PipelineArgs extends HandlerArgs {
     keystorePath?: string;
     signingAlias?: string;
     signingPasswordEnv?: string;
+    deviceId?: string;
+    serverArtifactPath?: string;
+    clientArtifactPath?: string;
+    serverArguments?: string;
+    clientArguments?: string;
+    clientCount?: number;
+    serverPort?: number;
+    durationMs?: number;
     dryRun?: boolean;
 }
 

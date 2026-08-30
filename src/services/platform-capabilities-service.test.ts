@@ -8,5 +8,7 @@ describe('inspectPlatformCapabilities', () => {
     expect(result.targetPlatforms).toEqual(expect.arrayContaining(['Win64', 'Linux', 'Android', 'IOS']));
     expect(result.signingTools).toHaveProperty('android');
     expect(result.signingTools).toHaveProperty('win64');
+    expect(result).toHaveProperty('platformReadiness');
+    expect(result).toHaveProperty('deploymentTools');
   });
 });

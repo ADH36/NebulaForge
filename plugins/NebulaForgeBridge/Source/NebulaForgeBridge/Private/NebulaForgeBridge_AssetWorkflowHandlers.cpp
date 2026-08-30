@@ -147,6 +147,7 @@
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "Factories/PhysicalMaterialFactoryNew.h"
 #include "FileHelpers.h"
+#include "PackageTools.h"
 #include "IAssetTools.h"
 #include "Editor/EditorEngine.h"
 #include "Misc/ConfigCacheIni.h"
@@ -619,11 +620,15 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
       else
       {
         const FString OriginalClassPath = Asset->GetClass()->GetPathName();
-        TArray<FAssetData> AssetsToUnload;
-        AssetsToUnload.Add(FAssetData(Asset));
-        if (!UnloadLoadedPackagesForAssets(AssetsToUnload, TEXT("verify_asset_persistence")))
+        TArray<UPackage*> PackagesToUnload;
+        PackagesToUnload.Add(Asset->GetOutermost());
+        UPackageTools::FUnloadPackageParams UnloadParams(PackagesToUnload);
+        UnloadParams.bUnloadDirtyPackages = false;
+        if (!UPackageTools::UnloadPackages(UnloadParams))
         {
-          ReloadError = TEXT("The asset package could not be unloaded safely");
+          ReloadError = UnloadParams.OutErrorMessage.IsEmpty()
+              ? TEXT("The asset package could not be unloaded safely")
+              : UnloadParams.OutErrorMessage.ToString();
         }
         else
         {

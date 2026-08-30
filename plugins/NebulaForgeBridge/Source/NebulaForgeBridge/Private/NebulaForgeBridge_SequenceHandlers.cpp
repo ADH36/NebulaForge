@@ -92,7 +92,7 @@
 #include "MoviePipelinePrimaryConfig.h"
 #include "MoviePipelineOutputSetting.h"
 #include "MoviePipelineImageSequenceOutput.h"
-#if __has_include("MoviePipelineEXROutput.h")
+#if __has_include("MoviePipelineEXROutput.h") && __has_include("Imath/ImathBox.h")
 #include "MoviePipelineEXROutput.h"
 #define MCP_HAS_MRQ_EXR 1
 #else

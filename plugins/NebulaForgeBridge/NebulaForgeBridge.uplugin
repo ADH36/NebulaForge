@@ -102,6 +102,11 @@
       "Optional": true
     },
     {
+      "Name": "MovieRenderPipeline",
+      "Enabled": true,
+      "Optional": true
+    },
+    {
       "Name": "GeometryScripting",
       "Enabled": true,
       "Optional": true

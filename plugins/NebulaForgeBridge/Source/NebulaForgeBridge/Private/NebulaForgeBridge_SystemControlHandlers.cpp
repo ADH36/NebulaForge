@@ -8,6 +8,9 @@
 #include "GameFramework/SaveGame.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Guid.h"
+#include "Misc/AutomationTest.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "UObject/UObjectGlobals.h"
@@ -298,10 +301,37 @@ bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame slot checked"), Result, FString());
     return true;
   }
+  // The default UE save-game provider stores slots under Saved/SaveGames. This
+  // gives packaged games truthful local-slot discovery without pretending that
+  // platform cloud providers expose a universal enumeration API.
+  TArray<FString> SlotFiles;
+  const FString SaveDirectory = FPaths::ProjectSavedDir() / TEXT("SaveGames/");
+  IFileManager::Get().FindFiles(SlotFiles, *(SaveDirectory / TEXT("*.sav")), true, false);
+  SlotFiles.Sort();
+  TArray<TSharedPtr<FJsonValue>> Slots;
+  for (const FString& FileName : SlotFiles)
+  {
+    const FString Slot = FPaths::GetBaseFilename(FileName);
+    if (Slot.IsEmpty())
+    {
+      continue;
+    }
+    TSharedPtr<FJsonObject> SlotObject = McpHandlerUtils::CreateResultObject();
+    SlotObject->SetStringField(TEXT("slotName"), Slot);
+    SlotObject->SetNumberField(TEXT("userIndex"), UserIndex);
+    SlotObject->SetBoolField(TEXT("exists"), UGameplayStatics::DoesSaveGameExist(Slot, UserIndex));
+    SlotObject->SetNumberField(TEXT("sizeBytes"), IFileManager::Get().FileSize(*(SaveDirectory / FileName)));
+    Slots.Add(MakeShared<FJsonValueObject>(SlotObject));
+  }
   TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
-  Result->SetStringField(TEXT("note"), TEXT("SaveGame slots are provider-managed; use check_save_game_slot for a known slot."));
-  Result->SetArrayField(TEXT("slots"), TArray<TSharedPtr<FJsonValue>>());
-  SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame slot listing is provider-managed"), Result, FString());
+  Result->SetArrayField(TEXT("slots"), Slots);
+  Result->SetNumberField(TEXT("count"), Slots.Num());
+  Result->SetNumberField(TEXT("userIndex"), UserIndex);
+  Result->SetStringField(TEXT("storage"), TEXT("local_filesystem"));
+  Result->SetStringField(TEXT("directory"), SaveDirectory);
+  Result->SetBoolField(TEXT("providerEnumerationSupported"), false);
+  Result->SetStringField(TEXT("providerNote"), TEXT("Platform cloud/provider slots are not enumerable through a universal UE API; use check_save_game_slot for a specific slot."));
+  SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Local SaveGame slots listed"), Result, FString());
   return true;
 }
 #endif

@@ -1986,7 +1986,13 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         sizeBytes: commonSchemas.numberProp,
         path: commonSchemas.stringProp,
         screenshotPath: commonSchemas.stringProp,
-        mode: commonSchemas.stringProp
+        mode: commonSchemas.stringProp,
+        slots: { type: 'array', items: { type: 'object' }, description: 'SaveGame slot records returned by list_save_game_slots.' },
+        count: commonSchemas.numberProp,
+        storage: commonSchemas.stringProp,
+        directory: commonSchemas.stringProp,
+        providerEnumerationSupported: commonSchemas.booleanProp,
+        providerNote: commonSchemas.stringProp
       }
     }
   },

@@ -3602,7 +3602,7 @@ if (SubAction == TEXT("add_montage_notify"))
                     continue;
                 }
 
-                const FString PinPath = Node->GetName().ToString() + TEXT(".") + Setting.Key;
+                const FString PinPath = Node->GetName() + TEXT(".") + Setting.Key;
                 if (Controller->SetPinDefaultValue(PinPath, DefaultValue))
                 {
                     AppliedSettings.Add(MakeShared<FJsonValueString>(Setting.Key));
@@ -3629,10 +3629,10 @@ if (SubAction == TEXT("add_montage_notify"))
         }
         Response->SetStringField(TEXT("assetPath"), ControlRigBP->GetPathName());
         Response->SetStringField(TEXT("unitType"), UnitStruct->GetPathName());
-        Response->SetStringField(TEXT("unitName"), Node->GetName().ToString());
+        Response->SetStringField(TEXT("unitName"), Node->GetName());
         Response->SetArrayField(TEXT("settingsApplied"), AppliedSettings);
         Response->SetArrayField(TEXT("settingsFailed"), FailedSettings);
-        ANIM_SUCCESS_RESPONSE(FString::Printf(TEXT("Rig unit '%s' added"), *Node->GetName().ToString()));
+        ANIM_SUCCESS_RESPONSE(FString::Printf(TEXT("Rig unit '%s' added"), *Node->GetName()));
 #else
         ANIM_ERROR_RESPONSE(TEXT("Control Rig module not available"), TEXT("NOT_SUPPORTED"));
 #endif

@@ -383,7 +383,7 @@ static bool HandleOnlineSessionLifecycle(
         Status.State = State;
         Status.StatusStr = GetJsonStringField(Payload, TEXT("statusText"), TEXT(""));
         Presence->SetPresence(*UserId, Status,
-            FOnPresenceTaskCompleteDelegate::CreateLambda(
+            IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateLambda(
                 [Subsystem, RequestId, Socket, PresenceState](const FUniqueNetId &, bool bWasSuccessful)
                 {
                     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

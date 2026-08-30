@@ -345,22 +345,80 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeFoliageAuthoring(
         if (ResolutionY <= 0) Payload->TryGetNumberField(TEXT("height"), ResolutionY);
         ResolutionX = FMath::Clamp(ResolutionX > 0 ? ResolutionX : 129, 2, 513);
         ResolutionY = FMath::Clamp(ResolutionY > 0 ? ResolutionY : ResolutionX, 2, 513);
-        TArray<TSharedPtr<FJsonValue>> HeightData;
-        HeightData.Reserve(ResolutionX * ResolutionY);
         double Amplitude = 8192.0;
         Payload->TryGetNumberField(TEXT("heightScale"), Amplitude);
-        const int32 Seed = [&Payload]() { int32 Value = 1337; Payload->TryGetNumberField(TEXT("seed"), Value); return Value; }();
+        Amplitude = FMath::Clamp(Amplitude, 0.0, 32767.0);
+        double Frequency = 2.0;
+        Payload->TryGetNumberField(TEXT("frequency"), Frequency);
+        Frequency = FMath::Clamp(Frequency, 0.05, 32.0);
+        int32 Iterations = 8;
+        Payload->TryGetNumberField(TEXT("iterations"), Iterations);
+        Iterations = FMath::Clamp(Iterations, 1, 64);
+        int32 Seed = 1337;
+        Payload->TryGetNumberField(TEXT("seed"), Seed);
+        FString TerrainFeature = TEXT("hills");
+        Payload->TryGetStringField(TEXT("terrainFeature"), TerrainFeature);
+        TArray<double> GeneratedHeights;
+        GeneratedHeights.SetNumZeroed(ResolutionX * ResolutionY);
+        const TArray<TSharedPtr<FJsonValue>>* InputHeightData = nullptr;
+        const bool bHasInputHeightData = Payload->TryGetArrayField(TEXT("heightData"), InputHeightData) &&
+            InputHeightData && InputHeightData->Num() == GeneratedHeights.Num();
         for (int32 Y = 0; Y < ResolutionY; ++Y)
         {
             for (int32 X = 0; X < ResolutionX; ++X)
             {
                 const double U = static_cast<double>(X) / FMath::Max(1, ResolutionX - 1);
                 const double V = static_cast<double>(Y) / FMath::Max(1, ResolutionY - 1);
-                const double Wave = FMath::Sin((U * 6.2831853 + Seed * 0.01)) * FMath::Cos(V * 6.2831853) * Amplitude;
-                const double Height = Lower == TEXT("apply_landscape_erosion")
-                    ? 32768.0 + Wave * 0.15
-                    : 32768.0 + Wave;
-                HeightData.Add(MakeShared<FJsonValueNumber>(FMath::Clamp(Height, 0.0, 65535.0)));
+                const double Noise = FMath::Sin((U * Frequency * 6.2831853 + Seed * 0.01)) *
+                    FMath::Cos(V * Frequency * 6.2831853) * 0.65 +
+                    FMath::Sin((U + V) * Frequency * 3.1415926 + Seed * 0.017) * 0.35;
+                double Feature = Noise;
+                if (TerrainFeature.Equals(TEXT("mountains"), ESearchCase::IgnoreCase))
+                    Feature = FMath::Pow(FMath::Abs(Noise), 0.65) * FMath::Sign(Noise);
+                else if (TerrainFeature.Equals(TEXT("valleys"), ESearchCase::IgnoreCase))
+                    Feature = -FMath::Pow(FMath::Abs(Noise), 0.65) * FMath::Sign(Noise);
+                else if (TerrainFeature.Equals(TEXT("plains"), ESearchCase::IgnoreCase))
+                    Feature = Noise * 0.18;
+                else if (TerrainFeature.Equals(TEXT("lakeshore"), ESearchCase::IgnoreCase))
+                    Feature = (V - 0.5) * Amplitude * 0.02 + Noise * 0.08;
+                GeneratedHeights[Y * ResolutionX + X] = bHasInputHeightData
+                    ? FMath::Clamp((*InputHeightData)[Y * ResolutionX + X]->AsNumber(), 0.0, 65535.0)
+                    : 32768.0 + Feature * Amplitude;
+            }
+        }
+        if (Lower == TEXT("apply_landscape_erosion"))
+        {
+            // Deterministic thermal erosion: material moves from a sample to
+            // its lower four-neighbour average, preserving the overall basin
+            // while reducing unstable cliffs. This is deliberately bounded so
+            // large editor requests remain responsive.
+            TArray<double> NextHeights;
+            NextHeights.SetNumUninitialized(GeneratedHeights.Num());
+            for (int32 Pass = 0; Pass < Iterations; ++Pass)
+            {
+                for (int32 Y = 0; Y < ResolutionY; ++Y)
+                {
+                    for (int32 X = 0; X < ResolutionX; ++X)
+                    {
+                        const int32 Index = Y * ResolutionX + X;
+                        double NeighbourSum = 0.0;
+                        int32 NeighbourCount = 0;
+                        if (X > 0) { NeighbourSum += GeneratedHeights[Index - 1]; ++NeighbourCount; }
+                        if (X + 1 < ResolutionX) { NeighbourSum += GeneratedHeights[Index + 1]; ++NeighbourCount; }
+                        if (Y > 0) { NeighbourSum += GeneratedHeights[Index - ResolutionX]; ++NeighbourCount; }
+                        if (Y + 1 < ResolutionY) { NeighbourSum += GeneratedHeights[Index + ResolutionX]; ++NeighbourCount; }
+                        const double Difference = (NeighbourSum / FMath::Max(1, NeighbourCount)) - GeneratedHeights[Index];
+                        NextHeights[Index] = GeneratedHeights[Index] + Difference * 0.12;
+                    }
+                }
+                GeneratedHeights = MoveTemp(NextHeights);
+                NextHeights.SetNumUninitialized(GeneratedHeights.Num());
+            }
+        }
+        TArray<TSharedPtr<FJsonValue>> HeightData;
+        HeightData.Reserve(GeneratedHeights.Num());
+        for (const double Height : GeneratedHeights)
+            HeightData.Add(MakeShared<FJsonValueNumber>(FMath::Clamp(Height, 0.0, 65535.0)));
             }
         }
         HeightPayload->SetStringField(TEXT("operation"), TEXT("set"));

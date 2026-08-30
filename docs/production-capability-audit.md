@@ -167,7 +167,7 @@ Evidence: [AssetWorkflowHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebula
 | Capability | Status | Gap |
 |---|:---:|---|
 | Landscape creation/editing | ⚠️ | Core creation/editing plus advertised heightmap, erosion, regional sculpt, rule-paint, inspection, deletion, and foliage actions route to native handlers; topology resize remains an explicit heightmap-reimport boundary. |
-| Procedural heightmap/erosion workflow | ❌ | Several actions fall through to `NOT_IMPLEMENTED`. |
+| Procedural heightmap/erosion workflow | ✅ | Native deterministic heightmap generation supports terrain features, seeded frequency/scale, optional source height data, and bounded thermal erosion iterations; writes use the existing persistence-aware landscape heightmap path. |
 | Foliage authoring/scattering | ⚠️ | Requires valid assets and editor/world prerequisites. |
 | PCG graph authoring | ⚠️ | Requires the PCG plugin/editor module; generation is asynchronous. |
 | World Partition conversion | ❌ | Existing maps must be converted through the Editor UI. |

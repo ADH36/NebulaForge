@@ -9,7 +9,7 @@ import util from 'node:util';
 import { jobManager } from '../../services/job-manager.js';
 import { createHash } from 'node:crypto';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
-import { validateProject } from '../../services/project-validation-service.js';
+import { runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
 
 /** Promisified child_process.exec for async shell commands. */
 const execAsync = util.promisify(exec);
@@ -258,6 +258,9 @@ async function validateReleaseArtifact(args: PipelineArgs): Promise<Record<strin
 }
 
 async function runReleaseGate(args: PipelineArgs): Promise<Record<string, unknown>> {
+  if (args.runAutomationTests === true && !args.projectPath) {
+    return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'projectPath is required when runAutomationTests is enabled for release_gate' };
+  }
   const artifact = await validateReleaseArtifact(args);
   const checks: Record<string, unknown> = { artifact };
   let valid = artifact.success === true;
@@ -282,6 +285,28 @@ async function runReleaseGate(args: PipelineArgs): Promise<Record<string, unknow
     valid = valid && plugins.success === true;
   }
 
+  if (args.projectPath && args.runAutomationTests === true) {
+    const tests = await runUnrealAutomationTests({
+      projectPath: args.projectPath,
+      enginePath: args.enginePath,
+      filter: typeof args.filter === 'string' ? args.filter : undefined,
+      test: args.testName,
+      reportPath: args.reportPath,
+      timeoutMs: args.timeoutMs
+    });
+    let terminalTests = tests;
+    if (tests.success === true && typeof tests.jobId === 'string') {
+      const terminal = await waitForTerminalHostJob(tests.jobId, getProcessTimeoutMs(args) ?? 30 * 60 * 1000);
+      terminalTests = {
+        ...tests,
+        ...terminal,
+        success: terminal.success === true
+      };
+    }
+    checks.automationTests = terminalTests;
+    valid = valid && terminalTests.success === true;
+  }
+
   return cleanObject({
     success: valid,
     error: valid ? undefined : 'RELEASE_GATE_FAILED',
@@ -290,6 +315,24 @@ async function runReleaseGate(args: PipelineArgs): Promise<Record<string, unknow
     passedChecks: Object.entries(checks).filter(([, value]) => (value as Record<string, unknown>).success === true).map(([name]) => name),
     failedChecks: Object.entries(checks).filter(([, value]) => (value as Record<string, unknown>).success !== true).map(([name]) => name)
   });
+}
+
+async function waitForTerminalHostJob(jobId: string, timeoutMs: number): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + Math.min(Math.max(timeoutMs, 1), 30 * 60 * 1000);
+  while (Date.now() < deadline) {
+    const snapshot = jobManager.get(jobId);
+    if (!snapshot) return { success: false, error: 'JOB_NOT_FOUND', jobId };
+    if (snapshot.status === 'completed' || snapshot.status === 'failed' || snapshot.status === 'cancelled') {
+      return {
+        ...snapshot,
+        success: snapshot.status === 'completed' && snapshot.exitCode === 0,
+        error: snapshot.status === 'completed' && snapshot.exitCode === 0 ? undefined : 'AUTOMATION_TESTS_FAILED'
+      };
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  jobManager.cancel(jobId);
+  return { success: false, error: 'AUTOMATION_TEST_TIMEOUT', jobId, timeoutMs };
 }
 
 function isPathInside(root: string, candidate: string): boolean {
@@ -458,24 +501,32 @@ async function waitForPackagedServerStartup(
   if (!readyPattern) {
     await new Promise(resolve => setTimeout(resolve, Math.min(timeoutMs, 250)));
     const snapshot = jobManager.get(jobId);
-    return snapshot && snapshot.status !== 'failed' && snapshot.status !== 'cancelled'
+    return snapshot && (snapshot.status === 'running' || snapshot.status === 'queued')
       ? { ready: true }
       : { ready: false, reason: 'server_process_failed' };
   }
+  return waitForJobOutputPattern(jobId, readyPattern, timeoutMs, 'server');
+}
+
+async function waitForJobOutputPattern(
+  jobId: string,
+  readyPattern: RegExp,
+  timeoutMs: number,
+  role: string,
+): Promise<{ ready: boolean; reason?: string }> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const snapshot = jobManager.get(jobId);
-    if (!snapshot || snapshot.status === 'failed' || snapshot.status === 'cancelled') {
-      return { ready: false, reason: 'server_process_failed' };
+    if (!snapshot || snapshot.status === 'failed' || snapshot.status === 'cancelled' || snapshot.status === 'completed') {
+      return { ready: false, reason: `${role}_process_failed` };
     }
-    if (readyPattern && readyPattern.test(`${snapshot.output}\n${snapshot.errorOutput}`)) {
+    readyPattern.lastIndex = 0;
+    if (readyPattern.test(`${snapshot.output}\n${snapshot.errorOutput}`)) {
       return { ready: true };
     }
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  return readyPattern
-    ? { ready: false, reason: 'server_ready_pattern_timeout' }
-    : { ready: true };
+  return { ready: false, reason: `${role}_ready_pattern_timeout` };
 }
 
 async function deployPackage(args: PipelineArgs): Promise<Record<string, unknown>> {
@@ -540,6 +591,9 @@ async function runNetworkSoak(args: PipelineArgs): Promise<Record<string, unknow
   const startupTimeoutMs = Number.isFinite(args.serverStartupTimeoutMs) && (args.serverStartupTimeoutMs as number) > 0
     ? Math.min(args.serverStartupTimeoutMs as number, 5 * 60 * 1000)
     : 30_000;
+  const clientStartupTimeoutMs = Number.isFinite(args.clientStartupTimeoutMs) && (args.clientStartupTimeoutMs as number) > 0
+    ? Math.min(args.clientStartupTimeoutMs as number, 5 * 60 * 1000)
+    : startupTimeoutMs;
   const serverArguments = args.serverArguments || '';
   const clientArguments = args.clientArguments || '';
   validateUbtArgumentsString(serverArguments);
@@ -559,6 +613,17 @@ async function runNetworkSoak(args: PipelineArgs): Promise<Record<string, unknow
       return { success: false, error: 'INVALID_SERVER_READY_PATTERN', message: error instanceof Error ? error.message : String(error) };
     }
   }
+  let clientReadyPattern: RegExp | undefined;
+  if (args.clientReadyPattern !== undefined) {
+    if (typeof args.clientReadyPattern !== 'string' || args.clientReadyPattern.trim().length === 0) {
+      return { success: false, error: 'INVALID_CLIENT_READY_PATTERN', message: 'clientReadyPattern must be a non-empty pattern when provided' };
+    }
+    try {
+      clientReadyPattern = new RegExp(args.clientReadyPattern.trim());
+    } catch (error) {
+      return { success: false, error: 'INVALID_CLIENT_READY_PATTERN', message: error instanceof Error ? error.message : String(error) };
+    }
+  }
   const serverLaunch = { role: 'server', executable: server.path as string, arguments: serverArgs };
   const dryRun = args.dryRun === true;
   if (dryRun) {
@@ -569,7 +634,9 @@ async function runNetworkSoak(args: PipelineArgs): Promise<Record<string, unknow
       clientCount,
       durationMs,
       startupTimeoutMs,
+      clientStartupTimeoutMs,
       serverReadyPattern: args.serverReadyPattern,
+      clientReadyPattern: args.clientReadyPattern,
       launches: [serverLaunch, ...Array.from({ length: clientCount }, (_, index) => ({ role: `client-${index + 1}`, executable: client.path as string, arguments: clientArgs }))]
     };
   }
@@ -595,11 +662,35 @@ async function runNetworkSoak(args: PipelineArgs): Promise<Record<string, unknow
     clientCount,
     durationMs,
     startupTimeoutMs,
+    clientStartupTimeoutMs,
     serverReadyPattern: args.serverReadyPattern,
+    clientReadyPattern: args.clientReadyPattern,
+    clientReadiness: undefined as Array<{ role: string; jobId: string; ready: boolean; reason?: string }> | undefined,
     serverArtifactPath: server.path,
     clientArtifactPath: client.path,
     jobs: jobs.map(({ child: _child, ...job }) => ({ ...job, arguments: job.arguments.map(value => value === '127.0.0.1:' + serverPort ? '<server>' : value) }))
   };
+  if (clientReadyPattern) {
+    const clientJobs = jobs.filter(job => job.role.startsWith('client-'));
+    const readiness = await Promise.all(clientJobs.map(async job => ({
+      role: job.role,
+      jobId: job.jobId,
+      ...(await waitForJobOutputPattern(job.jobId, clientReadyPattern, clientStartupTimeoutMs, job.role))
+    })));
+    const failedReadiness = readiness.filter(result => !result.ready);
+    if (failedReadiness.length > 0) {
+      for (const job of jobs) jobManager.cancel(job.jobId);
+      return {
+        ...baseResult,
+        success: false,
+        error: 'CLIENT_STARTUP_FAILED',
+        message: 'One or more packaged clients did not emit the configured readiness pattern.',
+        clientReadiness: readiness,
+        cleanup: 'all_soak_jobs_cancelled'
+      };
+    }
+    baseResult.clientReadiness = readiness;
+  }
   if (args.async === true) return { ...baseResult, started: true, message: 'Network soak processes started; poll each returned jobId for terminal state.' };
   const outcomes = await Promise.all(jobs.map(job => new Promise<{ role: string; success: boolean; exitCode: number | null; jobId: string }>(resolve => {
     job.child.once('close', code => resolve({ role: job.role, success: code === 0, exitCode: code, jobId: job.jobId }));

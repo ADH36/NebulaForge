@@ -8,7 +8,7 @@ Current implementation update (2026-08-30): host project validation and declared
 
 Media update: guarded Media Framework asset creation (`UMediaPlayer`, file/stream sources, `UMediaTexture`, and playlists), player open/play/pause/seek controls, demo replay controls, and Take Recorder start/stop/status lifecycle are now exposed. Media plugin availability, source-specific capture configuration, platform codecs, and packaged-runtime verification remain project-dependent.
 
-Persistence update: `manage_asset.list_primary_assets` and `manage_asset.get_primary_asset` now expose registered Unreal Asset Manager primary IDs, paths, pagination, and loaded state. `system_control.get_runtime_gameplay_tag` and `control_actor.get_gameplay_tags`/`add_gameplay_tag`/`remove_gameplay_tag` verify and safely mutate supported actor-owned Gameplay Tag containers. SaveGame slot save/load now supports managed async lifecycle IDs and completion events in editor and packaged/runtime builds. Project-specific primary-asset registration/rules/bundles and SaveGame schema/version orchestration remain project-dependent.
+Persistence update: `manage_asset.list_primary_assets` and `manage_asset.get_primary_asset` now expose registered Unreal Asset Manager primary IDs, paths, pagination, and loaded state. `system_control.get_runtime_gameplay_tag` and `control_actor.get_gameplay_tags`/`add_gameplay_tag`/`remove_gameplay_tag` verify and safely mutate supported actor-owned Gameplay Tag containers. SaveGame slot save/load now supports managed async lifecycle IDs and completion events in editor and packaged/runtime builds; terminal async records are bounded and pruned after retention to prevent long-session state growth, and terminal operations cannot be retroactively cancelled. Project-specific primary-asset registration/rules/bundles and SaveGame schema/version orchestration remain project-dependent.
 
 Platform update: `system_control.inspect_platform_capabilities` now reports host/target platform support, discovered UAT/UBT paths, signing-tool categories, and Android/Apple deployment prerequisites. `deploy_package` provides bounded local Android ADB and iOS/tvOS simulator installation with dry-run and managed-job modes; external stores, hosting, and device provisioning remain out of scope.
 
@@ -22,7 +22,7 @@ VFX validation update: `manage_effect.validate_niagara_system` now reports emitt
 
 Profiling gate update: native `system_control.start_memory_report` requests a full Unreal memory report, `configure_stat_commands` applies only bounded stat names with structured rejection reporting, `capture_insights_trace` starts a confined file-backed `.utrace` capture, `start_network_profiler` controls `.nprof` recording, and Visual Logger recording/text markers are available. Host `analyze_trace` launches UnrealInsights in bounded headless analysis mode and reports its terminal result; metric export remains follow-up work.
 
-Automation update: `system_control.run_tests` can now persist a bounded terminal JSON report under `Saved/AutomationReports`, including job state, exit code, command, stdout, stderr, and truncation metadata.
+Automation update: `system_control.create_automation_test` generates a safe compile-ready C++ automation-test skeleton; `system_control.run_tests` can persist a bounded terminal JSON report under `Saved/AutomationReports`, and `system_control.get_test_results` retrieves a confined report or terminal job evidence with explicit pass state. `system_control.enable_gameplay_debugger` safely enables or disables a Gameplay Debugger category through the existing native module/config/replicator path. Reports include job state, exit code, command, stdout, stderr, and truncation metadata; `get_job_status` exposes `completionPending`/`completionError` while asynchronous report persistence finishes.
 
 The report also includes a conservative, explicitly non-authoritative `testSummary` heuristic; raw output and process exit state remain the source of truth.
 
@@ -50,7 +50,9 @@ Online reliability update: OnlineSubsystem create/find/join/destroy delegates no
 
 Network-test update: editor `manage_networking.configure_network_conditions` safely applies bounded packet lag, loss, duplication, and ordering conditions through Unreal's network test console controls, with an explicit reset operation for soak/reconnect scenarios.
 
-Network soak update: host `system_control.run_network_soak` launches a bounded packaged server and configurable packaged-client set with managed job IDs, a validated managed port argument, argument validation, terminal outcomes, optional bounded server startup-pattern gating, and cleanup when startup fails. Project-specific replication assertions, reconnect triggers, provider matchmaking, and external hosting remain explicit integration responsibilities.
+Release gate update: host `system_control.release_gate` can now include an optional Unreal automation-test run, waits for the managed test job to reach a terminal state, and fails the gate on timeout, cancellation, or nonzero exit alongside archive, project, and plugin checks. This is a real execution gate, but project-authored test coverage and platform-specific certification remain required.
+
+Network soak update: host `system_control.run_network_soak` launches a bounded packaged server and configurable packaged-client set with managed job IDs, a validated managed port argument, argument validation, terminal outcomes, independently bounded server and client startup timeouts, optional server startup-pattern gating, optional per-client readiness-pattern gating, and cleanup when startup fails. Project-specific replication assertions, reconnect triggers, provider matchmaking, and external hosting remain explicit integration responsibilities.
 
 The provider-specific session stack still requires a configured Online Subsystem and live multiplayer project; this action provides controlled fault injection, not a claim that a universal backend-independent soak harness exists.
 
@@ -80,7 +82,8 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-32-build--deployment)
 | Capability | Status | Gap |
 |---|:---:|---|
 | Functional test authoring | ⚠️ | `create_functional_test` creates a FunctionalTesting actor when the plugin is available; test-specific steps and assertions remain project-authored. |
-| Automation test execution/results | ⚠️ | `run_tests` can launch filtered or full Unreal automation tests through UnrealEditor-Cmd and waits for Unreal's automation queue-empty exit condition before reporting managed-job exit/output; project test modules and machine-readable report policy remain project dependent. |
+| Automation test authoring | ⚠️ | `create_automation_test` generates a safe compile-ready C++ automation-test skeleton; project assertions and module/build wiring remain project-authored. |
+| Automation test execution/results | ⚠️ | `run_tests` launches filtered or full Unreal automation tests through UnrealEditor-Cmd as a managed job; callers poll terminal state, while `release_gate` waits for completion and fails on timeout/nonzero exit. |
 | Data Validation integration | ⚠️ | `validate_project` can launch UnrealEditor-Cmd's DataValidation commandlet as a bounded managed job; the engine/project must provide UnrealEditor-Cmd and the result must be polled to terminal state. |
 | Blueprint validation sweep | ⚠️ | Project-wide static validation and the live DataValidation commandlet gate are available; Blueprint compilation/error coverage still depends on the project's commandlet/plugin setup. |
 | Map error validation | ⚠️ | `check_map_errors` runs Map Check against the loaded editor world; map availability and project-specific validation policy remain prerequisites. |
@@ -125,10 +128,10 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-30-cinematics--media)
 |---|:---:|---|
 | Basic Blueprint creation | ✅ | Native editor path exists. |
 | Blueprint graph editing | ⚠️ | Coverage depends on available K2 schemas, headers, and node types. |
-| Arbitrary K2 node support | ❌ | No complete generic node coverage. |
+| Arbitrary K2 node support | ⚠️ | Generic reflected `nodeClass` creation now supports project/plugin `UEdGraphNode` classes when loaded; node-specific pin configuration and unsupported editor-only classes still require project/engine validation. |
 | Blueprint compilation | ⚠️ | Can be asynchronous and is not always proven complete. |
 | Project-specific gameplay architecture | ❌ | Tools create primitives but do not generate a complete tested game architecture. |
-| Gameplay error handling and validation | ❌ | No project-wide gameplay validation gate. |
+| Gameplay error handling and validation | ⚠️ | `release_gate` can run project Unreal automation tests and fail on test failure; project-authored gameplay assertions and coverage remain required. |
 
 Evidence: [BlueprintHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_BlueprintHandlers.cpp#L4248)
 
@@ -156,7 +159,7 @@ Evidence: [AnimationHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForg
 | Niagara spawning and parameter mutation | ⚠️ | Multiple actions are editor-only or have unsupported paths. |
 | Ribbon/trail authoring | ⚠️ | Conditional implementation. |
 | Effect presets | ❌ | Legacy effect actions remain stubbed. |
-| Attachment/lifespan/pooling | ❌ | No complete effect lifecycle management. |
+| Attachment/lifespan/pooling | ⚠️ | Explicit actor attachment, bounded lifespan, and destruction are available; reusable effect pooling and project-specific ownership policies remain project-authored. |
 | VFX performance validation | ⚠️ | `validate_niagara_system` provides explicit emitter/renderer budget gates; GPU/CPU cost, memory, and frame-time budgets still require project-specific profiling captures. |
 
 Evidence: [native-automation-progress.md](./native-automation-progress.md#niagara--effect-handlers), [NiagaraHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_NiagaraHandlers.cpp#L247)
@@ -169,7 +172,7 @@ Evidence: [native-automation-progress.md](./native-automation-progress.md#niagar
 | MetaSound authoring | ⚠️ | Requires the MetaSound module/plugin. |
 | Dialogue system | ⚠️ | Conditional on project support. |
 | Reverb authoring | ⚠️ | Can return `REVERB_NOT_AVAILABLE`. |
-| Localization/subtitle/voice-bank workflow | ❌ | No complete production audio pipeline. |
+| Localization/subtitle/voice-bank workflow | ⚠️ | Host-managed, project-confined localization manifests now support culture declarations, stable keys, translations, voice-asset mappings, entry updates, and completeness validation; Unreal localization target cooking, subtitle widgets, and external voice-generation/import remain project/platform dependent. |
 | Audio validation | ⚠️ | `manage_audio.validate_audio_asset` gates asset type, duration, sample rate, and channel count; runtime mix loudness and packaged codec validation remain project-dependent. |
 
 Evidence: [AudioAuthoringHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_AudioAuthoringHandlers.cpp#L885)
@@ -183,7 +186,7 @@ Evidence: [AudioAuthoringHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebul
 | Matchmaking and lobbies | ⚠️ | Provider-agnostic Online Subsystem session create/find/join/destroy lifecycle is implemented; provider-specific lobbies and matchmaking policies remain incomplete. |
 | Presence/account/platform identity | ⚠️ | Capability discovery plus `get_online_identity_status` report the active identity interface, login state, nickname, and unique net ID; provider-specific account, presence, and friends flows remain incomplete. |
 | Dedicated-server build/deploy | ⚠️ | `run_uat` now supports server/no-client BuildCookRun variants with a separate server configuration; deployment and platform hosting remain absent. |
-| Multiplayer soak/latency/reconnect tests | ❌ | No complete automated network test suite. |
+| Multiplayer soak/latency/reconnect tests | ⚠️ | Packaged server/client soak orchestration now has bounded server and per-client readiness gates plus cleanup; replication assertions, latency thresholds, reconnect scenarios, and provider matchmaking remain project-authored. |
 | Platform-grade voice integration | ⚠️ | Basic voice controls exist, but platform/backend integration is incomplete. |
 
 ## AI and runtime gameplay
@@ -245,7 +248,7 @@ Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [Envir
 | Standalone PIE probes/input | ❌ | In-process probes and input delivery are not supported because standalone runs in another process. |
 | Standalone-window screenshots | ⚠️ | Direct external-window capture remains unsupported, but `mode: standalone_window` now safely reads a PNG written by the standalone game under `Saved/Screenshots` through `screenshotPath`. |
 | Unified asynchronous job system | ⚠️ | Host processes now share managed job lifecycle, output caps, cancellation, and polling; editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
-| Completion proof | ⚠️ | Several actions report “started” without proving final state. |
+| Completion proof | ⚠️ | Host jobs now expose `wait_for_job` for bounded terminal-state proof; editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
 | Undo/redo transactions | ⚠️ | Undo/redo now report success only when the editor accepts the command; transactional coverage remains incomplete across authoring handlers. |
 
 The WebSocket handshake now advertises `executionMode: editor`, `pieRuntimeWorld: true`, and `packagedRuntimeAuthoring: false` so clients can select a supported execution path explicitly. A true packaged authoring implementation still requires a separate Runtime module, runtime-safe handler set, and packaged transport; changing `WITH_EDITOR` guards alone would be unsafe.

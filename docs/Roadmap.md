@@ -421,6 +421,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_dialogue_voice`
 - [x] `create_dialogue_wave`
 - [x] `set_dialogue_context`
+- [x] Host-managed localization manifests with translation/voice-bank completeness validation
 
 ### 11.6 Effects
 - [x] `create_reverb_effect`
@@ -458,6 +459,11 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `add_mesh_renderer_module`
 - [x] `add_ribbon_renderer_module`
 - [x] `add_light_renderer_module`
+
+### 12.3 Runtime Lifecycle
+- [x] `set_lifespan` with finite bounded duration validation (`0` means infinite)
+- [x] `destroy_effect` with explicit actor lookup and destruction result
+- [ ] Reusable effect pooling and project-specific ownership policies
 - [x] `add_collision_module`
 - [x] `add_kill_particles_module`
 - [x] `add_camera_offset_module`
@@ -1432,8 +1438,9 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 33.1 Automation Testing
 - [x] `create_functional_test`
-- [ ] `create_automation_test`
+- [x] `create_automation_test` (safe compile-ready C++ test skeleton generator; project test logic remains authored by the caller)
 - [x] `run_automation_tests` (managed job/report path)
+- [x] `get_test_results` (bounded report or terminal-job inspection)
 - [ ] `get_test_results`
 - [ ] `create_test_level`
 - [ ] `configure_test_settings`
@@ -1448,7 +1455,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `start_network_profiler` (bounded enable/disable control)
 - [x] `enable_visual_logger`
 - [x] `add_visual_log_entry`
-- [ ] `enable_gameplay_debugger`
+- [x] `enable_gameplay_debugger` (safe category enable/disable through the Gameplay Debugger module)
 - [x] `configure_stat_commands`
 
 ### 33.3 Validation

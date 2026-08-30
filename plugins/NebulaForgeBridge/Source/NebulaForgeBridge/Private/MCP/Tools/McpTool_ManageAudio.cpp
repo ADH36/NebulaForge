@@ -68,6 +68,9 @@ public:
 				TEXT("create_dialogue_voice"),
 				TEXT("create_dialogue_wave"),
 				TEXT("set_dialogue_context"),
+				TEXT("create_localization_manifest"),
+				TEXT("add_localization_entry"),
+				TEXT("validate_localization_manifest"),
 				TEXT("create_reverb_effect"),
 				TEXT("create_source_effect_chain"),
 				TEXT("add_source_effect"),
@@ -153,6 +156,21 @@ public:
 			.String(TEXT("sourceOutputName"), TEXT("Source MetaSound output name."))
 			.String(TEXT("spatialization"), TEXT("Spatialization algorithm."))
 			.String(TEXT("speakerPath"), TEXT("Dialogue speaker path."))
+			.String(TEXT("projectPath"), TEXT("Unreal project path for host-managed localization files."))
+			.String(TEXT("manifestPath"), TEXT("Project-relative localization manifest JSON path."))
+			.String(TEXT("targetName"), TEXT("Localization target name."))
+			.String(TEXT("sourceCulture"), TEXT("Source culture code."))
+			.Array(TEXT("cultures"), TEXT("Declared culture codes."))
+			.ArrayOfObjects(TEXT("entries"), TEXT("Localization entries."))
+			.FreeformObject(TEXT("entry"), TEXT("Localization entry object."))
+			.String(TEXT("key"), TEXT("Stable localization key."))
+			.String(TEXT("sourceText"), TEXT("Source-language text."))
+			.FreeformObject(TEXT("translations"), TEXT("Culture-to-text map."))
+			.FreeformObject(TEXT("voiceAssets"), TEXT("Culture-to-voice-asset map."))
+			.Array(TEXT("requiredCultures"), TEXT("Cultures required during validation."))
+			.Bool(TEXT("requireTranslations"), TEXT("Require translations for every required culture."))
+			.Bool(TEXT("requireVoiceAssets"), TEXT("Require voice assets for every required culture."))
+			.Bool(TEXT("replaceExisting"), TEXT("Replace an existing localization key."))
 			.String(TEXT("targetInputName"), TEXT("Target MetaSound input name."))
 			.Number(TEXT("velocityScale"), TEXT("Velocity scale."))
 			.Number(TEXT("volumeAdjuster"), TEXT("Sound mix volume adjuster."))

@@ -924,6 +924,7 @@ export interface SystemArgs extends HandlerArgs {
     backup?: boolean;
     jobId?: string;
     className?: string;
+    testName?: string;
     headerPath?: string;
     sourcePath?: string;
     variables?: Array<Record<string, unknown>>;
@@ -988,7 +989,6 @@ export interface SystemArgs extends HandlerArgs {
     enginePath?: string;
     timeoutMs?: number;
     reportPath?: string;
-    testName?: string;
 }
 
 // ============================================================================
@@ -1032,6 +1032,9 @@ export interface PipelineArgs extends HandlerArgs {
     projectRequiredFiles?: string[];
     projectRequiredDirectories?: string[];
     runProjectValidation?: boolean;
+    runAutomationTests?: boolean;
+    testName?: string;
+    reportPath?: string;
     validatePlugins?: boolean;
     enginePath?: string;
     timeoutMs?: number;
@@ -1052,7 +1055,9 @@ export interface PipelineArgs extends HandlerArgs {
     serverPort?: number;
     durationMs?: number;
     serverStartupTimeoutMs?: number;
+    clientStartupTimeoutMs?: number;
     serverReadyPattern?: string;
+    clientReadyPattern?: string;
     tracePath?: string;
     dryRun?: boolean;
 }

@@ -327,7 +327,11 @@ export async function handleBlueprintTools(action: string, args: HandlerArgs, to
         'SetTimer': 'K2Node_CallFunction',
       };
 
-      const resolvedNodeType = (argsTyped.nodeType && nodeAliases[argsTyped.nodeType]) || argsTyped.nodeType || 'K2Node_CallFunction';
+      const requestedNodeClass = argsRecord.nodeClass as string | undefined;
+      const resolvedNodeType = (argsTyped.nodeType && nodeAliases[argsTyped.nodeType])
+        || argsTyped.nodeType
+        || requestedNodeClass
+        || 'K2Node_CallFunction';
       const resolvedMemberClass = (argsRecord.memberClass as string | undefined) || (argsRecord.nodeClass as string | undefined);
 
       // Validation for Event nodes
@@ -344,6 +348,7 @@ export async function handleBlueprintTools(action: string, args: HandlerArgs, to
         subAction: 'create_node',
         assetPath: argsTyped.name || argsTyped.blueprintPath || (argsRecord.path as string) || '',
         nodeType: resolvedNodeType,
+        nodeClass: requestedNodeClass,
         graphName: argsTyped.graphName,
         memberName: argsRecord.functionName as string | undefined,
         variableName: argsTyped.variableName,

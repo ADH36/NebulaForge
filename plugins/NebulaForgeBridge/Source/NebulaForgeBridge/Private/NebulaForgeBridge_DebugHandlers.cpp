@@ -62,7 +62,7 @@ bool UNebulaForgeBridgeSubsystem::HandleDebugAction(
 {
     // Validate action
     const FString LowerAction = Action.ToLower();
-    if (LowerAction != TEXT("manage_debug") && LowerAction != TEXT("spawn_category"))
+    if (LowerAction != TEXT("manage_debug") && LowerAction != TEXT("spawn_category") && LowerAction != TEXT("enable_gameplay_debugger"))
     {
         return false;
     }
@@ -82,7 +82,7 @@ bool UNebulaForgeBridgeSubsystem::HandleDebugAction(
         Payload->TryGetStringField(TEXT("action"), SubAction);
         SubAction = SubAction.ToLower();
     }
-    if (SubAction.IsEmpty() && LowerAction == TEXT("spawn_category"))
+    if (SubAction.IsEmpty() && (LowerAction == TEXT("spawn_category") || LowerAction == TEXT("enable_gameplay_debugger")))
     {
         SubAction = TEXT("spawn_category");
     }

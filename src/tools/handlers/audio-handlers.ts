@@ -9,6 +9,7 @@ import { normalizePathFields, requireNonEmptyString } from './common-handlers.js
 import { executeAutomationRequest } from './common-handlers.js';
 import { toNumber, toBoolean, toString as toStringValue, toVec3Array, toRotArray, validateAudioParams } from '../../utils/type-coercion.js';
 import { TOOL_ACTIONS } from '../../utils/action-constants.js';
+import { addLocalizationEntry, createLocalizationManifest, validateLocalizationManifest } from '../../services/localization-service.js';
 
 const AUDIO_PATH_FIELDS = [
   'wavePath',
@@ -344,6 +345,40 @@ export async function handleAudioTools(
   const argsRecord = args as Record<string, unknown>;
 
   switch (action) {
+    case 'create_localization_manifest':
+      return cleanObject(await createLocalizationManifest({
+        projectPath: typeof argsRecord.projectPath === 'string' ? argsRecord.projectPath : undefined,
+        manifestPath: String(argsRecord.manifestPath ?? ''),
+        targetName: String(argsRecord.targetName ?? ''),
+        sourceCulture: String(argsRecord.sourceCulture ?? ''),
+        cultures: Array.isArray(argsRecord.cultures) ? argsRecord.cultures.filter((value): value is string => typeof value === 'string') : [],
+        entries: Array.isArray(argsRecord.entries) ? argsRecord.entries : undefined,
+        backup: argsRecord.backup !== false
+      })) as Record<string, unknown>;
+
+    case 'add_localization_entry':
+      return cleanObject(await addLocalizationEntry({
+        projectPath: typeof argsRecord.projectPath === 'string' ? argsRecord.projectPath : undefined,
+        manifestPath: String(argsRecord.manifestPath ?? ''),
+        entry: argsRecord.entry ?? {
+          key: argsRecord.key,
+          sourceText: argsRecord.sourceText,
+          translations: argsRecord.translations,
+          voiceAssets: argsRecord.voiceAssets
+        },
+        replaceExisting: argsRecord.replaceExisting !== false,
+        backup: argsRecord.backup !== false
+      })) as Record<string, unknown>;
+
+    case 'validate_localization_manifest':
+      return cleanObject(await validateLocalizationManifest({
+        projectPath: typeof argsRecord.projectPath === 'string' ? argsRecord.projectPath : undefined,
+        manifestPath: String(argsRecord.manifestPath ?? ''),
+        requiredCultures: Array.isArray(argsRecord.requiredCultures) ? argsRecord.requiredCultures.filter((value): value is string => typeof value === 'string') : undefined,
+        requireTranslations: argsRecord.requireTranslations === true,
+        requireVoiceAssets: argsRecord.requireVoiceAssets === true
+      })) as Record<string, unknown>;
+
     case 'create_sound_cue':
       return cleanObject(await createSoundCue(tools, argsTyped)) as Record<string, unknown>;
 

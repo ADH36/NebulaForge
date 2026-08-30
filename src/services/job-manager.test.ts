@@ -44,6 +44,27 @@ describe('JobManager', () => {
     expect(callbackJob).toMatchObject({ status: 'completed', output: 'report-ready' });
   });
 
+  it('exposes pending and failed completion-callback state', async () => {
+    const child = spawn(process.execPath, ['-e', 'process.stdout.write("callback-state")'], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let releaseCallback!: () => void;
+    const callbackDone = new Promise<void>(resolve => { releaseCallback = resolve; });
+    const started = jobManager.startProcess({
+      label: 'test-callback-state',
+      process: child,
+      onComplete: async () => callbackDone
+    });
+    const finished = await waitForTerminal(started.jobId);
+    expect(finished).toMatchObject({ status: 'completed', completionPending: true });
+    releaseCallback();
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (jobManager.get(started.jobId)?.completionPending === false) break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    expect(jobManager.get(started.jobId)).toMatchObject({ completionPending: false });
+  });
+
   it('cancels a running process and retains its terminal status', async () => {
     const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], {
       stdio: ['ignore', 'pipe', 'pipe']
@@ -68,5 +89,26 @@ describe('JobManager', () => {
       status: 'failed',
       error: 'Job exceeded timeout of 25ms'
     });
+  });
+
+  it('waits for a managed job to reach a terminal state', async () => {
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => process.stdout.write("done"), 20)'], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    const started = jobManager.startProcess({ label: 'test-wait', process: child });
+    const waited = await jobManager.waitForTerminal(started.jobId, 1000);
+    expect(waited.timedOut).toBe(false);
+    expect(waited.job).toMatchObject({ status: 'completed', output: 'done' });
+  });
+
+  it('reports a bounded wait timeout without losing the job', async () => {
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    const started = jobManager.startProcess({ label: 'test-wait-timeout', process: child });
+    const waited = await jobManager.waitForTerminal(started.jobId, 1);
+    expect(waited.timedOut).toBe(true);
+    expect(waited.job?.status).toBe('running');
+    jobManager.cancel(started.jobId);
   });
 });

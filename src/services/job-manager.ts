@@ -15,6 +15,8 @@ export interface JobSnapshot {
   errorOutput: string;
   outputTruncated: boolean;
   error?: string;
+  completionPending?: boolean;
+  completionError?: string;
 }
 
 interface ManagedJob extends JobSnapshot {
@@ -47,6 +49,7 @@ class JobManager {
       output: '',
       errorOutput: '',
       outputTruncated: false,
+      completionPending: Boolean(options.onComplete),
       process: options.process,
     };
     this.jobs.set(job.jobId, job);
@@ -85,7 +88,15 @@ class JobManager {
       job.finishedAt ??= new Date().toISOString();
       job.process = undefined;
       if (options.onComplete) {
-        Promise.resolve(options.onComplete(this.snapshot(job))).catch(() => undefined);
+        Promise.resolve()
+          .then(() => options.onComplete?.(this.snapshot(job)))
+          .then(
+            () => { job.completionPending = false; },
+            (error: unknown) => {
+              job.completionPending = false;
+              job.completionError = error instanceof Error ? error.message : String(error);
+            }
+          );
       }
     });
 
@@ -115,6 +126,20 @@ class JobManager {
     return this.snapshot(job);
   }
 
+  public async waitForTerminal(jobId: string, timeoutMs = 30000): Promise<{ job?: JobSnapshot; timedOut: boolean }> {
+    const boundedTimeout = Number.isFinite(timeoutMs) ? Math.max(1, Math.min(timeoutMs, 600000)) : 30000;
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < boundedTimeout) {
+      const job = this.get(jobId);
+      if (!job) return { timedOut: false };
+      if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+        return { job, timedOut: false };
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, 25));
+    }
+    return { job: this.get(jobId), timedOut: true };
+  }
+
   private appendOutput(job: ManagedJob, field: 'output' | 'errorOutput', text: string): void {
     const next = `${job[field]}${text}`;
     if (next.length > MAX_OUTPUT_SIZE) {
@@ -133,7 +158,7 @@ class JobManager {
   private pruneFinishedJobs(): void {
     if (this.jobs.size < MAX_JOBS) return;
     for (const [jobId, job] of this.jobs) {
-      if (job.status !== 'running' && job.status !== 'queued') {
+      if (job.status !== 'running' && job.status !== 'queued' && job.completionPending !== true) {
         this.jobs.delete(jobId);
       }
       if (this.jobs.size < MAX_JOBS) return;

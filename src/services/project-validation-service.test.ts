@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { runUnrealAutomationTests, summarizeAutomationOutput, validateProject } from './project-validation-service.js';
+import { getAutomationTestResults, runUnrealAutomationTests, summarizeAutomationOutput, validateProject } from './project-validation-service.js';
 
 async function fixture(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-project-'));
@@ -106,5 +106,29 @@ describe('summarizeAutomationOutput', () => {
       source: 'output_heuristic',
       authoritative: false
     });
+  });
+});
+
+describe('getAutomationTestResults', () => {
+  it('loads a confined report and exposes explicit pass state', async () => {
+    const root = await fixture();
+    await fs.mkdir(path.join(root, 'Saved', 'AutomationReports'), { recursive: true });
+    await fs.writeFile(path.join(root, 'Saved', 'AutomationReports', 'smoke.json'), JSON.stringify({ status: 'completed', exitCode: 0, jobId: 'job-1' }));
+    const result = await getAutomationTestResults({ projectPath: root, reportPath: 'smoke.json' });
+    expect(result).toMatchObject({ success: true, ready: true, passed: true, reportPath: path.join('Saved', 'AutomationReports', 'smoke.json') });
+  });
+
+  it('returns terminal job evidence without inventing a report file', async () => {
+    const child = (await import('node:child_process')).spawn(process.execPath, ['-e', 'process.exit(1)'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const { jobManager } = await import('./job-manager.js');
+    const job = jobManager.startProcess({ label: 'test-results-terminal', process: child });
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const snapshot = jobManager.get(job.jobId);
+      if (snapshot && snapshot.status === 'failed') break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    const root = await fixture();
+    const result = await getAutomationTestResults({ projectPath: root, jobId: job.jobId });
+    expect(result).toMatchObject({ success: true, ready: true, passed: false, status: 'failed', jobId: job.jobId });
   });
 });

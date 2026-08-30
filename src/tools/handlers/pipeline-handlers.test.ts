@@ -173,6 +173,13 @@ describe('handlePipelineTools validate_release', () => {
 });
 
 describe('handlePipelineTools release_gate', () => {
+  it('requires a project path when automation tests are enabled', async () => {
+    const result = await handlePipelineTools('release_gate', {
+      archiveDirectory: 'missing-release',
+      runAutomationTests: true
+    } as PipelineArgs, tools);
+    expect(result).toMatchObject({ success: false, error: 'PROJECT_PATH_REQUIRED' });
+  });
   it('aggregates artifact evidence into a shippability decision', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-release-gate-'));
     try {
@@ -189,6 +196,35 @@ describe('handlePipelineTools release_gate', () => {
         passedChecks: ['artifact'],
         failedChecks: [],
         checks: { artifact: { success: true } }
+      });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('waits for automation tests to finish before passing the release gate', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-release-tests-'));
+    try {
+      await fs.writeFile(path.join(tempRoot, 'Game.pak'), 'pak');
+      await fs.writeFile(path.join(tempRoot, 'Nebula.uproject'), 'not valid javascript (');
+      const engineRoot = path.join(tempRoot, 'Engine');
+      const fakeEditor = path.join(engineRoot, 'Binaries', 'Win64', 'UnrealEditor-Cmd.exe');
+      await fs.mkdir(path.dirname(fakeEditor), { recursive: true });
+      await fs.copyFile(process.execPath, fakeEditor);
+      const result = await handlePipelineTools('release_gate', {
+        archiveDirectory: tempRoot,
+        requiredFiles: ['Game.pak'],
+        projectPath: tempRoot,
+        runProjectValidation: false,
+        validatePlugins: false,
+        runAutomationTests: true,
+        enginePath: engineRoot,
+        timeoutMs: 5000
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({
+        success: false,
+        error: 'RELEASE_GATE_FAILED',
+        checks: { automationTests: { success: false, error: 'AUTOMATION_TESTS_FAILED', status: 'failed' } }
       });
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
@@ -264,9 +300,10 @@ describe('handlePipelineTools run_network_soak', () => {
         durationMs: 5000,
         serverStartupTimeoutMs: 1000,
         serverReadyPattern: 'LogNet: Ready',
+        clientReadyPattern: 'LogNet: Join succeeded',
         dryRun: true
       } as PipelineArgs, tools);
-      expect(result).toMatchObject({ success: true, dryRun: true, startupTimeoutMs: 1000, serverReadyPattern: 'LogNet: Ready' });
+      expect(result).toMatchObject({ success: true, dryRun: true, startupTimeoutMs: 1000, serverReadyPattern: 'LogNet: Ready', clientReadyPattern: 'LogNet: Join succeeded' });
 
       const invalid = await handlePipelineTools('run_network_soak', {
         archiveDirectory: tempRoot,
@@ -276,6 +313,15 @@ describe('handlePipelineTools run_network_soak', () => {
         dryRun: true
       } as PipelineArgs, tools);
       expect(invalid).toMatchObject({ success: false, error: 'INVALID_SERVER_READY_PATTERN' });
+
+      const invalidClient = await handlePipelineTools('run_network_soak', {
+        archiveDirectory: tempRoot,
+        serverArtifactPath: 'Server.exe',
+        clientArtifactPath: 'Client.exe',
+        clientReadyPattern: '[',
+        dryRun: true
+      } as PipelineArgs, tools);
+      expect(invalidClient).toMatchObject({ success: false, error: 'INVALID_CLIENT_READY_PATTERN' });
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }

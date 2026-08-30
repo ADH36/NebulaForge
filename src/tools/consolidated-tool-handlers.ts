@@ -259,14 +259,14 @@ function registerDefaultHandlers() {
     if (action === 'subscribe' || action === 'unsubscribe') {
       return cleanObject(await executeAutomationRequest(tools, 'manage_logs', { ...args, subAction: action }, 'Bridge unavailable'));
     }
-    if (action === 'spawn_category') {
+    if (action === 'spawn_category' || action === 'enable_gameplay_debugger') {
       const categoryName = typeof args.categoryName === 'string'
         ? args.categoryName.trim()
         : (typeof args.category === 'string' ? args.category.trim() : 'AI');
       if (!/^[A-Za-z0-9_-]+$/.test(categoryName)) {
         return { success: false, error: 'INVALID_CATEGORY_NAME', message: 'Category names may only contain letters, numbers, underscores, and hyphens.' };
       }
-      const payload = { ...(args as Record<string, unknown>), subAction: action, categoryName };
+      const payload = { ...(args as Record<string, unknown>), subAction: 'spawn_category', categoryName, enabled: args.enabled !== false };
       const res = await executeAutomationRequest(tools, 'manage_debug', payload, 'Bridge unavailable') as Record<string, unknown>;
       return cleanObject(Object.assign({}, res, { action, categoryName }));
     }

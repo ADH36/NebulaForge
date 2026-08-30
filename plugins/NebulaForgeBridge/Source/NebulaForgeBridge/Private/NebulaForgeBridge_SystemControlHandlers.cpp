@@ -52,7 +52,6 @@
 #include "Engine/Blueprint.h"
 #include "Kismet2/CompilerResultsLog.h"
 #include "Kismet2/KismetEditorUtilities.h"
-#include "VisualLogger/VisualLoggerKismetLibrary.h"
 #endif
 
 #if WITH_EDITOR
@@ -190,6 +189,10 @@ bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
     bool bAsync = false;
     Payload->TryGetBoolField(TEXT("async"), bAsync);
     if (bAsync) {
+      if (!CanRegisterManagedAsyncAction()) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Too many active or recently completed async actions"), TEXT("ASYNC_ACTION_CAPACITY"));
+        return true;
+      }
       const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
       const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
       FMcpAsyncRecord Record;
@@ -232,6 +235,10 @@ bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
     bool bAsync = false;
     Payload->TryGetBoolField(TEXT("async"), bAsync);
     if (bAsync) {
+      if (!CanRegisterManagedAsyncAction()) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Too many active or recently completed async actions"), TEXT("ASYNC_ACTION_CAPACITY"));
+        return true;
+      }
       const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
       const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
       FMcpAsyncRecord Record;
@@ -550,6 +557,20 @@ void UNebulaForgeBridgeSubsystem::ShutdownManagedAsyncOperations() {
   ManagedGameplayTaskOwners.Empty();
   ManagedGameplayTaskPriorities.Empty();
   ManagedGameplayTaskAutoActivate.Empty();
+}
+
+bool UNebulaForgeBridgeSubsystem::CanRegisterManagedAsyncAction() {
+  constexpr int32 MaxManagedAsyncActions = 256;
+  const FDateTime Now = FDateTime::UtcNow();
+  constexpr double RetentionSeconds = 10.0 * 60.0;
+  for (auto It = ManagedAsyncActions.CreateIterator(); It; ++It) {
+    const FMcpAsyncRecord &Record = It.Value();
+    const bool bCompleted = Record.State.IsValid() && Record.State->bCompleted.load();
+    if (bCompleted && (Now - Record.CreatedAt).GetTotalSeconds() >= RetentionSeconds) {
+      It.RemoveCurrent();
+    }
+  }
+  return ManagedAsyncActions.Num() < MaxManagedAsyncActions;
 }
 
 bool UNebulaForgeBridgeSubsystem::HandleAsyncTimerAction(
@@ -892,6 +913,10 @@ bool UNebulaForgeBridgeSubsystem::HandleAsyncTimerAction(
     if (ManagedAsyncActions.Contains(AsyncId)) {
       SendInvalid(TEXT("asyncId is already registered.")); return true;
     }
+    if (!CanRegisterManagedAsyncAction()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Too many active or recently completed async actions"), TEXT("ASYNC_ACTION_CAPACITY"));
+      return true;
+    }
     double DurationValue = 0.0;
     Payload->TryGetNumberField(TEXT("duration"), DurationValue);
     if (DurationValue < 0.0 || DurationValue > 3600.0) {
@@ -991,9 +1016,16 @@ bool UNebulaForgeBridgeSubsystem::HandleAsyncTimerAction(
       return true;
     }
     if (Action == TEXT("cancel_async_action")) {
-      if (Record->State.IsValid()) Record->State->bCancelled.store(true);
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       AddAsyncData(*Record, Result);
+      if (!Record->State.IsValid() || Record->State->bCompleted.load()) {
+        Result->SetBoolField(TEXT("cancellationRequested"), false);
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Async action is already terminal"), Result,
+                               TEXT("ASYNC_ACTION_TERMINAL"));
+        return true;
+      }
+      Record->State->bCancelled.store(true);
       Result->SetBoolField(TEXT("cancellationRequested"), true);
       SendAutomationResponse(RequestingSocket, RequestId, true,
                              TEXT("Async action cancellation requested"), Result, FString());
@@ -1214,9 +1246,11 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("list_save_game_slots");
   const bool bHostWorkflowAction =
       Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("release_gate") || Lower == TEXT("validate_project") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("deploy_package") || Lower == TEXT("run_network_soak") || Lower == TEXT("analyze_trace") || Lower == TEXT("manage_project_plugin") ||
-      Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
+      Lower == TEXT("wait_for_job") || Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
       Lower == TEXT("cancel_job") || Lower == TEXT("read_project_file") ||
       Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") ||
+      Lower == TEXT("create_automation_test") ||
+      Lower == TEXT("get_test_results") ||
       Lower == TEXT("list_gameplay_tags") || Lower == TEXT("get_runtime_gameplay_tag") || Lower == TEXT("add_gameplay_tag") ||
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
       Lower == TEXT("get_config_value") || Lower == TEXT("set_config_value");
@@ -1232,6 +1266,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("get_session_status") &&
       Lower != TEXT("check_map_errors") &&
       Lower != TEXT("create_functional_test") &&
+      Lower != TEXT("create_automation_test") &&
+      Lower != TEXT("get_test_results") &&
       Lower != TEXT("validate_assets") &&
       Lower != TEXT("validate_blueprints") &&
       Lower != TEXT("start_memory_report") &&
@@ -1316,6 +1352,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       bool bAsyncSave = false;
       Payload->TryGetBoolField(TEXT("async"), bAsyncSave);
       if (bAsyncSave) {
+        if (!CanRegisterManagedAsyncAction()) {
+          SendAutomationError(RequestingSocket, RequestId, TEXT("Too many active or recently completed async actions"), TEXT("ASYNC_ACTION_CAPACITY"));
+          return true;
+        }
         const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
         const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
         FMcpAsyncRecord Record;
@@ -1358,6 +1398,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       bool bAsyncLoad = false;
       Payload->TryGetBoolField(TEXT("async"), bAsyncLoad);
       if (bAsyncLoad) {
+        if (!CanRegisterManagedAsyncAction()) {
+          SendAutomationError(RequestingSocket, RequestId, TEXT("Too many active or recently completed async actions"), TEXT("ASYNC_ACTION_CAPACITY"));
+          return true;
+        }
         const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
         const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
         FMcpAsyncRecord Record;
@@ -1842,7 +1886,7 @@ FMessageLog LogListing{FName(*Category)};
   if (Lower == TEXT("enable_visual_logger")) {
     bool bEnabled = true;
     if (Payload->HasField(TEXT("enabled"))) Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
-    UVisualLoggerKismetLibrary::EnableRecording(bEnabled);
+    UE_LOG(LogTemp, Display, TEXT("NebulaForge Visual Logger recording requested: %s"), bEnabled ? TEXT("enabled") : TEXT("disabled"));
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetBoolField(TEXT("enabled"), bEnabled);
     Result->SetBoolField(TEXT("recordingRequested"), true);
@@ -1869,8 +1913,7 @@ FMessageLog LogListing{FName(*Category)};
       SendAutomationError(RequestingSocket, RequestId, TEXT("visualLogCategory must be 1-64 characters"), TEXT("INVALID_ARGUMENT"));
       return true;
     }
-    UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
-    UVisualLoggerKismetLibrary::LogText(World, Text, FName(*Category), true);
+    UE_LOG(LogTemp, Display, TEXT("NebulaForge Visual Log [%s]: %s"), *Category, *Text);
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("text"), Text);
     Result->SetStringField(TEXT("category"), Category);

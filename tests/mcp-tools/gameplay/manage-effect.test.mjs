@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * manage_effect Tool Integration Tests
- * Covers all 58 actions with real optional-parameter coverage.
+ * Covers all 60 actions with real optional-parameter coverage.
  */
 
 import { runToolTests } from '../../test-runner.mjs';
@@ -48,6 +48,7 @@ const testCases = [
   { scenario: 'ACTION: activate', toolName: 'manage_effect', arguments: { action: 'activate', actorName: EFFECT_ACTOR, reset: false }, expected: 'success' },
   { scenario: 'ACTION: activate_effect by systemName', toolName: 'manage_effect', arguments: { action: 'activate_effect', systemName: EFFECT_ACTOR }, expected: 'success' },
   { scenario: 'ACTION: deactivate', toolName: 'manage_effect', arguments: { action: 'deactivate', actorName: EFFECT_ACTOR }, expected: 'success' },
+  { scenario: 'LIFECYCLE: set_lifespan', toolName: 'manage_effect', arguments: { action: 'set_lifespan', actorName: EFFECT_ACTOR, lifespanSeconds: 30 }, expected: 'success', assertions: [{ path: 'structuredContent.result.lifespanSeconds', equals: 30, label: 'effect lifespan applied to actor' }] },
   { scenario: 'ACTION: reset', toolName: 'manage_effect', arguments: { action: 'reset', actorName: EFFECT_ACTOR, reset: true }, expected: 'success' },
   { scenario: 'PLAYBACK: advance_simulation', toolName: 'manage_effect', arguments: { action: 'advance_simulation', actorName: EFFECT_ACTOR, deltaTime: 0.016, steps: 2 }, expected: 'success', assertions: [{ path: 'structuredContent.result.steps', equals: 2, label: 'native simulation step count applied' }] },
 
@@ -60,6 +61,7 @@ const testCases = [
   { scenario: 'CONFIG: set_niagara_parameter', toolName: 'manage_effect', arguments: { action: 'set_niagara_parameter', actorName: EFFECT_ACTOR, parameterName: 'MCPParameter', parameterType: 'Float', value: 1.25 }, expected: 'success', assertions: [{ path: 'structuredContent.result.applied', equals: true, label: 'runtime Niagara parameter value applied' }] },
   { scenario: 'DELETE: clear_debug_shapes', toolName: 'manage_effect', arguments: { action: 'clear_debug_shapes' }, expected: 'success|not found' },
   { scenario: 'ACTION: cleanup with explicit filter', toolName: 'manage_effect', arguments: { action: 'cleanup', filter: `NoSuchManageEffectActor_${ts}` }, expected: 'success|not found' },
+  { scenario: 'LIFECYCLE: destroy_effect', toolName: 'manage_effect', arguments: { action: 'destroy_effect', actorName: EFFECT_ACTOR }, expected: 'success', assertions: [{ path: 'structuredContent.result.destroyed', equals: true, label: 'effect actor destroyed explicitly' }] },
   { scenario: 'INFO: list_debug_shapes', toolName: 'manage_effect', arguments: { action: 'list_debug_shapes' }, expected: 'success' },
 
   // === NIAGARA AUTHORING ===

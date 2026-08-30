@@ -471,6 +471,15 @@ export async function handleEffectTools(action: string, args: HandlerArgs, tools
                              DEFAULT_NIAGARA_ACTOR_NAME;
     return executeAutomationRequest(tools, 'create_effect', mutableArgs) as Promise<Record<string, unknown>>;
   }
+  if (action === 'set_lifespan' || action === 'destroy_effect') {
+    mutableArgs.action = action;
+    mutableArgs.subAction = action;
+    mutableArgs.actorName = (mutableArgs.actorName as string | undefined)
+      || (mutableArgs.effectHandle as string | undefined)
+      || (mutableArgs.effect as string | undefined)
+      || (mutableArgs.systemName as string | undefined);
+    return executeAutomationRequest(tools, 'create_effect', mutableArgs) as Promise<Record<string, unknown>>;
+  }
   if (action === 'reset') {
     await ensureDefaultNiagaraActor(tools);
     mutableArgs.action = 'activate_niagara';

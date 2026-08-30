@@ -31,7 +31,7 @@ describe('Inspect Handlers', () => {
       capabilities: expect.objectContaining({
         productionPipeline: 'partial_build_cook_stage_package_archive_release_gate_platform_signing_local_runtime_launch_release_manifest_local_device_deployment_no_external_hosting',
         releaseValidation: 'partial_artifact_gate_required_files_pak_sha256_manifest_project_static_validation_plugin_dependency_validation_no_live_store_gate',
-        testingQuality: 'partial_automation_tests_terminal_json_reports_data_validation_map_check_functional_test_actor_authoring_blueprint_compile_sweep',
+        testingQuality: 'partial_automation_test_authoring_automation_tests_terminal_json_reports_data_validation_map_check_functional_test_actor_authoring_blueprint_compile_sweep_gameplay_debugger_control',
         profilingQuality: 'partial_insights_session_lifecycle_file_trace_capture_headless_trace_analysis_memory_report_network_profiler_visual_logger_stat_configuration_no_metric_export',
         worldBuilding: 'partial_plugin_assets_and_world_partition_boundaries'
       })

@@ -355,6 +355,7 @@ private:
     FString Execution;
     FString Label;
     float Duration = 0.0f;
+    FDateTime CreatedAt = FDateTime::UtcNow();
     TSharedPtr<FMcpAsyncState> State;
   };
 
@@ -809,6 +810,7 @@ private:
                                      const TSharedPtr<FJsonObject> &Payload,
                                      TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
   void ShutdownManagedAsyncOperations();
+  bool CanRegisterManagedAsyncAction();
   bool
   HandleConsoleCommandAction(const FString &RequestId, const FString &Action,
                              const TSharedPtr<FJsonObject> &Payload,

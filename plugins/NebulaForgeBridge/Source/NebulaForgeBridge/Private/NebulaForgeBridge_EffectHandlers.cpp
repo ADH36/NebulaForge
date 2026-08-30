@@ -1427,6 +1427,81 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                              TEXT("NOT_IMPLEMENTED"));
       return true;
 #endif
+    } else if (LowerSub.Equals(TEXT("set_lifespan")) ||
+               LowerSub.Equals(TEXT("destroy_effect"))) {
+#if WITH_EDITOR
+      FString ActorName;
+      LocalPayload->TryGetStringField(TEXT("actorName"), ActorName);
+      if (ActorName.IsEmpty())
+        LocalPayload->TryGetStringField(TEXT("systemName"), ActorName);
+      if (ActorName.IsEmpty())
+        LocalPayload->TryGetStringField(TEXT("effectHandle"), ActorName);
+      if (ActorName.IsEmpty())
+        LocalPayload->TryGetStringField(TEXT("effect"), ActorName);
+      if (ActorName.IsEmpty()) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("actorName, systemName, effectHandle, or effect is required"),
+                               nullptr, TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (!GEditor) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Editor not available"), nullptr,
+                               TEXT("EDITOR_NOT_AVAILABLE"));
+        return true;
+      }
+      UEditorActorSubsystem *ActorSS =
+          GEditor->GetEditorSubsystem<UEditorActorSubsystem>();
+      if (!ActorSS) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("EditorActorSubsystem not available"),
+                               nullptr, TEXT("EDITOR_ACTOR_SUBSYSTEM_MISSING"));
+        return true;
+      }
+      AActor *Target = nullptr;
+      for (AActor *Candidate : ActorSS->GetAllLevelActors()) {
+        if (Candidate && Candidate->GetActorLabel().Equals(ActorName, ESearchCase::IgnoreCase)) {
+          Target = Candidate;
+          break;
+        }
+      }
+      if (!Target) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               FString::Printf(TEXT("Actor not found: %s"), *ActorName),
+                               nullptr, TEXT("ACTOR_NOT_FOUND"));
+        return true;
+      }
+      if (LowerSub.Equals(TEXT("destroy_effect"))) {
+        const bool bDestroyed = ActorSS->DestroyActor(Target);
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetStringField(TEXT("actorName"), ActorName);
+        Resp->SetBoolField(TEXT("destroyed"), bDestroyed);
+        SendAutomationResponse(RequestingSocket, RequestId, bDestroyed,
+                               bDestroyed ? TEXT("Effect destroyed") : TEXT("Effect could not be destroyed"),
+                               Resp, bDestroyed ? FString() : TEXT("DESTROY_FAILED"));
+        return true;
+      }
+      double LifespanSeconds = 0.0;
+      if (!LocalPayload->TryGetNumberField(TEXT("lifespanSeconds"), LifespanSeconds) ||
+          !FMath::IsFinite(LifespanSeconds) || LifespanSeconds < 0.0 || LifespanSeconds > 86400.0) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("lifespanSeconds must be finite and between 0 and 86400"),
+                               nullptr, TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      Target->SetLifeSpan(static_cast<float>(LifespanSeconds));
+      TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+      Resp->SetStringField(TEXT("actorName"), ActorName);
+      Resp->SetNumberField(TEXT("lifespanSeconds"), LifespanSeconds);
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Effect lifespan updated"), Resp, FString());
+      return true;
+#else
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Effect lifecycle actions require editor build."),
+                             nullptr, TEXT("NOT_IMPLEMENTED"));
+      return true;
+#endif
     }
   }
 

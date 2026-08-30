@@ -571,6 +571,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAudioAction(
   // Action Routing
   // -------------------------------------------------------------------------
   const FString Lower = Action.ToLower();
+	if (Lower == TEXT("create_localization_manifest") ||
+	    Lower == TEXT("add_localization_entry") ||
+	    Lower == TEXT("validate_localization_manifest")) {
+	  SendAutomationError(RequestingSocket, RequestId,
+                       TEXT("Localization manifest actions are available through the stdio MCP host, which owns the project-file safety boundary."),
+                       TEXT("HOST_ONLY"));
+	  return true;
+	}
 	if (!Lower.StartsWith(TEXT("audio_")) &&
 		!Lower.StartsWith(TEXT("create_sound_")) &&
 		!Lower.StartsWith(TEXT("play_sound_")) &&

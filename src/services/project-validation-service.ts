@@ -245,6 +245,58 @@ export async function runUnrealAutomationTests(options: UnrealAutomationTestOpti
   };
 }
 
+export async function getAutomationTestResults(options: {
+  projectPath?: string;
+  reportPath?: string;
+  jobId?: string;
+}): Promise<Record<string, unknown>> {
+  const root = resolveRoot(options.projectPath);
+  if (!root) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'projectPath or UE_PROJECT_PATH is required' };
+  const job = options.jobId ? jobManager.get(options.jobId) : undefined;
+  if (options.jobId && !job) return { success: false, error: 'JOB_NOT_FOUND', message: `Job not found: ${options.jobId}`, jobId: options.jobId };
+  if (job && (job.status === 'running' || job.status === 'queued')) {
+    return { success: true, ready: false, status: job.status, jobId: job.jobId, message: 'Automation test job is still running.' };
+  }
+  if (job && !options.reportPath) {
+    return {
+      success: true,
+      ready: true,
+      passed: job.status === 'completed' && job.exitCode === 0,
+      jobId: job.jobId,
+      status: job.status,
+      exitCode: job.exitCode,
+      output: job.output,
+      errorOutput: job.errorOutput,
+      outputTruncated: job.outputTruncated
+    };
+  }
+  const report = resolveAutomationReport(root, options.reportPath);
+  if (!report) return { success: false, error: 'INVALID_REPORT_PATH', message: 'reportPath must be a relative JSON filename stored under Saved/AutomationReports' };
+  let content: string;
+  try {
+    const stats = await fs.stat(report.absolute);
+    if (!stats.isFile() || stats.size > 2 * 1024 * 1024) return { success: false, error: 'REPORT_TOO_LARGE', message: 'Automation report must be a regular file no larger than 2 MiB' };
+    content = await fs.readFile(report.absolute, 'utf8');
+  } catch {
+    return { success: false, error: 'REPORT_NOT_FOUND', message: `Automation report not found: ${report.relative}`, reportPath: report.relative };
+  }
+  try {
+    const parsed: unknown = JSON.parse(content);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { success: false, error: 'REPORT_INVALID', message: 'Automation report must contain a JSON object' };
+    const reportData = parsed as Record<string, unknown>;
+    const exitCode = typeof reportData.exitCode === 'number' ? reportData.exitCode : undefined;
+    return {
+      success: true,
+      ready: true,
+      passed: reportData.status === 'completed' && exitCode === 0,
+      reportPath: report.relative,
+      report: reportData
+    };
+  } catch (error) {
+    return { success: false, error: 'REPORT_INVALID', message: error instanceof Error ? error.message : String(error), reportPath: report.relative };
+  }
+}
+
 function validateCommandletArguments(values: string[] | undefined): string[] | undefined {
   if (!values) return [];
   if (values.length > MAX_VALIDATION_ARGUMENTS) throw new Error(`validationArguments cannot contain more than ${MAX_VALIDATION_ARGUMENTS} entries`);

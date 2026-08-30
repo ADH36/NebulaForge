@@ -4522,6 +4522,9 @@ bool UNebulaForgeBridgeSubsystem::HandleBlueprintAction(
     FString NodeType;
     LocalPayload->TryGetStringField(TEXT("nodeType"), NodeType);
     if (NodeType.IsEmpty()) {
+      LocalPayload->TryGetStringField(TEXT("nodeClass"), NodeType);
+    }
+    if (NodeType.IsEmpty()) {
       SendAutomationResponse(RequestingSocket, RequestId, false,
                              TEXT("nodeType required"), nullptr,
                              TEXT("INVALID_ARGUMENT"));
@@ -4677,7 +4680,8 @@ bool UNebulaForgeBridgeSubsystem::HandleBlueprintAction(
       UK2Node_Literal *LiteralNode = NewObject<UK2Node_Literal>(TargetGraph);
       NewNode = LiteralNode;
     } else {
-      // Fallback: try to look up the node class directly
+      // Generic path: resolve any loaded/reflected UEdGraphNode class. This
+      // allows project/plugin K2 nodes without hard-coding every node type.
       UClass *NodeClass = ResolveClassByName(NodeType);
       if (NodeClass && NodeClass->IsChildOf(UEdGraphNode::StaticClass())) {
         NewNode = NewObject<UEdGraphNode>(TargetGraph, NodeClass);

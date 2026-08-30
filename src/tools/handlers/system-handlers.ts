@@ -6,9 +6,10 @@ import { readOutputLog } from '../../utils/log-reader.js';
 import { jobManager } from '../../services/job-manager.js';
 import { readProjectFile, writeProjectFile } from '../../services/project-file-service.js';
 import { generateSaveGameClass } from '../../services/save-game-generator.js';
+import { generateAutomationTest } from '../../services/automation-test-generator.js';
 import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../services/gameplay-tags-service.js';
 import { getConfigValue, listConfigLayers, setConfigValue } from '../../services/config-service.js';
-import { runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
+import { getAutomationTestResults, runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
 
@@ -72,6 +73,18 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
   const sysAction = String(action || '').toLowerCase();
 
   switch (sysAction) {
+    case 'wait_for_job': {
+      const record = argsTyped as Record<string, unknown>;
+      const jobId = typeof record.jobId === 'string' ? record.jobId.trim() : '';
+      if (!jobId) return { success: false, error: 'INVALID_ARGUMENT', message: 'jobId is required' };
+      const timeoutMs = typeof record.timeoutMs === 'number' ? record.timeoutMs : 30000;
+      if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 600000) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'timeoutMs must be between 1 and 600000' };
+      }
+      const waited = await jobManager.waitForTerminal(jobId, timeoutMs);
+      if (!waited.job) return { success: false, error: 'JOB_NOT_FOUND', message: `Job not found: ${jobId}`, jobId };
+      return { success: !waited.timedOut && waited.job.status === 'completed', ready: !waited.timedOut, timedOut: waited.timedOut, ...waited.job };
+    }
     case 'get_job_status': {
       const jobId = typeof (argsTyped as Record<string, unknown>).jobId === 'string'
         ? String((argsTyped as Record<string, unknown>).jobId).trim()
@@ -138,6 +151,12 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       }
       return cleanObject(await executeAutomationRequest(tools, 'system_control', args, 'Automation bridge not available for system control operations')) as Record<string, unknown>;
     }
+    case 'get_test_results':
+      return getAutomationTestResults({
+        projectPath: argsTyped.projectPath,
+        reportPath: typeof (argsTyped as Record<string, unknown>).reportPath === 'string' ? String((argsTyped as Record<string, unknown>).reportPath) : undefined,
+        jobId: typeof argsTyped.jobId === 'string' ? argsTyped.jobId : undefined
+      });
     case 'manage_project_plugin': {
       const record = argsTyped as Record<string, unknown>;
       const pluginAction = typeof record.pluginAction === 'string' ? record.pluginAction : 'list';
@@ -168,6 +187,24 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         variables: record.variables as Array<{ name: string; type: string; defaultValue?: string | number | boolean }>,
         backup: record.backup !== false
       });
+    }
+    case 'create_automation_test': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.className !== 'string' || typeof record.testName !== 'string' || typeof record.headerPath !== 'string' || typeof record.sourcePath !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'className, testName, headerPath, and sourcePath are required' };
+      }
+      try {
+        return await generateAutomationTest({
+          projectPath: argsTyped.projectPath,
+          className: record.className,
+          testName: record.testName,
+          headerPath: record.headerPath,
+          sourcePath: record.sourcePath,
+          backup: record.backup !== false
+        });
+      } catch (error) {
+        return { success: false, error: 'AUTOMATION_TEST_GENERATION_FAILED', message: error instanceof Error ? error.message : String(error) };
+      }
     }
     case 'list_gameplay_tags':
       return listGameplayTags(argsTyped.projectPath);

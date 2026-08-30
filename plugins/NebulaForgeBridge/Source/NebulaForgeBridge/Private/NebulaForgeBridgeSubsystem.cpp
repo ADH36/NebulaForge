@@ -1830,6 +1830,12 @@ void UNebulaForgeBridgeSubsystem::InitializeHandlers() {
                          TSharedPtr<FMcpBridgeWebSocket> S) {
                     return HandleDebugAction(R, A, P, S);
                   });
+  RegisterHandler(TEXT("enable_gameplay_debugger"),
+                  [this](const FString &R, const FString &A,
+                         const TSharedPtr<FJsonObject> &P,
+                         TSharedPtr<FMcpBridgeWebSocket> S) {
+                    return HandleDebugAction(R, A, P, S);
+                  });
 
   // Phase 21: Game Framework
   RegisterHandler(TEXT("manage_game_framework"),

@@ -1,4 +1,4 @@
-// McpTool_ManageEffect.cpp — manage_effect tool definition (58 actions)
+// McpTool_ManageEffect.cpp — manage_effect tool definition (60 actions)
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -38,6 +38,8 @@ public:
 				TEXT("activate"),
 				TEXT("activate_effect"),
 				TEXT("deactivate"),
+				TEXT("set_lifespan"),
+				TEXT("destroy_effect"),
 				TEXT("reset"),
 				TEXT("advance_simulation"),
 				TEXT("add_niagara_module"),
@@ -103,6 +105,7 @@ public:
 			})
 			.String(TEXT("actorName"), TEXT("Name of the actor."))
 			.String(TEXT("attachToActor"), TEXT("Actor label to attach spawned Niagara actor to."))
+			.Number(TEXT("lifespanSeconds"), TEXT("Actor lifespan in seconds; zero means infinite."))
 			.Bool(TEXT("reset"), TEXT(""))
 			.String(TEXT("filter"), TEXT("Cleanup actor-label prefix filter."))
 			.Number(TEXT("deltaTime"), TEXT("Simulation delta time."))

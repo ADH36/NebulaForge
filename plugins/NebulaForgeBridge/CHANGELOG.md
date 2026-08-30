@@ -2,6 +2,12 @@
 
 All notable changes to the NebulaForge Bridge plugin will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **DataTable row authoring** — added native `modify_data_table_row` and `delete_data_table_row` actions with transactional reflected-property validation, optional safe saves, dirty-state tracking, row counts, and explicit validation/not-found/save errors.
+
 ---
 
 ## [0.5.30] - 2026-06-05

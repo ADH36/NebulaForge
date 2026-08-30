@@ -4158,6 +4158,90 @@ bool UNebulaForgeBridgeSubsystem::HandleDataTableAction(
     return true;
   }
 
+  if (Action == TEXT("delete_data_table_row")) {
+    FString RowNameString;
+    Payload->TryGetStringField(TEXT("rowName"), RowNameString);
+    RowNameString = RowNameString.TrimStartAndEnd();
+    if (RowNameString.IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("rowName is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const FName RowName(*RowNameString);
+    if (!Table->GetRowMap().Contains(RowName)) {
+      SendAutomationError(Socket, RequestId, TEXT("Data table row was not found"), TEXT("ROW_NOT_FOUND"));
+      return true;
+    }
+    Table->RemoveRow(RowName);
+    Table->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(Table)) {
+      SendAutomationError(Socket, RequestId, TEXT("Data table row deleted but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetStringField(TEXT("rowName"), RowNameString);
+    Result->SetNumberField(TEXT("rowCount"), Table->GetRowMap().Num());
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Data table row deleted"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("modify_data_table_row")) {
+    FString RowNameString;
+    Payload->TryGetStringField(TEXT("rowName"), RowNameString);
+    RowNameString = RowNameString.TrimStartAndEnd();
+    const TSharedPtr<FJsonObject> *Properties = nullptr;
+    if (RowNameString.IsEmpty() || !Payload->TryGetObjectField(TEXT("properties"), Properties) || !Properties || !Properties->IsValid()) {
+      SendAutomationError(Socket, RequestId, TEXT("rowName and properties object are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    uint8 *const *ExistingRow = Table->GetRowMap().Find(FName(*RowNameString));
+    if (!ExistingRow || !*ExistingRow) {
+      SendAutomationError(Socket, RequestId, TEXT("Data table row was not found"), TEXT("ROW_NOT_FOUND"));
+      return true;
+    }
+    FStructOnScope Candidate(Table->RowStruct);
+    Table->RowStruct->CopyScriptStruct(Candidate.GetStructMemory(), *ExistingRow);
+    TArray<FString> PropertyErrors;
+    int32 AppliedProperties = 0;
+    for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : (*Properties)->Values) {
+      FProperty *Property = Table->RowStruct->FindPropertyByName(FName(*Pair.Key));
+      FString Error;
+      if (!Property || Property->HasAnyPropertyFlags(CPF_Transient) ||
+          !McpPropertyReflection::ApplyJsonValueToProperty(Candidate.GetStructMemory(), Property, Pair.Value, Error)) {
+        PropertyErrors.Add(Pair.Key + TEXT(": ") + (Error.IsEmpty() ? TEXT("unknown property") : Error));
+      } else {
+        ++AppliedProperties;
+      }
+    }
+    if (PropertyErrors.Num() > 0) {
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      TArray<TSharedPtr<FJsonValue>> Errors;
+      for (const FString &Error : PropertyErrors) Errors.Add(MakeShared<FJsonValueString>(Error));
+      Result->SetArrayField(TEXT("propertyErrors"), Errors);
+      SendAutomationResponse(Socket, RequestId, false, TEXT("Data table row rejected"), Result, TEXT("PROPERTY_VALIDATION_FAILED"));
+      return true;
+    }
+    Table->RowStruct->CopyScriptStruct(*ExistingRow, Candidate.GetStructMemory());
+    Table->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(Table)) {
+      SendAutomationError(Socket, RequestId, TEXT("Data table row modified but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetStringField(TEXT("rowName"), RowNameString);
+    Result->SetNumberField(TEXT("appliedProperties"), AppliedProperties);
+    Result->SetNumberField(TEXT("rowCount"), Table->GetRowMap().Num());
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Data table row modified"), Result, FString());
+    return true;
+  }
+
   FString RowNameString;
   Payload->TryGetStringField(TEXT("rowName"), RowNameString);
   const TSharedPtr<FJsonObject> *Properties = nullptr;

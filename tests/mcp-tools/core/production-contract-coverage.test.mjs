@@ -9,6 +9,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'set_data_asset_properties', assetPath: '/Game/MCPTest/ContractDataAsset', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_data_table', path: '/Game/MCPTest', name: 'ContractDataTable', rowStructPath: '/Script/Engine.TableRowBase', save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'add_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'modify_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'delete_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'get_data_table_rows', assetPath: '/Game/MCPTest/ContractDataTable' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_curve_table', path: '/Game/MCPTest', name: 'ContractCurveTable', save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'add_curve_table_row', assetPath: '/Game/MCPTest/ContractCurveTable', rowName: 'ContractCurve', keys: [{ time: 0, value: 0 }], save: false }, expected: 'success|error' },

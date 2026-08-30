@@ -8,7 +8,9 @@
 [![Project Board](https://img.shields.io/badge/Project-Roadmap-blueviolet?logo=github)](https://github.com/users/ADH36/projects/3)
 [![Discussions](https://img.shields.io/badge/Discussions-Join-brightgreen?logo=github)](https://github.com/ADH36/NebulaForge/discussions)
 
-A comprehensive Model Context Protocol (MCP) server that enables AI assistants to control Unreal Engine through a native C++ Automation Bridge plugin. Built with TypeScript and C++.
+A production-minded Model Context Protocol (MCP) server and Unreal Engine 5 bridge that lets AI assistants inspect, author, test, play, profile, and package Unreal projects. Built with TypeScript and C++.
+
+> **Status:** broad editor automation is available today. Project-specific gameplay architecture, platform certification, external stores, and some engine/plugin-dependent workflows still require live project verification.
 
 ---
 
@@ -18,6 +20,7 @@ A comprehensive Model Context Protocol (MCP) server that enables AI assistants t
 - [Getting Started](#getting-started)
 - [Configuration](#configuration)
 - [Available Tools](#available-tools)
+- [Production Workflows](#production-workflows)
 - [Docker](#docker)
 - [Documentation](#documentation)
 - [Community](#community)
@@ -30,16 +33,14 @@ A comprehensive Model Context Protocol (MCP) server that enables AI assistants t
 
 | Category | Capabilities |
 |----------|-------------|
-| **Asset Management** | Browse, import, duplicate, rename, delete assets; create materials |
-| **Actor Control** | Spawn, delete, transform, physics, tags, components |
-| **Editor Control** | PIE sessions, camera, viewport, screenshots, bookmarks |
-| **Level Management** | Load/save levels, streaming, lighting |
-| **Animation & Physics** | Animation BPs, state machines, ragdolls, vehicles, constraints |
-| **Visual Effects** | Niagara particles, GPU simulations, procedural effects, debug shapes |
-| **Sequencer** | Cinematics, timeline control, camera animations, keyframes |
-| **Graph Editing** | Blueprint, Niagara, Material, and Behavior Tree graph manipulation |
-| **Audio** | Sound cues, audio components, sound mixes, ambient sounds |
-| **System** | Console commands, UBT, tests, logs, project settings, CVars |
+| **Assets & Data** | Browse, inspect, import, duplicate, rename, delete, validate, and author Materials, Data Assets, Primary Assets, DataTables, CurveTables, Media, audio, and physical materials |
+| **World Building** | Levels, sublevels, World Partition, HLOD, data layers, landscapes, splines, foliage, water, sky, weather, time of day, procedural geometry, and PCG |
+| **Actors & Blueprints** | Spawn and transform actors; edit components, SCS templates, graphs, pins, variables, widgets, bindings, CDOs, materials, cameras, tags, physics, and input |
+| **Gameplay & AI** | GAS, character movement, combat, inventory, interaction, Behavior Trees, EQS, State Trees, Smart Objects, perception, navigation, Control Rig, IK Rig, cloth, vehicles, and ragdolls |
+| **Editor & Runtime** | PIE, packaged launches, cameras, viewports, screenshots, simulated input, runtime inspection, SaveGame slots, Gameplay Tags, config, and async jobs |
+| **VFX, Audio & Cinematics** | Niagara and VFX budgets, Sequencer, Movie Render Queue, Sound Cues, MetaSounds, source effects, media playback, Take Recorder, and replays |
+| **Testing & Release** | Automation/functional tests, Blueprint/map/data validation, Unreal Insights, memory/network profiling, UAT packaging, signing, local deployment, release gates, and manifest checks |
+| **Online Services** | Session lifecycle, identity, achievements, leaderboards, stats, friends, presence, external UI, and controlled network conditions |
 
 ### Architecture
 
@@ -55,6 +56,16 @@ A comprehensive Model Context Protocol (MCP) server that enables AI assistants t
 - **Centralized Configuration** — Unified class aliases and type definitions
 
 ---
+
+### Quick mental model
+
+| If you want to... | Start with |
+|---|---|
+| Connect directly from Claude Code or Cursor | Native MCP at http://127.0.0.1:3000/mcp |
+| Use Claude Desktop, scripts, or CI over stdio | TypeScript bridge with Node.js 18+ |
+| Discover what this project can support | inspect → production_capabilities |
+| Run long work safely | Managed async actions with status, progress, cancellation, and terminal results |
+| Add a native Unreal operation | The bridge handler map and plugin extension guide |
 
 ## Getting Started
 
@@ -394,7 +405,24 @@ MCP_AUTOMATION_HOST=0.0.0.0
 </details>
 ### Supported Asset Types
 
+The asset workflow also covers Materials, Material Functions, Material Instances, Data Assets, Primary Assets, DataTables, CurveTables, Render Targets, Media Players, Media Sources, Media Textures, Media Playlists, Sound Cues, MetaSounds, Niagara systems and emitters, State Trees, PCG Graphs, Physics Assets, Animation Sequences, Montages, Control Rigs, IK Rigs, and Level Sequences. Availability varies with the Unreal version and enabled project plugins.
+
 Blueprints • Materials • Textures • Static Meshes • Skeletal Meshes • Levels • Sounds • Particles • Niagara Systems • Behavior Trees
+
+---
+
+## Production Workflows
+
+NebulaForge is designed for iterative AI-assisted development, not only one-off editor commands. Common end-to-end workflows include:
+
+1. **Build a world:** create a level, configure World Partition or streaming, author landscape/foliage/water, generate PCG content, then inspect and save the result.
+2. **Author gameplay:** create Blueprints and components, wire graph nodes and pins, configure input, add GAS/combat/inventory/interaction systems, compile, and validate.
+3. **Test a change:** launch PIE or a packaged build, simulate input, capture screenshots, run automation tests, inspect logs, and poll managed jobs to completion.
+4. **Profile a build:** start an Unreal trace, capture Insights/network/memory/Visual Logger data, run bounded analysis, and retain the structured terminal result.
+5. **Prepare a release:** validate project plugins and manifests, run UAT with controlled packaging options, stage or deploy locally, then use release_gate to combine artifact, project, and test checks.
+6. **Operate online features:** inspect provider capabilities and identity, manage sessions, and apply bounded network conditions for reconnect/soak scenarios.
+
+For the exact support boundary—including engine/plugin prerequisites and known gaps—see the [production capability audit](docs/production-capability-audit.md).
 
 ---
 
@@ -415,6 +443,10 @@ docker run -it --rm -e UE_PROJECT_PATH=/project unreal-mcp
 | [Plugin Extension](docs/editor-plugin-extension.md) | C++ plugin architecture |
 | [Testing Guide](docs/testing-guide.md) | How to run and write tests |
 | [Roadmap](docs/Roadmap.md) | Development phases |
+| [Production Capability Audit](docs/production-capability-audit.md) | Implemented features, prerequisites, and known gaps |
+| [UE 5.8 Compatibility Matrix](docs/ue5.8-compatibility-matrix.md) | Engine-version compatibility notes |
+| [Native Automation Progress](docs/native-automation-progress.md) | Native MCP transport and tool parity status |
+| [Changelog](CHANGELOG.md) | Release history |
 
 
 ---

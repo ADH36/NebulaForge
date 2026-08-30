@@ -2197,7 +2197,7 @@ void SchedulePCGGenerationWait(
     const double StartSeconds = FPlatformTime::Seconds();
     const double TimeoutSeconds = FMath::Max(1.0, static_cast<double>(TimeoutMs) / 1000.0);
     FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
-        [WeakSubsystem, Socket, RequestId, World, WeakActor, WeakComponent, GraphPath, TaskId, bSave, StartSeconds, TimeoutSeconds](float)
+        [WeakSubsystem, Socket, RequestId, World, WeakActor, WeakComponent, GraphPath, TaskId, bSave, StartSeconds, TimeoutSeconds, AsyncId](float)
         {
             UNebulaForgeBridgeSubsystem* LiveSubsystem = WeakSubsystem.Get();
             UPCGComponent* LiveComponent = WeakComponent.Get();

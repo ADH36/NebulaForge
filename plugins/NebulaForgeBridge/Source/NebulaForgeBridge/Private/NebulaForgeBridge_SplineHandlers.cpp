@@ -2453,7 +2453,7 @@ static bool GenerateSplineMeshSegments(
             return false;
         }
 
-        const float SegmentLength = SplineComp->GetSegmentLength(StartIndex);
+        const float SegmentLength = SplineComp->GetSegmentLength(StartIndex, 1.0f);
         const int32 SubCount = bUseMaxSegmentLength && SegmentLength > static_cast<float>(MaxSegmentLength)
             ? FMath::Clamp(FMath::CeilToInt(SegmentLength / static_cast<float>(MaxSegmentLength)), 1, 256)
             : 1;
@@ -2478,7 +2478,7 @@ static bool GenerateSplineMeshSegments(
                     SegmentLength * static_cast<float>(SubIndex) / static_cast<float>(SubCount);
                 Start = SplineComp->GetLocationAtDistanceAlongSpline(SubStartDist, ESplineCoordinateSpace::Local);
                 StartTangent = SplineComp->GetTangentAtDistanceAlongSpline(SubStartDist, ESplineCoordinateSpace::Local);
-                const FVector PointScale = SplineComp->GetScaleAtDistanceAlongSpline(SubStartDist, ESplineCoordinateSpace::Local);
+                const FVector PointScale = SplineComp->GetScaleAtDistanceAlongSpline(SubStartDist);
                 StartScale = FVector2D(PointScale.X, PointScale.Y);
                 StartRoll = FMath::DegreesToRadians(SplineComp->GetRollAtDistanceAlongSpline(SubStartDist, ESplineCoordinateSpace::Local));
             }
@@ -2501,7 +2501,7 @@ static bool GenerateSplineMeshSegments(
                     SegmentLength * static_cast<float>(SubIndex + 1) / static_cast<float>(SubCount);
                 End = SplineComp->GetLocationAtDistanceAlongSpline(SubEndDist, ESplineCoordinateSpace::Local);
                 EndTangent = SplineComp->GetTangentAtDistanceAlongSpline(SubEndDist, ESplineCoordinateSpace::Local);
-                const FVector PointScale = SplineComp->GetScaleAtDistanceAlongSpline(SubEndDist, ESplineCoordinateSpace::Local);
+                const FVector PointScale = SplineComp->GetScaleAtDistanceAlongSpline(SubEndDist);
                 EndScale = FVector2D(PointScale.X, PointScale.Y);
                 EndRoll = FMath::DegreesToRadians(SplineComp->GetRollAtDistanceAlongSpline(SubEndDist, ESplineCoordinateSpace::Local));
             }

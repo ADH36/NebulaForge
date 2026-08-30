@@ -58,7 +58,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Dom/JsonObject.h"
 #include "Engine/StaticMeshActor.h"
-#include "Engine/GameUserSettings.h"
+#include "GameFramework/GameUserSettings.h"
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5
 #include "MeshMerge/MeshMergingSettings.h"
 #else

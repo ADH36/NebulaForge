@@ -1800,9 +1800,9 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     int32 ErrorCount = 0;
     int32 WarningCount = 0;
     for (const FString& Category : Categories) {
-      FMessageLog MessageLog(FName(*Category));
-      const int32 CategoryErrors = MessageLog.NumMessages(EMessageSeverity::Error);
-      const int32 CategoryWarnings = MessageLog.NumMessages(EMessageSeverity::Warning);
+      FMessageLog LogListing(FName(*Category));
+      const int32 CategoryErrors = LogListing.NumMessages(EMessageSeverity::Error);
+      const int32 CategoryWarnings = LogListing.NumMessages(EMessageSeverity::Warning);
       ErrorCount += CategoryErrors;
       WarningCount += CategoryWarnings;
       TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();

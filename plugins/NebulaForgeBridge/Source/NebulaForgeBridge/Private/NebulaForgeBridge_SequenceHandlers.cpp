@@ -51,7 +51,7 @@
 #include "MovieSceneSequence.h"
 #include "MovieSceneTrack.h"
 #include "Tracks/MovieSceneSubTrack.h"
-#include "Tracks/MovieSceneSubSection.h"
+#include "Sections/MovieSceneSubSection.h"
 #include "UObject/UObjectIterator.h"
 
 // UE 5.0 compatibility: GetTracks() was introduced in UE 5.1, use GetMasterTracks() in 5.0

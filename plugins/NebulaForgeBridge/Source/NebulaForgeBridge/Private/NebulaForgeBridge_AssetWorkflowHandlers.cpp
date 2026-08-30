@@ -274,11 +274,12 @@ static void FinalizeHost(UMaterial* Material, UMaterialFunction* Function) {
 
 #if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS
 static bool HandleMediaAssetAction(
+    UNebulaForgeBridgeSubsystem* Owner,
     const FString &RequestId, const FString &Action,
     const TSharedPtr<FJsonObject> &Payload,
     TSharedPtr<FMcpBridgeWebSocket> Socket) {
   if (!Payload.IsValid()) {
-    SendAutomationError(Socket, RequestId, TEXT("Media asset payload missing"), TEXT("INVALID_PAYLOAD"));
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Media asset payload missing"), TEXT("INVALID_PAYLOAD"));
     return true;
   }
 
@@ -289,18 +290,18 @@ static bool HandleMediaAssetAction(
   Name = SanitizeAssetName(Name);
   PackagePath = SanitizeProjectRelativePath(PackagePath);
   if (Name.IsEmpty() || PackagePath.IsEmpty()) {
-    SendAutomationError(Socket, RequestId, TEXT("name and path are required"), TEXT("INVALID_ARGUMENT"));
+    Owner->SendAutomationError(Socket, RequestId, TEXT("name and path are required"), TEXT("INVALID_ARGUMENT"));
     return true;
   }
   const FString PackageName = PackagePath + TEXT("/") + Name;
   if (UEditorAssetLibrary::DoesAssetExist(PackageName)) {
-    SendAutomationError(Socket, RequestId, TEXT("Media asset already exists"), TEXT("ASSET_EXISTS"));
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Media asset already exists"), TEXT("ASSET_EXISTS"));
     return true;
   }
 
   UPackage *Package = CreatePackage(*PackageName);
   if (!Package) {
-    SendAutomationError(Socket, RequestId, TEXT("Unable to create media asset package"), TEXT("CREATE_FAILED"));
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Unable to create media asset package"), TEXT("CREATE_FAILED"));
     return true;
   }
 
@@ -314,7 +315,7 @@ static bool HandleMediaAssetAction(
     Payload->TryGetStringField(TEXT("mediaPlayerPath"), PlayerPath);
     UMediaPlayer *Player = LoadObject<UMediaPlayer>(nullptr, *SanitizeProjectRelativePath(PlayerPath));
     if (!Player) {
-      SendAutomationError(Socket, RequestId, TEXT("mediaPlayerPath must resolve to a UMediaPlayer"), TEXT("MEDIA_PLAYER_NOT_FOUND"));
+      Owner->SendAutomationError(Socket, RequestId, TEXT("mediaPlayerPath must resolve to a UMediaPlayer"), TEXT("MEDIA_PLAYER_NOT_FOUND"));
       return true;
     }
     UMediaTexture *Texture = NewObject<UMediaTexture>(Package, UMediaTexture::StaticClass(), FName(*Name), RF_Public | RF_Standalone);
@@ -326,7 +327,7 @@ static bool HandleMediaAssetAction(
     Payload->TryGetStringField(TEXT("mediaUrl"), Url);
     Payload->TryGetStringField(TEXT("mediaType"), MediaType);
     if (Url.IsEmpty()) {
-      SendAutomationError(Socket, RequestId, TEXT("mediaUrl is required for a media source"), TEXT("INVALID_ARGUMENT"));
+      Owner->SendAutomationError(Socket, RequestId, TEXT("mediaUrl is required for a media source"), TEXT("INVALID_ARGUMENT"));
       return true;
     }
     if (MediaType.Equals(TEXT("stream"), ESearchCase::IgnoreCase)) {
@@ -341,7 +342,7 @@ static bool HandleMediaAssetAction(
   }
 
   if (!Asset) {
-    SendAutomationError(Socket, RequestId, TEXT("Unable to create media asset"), TEXT("CREATE_FAILED"));
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Unable to create media asset"), TEXT("CREATE_FAILED"));
     return true;
   }
   FAssetRegistryModule::AssetCreated(Asset);
@@ -352,7 +353,7 @@ static bool HandleMediaAssetAction(
     if (Payload->TryGetStringField(TEXT("mediaSourcePath"), SourcePath) && !SourcePath.IsEmpty()) {
       UMediaSource *Source = LoadObject<UMediaSource>(nullptr, *SanitizeProjectRelativePath(SourcePath));
       if (!Source || !Cast<UMediaPlaylist>(Asset)->Add(Source)) {
-        SendAutomationError(Socket, RequestId, TEXT("mediaSourcePath must resolve to a compatible media source"), TEXT("MEDIA_SOURCE_NOT_FOUND"));
+        Owner->SendAutomationError(Socket, RequestId, TEXT("mediaSourcePath must resolve to a compatible media source"), TEXT("MEDIA_SOURCE_NOT_FOUND"));
         return true;
       }
     }
@@ -362,14 +363,14 @@ static bool HandleMediaAssetAction(
   Payload->TryGetBoolField(TEXT("save"), bSave);
   const bool bSaved = !bSave || McpSafeAssetSave(Asset);
   if (!bSaved) {
-    SendAutomationError(Socket, RequestId, TEXT("Media asset created but save failed"), TEXT("SAVE_FAILED"));
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Media asset created but save failed"), TEXT("SAVE_FAILED"));
     return true;
   }
   TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
   Result->SetStringField(TEXT("assetPath"), Asset->GetPathName());
   Result->SetStringField(TEXT("classPath"), Asset->GetClass()->GetPathName());
   Result->SetBoolField(TEXT("saved"), bSave);
-  SendAutomationResponse(Socket, RequestId, true, TEXT("Media asset created"), Result, FString());
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Media asset created"), Result, FString());
   return true;
 }
 #endif
@@ -524,7 +525,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
       Lower == TEXT("create_media_texture") ||
       Lower == TEXT("create_media_playlist")) {
 #if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS
-    return HandleMediaAssetAction(RequestId, Lower, Payload, RequestingSocket);
+    return HandleMediaAssetAction(this, RequestId, Lower, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId,
                          TEXT("Media Framework assets are unavailable in this build"),
@@ -4209,12 +4210,14 @@ bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
       SendAutomationError(Socket, RequestId, TEXT("csv is required"), TEXT("INVALID_ARGUMENT"));
       return true;
     }
-    const TArray<FString> Lines = Csv.ParseIntoArrayLines();
+    TArray<FString> Lines;
+    Csv.ParseIntoArrayLines(Lines, false);
     if (Lines.Num() < 2) {
       SendAutomationError(Socket, RequestId, TEXT("csv must contain a header and at least one data row"), TEXT("INVALID_ARGUMENT"));
       return true;
     }
-    const TArray<FString> Header = Lines[0].ParseIntoArray(TEXT(","), true);
+    TArray<FString> Header;
+    Lines[0].ParseIntoArray(Header, TEXT(","), true);
     if (Header.Num() < 2 || !Header[0].Equals(TEXT("Name"), ESearchCase::IgnoreCase)) {
       SendAutomationError(Socket, RequestId, TEXT("csv header must start with Name and contain curve columns"), TEXT("INVALID_ARGUMENT"));
       return true;
@@ -4269,14 +4272,14 @@ bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
 
   FString RowNameString;
   Payload->TryGetStringField(TEXT("rowName"), RowNameString);
-  const TSharedPtr<FJsonValue> *KeysValue = nullptr;
-  if (RowNameString.TrimStartAndEnd().IsEmpty() || !Payload->TryGetField(TEXT("keys"), KeysValue) || !KeysValue || !KeysValue->IsValid() || (*KeysValue)->Type != EJson::Array) {
+  const TSharedPtr<FJsonValue> KeysValue = Payload->TryGetField(TEXT("keys"));
+  if (RowNameString.TrimStartAndEnd().IsEmpty() || !KeysValue.IsValid() || KeysValue->Type != EJson::Array) {
     SendAutomationError(Socket, RequestId, TEXT("rowName and keys array are required"), TEXT("INVALID_ARGUMENT"));
     return true;
   }
   FRichCurve &Curve = Table->AddRichCurve(FName(*RowNameString.TrimStartAndEnd()));
   const TArray<TSharedPtr<FJsonValue>> *Keys = nullptr;
-  (*KeysValue)->TryGetArray(Keys);
+  KeysValue->TryGetArray(Keys);
   if (!Keys) {
     SendAutomationError(Socket, RequestId, TEXT("keys must be an array"), TEXT("INVALID_ARGUMENT"));
     return true;

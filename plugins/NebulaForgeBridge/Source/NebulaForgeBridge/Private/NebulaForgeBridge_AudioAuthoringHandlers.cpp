@@ -1387,15 +1387,9 @@ if (SubAction == TEXT("create_metasound"))
 
         bool bSuccess = Builder.SetGraphInputDefault(FName(*InputName), Literal);
 
-        if (Response->HasField(TEXT("validationPassed")))
-        {
-            SendAutomationResponse(RequestingSocket, RequestId, bSuccess, Message, Response,
-                bSuccess ? FString() : TEXT("AUDIO_VALIDATION_FAILED"));
-        }
-        else if (bSuccess)
+        if (bSuccess)
         {
             McpSafeAssetSave(MetaSound);
-
             Response->SetBoolField(TEXT("success"), true);
             Response->SetStringField(TEXT("message"), FString::Printf(TEXT("MetaSound default for '%s' set"), *InputName));
             McpHandlerUtils::AddVerification(Response, MetaSound);

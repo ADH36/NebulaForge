@@ -1162,7 +1162,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         Result->SetStringField(TEXT("runtimeValidation"), TEXT("Runtime AI inspection, runtime EQS, and behavior execution require a running PIE world and project-authored assets."));
         Result->SetStringField(TEXT("crowdValidationNote"), TEXT("Mass AI authoring availability does not constitute production-scale soak or performance validation."));
         Result->SetStringField(TEXT("persistenceNote"), TEXT("Inventory and interaction primitives are authoring paths; SaveGame slot persistence is not provided by this handler."));
-        SendAutomationResponse(RequestingSocket, RequestId, TEXT("AI capability report generated"), Result, FString());
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("AI capability report generated"), Result, FString());
         return true;
     }
 

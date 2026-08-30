@@ -445,8 +445,6 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeFoliageAuthoring(
         HeightData.Reserve(GeneratedHeights.Num());
         for (const double Height : GeneratedHeights)
             HeightData.Add(MakeShared<FJsonValueNumber>(FMath::Clamp(Height, 0.0, 65535.0)));
-            }
-        }
         HeightPayload->SetStringField(TEXT("operation"), TEXT("set"));
         HeightPayload->SetArrayField(TEXT("heightData"), HeightData);
         HeightPayload->SetNumberField(TEXT("minX"), 0);

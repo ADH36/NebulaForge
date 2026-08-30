@@ -91,6 +91,7 @@
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
+#include "Online/OnlineSessionNames.h"
 #define MCP_HAS_ONLINE_SUBSYSTEM 1
 #else
 #define MCP_HAS_ONLINE_SUBSYSTEM 0
@@ -452,7 +453,7 @@ static bool HandleOnlineSessionLifecycle(
     if (SubAction == TEXT("find_online_sessions"))
     {
         const int32 MaxResults = FMath::Clamp(static_cast<int32>(GetJsonNumberField(Payload, TEXT("maxSearchResults"), 50.0)), 1, 500);
-        FOnlineSessionSearchRef Search = MakeShared<FOnlineSessionSearch>();
+        TSharedRef<FOnlineSessionSearch> Search = MakeShared<FOnlineSessionSearch>();
         Search->MaxSearchResults = MaxResults;
         Search->bIsLanQuery = GetJsonBoolField(Payload, TEXT("bIsLANMatch"), false);
         Search->QuerySettings.Set(SEARCH_PRESENCE, GetJsonBoolField(Payload, TEXT("bUsesPresence"), true), EOnlineComparisonOp::Equals);

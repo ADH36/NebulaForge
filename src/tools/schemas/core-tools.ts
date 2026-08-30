@@ -109,7 +109,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
         parentMaterial: commonSchemas.materialPath,
         classPath: commonSchemas.assetPath,
         properties: commonSchemas.objectProp,
-        keys: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'CurveTable keys with finite numeric time and value fields.' },
+        keys: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'CurveTable keys with finite time/value plus optional interpMode, tangentMode, tangentWeightMode, and tangent values.' },
         csv: { type: 'string', maxLength: 1048576, description: 'CSV payload for CurveTable import/export.' },
         rowStructPath: commonSchemas.assetPath,
         rowName: commonSchemas.name,

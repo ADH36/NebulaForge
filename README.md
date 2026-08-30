@@ -1,4 +1,23 @@
-# Unreal Engine MCP Server
+<div align="center">
+
+# ⚡ NebulaForge
+
+### Give your AI assistant a controllable Unreal Engine
+
+Inspect worlds. Author assets. Build gameplay. Run tests. Profile performance. Ship with confidence.
+
+[**Get Started**](#getting-started) · [**Explore Features**](#features) · [**Production Audit**](docs/production-capability-audit.md) · [**Join Discussions**](https://github.com/ADH36/NebulaForge/discussions)
+
+</div>
+
+<div align="center">
+
+<img src="https://img.shields.io/badge/Unreal%20Engine-5.0--5.8-0E1128?style=for-the-badge&logo=unrealengine" alt="Unreal Engine 5.0 to 5.8">
+<img src="https://img.shields.io/badge/MCP-Streamable%20HTTP%20%7C%20stdio-6E56CF?style=for-the-badge" alt="MCP transports">
+<img src="https://img.shields.io/badge/TypeScript%20%2B%20C%2B%2B-automation-3178C6?style=for-the-badge" alt="TypeScript and C++">
+<img src="https://img.shields.io/badge/Tools-23%20canonical-22C55E?style=for-the-badge" alt="23 canonical tools">
+
+</div>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![NPM Package](https://img.shields.io/npm/v/unreal-nebula-forge-mcp-server)](https://www.npmjs.com/package/unreal-nebula-forge-mcp-server)
@@ -12,7 +31,8 @@ A production-minded Model Context Protocol (MCP) server and Unreal Engine 5 brid
 
 > **Status:** broad editor automation is available today. Project-specific gameplay architecture, platform certification, external stores, and some engine/plugin-dependent workflows still require live project verification.
 
-### Recent capability additions
+<details open>
+<summary><strong>✨ Recent capability additions</strong></summary>
 
 - DataTable row modification and deletion with transactional reflected-property validation and optional safe saves.
 - Managed asynchronous PCG generation with timeout, cancellation, completion events, and polling.
@@ -20,6 +40,8 @@ A production-minded Model Context Protocol (MCP) server and Unreal Engine 5 brid
 - Release gates that combine project/plugin checks, archive and SHA-256 manifest validation, and optional Unreal automation tests.
 - Unreal Insights, memory, network-profiler, stat, and Visual Logger capture workflows with bounded job results.
 - Media Framework playback, Take Recorder lifecycle, replay controls, online identity/presence status, and controlled network conditions.
+
+</details>
 
 ---
 
@@ -35,6 +57,35 @@ A production-minded Model Context Protocol (MCP) server and Unreal Engine 5 brid
 - [Community](#community)
 - [Development](#development)
 - [Contributing](#contributing)
+
+---
+
+## The short version
+
+NebulaForge turns natural-language intent into validated Unreal Editor operations through one compact MCP surface. Pick the connection that fits your workflow:
+
+<div align="center">
+
+| 🟣 **Native MCP** | 🔵 **TypeScript Bridge** |
+|---|---|
+| Direct HTTP + SSE from the editor | stdio for Claude Desktop, Cursor, scripts, and CI |
+| No Node.js or npm required | Node.js 18+ with WebSocket automation |
+| http://127.0.0.1:3000/mcp | node dist/cli.js |
+| Best for the fastest local setup | Best for host-side workflows and integrations |
+
+</div>
+
+~~~mermaid
+flowchart LR
+    A[AI assistant] --> B{Choose a transport}
+    B -->|Native MCP| C[HTTP + SSE]
+    B -->|TypeScript bridge| D[stdio + WebSocket]
+    C --> E[NebulaForge Bridge]
+    D --> E
+    E --> F[Unreal Editor]
+    E --> G[PIE / packaged verification]
+    E --> H[Assets, worlds, gameplay, tests, release]
+~~~
 
 ---
 
@@ -423,6 +474,21 @@ Blueprints • Materials • Textures • Static Meshes • Skeletal Meshes • 
 ## Production Workflows
 
 NebulaForge is designed for iterative AI-assisted development, not only one-off editor commands. Common end-to-end workflows include:
+
+~~~mermaid
+flowchart TD
+    A[Describe a change] --> B[Inspect capabilities and project state]
+    B --> C[Author or mutate Unreal content]
+    C --> D[Validate and save]
+    D --> E{Verify}
+    E -->|PIE| F[Run gameplay checks]
+    E -->|Tests| G[Run automation tests]
+    E -->|Profile| H[Capture Insights data]
+    F --> I[Package or stage]
+    G --> I
+    H --> I
+    I --> J[Release gate]
+~~~
 
 1. **Build a world:** create a level, configure World Partition or streaming, author landscape/foliage/water, generate PCG content, then inspect and save the result.
 2. **Author gameplay:** create Blueprints and components, wire graph nodes and pins, configure input, add GAS/combat/inventory/interaction systems, compile, and validate.

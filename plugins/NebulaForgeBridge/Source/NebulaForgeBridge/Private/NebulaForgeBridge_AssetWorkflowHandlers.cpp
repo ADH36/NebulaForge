@@ -4482,6 +4482,13 @@ bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
         TSharedPtr<FJsonObject> KeyObject = McpHandlerUtils::CreateResultObject();
         KeyObject->SetNumberField(TEXT("time"), Key.Time);
         KeyObject->SetNumberField(TEXT("value"), Key.Value);
+        KeyObject->SetStringField(TEXT("interpMode"), CurveInterpModeToStringAW(Key.InterpMode));
+        KeyObject->SetStringField(TEXT("tangentMode"), CurveTangentModeToStringAW(Key.TangentMode));
+        KeyObject->SetStringField(TEXT("tangentWeightMode"), CurveTangentWeightModeToStringAW(Key.TangentWeightMode));
+        KeyObject->SetNumberField(TEXT("arriveTangent"), Key.ArriveTangent);
+        KeyObject->SetNumberField(TEXT("leaveTangent"), Key.LeaveTangent);
+        KeyObject->SetNumberField(TEXT("arriveTangentWeight"), Key.ArriveTangentWeight);
+        KeyObject->SetNumberField(TEXT("leaveTangentWeight"), Key.LeaveTangentWeight);
         Keys.Add(MakeShared<FJsonValueObject>(KeyObject));
       }
       Row->SetArrayField(TEXT("keys"), Keys);
@@ -4509,6 +4516,7 @@ bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
     SendAutomationError(Socket, RequestId, TEXT("keys must be an array"), TEXT("INVALID_ARGUMENT"));
     return true;
   }
+  TArray<FRichCurveKey> PendingKeys;
   for (const TSharedPtr<FJsonValue> &KeyValue : *Keys) {
     const TSharedPtr<FJsonObject> KeyObject = KeyValue.IsValid() ? KeyValue->AsObject() : nullptr;
     double Time = 0.0;
@@ -4517,7 +4525,36 @@ bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
       SendAutomationError(Socket, RequestId, TEXT("each key requires finite numeric time and value"), TEXT("INVALID_ARGUMENT"));
       return true;
     }
-    Curve.AddKey(static_cast<float>(Time), static_cast<float>(Value));
+    FRichCurveKey NewKey(static_cast<float>(Time), static_cast<float>(Value));
+    FString Mode;
+    if (KeyObject->TryGetStringField(TEXT("interpMode"), Mode) && !ParseCurveInterpModeAW(Mode, NewKey.InterpMode)) {
+      SendAutomationError(Socket, RequestId, TEXT("interpMode must be linear, constant, cubic, or none"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (KeyObject->TryGetStringField(TEXT("tangentMode"), Mode) && !ParseCurveTangentModeAW(Mode, NewKey.TangentMode)) {
+      SendAutomationError(Socket, RequestId, TEXT("tangentMode must be auto, user, break, smart_auto, or none"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (KeyObject->TryGetStringField(TEXT("tangentWeightMode"), Mode) && !ParseCurveTangentWeightModeAW(Mode, NewKey.TangentWeightMode)) {
+      SendAutomationError(Socket, RequestId, TEXT("tangentWeightMode must be none, arrive, leave, or both"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const TCHAR *NumericFields[] = { TEXT("arriveTangent"), TEXT("leaveTangent"), TEXT("arriveTangentWeight"), TEXT("leaveTangentWeight") };
+    float *NumericTargets[] = { &NewKey.ArriveTangent, &NewKey.LeaveTangent, &NewKey.ArriveTangentWeight, &NewKey.LeaveTangentWeight };
+    for (int32 NumericIndex = 0; NumericIndex < UE_ARRAY_COUNT(NumericFields); ++NumericIndex) {
+      double NumericValue = 0.0;
+      if (KeyObject->TryGetNumberField(NumericFields[NumericIndex], NumericValue)) {
+        if (!FMath::IsFinite(NumericValue)) {
+          SendAutomationError(Socket, RequestId, TEXT("curve tangent values must be finite"), TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        *NumericTargets[NumericIndex] = static_cast<float>(NumericValue);
+      }
+    }
+    PendingKeys.Add(NewKey);
+  }
+  for (const FRichCurveKey &NewKey : PendingKeys) {
+    Curve.Keys.Add(NewKey);
   }
   Curve.Keys.Sort([](const FRichCurveKey &A, const FRichCurveKey &B) { return A.Time < B.Time; });
   Table->MarkPackageDirty();

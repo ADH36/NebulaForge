@@ -25,6 +25,11 @@ public:
 			.StringEnum(TEXT("action"), McpConsolidatedActions::ManageAsset(),
 				TEXT("Action to perform"))
 			.String(TEXT("assetPath"), TEXT("Asset path (e.g., /Game/Path/Asset)."))
+			.String(TEXT("rowStructPath"), TEXT("FTableRowBase-derived struct path for DataTables."))
+			.String(TEXT("rowName"), TEXT("DataTable or CurveTable row name."))
+			.FreeformObject(TEXT("properties"), TEXT("Reflected DataTable row properties."))
+			.ArrayOfObjects(TEXT("keys"), TEXT("CurveTable keys with time/value and optional interpolation/tangent fields."))
+			.String(TEXT("csv"), TEXT("CurveTable CSV payload."))
 			.String(TEXT("directory"), TEXT("Path to a directory."))
 			.Array(TEXT("classNames"), TEXT(""))
 			.Array(TEXT("packagePaths"), TEXT(""))

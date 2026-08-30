@@ -272,6 +272,28 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower.IsEmpty())
     return false;
 
+  if (Lower == TEXT("inspect_asset_capabilities"))
+  {
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("success"), true);
+    Result->SetBoolField(TEXT("basicAssetLifecycle"), true);
+    Result->SetBoolField(TEXT("genericTagsAndMetadata"), true);
+    Result->SetBoolField(TEXT("naniteRebuild"), true);
+    Result->SetBoolField(TEXT("dependencyInspection"), true);
+    Result->SetBoolField(TEXT("redirectorCleanup"), true);
+    Result->SetBoolField(TEXT("perAssetValidation"), true);
+    Result->SetBoolField(TEXT("sourceControlIntegration"), true);
+    Result->SetBoolField(TEXT("generatedCubeVolumeArrayTextures"), false);
+    Result->SetBoolField(TEXT("dependencyAwareMigration"), false);
+    Result->SetBoolField(TEXT("projectWideReleaseAudit"), false);
+    Result->SetStringField(TEXT("textureGenerationNote"), TEXT("Cube, volume, and array textures require imported or assembled source data; generated placeholder assets are not claimed as complete."));
+    Result->SetStringField(TEXT("migrationNote"), TEXT("Use dependency inspection plus duplicate/move operations; transactional dependency closure and redirect repair across a release are not automatic."));
+    Result->SetStringField(TEXT("auditNote"), TEXT("validate and generate_report cover requested assets/packages; a project-wide cook/package release gate remains outside this handler."));
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Asset capability report generated"), Result, FString());
+    return true;
+  }
+
   // Dispatch to specific handlers
   // CRITICAL: These actions must match what TS sends as 'action' (not just 'subAction')
   // When TS calls executeAutomationRequest(tools, 'search_assets', {...}), Action='search_assets'

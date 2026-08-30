@@ -59,6 +59,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("get_asset_graph"), TEXT("create_thumbnail"), TEXT("set_tags"),
 		TEXT("get_metadata"), TEXT("set_metadata"), TEXT("validate"),
 		TEXT("fixup_redirectors"), TEXT("find_by_tag"), TEXT("generate_report"),
+		TEXT("inspect_asset_capabilities"),
 		TEXT("set_view_settings"), TEXT("navigate_to_path"),
 		TEXT("sync_to_asset"), TEXT("sync_to_folder"),
 		TEXT("create_collection"), TEXT("add_to_collection"),

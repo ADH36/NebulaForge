@@ -22,6 +22,7 @@ const VALID_ASSET_ACTIONS = new Set([
   'set_search_text',
   // Asset metadata
   'create_thumbnail', 'set_tags', 'get_metadata', 'set_metadata', 'generate_report',
+  'inspect_asset_capabilities',
   // Material operations
   'create_material', 'create_material_instance', 'create_render_target',
   'generate_lods', 'add_material_parameter', 'list_instances',
@@ -585,6 +586,15 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
           subAction: 'generate_report'
         }) as AssetOperationResponse;
         return ResponseFactory.success(res, 'Report generated successfully');
+      }
+      case 'inspect_asset_capabilities': {
+        const res = await executeAutomationRequest(tools, 'manage_asset', {
+          ...args,
+          subAction: 'inspect_asset_capabilities'
+        }) as AssetOperationResponse;
+        const failure = findAutomationFailure(res);
+        if (failure) return automationFailureResponse(res, failure, 'Asset capability report failed', {});
+        return ResponseFactory.success(res, 'Asset capability report generated');
       }
       case 'create_material_instance': {
         const params = normalizeArgs(args, [

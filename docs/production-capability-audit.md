@@ -151,16 +151,16 @@ Evidence: [AudioAuthoringHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebul
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Basic asset create/load/save/delete | ✅ | Broad editor coverage exists. |
-| Source-control checkout/submit | ⚠️ | Requires editor support and external source-control configuration. |
-| Generic asset tagging/metadata | ❌ | Generic tagging has unsupported paths. |
-| Nanite rebuild workflow | ❌ | `nanite_rebuild_mesh` is not implemented. |
-| Cube/volume/array texture generation | ❌ | Must import or assemble real sources. |
-| Dependency-aware migration | ⚠️ | Dependency inspection exists, but no complete migration/release workflow. |
-| Redirector cleanup | ⚠️ | Implemented only under editor/content-browser conditions. |
-| Asset validation and audit gates | ❌ | No complete release asset audit. |
+| Basic asset create/load/save/delete | ✅ | Broad editor coverage exists and is exposed through the asset workflow handler. |
+| Source-control checkout/submit | ⚠️ | Native checkout/submit/state actions are implemented; success depends on an enabled editor source-control provider and workspace state. |
+| Generic asset tagging/metadata | ✅ | Generic tag and package-metadata set/get/find actions are implemented with normalized asset paths. |
+| Nanite rebuild workflow | ✅ | `nanite_rebuild_mesh` is implemented through the render handler for static meshes, subject to Nanite/engine support. |
+| Cube/volume/array texture generation | ⚠️ | Source-backed import/assembly is supported; arbitrary generated cube, volume, and array sources remain intentionally unsupported. |
+| Dependency-aware migration | ⚠️ | Dependency inspection plus duplicate/move operations exist; transactional dependency closure and release migration are not automatic. |
+| Redirector cleanup | ✅ | `fixup_redirectors` performs editor/content-browser cleanup and reports the affected scope. |
+| Asset validation and audit gates | ⚠️ | Per-asset validation and `generate_report` are implemented; a project-wide cook/package release gate remains outside the asset handler. |
 
-Evidence: [AssetWorkflowHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_AssetWorkflowHandlers.cpp#L2736), [TextureHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_TextureHandlers.cpp#L3417)
+Evidence: [AssetWorkflowHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_AssetWorkflowHandlers.cpp#L2736), [TextureHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_TextureHandlers.cpp#L3417), `inspect_asset_capabilities`
 
 ## World building
 

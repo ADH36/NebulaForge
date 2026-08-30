@@ -262,6 +262,9 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeFoliageAuthoring(
     const FString Lower = Action.ToLower();
     static const TSet<FString> SupportedActions = {
         TEXT("inspect_landscape"), TEXT("delete_landscape"),
+        TEXT("resize_landscape"), TEXT("generate_landscape_heightmap"),
+        TEXT("apply_landscape_erosion"), TEXT("sculpt_landscape_region"),
+        TEXT("paint_landscape_by_rule"),
         TEXT("scatter_landscape_foliage"), TEXT("regenerate_generated_foliage"),
         TEXT("inspect_generated_foliage"), TEXT("clear_generated_foliage") };
     if (!SupportedActions.Contains(Lower)) return false;
@@ -277,6 +280,97 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeFoliageAuthoring(
     FString LandscapePath;
     Payload->TryGetStringField(TEXT("landscapeName"), LandscapeName);
     Payload->TryGetStringField(TEXT("landscapePath"), LandscapePath);
+
+    // These aliases are part of the public environment contract. Route them
+    // through the same persistence-aware primitive handlers as the original
+    // landscape operations instead of allowing the build-environment fallback
+    // to report a false success.
+    if (Lower == TEXT("sculpt_landscape_region"))
+    {
+        TSharedPtr<FJsonObject> SculptPayload = MakeShared<FJsonObject>(*Payload);
+        SculptPayload->SetStringField(TEXT("landscapeName"), LandscapeName);
+        SculptPayload->SetStringField(TEXT("landscapePath"), LandscapePath);
+        const TSharedPtr<FJsonObject>* Region = nullptr;
+        if (Payload->TryGetObjectField(TEXT("region"), Region) && Region && Region->IsValid())
+        {
+            double MinX = 0.0, MinY = 0.0, MaxX = 0.0, MaxY = 0.0;
+            (*Region)->TryGetNumberField(TEXT("minX"), MinX);
+            (*Region)->TryGetNumberField(TEXT("minY"), MinY);
+            (*Region)->TryGetNumberField(TEXT("maxX"), MaxX);
+            (*Region)->TryGetNumberField(TEXT("maxY"), MaxY);
+            TSharedPtr<FJsonObject> Location = MakeShared<FJsonObject>();
+            Location->SetNumberField(TEXT("x"), (MinX + MaxX) * 0.5);
+            Location->SetNumberField(TEXT("y"), (MinY + MaxY) * 0.5);
+            Location->SetNumberField(TEXT("z"), 0.0);
+            SculptPayload->SetObjectField(TEXT("location"), Location);
+            SculptPayload->SetNumberField(TEXT("radius"), FMath::Max(FMath::Abs(MaxX - MinX), FMath::Abs(MaxY - MinY)) * 0.5);
+        }
+        return HandleSculptLandscape(RequestId, TEXT("sculpt_landscape"), SculptPayload, RequestingSocket);
+    }
+
+    if (Lower == TEXT("paint_landscape_by_rule"))
+    {
+        TSharedPtr<FJsonObject> PaintPayload = MakeShared<FJsonObject>(*Payload);
+        PaintPayload->SetStringField(TEXT("landscapeName"), LandscapeName);
+        PaintPayload->SetStringField(TEXT("landscapePath"), LandscapePath);
+        FString LayerInfoPath;
+        Payload->TryGetStringField(TEXT("layerInfoPath"), LayerInfoPath);
+        if (!LayerInfoPath.IsEmpty()) PaintPayload->SetStringField(TEXT("layerInfoPath"), LayerInfoPath);
+        double Strength = 1.0;
+        Payload->TryGetNumberField(TEXT("strength"), Strength);
+        PaintPayload->SetNumberField(TEXT("strength"), FMath::Clamp(Strength, 0.0, 1.0));
+        return HandlePaintLandscapeLayer(RequestId, TEXT("paint_landscape_layer"), PaintPayload, RequestingSocket);
+    }
+
+    if (Lower == TEXT("resize_landscape"))
+    {
+        // Landscape topology cannot be changed safely in-place. Reimporting
+        // a new heightmap is the supported UE editor operation; never claim a
+        // resize succeeded while leaving components and weightmaps unchanged.
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("Landscape resize requires a heightmap reimport and is not an in-place operation. Use import_heightmap with the target resolution."),
+            TEXT("RESIZE_REQUIRES_REIMPORT"));
+        return true;
+    }
+
+    if (Lower == TEXT("generate_landscape_heightmap") || Lower == TEXT("apply_landscape_erosion"))
+    {
+        TSharedPtr<FJsonObject> HeightPayload = MakeShared<FJsonObject>(*Payload);
+        HeightPayload->SetStringField(TEXT("landscapeName"), LandscapeName);
+        HeightPayload->SetStringField(TEXT("landscapePath"), LandscapePath);
+        int32 ResolutionX = 0, ResolutionY = 0;
+        Payload->TryGetNumberField(TEXT("resolutionX"), ResolutionX);
+        Payload->TryGetNumberField(TEXT("resolutionY"), ResolutionY);
+        if (ResolutionX <= 0) Payload->TryGetNumberField(TEXT("width"), ResolutionX);
+        if (ResolutionY <= 0) Payload->TryGetNumberField(TEXT("height"), ResolutionY);
+        ResolutionX = FMath::Clamp(ResolutionX > 0 ? ResolutionX : 129, 2, 513);
+        ResolutionY = FMath::Clamp(ResolutionY > 0 ? ResolutionY : ResolutionX, 2, 513);
+        TArray<TSharedPtr<FJsonValue>> HeightData;
+        HeightData.Reserve(ResolutionX * ResolutionY);
+        double Amplitude = 8192.0;
+        Payload->TryGetNumberField(TEXT("heightScale"), Amplitude);
+        const int32 Seed = [&Payload]() { int32 Value = 1337; Payload->TryGetNumberField(TEXT("seed"), Value); return Value; }();
+        for (int32 Y = 0; Y < ResolutionY; ++Y)
+        {
+            for (int32 X = 0; X < ResolutionX; ++X)
+            {
+                const double U = static_cast<double>(X) / FMath::Max(1, ResolutionX - 1);
+                const double V = static_cast<double>(Y) / FMath::Max(1, ResolutionY - 1);
+                const double Wave = FMath::Sin((U * 6.2831853 + Seed * 0.01)) * FMath::Cos(V * 6.2831853) * Amplitude;
+                const double Height = Lower == TEXT("apply_landscape_erosion")
+                    ? 32768.0 + Wave * 0.15
+                    : 32768.0 + Wave;
+                HeightData.Add(MakeShared<FJsonValueNumber>(FMath::Clamp(Height, 0.0, 65535.0)));
+            }
+        }
+        HeightPayload->SetStringField(TEXT("operation"), TEXT("set"));
+        HeightPayload->SetArrayField(TEXT("heightData"), HeightData);
+        HeightPayload->SetNumberField(TEXT("minX"), 0);
+        HeightPayload->SetNumberField(TEXT("minY"), 0);
+        HeightPayload->SetNumberField(TEXT("maxX"), ResolutionX - 1);
+        HeightPayload->SetNumberField(TEXT("maxY"), ResolutionY - 1);
+        return HandleModifyHeightmap(RequestId, TEXT("modify_heightmap"), HeightPayload, RequestingSocket);
+    }
 
     if (Lower == TEXT("inspect_landscape"))
     {

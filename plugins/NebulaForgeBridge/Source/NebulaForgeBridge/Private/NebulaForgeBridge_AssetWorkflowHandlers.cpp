@@ -58,6 +58,7 @@
 // MCP Handler Utilities (centralized JSON/Asset helpers)
 // -----------------------------------------------------------------------------
 #include "McpHandlerUtils.h"
+#include "McpPropertyReflection.h"
 #include "NebulaForgeBridgeSubsystem.h"
 #include "Misc/EngineVersionComparison.h"
 #include "Misc/ScopeExit.h"
@@ -180,6 +181,11 @@
 #include "ThumbnailRendering/ThumbnailManager.h"
 #include "UObject/ObjectRedirector.h"
 #include "UObject/Package.h"
+#include "Engine/DataAsset.h"
+#include "Engine/DataTable.h"
+#include "Engine/CurveTable.h"
+#include "Curves/RichCurve.h"
+#include "UObject/StructOnScope.h"
 
 // -----------------------------------------------------------------------------
 // Editor-only Includes (Graph/Blueprint)
@@ -325,6 +331,20 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleCreateMaterial(RequestId, Payload, RequestingSocket);
   if (Lower == TEXT("create_material_instance"))
     return HandleCreateMaterialInstance(RequestId, Payload, RequestingSocket);
+  if (Lower == TEXT("create_data_asset") ||
+      Lower == TEXT("get_data_asset_properties") ||
+      Lower == TEXT("set_data_asset_properties"))
+    return HandleDataAssetAction(RequestId, Lower, Payload, RequestingSocket);
+  if (Lower == TEXT("create_data_table") ||
+      Lower == TEXT("add_data_table_row") ||
+      Lower == TEXT("get_data_table_rows"))
+    return HandleDataTableAction(RequestId, Lower, Payload, RequestingSocket);
+  if (Lower == TEXT("create_curve_table") ||
+      Lower == TEXT("add_curve_table_row") ||
+      Lower == TEXT("get_curve_table_rows") ||
+      Lower == TEXT("import_curve_table_csv") ||
+      Lower == TEXT("export_curve_table_csv"))
+    return HandleCurveTableAction(RequestId, Lower, Payload, RequestingSocket);
   if (Lower == TEXT("create_physical_material") ||
       Lower == TEXT("set_friction") || Lower == TEXT("set_restitution") ||
       Lower == TEXT("set_density") || Lower == TEXT("configure_surface_type") ||
@@ -3587,6 +3607,511 @@ bool UNebulaForgeBridgeSubsystem::HandlePhysicalMaterialAction(
   SendAutomationResponse(Socket, RequestId, true, TEXT("Physical material updated"), Result, FString()); return true;
 #else
   SendAutomationError(Socket, RequestId, TEXT("Editor build required"), TEXT("NOT_SUPPORTED")); return true;
+#endif
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleDataAssetAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR
+  if (!Payload.IsValid()) {
+    SendAutomationError(Socket, RequestId, TEXT("Data asset payload missing"), TEXT("INVALID_PAYLOAD"));
+    return true;
+  }
+
+  FString AssetPath;
+  Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+  if (AssetPath.IsEmpty()) {
+    FString Path;
+    FString Name;
+    Payload->TryGetStringField(TEXT("path"), Path);
+    Payload->TryGetStringField(TEXT("name"), Name);
+    if (!Path.IsEmpty() && !Name.IsEmpty()) AssetPath = Path + TEXT("/") + Name;
+  }
+
+  if (Action == TEXT("create_data_asset")) {
+    FString Name;
+    FString Path;
+    Payload->TryGetStringField(TEXT("name"), Name);
+    Payload->TryGetStringField(TEXT("path"), Path);
+    if (Name.IsEmpty() || Path.IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("name and path are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    Name = SanitizeAssetName(Name);
+    Path = SanitizeProjectRelativePath(Path);
+    if (Name.IsEmpty() || Path.IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("Invalid data asset name or path"), TEXT("SECURITY_VIOLATION"));
+      return true;
+    }
+
+    FString ClassPath;
+    Payload->TryGetStringField(TEXT("classPath"), ClassPath);
+    UClass *DataClass = UDataAsset::StaticClass();
+    if (!ClassPath.IsEmpty()) {
+      UClass *Candidate = LoadClass<UDataAsset>(nullptr, *ClassPath);
+      if (!Candidate || !Candidate->IsChildOf(UDataAsset::StaticClass())) {
+        SendAutomationError(Socket, RequestId, TEXT("classPath must resolve to a UDataAsset subclass"), TEXT("INVALID_CLASS"));
+        return true;
+      }
+      DataClass = Candidate;
+    }
+
+    const FString PackageName = Path + TEXT("/") + Name;
+    if (UEditorAssetLibrary::DoesAssetExist(PackageName)) {
+      SendAutomationError(Socket, RequestId, TEXT("Data asset already exists"), TEXT("ASSET_EXISTS"));
+      return true;
+    }
+    UPackage *Package = CreatePackage(*PackageName);
+    if (!Package) {
+      SendAutomationError(Socket, RequestId, TEXT("Failed to create data asset package"), TEXT("CREATE_FAILED"));
+      return true;
+    }
+    UObject *NewAsset = NewObject<UObject>(Package, DataClass, FName(*Name), RF_Public | RF_Standalone);
+    if (!NewAsset) {
+      SendAutomationError(Socket, RequestId, TEXT("Failed to create data asset"), TEXT("CREATE_FAILED"));
+      return true;
+    }
+    FAssetRegistryModule::AssetCreated(NewAsset);
+    Package->MarkPackageDirty();
+
+    TMap<FName, FString> PropertyErrors;
+    int32 AppliedProperties = 0;
+    const TSharedPtr<FJsonObject> *Properties = nullptr;
+    if (Payload->TryGetObjectField(TEXT("properties"), Properties) && Properties && Properties->IsValid()) {
+      AppliedProperties = McpPropertyReflection::ApplyJsonObjectToObject(NewAsset, *Properties, &PropertyErrors);
+    }
+    if (PropertyErrors.Num() > 0) {
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("assetPath"), NewAsset->GetPathName());
+      Result->SetNumberField(TEXT("appliedProperties"), AppliedProperties);
+      TSharedPtr<FJsonObject> Errors = MakeShared<FJsonObject>();
+      for (const TPair<FName, FString> &Pair : PropertyErrors) Errors->SetStringField(Pair.Key.ToString(), Pair.Value);
+      Result->SetObjectField(TEXT("propertyErrors"), Errors);
+      SendAutomationResponse(Socket, RequestId, false, TEXT("Data asset created but properties were rejected"), Result, TEXT("PROPERTY_VALIDATION_FAILED"));
+      return true;
+    }
+
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    bool bSaved = !bSave || McpSafeAssetSave(NewAsset);
+    if (!bSaved) {
+      SendAutomationError(Socket, RequestId, TEXT("Data asset created but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), NewAsset->GetPathName());
+    Result->SetStringField(TEXT("classPath"), NewAsset->GetClass()->GetPathName());
+    Result->SetNumberField(TEXT("appliedProperties"), AppliedProperties);
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Data asset created"), Result, FString());
+    return true;
+  }
+
+  if (AssetPath.IsEmpty()) {
+    SendAutomationError(Socket, RequestId, TEXT("assetPath or path and name are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  AssetPath = SanitizeProjectRelativePath(AssetPath);
+  UObject *DataAsset = LoadObject<UObject>(nullptr, *AssetPath);
+  if (!DataAsset || !DataAsset->IsA(UDataAsset::StaticClass())) {
+    SendAutomationError(Socket, RequestId, TEXT("Data asset not found"), TEXT("ASSET_NOT_FOUND"));
+    return true;
+  }
+
+  if (Action == TEXT("get_data_asset_properties")) {
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), DataAsset->GetPathName());
+    Result->SetStringField(TEXT("classPath"), DataAsset->GetClass()->GetPathName());
+    Result->SetObjectField(TEXT("properties"), McpPropertyReflection::ExportObjectToJson(DataAsset));
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Data asset properties retrieved"), Result, FString());
+    return true;
+  }
+
+  const TSharedPtr<FJsonObject> *Properties = nullptr;
+  if (!Payload->TryGetObjectField(TEXT("properties"), Properties) || !Properties || !Properties->IsValid()) {
+    SendAutomationError(Socket, RequestId, TEXT("properties object is required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  DataAsset->Modify();
+  TMap<FName, FString> PropertyErrors;
+  const int32 AppliedProperties = McpPropertyReflection::ApplyJsonObjectToObject(DataAsset, *Properties, &PropertyErrors);
+  if (PropertyErrors.Num() > 0) {
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("appliedProperties"), AppliedProperties);
+    TSharedPtr<FJsonObject> Errors = MakeShared<FJsonObject>();
+    for (const TPair<FName, FString> &Pair : PropertyErrors) Errors->SetStringField(Pair.Key.ToString(), Pair.Value);
+    Result->SetObjectField(TEXT("propertyErrors"), Errors);
+    SendAutomationResponse(Socket, RequestId, false, TEXT("Data asset properties rejected"), Result, TEXT("PROPERTY_VALIDATION_FAILED"));
+    return true;
+  }
+  DataAsset->PostEditChange();
+  DataAsset->MarkPackageDirty();
+  bool bSave = false;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  bool bSaved = !bSave || McpSafeAssetSave(DataAsset);
+  if (!bSaved) {
+    SendAutomationError(Socket, RequestId, TEXT("Data asset modified but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), DataAsset->GetPathName());
+  Result->SetNumberField(TEXT("appliedProperties"), AppliedProperties);
+  Result->SetBoolField(TEXT("saved"), bSave);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Data asset properties updated"), Result, FString());
+  return true;
+#else
+  SendAutomationError(Socket, RequestId, TEXT("Data asset authoring requires an editor build"), TEXT("NOT_AVAILABLE"));
+  return true;
+#endif
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleDataTableAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR
+  if (!Payload.IsValid()) {
+    SendAutomationError(Socket, RequestId, TEXT("Data table payload missing"), TEXT("INVALID_PAYLOAD"));
+    return true;
+  }
+
+  FString AssetPath;
+  Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+  if (AssetPath.IsEmpty()) {
+    FString Path;
+    FString Name;
+    Payload->TryGetStringField(TEXT("path"), Path);
+    Payload->TryGetStringField(TEXT("name"), Name);
+    if (!Path.IsEmpty() && !Name.IsEmpty()) AssetPath = Path + TEXT("/") + Name;
+  }
+
+  if (Action == TEXT("create_data_table")) {
+    FString Name;
+    FString Path;
+    FString RowStructPath;
+    Payload->TryGetStringField(TEXT("name"), Name);
+    Payload->TryGetStringField(TEXT("path"), Path);
+    Payload->TryGetStringField(TEXT("rowStructPath"), RowStructPath);
+    if (Name.IsEmpty() || Path.IsEmpty() || RowStructPath.IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("name, path, and rowStructPath are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    Name = SanitizeAssetName(Name);
+    Path = SanitizeProjectRelativePath(Path);
+    UScriptStruct *RowStruct = LoadObject<UScriptStruct>(nullptr, *RowStructPath);
+    if (Name.IsEmpty() || Path.IsEmpty() || !RowStruct || !RowStruct->IsChildOf(FTableRowBase::StaticStruct())) {
+      SendAutomationError(Socket, RequestId, TEXT("rowStructPath must resolve to a FTableRowBase-derived struct"), TEXT("INVALID_ROW_STRUCT"));
+      return true;
+    }
+    const FString PackageName = Path + TEXT("/") + Name;
+    if (UEditorAssetLibrary::DoesAssetExist(PackageName)) {
+      SendAutomationError(Socket, RequestId, TEXT("Data table already exists"), TEXT("ASSET_EXISTS"));
+      return true;
+    }
+    UPackage *Package = CreatePackage(*PackageName);
+    UDataTable *Table = Package ? NewObject<UDataTable>(Package, *Name, RF_Public | RF_Standalone) : nullptr;
+    if (!Table) {
+      SendAutomationError(Socket, RequestId, TEXT("Failed to create data table"), TEXT("CREATE_FAILED"));
+      return true;
+    }
+    Table->RowStruct = RowStruct;
+    FAssetRegistryModule::AssetCreated(Table);
+    Package->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    bool bSaved = !bSave || McpSafeAssetSave(Table);
+    if (!bSaved) {
+      SendAutomationError(Socket, RequestId, TEXT("Data table created but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetStringField(TEXT("rowStructPath"), RowStruct->GetPathName());
+    Result->SetNumberField(TEXT("rowCount"), 0);
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Data table created"), Result, FString());
+    return true;
+  }
+
+  AssetPath = SanitizeProjectRelativePath(AssetPath);
+  UDataTable *Table = LoadObject<UDataTable>(nullptr, *AssetPath);
+  if (!Table || !Table->RowStruct || !Table->RowStruct->IsChildOf(FTableRowBase::StaticStruct())) {
+    SendAutomationError(Socket, RequestId, TEXT("Data table not found or has an invalid row struct"), TEXT("ASSET_NOT_FOUND"));
+    return true;
+  }
+
+  if (Action == TEXT("get_data_table_rows")) {
+    TArray<TSharedPtr<FJsonValue>> Rows;
+    for (const TPair<FName, uint8*> &Pair : Table->GetRowMap()) {
+      TSharedPtr<FJsonObject> Row = MakeShared<FJsonObject>();
+      Row->SetStringField(TEXT("rowName"), Pair.Key.ToString());
+      for (TFieldIterator<FProperty> PropertyIt(Table->RowStruct); PropertyIt; ++PropertyIt) {
+        FProperty *Property = *PropertyIt;
+        if (!Property || Property->HasAnyPropertyFlags(CPF_Transient)) continue;
+        TSharedPtr<FJsonValue> Value = McpPropertyReflection::ExportPropertyToJsonValue(Pair.Value, Property);
+        if (Value.IsValid()) Row->SetField(Property->GetName(), Value);
+      }
+      Rows.Add(MakeShared<FJsonValueObject>(Row));
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetStringField(TEXT("rowStructPath"), Table->RowStruct->GetPathName());
+    Result->SetNumberField(TEXT("rowCount"), Rows.Num());
+    Result->SetArrayField(TEXT("rows"), Rows);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Data table rows retrieved"), Result, FString());
+    return true;
+  }
+
+  FString RowNameString;
+  Payload->TryGetStringField(TEXT("rowName"), RowNameString);
+  const TSharedPtr<FJsonObject> *Properties = nullptr;
+  if (RowNameString.IsEmpty() || !Payload->TryGetObjectField(TEXT("properties"), Properties) || !Properties || !Properties->IsValid()) {
+    SendAutomationError(Socket, RequestId, TEXT("rowName and properties object are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  if (Table->GetRowMap().Contains(FName(*RowNameString))) {
+    SendAutomationError(Socket, RequestId, TEXT("Data table row already exists"), TEXT("ROW_EXISTS"));
+    return true;
+  }
+  FStructOnScope Row(Table->RowStruct);
+  TArray<FString> PropertyErrors;
+  for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : (*Properties)->Values) {
+    FProperty *Property = Table->RowStruct->FindPropertyByName(FName(*Pair.Key));
+    FString Error;
+    if (!Property || !McpPropertyReflection::ApplyJsonValueToProperty(Row.GetStructMemory(), Property, Pair.Value, Error)) {
+      PropertyErrors.Add(Pair.Key + TEXT(": ") + (Error.IsEmpty() ? TEXT("unknown property") : Error));
+    }
+  }
+  if (PropertyErrors.Num() > 0) {
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    TArray<TSharedPtr<FJsonValue>> Errors;
+    for (const FString &Error : PropertyErrors) Errors.Add(MakeShared<FJsonValueString>(Error));
+    Result->SetArrayField(TEXT("propertyErrors"), Errors);
+    SendAutomationResponse(Socket, RequestId, false, TEXT("Data table row rejected"), Result, TEXT("PROPERTY_VALIDATION_FAILED"));
+    return true;
+  }
+  Table->AddRow(FName(*RowNameString), *reinterpret_cast<FTableRowBase*>(Row.GetStructMemory()));
+  Table->MarkPackageDirty();
+  bool bSave = false;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  bool bSaved = !bSave || McpSafeAssetSave(Table);
+  if (!bSaved) {
+    SendAutomationError(Socket, RequestId, TEXT("Data table row added but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+  Result->SetStringField(TEXT("rowName"), RowNameString);
+  Result->SetNumberField(TEXT("rowCount"), Table->GetRowMap().Num());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Data table row added"), Result, FString());
+  return true;
+#else
+  SendAutomationError(Socket, RequestId, TEXT("Data table authoring requires an editor build"), TEXT("NOT_AVAILABLE"));
+  return true;
+#endif
+}
+
+bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+#if WITH_EDITOR
+  if (!Payload.IsValid()) {
+    SendAutomationError(Socket, RequestId, TEXT("Curve table payload missing"), TEXT("INVALID_PAYLOAD"));
+    return true;
+  }
+
+  FString AssetPath;
+  Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+  if (Action == TEXT("create_curve_table")) {
+    FString Name;
+    FString Path;
+    Payload->TryGetStringField(TEXT("name"), Name);
+    Payload->TryGetStringField(TEXT("path"), Path);
+    Name = SanitizeAssetName(Name);
+    Path = SanitizeProjectRelativePath(Path);
+    if (Name.IsEmpty() || Path.IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("name and path are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const FString PackageName = Path + TEXT("/") + Name;
+    if (UEditorAssetLibrary::DoesAssetExist(PackageName)) {
+      SendAutomationError(Socket, RequestId, TEXT("Curve table already exists"), TEXT("ASSET_EXISTS"));
+      return true;
+    }
+    UPackage *Package = CreatePackage(*PackageName);
+    UCurveTable *Table = Package ? NewObject<UCurveTable>(Package, *Name, RF_Public | RF_Standalone) : nullptr;
+    if (!Table) {
+      SendAutomationError(Socket, RequestId, TEXT("Failed to create curve table"), TEXT("CREATE_FAILED"));
+      return true;
+    }
+    FAssetRegistryModule::AssetCreated(Table);
+    Package->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    const bool bSaved = !bSave || McpSafeAssetSave(Table);
+    if (!bSaved) {
+      SendAutomationError(Socket, RequestId, TEXT("Curve table created but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetNumberField(TEXT("rowCount"), 0);
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Curve table created"), Result, FString());
+    return true;
+  }
+
+  AssetPath = SanitizeProjectRelativePath(AssetPath);
+  UCurveTable *Table = LoadObject<UCurveTable>(nullptr, *AssetPath);
+  if (!Table) {
+    SendAutomationError(Socket, RequestId, TEXT("Curve table not found"), TEXT("ASSET_NOT_FOUND"));
+    return true;
+  }
+
+  if (Action == TEXT("export_curve_table_csv")) {
+    FString Csv;
+    TArray<FName> RowNames;
+    for (const TPair<FName, FRichCurve*> &Pair : Table->GetRichCurveRowMap()) {
+      RowNames.Add(Pair.Key);
+    }
+    RowNames.Sort([](const FName &A, const FName &B) { return A.ToString() < B.ToString(); });
+    Csv = TEXT("Name");
+    for (const FName &RowName : RowNames) Csv += TEXT(",") + RowName.ToString();
+    Csv += TEXT("\nX");
+    int32 MaxKeys = 0;
+    for (const FName &RowName : RowNames) {
+      const FRichCurve *Curve = Table->FindRichCurve(RowName, TEXT("NebulaForge export"), false);
+      MaxKeys = FMath::Max(MaxKeys, Curve ? Curve->Keys.Num() : 0);
+    }
+    for (int32 KeyIndex = 0; KeyIndex < MaxKeys; ++KeyIndex) {
+      Csv += TEXT("\n") + FString::FromInt(KeyIndex);
+      for (const FName &RowName : RowNames) {
+        const FRichCurve *Curve = Table->FindRichCurve(RowName, TEXT("NebulaForge export"), false);
+        if (Curve && Curve->Keys.IsValidIndex(KeyIndex)) {
+          Csv += FString::Printf(TEXT(",%g"), Curve->Keys[KeyIndex].Value);
+        } else {
+          Csv += TEXT(",");
+        }
+      }
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetStringField(TEXT("csv"), Csv);
+    Result->SetNumberField(TEXT("rowCount"), RowNames.Num());
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Curve table CSV exported"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("import_curve_table_csv")) {
+    FString Csv;
+    if (!Payload->TryGetStringField(TEXT("csv"), Csv) || Csv.IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("csv is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const TArray<FString> Lines = Csv.ParseIntoArrayLines();
+    if (Lines.Num() < 2) {
+      SendAutomationError(Socket, RequestId, TEXT("csv must contain a header and at least one data row"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const TArray<FString> Header = Lines[0].ParseIntoArray(TEXT(","), true);
+    if (Header.Num() < 2 || !Header[0].Equals(TEXT("Name"), ESearchCase::IgnoreCase)) {
+      SendAutomationError(Socket, RequestId, TEXT("csv header must start with Name and contain curve columns"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    for (int32 Column = 1; Column < Header.Num(); ++Column) {
+      if (Header[Column].TrimStartAndEnd().IsEmpty()) continue;
+      Table->AddRichCurve(FName(*Header[Column].TrimStartAndEnd()));
+    }
+    const TArray<FString> Errors = Table->CreateTableFromCSVString(Csv, RCIM_Linear);
+    if (Errors.Num() > 0) {
+      SendAutomationError(Socket, RequestId, FString::Join(Errors, TEXT("; ")), TEXT("CSV_IMPORT_FAILED"));
+      return true;
+    }
+    Table->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(Table)) {
+      SendAutomationError(Socket, RequestId, TEXT("Curve table imported but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetNumberField(TEXT("rowCount"), Table->GetRichCurveRowMap().Num());
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Curve table CSV imported"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("get_curve_table_rows")) {
+    TArray<TSharedPtr<FJsonValue>> Rows;
+    for (const TPair<FName, FRichCurve*> &Pair : Table->GetRichCurveRowMap()) {
+      if (!Pair.Value) continue;
+      TSharedPtr<FJsonObject> Row = McpHandlerUtils::CreateResultObject();
+      Row->SetStringField(TEXT("rowName"), Pair.Key.ToString());
+      TArray<TSharedPtr<FJsonValue>> Keys;
+      for (const FRichCurveKey &Key : Pair.Value->Keys) {
+        TSharedPtr<FJsonObject> KeyObject = McpHandlerUtils::CreateResultObject();
+        KeyObject->SetNumberField(TEXT("time"), Key.Time);
+        KeyObject->SetNumberField(TEXT("value"), Key.Value);
+        Keys.Add(MakeShared<FJsonValueObject>(KeyObject));
+      }
+      Row->SetArrayField(TEXT("keys"), Keys);
+      Rows.Add(MakeShared<FJsonValueObject>(Row));
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetArrayField(TEXT("rows"), Rows);
+    Result->SetNumberField(TEXT("rowCount"), Rows.Num());
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Curve table rows retrieved"), Result, FString());
+    return true;
+  }
+
+  FString RowNameString;
+  Payload->TryGetStringField(TEXT("rowName"), RowNameString);
+  const TSharedPtr<FJsonValue> *KeysValue = nullptr;
+  if (RowNameString.TrimStartAndEnd().IsEmpty() || !Payload->TryGetField(TEXT("keys"), KeysValue) || !KeysValue || !KeysValue->IsValid() || (*KeysValue)->Type != EJson::Array) {
+    SendAutomationError(Socket, RequestId, TEXT("rowName and keys array are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  FRichCurve &Curve = Table->AddRichCurve(FName(*RowNameString.TrimStartAndEnd()));
+  const TArray<TSharedPtr<FJsonValue>> *Keys = nullptr;
+  (*KeysValue)->TryGetArray(Keys);
+  if (!Keys) {
+    SendAutomationError(Socket, RequestId, TEXT("keys must be an array"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  for (const TSharedPtr<FJsonValue> &KeyValue : *Keys) {
+    const TSharedPtr<FJsonObject> KeyObject = KeyValue.IsValid() ? KeyValue->AsObject() : nullptr;
+    double Time = 0.0;
+    double Value = 0.0;
+    if (!KeyObject.IsValid() || !KeyObject->TryGetNumberField(TEXT("time"), Time) || !KeyObject->TryGetNumberField(TEXT("value"), Value) || !FMath::IsFinite(Time) || !FMath::IsFinite(Value)) {
+      SendAutomationError(Socket, RequestId, TEXT("each key requires finite numeric time and value"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    Curve.AddKey(static_cast<float>(Time), static_cast<float>(Value));
+  }
+  Curve.Keys.Sort([](const FRichCurveKey &A, const FRichCurveKey &B) { return A.Time < B.Time; });
+  Table->MarkPackageDirty();
+  bool bSave = false;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(Table)) {
+    SendAutomationError(Socket, RequestId, TEXT("Curve table updated but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+  Result->SetStringField(TEXT("rowName"), RowNameString.TrimStartAndEnd());
+  Result->SetNumberField(TEXT("keyCount"), Curve.Keys.Num());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Curve table row updated"), Result, FString());
+  return true;
+#else
+  SendAutomationError(Socket, RequestId, TEXT("Curve table authoring requires an editor build"), TEXT("NOT_AVAILABLE"));
+  return true;
 #endif
 }
 

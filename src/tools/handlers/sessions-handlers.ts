@@ -92,6 +92,17 @@ export async function handleSessionsTools(
     case 'get_sessions_info':
       return sendRequest('get_sessions_info');
 
+    case 'get_online_capabilities':
+      return sendRequest('get_online_capabilities');
+    case 'create_online_session':
+      return sendRequest('create_online_session');
+    case 'find_online_sessions':
+      return sendRequest('find_online_sessions');
+    case 'join_online_session':
+      return sendRequest('join_online_session');
+    case 'destroy_online_session':
+      return sendRequest('destroy_online_session');
+
     default:
       return {
         success: false,

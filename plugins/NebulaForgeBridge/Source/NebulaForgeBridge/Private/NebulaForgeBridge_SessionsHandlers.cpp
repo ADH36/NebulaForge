@@ -87,6 +87,8 @@
 #include "OnlineSubsystem.h"
 #include "Interfaces/VoiceInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSessionSettings.h"
 #define MCP_HAS_ONLINE_SUBSYSTEM 1
 #else
 #define MCP_HAS_ONLINE_SUBSYSTEM 0
@@ -104,6 +106,10 @@ namespace SessionsHelpers
 {
 
     static TSet<FString> LocalVoiceMuteFallbackState;
+#if MCP_HAS_ONLINE_SUBSYSTEM
+    static TMap<FString, FOnlineSessionSearchResult> OnlineSearchResults;
+    static int32 OnlineSearchSequence = 0;
+#endif
 
     static FString MakeLocalVoiceMuteKey(const FString& TargetIdentifier, int32 LocalPlayerNum, bool bSystemWide)
     {
@@ -161,6 +167,196 @@ namespace SessionsHelpers
     }
 #endif
 }
+
+// ============================================================================
+// Online Subsystem session lifecycle
+// ============================================================================
+
+#if WITH_EDITOR && MCP_HAS_ONLINE_SUBSYSTEM
+static bool HandleOnlineSessionLifecycle(
+    UNebulaForgeBridgeSubsystem* Subsystem,
+    const FString& RequestId,
+    const FString& SubAction,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+    IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+    if (!OnlineSubsystem)
+    {
+        Subsystem->SendAutomationError(Socket, RequestId,
+            TEXT("No Online Subsystem is loaded. Enable/configure an OnlineSubsystem provider."),
+            TEXT("ONLINE_SUBSYSTEM_UNAVAILABLE"));
+        return true;
+    }
+    IOnlineSessionPtr Sessions = OnlineSubsystem->GetSessionInterface();
+    if (!Sessions.IsValid())
+    {
+        Subsystem->SendAutomationError(Socket, RequestId,
+            TEXT("The selected Online Subsystem does not expose a session interface."),
+            TEXT("SESSION_INTERFACE_UNAVAILABLE"));
+        return true;
+    }
+
+    const int32 LocalUserNum = FMath::Clamp(static_cast<int32>(GetJsonNumberField(Payload, TEXT("localUserNum"), 0.0)), 0, 7);
+    FString SessionNameString = GetJsonStringField(Payload, TEXT("sessionName"), TEXT("GameSession"));
+    SessionNameString.TrimStartAndEndInline();
+    if (SessionNameString.IsEmpty() || SessionNameString.Len() > 64)
+    {
+        Subsystem->SendAutomationError(Socket, RequestId,
+            TEXT("sessionName is required and must be at most 64 characters."), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
+    const FName SessionName(*SessionNameString);
+
+    if (SubAction == TEXT("get_online_capabilities"))
+    {
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetStringField(TEXT("subsystem"), OnlineSubsystem->GetSubsystemName().ToString());
+        Result->SetBoolField(TEXT("sessionInterface"), true);
+        Result->SetBoolField(TEXT("identityInterface"), OnlineSubsystem->GetIdentityInterface().IsValid());
+        Result->SetBoolField(TEXT("friendsInterface"), OnlineSubsystem->GetFriendsInterface().IsValid());
+        Result->SetBoolField(TEXT("presenceInterface"), OnlineSubsystem->GetPresenceInterface().IsValid());
+        Subsystem->SendAutomationResponse(Socket, RequestId, true,
+            TEXT("Online Subsystem capabilities retrieved"), Result);
+        return true;
+    }
+
+    if (SubAction == TEXT("create_online_session"))
+    {
+        FOnlineSessionSettings Settings;
+        Settings.NumPublicConnections = FMath::Clamp(static_cast<int32>(GetJsonNumberField(Payload, TEXT("maxPlayers"), 4.0)), 1, 128);
+        Settings.bIsLANMatch = GetJsonBoolField(Payload, TEXT("bIsLANMatch"), false);
+        Settings.bAllowJoinInProgress = GetJsonBoolField(Payload, TEXT("bAllowJoinInProgress"), true);
+        Settings.bAllowInvites = GetJsonBoolField(Payload, TEXT("bAllowInvites"), true);
+        Settings.bUsesPresence = GetJsonBoolField(Payload, TEXT("bUsesPresence"), true);
+        Settings.bUseLobbiesIfAvailable = GetJsonBoolField(Payload, TEXT("bUseLobbiesIfAvailable"), true);
+        Settings.bShouldAdvertise = GetJsonBoolField(Payload, TEXT("bShouldAdvertise"), true);
+        const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+        *Handle = Sessions->AddOnCreateSessionCompleteDelegate_Handle(
+            FOnCreateSessionCompleteDelegate::CreateLambda(
+                [Subsystem, RequestId, Socket, SessionNameString, Sessions, Handle](FName, bool bSuccess)
+                {
+                    Sessions->ClearOnCreateSessionCompleteDelegate_Handle(*Handle);
+                    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+                    Result->SetStringField(TEXT("sessionName"), SessionNameString);
+                    Result->SetBoolField(TEXT("created"), bSuccess);
+                    Subsystem->SendAutomationResponse(Socket, RequestId, bSuccess,
+                        bSuccess ? TEXT("Online session created") : TEXT("Online session creation failed"),
+                        Result, bSuccess ? FString() : TEXT("CREATE_SESSION_FAILED"));
+                }));
+        if (!Sessions->CreateSession(LocalUserNum, SessionName, Settings))
+        {
+            Sessions->ClearOnCreateSessionCompleteDelegate_Handle(*Handle);
+            Subsystem->SendAutomationError(Socket, RequestId, TEXT("Online Subsystem rejected the create request."), TEXT("CREATE_SESSION_REJECTED"));
+        }
+        return true;
+    }
+
+    if (SubAction == TEXT("destroy_online_session"))
+    {
+        const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+        *Handle = Sessions->AddOnDestroySessionCompleteDelegate_Handle(
+            FOnDestroySessionCompleteDelegate::CreateLambda(
+                [Subsystem, RequestId, Socket, SessionNameString, Sessions, Handle](FName, bool bSuccess)
+                {
+                    Sessions->ClearOnDestroySessionCompleteDelegate_Handle(*Handle);
+                    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+                    Result->SetStringField(TEXT("sessionName"), SessionNameString);
+                    Result->SetBoolField(TEXT("destroyed"), bSuccess);
+                    Subsystem->SendAutomationResponse(Socket, RequestId, bSuccess,
+                        bSuccess ? TEXT("Online session destroyed") : TEXT("Online session destruction failed"),
+                        Result, bSuccess ? FString() : TEXT("DESTROY_SESSION_FAILED"));
+                }));
+        if (!Sessions->DestroySession(SessionName))
+        {
+            Sessions->ClearOnDestroySessionCompleteDelegate_Handle(*Handle);
+            Subsystem->SendAutomationError(Socket, RequestId, TEXT("Online Subsystem rejected the destroy request."), TEXT("DESTROY_SESSION_REJECTED"));
+        }
+        return true;
+    }
+
+    if (SubAction == TEXT("find_online_sessions"))
+    {
+        const int32 MaxResults = FMath::Clamp(static_cast<int32>(GetJsonNumberField(Payload, TEXT("maxSearchResults"), 50.0)), 1, 500);
+        FOnlineSessionSearchRef Search = MakeShared<FOnlineSessionSearch>();
+        Search->MaxSearchResults = MaxResults;
+        Search->bIsLanQuery = GetJsonBoolField(Payload, TEXT("bIsLANMatch"), false);
+        Search->QuerySettings.Set(SEARCH_PRESENCE, GetJsonBoolField(Payload, TEXT("bUsesPresence"), true), EOnlineComparisonOp::Equals);
+        const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+        *Handle = Sessions->AddOnFindSessionsCompleteDelegate_Handle(
+            FOnFindSessionsCompleteDelegate::CreateLambda(
+                [Subsystem, RequestId, Socket, Search, Sessions, Handle](bool bSuccess)
+                {
+                    Sessions->ClearOnFindSessionsCompleteDelegate_Handle(*Handle);
+                    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+                    const FString SearchId = FString::Printf(TEXT("online-search-%d"), ++SessionsHelpers::OnlineSearchSequence);
+                    TArray<TSharedPtr<FJsonValue>> FoundResults;
+                    if (bSuccess)
+                    {
+                        if (SessionsHelpers::OnlineSearchResults.Num() > 2000) SessionsHelpers::OnlineSearchResults.Empty();
+                        for (int32 Index = 0; Index < Search->SearchResults.Num(); ++Index)
+                        {
+                            SessionsHelpers::OnlineSearchResults.Add(SearchId + TEXT(":") + FString::FromInt(Index), Search->SearchResults[Index]);
+                            const FOnlineSessionSearchResult& Found = Search->SearchResults[Index];
+                            TSharedPtr<FJsonObject> Item = McpHandlerUtils::CreateResultObject();
+                            Item->SetNumberField(TEXT("index"), Index);
+                            Item->SetStringField(TEXT("owner"), Found.Session.OwningUserName);
+                            Item->SetNumberField(TEXT("pingMs"), Found.PingInMs);
+                            Item->SetNumberField(TEXT("openPublicConnections"), Found.Session.NumOpenPublicConnections);
+                            FoundResults.Add(MakeShared<FJsonValueObject>(Item));
+                        }
+                    }
+                    Result->SetStringField(TEXT("searchId"), SearchId);
+                    Result->SetArrayField(TEXT("results"), FoundResults);
+                    Result->SetNumberField(TEXT("count"), FoundResults.Num());
+                    Subsystem->SendAutomationResponse(Socket, RequestId, bSuccess,
+                        bSuccess ? TEXT("Online sessions found") : TEXT("Online session search failed"),
+                        Result, bSuccess ? FString() : TEXT("FIND_SESSIONS_FAILED"));
+                }));
+        if (!Sessions->FindSessions(LocalUserNum, Search))
+        {
+            Sessions->ClearOnFindSessionsCompleteDelegate_Handle(*Handle);
+            Subsystem->SendAutomationError(Socket, RequestId, TEXT("Online Subsystem rejected the search request."), TEXT("FIND_SESSIONS_REJECTED"));
+        }
+        return true;
+    }
+
+    if (SubAction == TEXT("join_online_session"))
+    {
+        const FString SearchId = GetJsonStringField(Payload, TEXT("searchId"), FString());
+        const int32 ResultIndex = static_cast<int32>(GetJsonNumberField(Payload, TEXT("resultIndex"), -1.0));
+        const FOnlineSessionSearchResult* SearchResult = SessionsHelpers::OnlineSearchResults.Find(SearchId + TEXT(":") + FString::FromInt(ResultIndex));
+        if (!SearchResult)
+        {
+            Subsystem->SendAutomationError(Socket, RequestId, TEXT("searchId/resultIndex does not identify a retained online session result."), TEXT("SEARCH_RESULT_NOT_FOUND"));
+            return true;
+        }
+        const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+        *Handle = Sessions->AddOnJoinSessionCompleteDelegate_Handle(
+            FOnJoinSessionCompleteDelegate::CreateLambda(
+                [Subsystem, RequestId, Socket, Sessions, SessionNameString, Handle](FName, EOnJoinSessionCompleteResult::Type ResultCode)
+                {
+                    Sessions->ClearOnJoinSessionCompleteDelegate_Handle(*Handle);
+                    const bool bSuccess = ResultCode == EOnJoinSessionCompleteResult::Success;
+                    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+                    Result->SetStringField(TEXT("sessionName"), SessionNameString);
+                    Result->SetNumberField(TEXT("resultCode"), static_cast<int32>(ResultCode));
+                    FString ConnectString;
+                    if (bSuccess && Sessions->GetResolvedConnectString(FName(*SessionNameString), ConnectString)) Result->SetStringField(TEXT("connectString"), ConnectString);
+                    Subsystem->SendAutomationResponse(Socket, RequestId, bSuccess,
+                        bSuccess ? TEXT("Joined online session") : TEXT("Online session join failed"),
+                        Result, bSuccess ? FString() : TEXT("JOIN_SESSION_FAILED"));
+                }));
+        if (!Sessions->JoinSession(LocalUserNum, SessionName, *SearchResult))
+        {
+            Sessions->ClearOnJoinSessionCompleteDelegate_Handle(*Handle);
+            Subsystem->SendAutomationError(Socket, RequestId, TEXT("Online Subsystem rejected the join request."), TEXT("JOIN_SESSION_REJECTED"));
+        }
+        return true;
+    }
+    return false;
+}
+#endif
 
 // ============================================================================
 // Session Management Actions
@@ -1245,6 +1441,21 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSessionsAction(
     else if (SubAction == TEXT("get_sessions_info"))
     {
         bHandled = HandleGetSessionsInfo(this, RequestId, Payload, Socket);
+    }
+    else if (SubAction == TEXT("get_online_capabilities") ||
+             SubAction == TEXT("create_online_session") ||
+             SubAction == TEXT("find_online_sessions") ||
+             SubAction == TEXT("join_online_session") ||
+             SubAction == TEXT("destroy_online_session"))
+    {
+#if MCP_HAS_ONLINE_SUBSYSTEM
+        bHandled = HandleOnlineSessionLifecycle(this, RequestId, SubAction, Payload, Socket);
+#else
+        SendAutomationError(Socket, RequestId,
+            TEXT("Online Subsystem headers/modules are not available in this build."),
+            TEXT("ONLINE_SUBSYSTEM_UNAVAILABLE"));
+        bHandled = true;
+#endif
     }
     else
     {

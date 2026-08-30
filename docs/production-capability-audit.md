@@ -14,9 +14,9 @@ NebulaForge provides broad Unreal Editor automation, but it is not yet a complet
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Build and deployment tool | ❌ | No first-class `manage_build` tool. |
-| Cook content | ❌ | `cook_content` remains a roadmap item. |
-| Package/stage/archive project | ❌ | No complete shipping-build workflow. |
+| Build and deployment tool | ⚠️ | TypeScript `system_control` now provides validated `run_uat` BuildCookRun operations and host job polling; platform signing/deployment remains absent, while native `/mcp` reports host-only actions explicitly. |
+| Cook content | ⚠️ | `run_uat` supports cook through BuildCookRun, but live Unreal verification is still required. |
+| Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations and `validate_release` artifact checks exist; deployment and platform signing remain absent. |
 | Platform builds and signing | ❌ | Windows, Linux, Mac, iOS, Android, and console workflows are not implemented. |
 | Plugin enable/disable management | ❌ | No complete project dependency/plugin management workflow. |
 | Asset chunking, compression, encryption, PAK creation | ❌ | Release packaging controls are absent. |
@@ -42,12 +42,12 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-33-testing--quality)
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| SaveGame class authoring | ❌ | Not implemented. |
-| Save/load/delete slots | ❌ | Not implemented. |
-| Gameplay Tags authoring | ❌ | Not implemented. |
+| SaveGame class authoring | ⚠️ | `generate_save_game_class` generates constrained compile-ready C++ SaveGame classes; runtime slot operations remain incomplete. |
+| Save/load/delete slots | ⚠️ | Runtime slot save/load/delete/existence/list actions are implemented for `USaveGame` objects; async save/load and higher-level slot serialization orchestration remain incomplete. |
+| Gameplay Tags authoring | ⚠️ | Project Gameplay Tag config add/list/remove is implemented; runtime containers, native tag registration, and tag-table workflows remain incomplete. |
 | Config hierarchy management | ❌ | Not implemented. |
-| Data Assets and Primary Data Assets | ❌ | No complete authoring workflow. |
-| DataTables and CurveTables | ❌ | Creation and row-management actions remain roadmap items. |
+| Data Assets and Primary Data Assets | ⚠️ | Generic and project-defined `UDataAsset` creation plus reflected property read/write are implemented; Primary Asset management remains incomplete. |
+| DataTables and CurveTables | ⚠️ | DataTable creation, reflected row insertion, and row readback are implemented; CurveTable rich-row authoring, readback, and CSV import/export are implemented, but simple-curve mode and advanced interpolation/tangent controls remain incomplete. |
 | Asset persistence verification | ⚠️ | Some systems verify package state; many operations only mark packages dirty or return completion without reload verification. |
 
 Evidence: [Roadmap.md](./Roadmap.md#phase-31-data--persistence)
@@ -128,9 +128,9 @@ Evidence: [AudioAuthoringHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebul
 |---|:---:|---|
 | Replication primitives | ✅ | Property replication, RPC, ownership, relevancy, and prediction controls exist. |
 | Local/LAN sessions | ✅ | LAN hosting/joining and local multiplayer are covered. |
-| Matchmaking and lobbies | ❌ | Online Services phase remains unimplemented. |
-| Presence/account/platform identity | ❌ | Not covered. |
-| Dedicated-server build/deploy | ❌ | No production server packaging/deployment pipeline. |
+| Matchmaking and lobbies | ⚠️ | Provider-agnostic Online Subsystem session create/find/join/destroy lifecycle is implemented; provider-specific lobbies and matchmaking policies remain incomplete. |
+| Presence/account/platform identity | ⚠️ | Online capability discovery reports identity, presence, friends, and lobby interfaces; provider-specific account flows remain incomplete. |
+| Dedicated-server build/deploy | ⚠️ | `run_uat` now supports server/no-client BuildCookRun variants with a separate server configuration; deployment and platform hosting remain absent. |
 | Multiplayer soak/latency/reconnect tests | ❌ | No complete automated network test suite. |
 | Platform-grade voice integration | ⚠️ | Basic voice controls exist, but platform/backend integration is incomplete. |
 
@@ -212,10 +212,10 @@ Evidence: [Roadmap.md](./Roadmap.md), [testing-guide.md](./testing-guide.md), [U
 
 ## Priority order for production readiness
 
-1. Implement cook/package/deploy and platform configuration workflows.
-2. Add project-wide validation, functional tests, profiling, and release gates.
-3. Implement SaveGame, Data Assets, DataTables, Gameplay Tags, and config management.
-4. Remove MCP contract/native-handler mismatches and replace stubs.
+1. Add signing/deployment, platform configuration, and dedicated-server packaging.
+2. Add project-wide validation, functional tests, profiling, and release smoke gates.
+3. Complete config hierarchy, Primary Assets, runtime Gameplay Tags, and async SaveGame orchestration.
+4. Replace remaining editor-only stubs with verified native handlers where UE APIs support them.
 5. Complete Sequencer, Movie Render Queue, media, replay, and Take Recorder support.
-6. Add online services, dedicated-server packaging, and multiplayer soak testing.
+6. Add online services and multiplayer soak/reconnect testing.
 7. Add unified asynchronous jobs, completion verification, transactions, and rollback.

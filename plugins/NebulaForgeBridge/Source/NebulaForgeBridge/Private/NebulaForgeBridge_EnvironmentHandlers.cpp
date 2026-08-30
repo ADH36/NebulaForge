@@ -3954,7 +3954,8 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectAction(
         LowerSubAction.Equals(TEXT("inspect_class")) ||
         LowerSubAction.Equals(TEXT("inspect_cdo")) ||
         LowerSubAction.Equals(TEXT("runtime_report")) ||
-        LowerSubAction.Equals(TEXT("pie_report"));
+        LowerSubAction.Equals(TEXT("pie_report")) ||
+        LowerSubAction.Equals(TEXT("production_capabilities"));
 
     // Actor actions (delegated to HandleControlActorAction)
     const bool bIsActorAction =
@@ -4277,6 +4278,36 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectAction(
             Resp->SetNumberField(TEXT("peakUsedVirtualMB"), static_cast<double>(MemoryStats.PeakUsedVirtual) / (1024.0 * 1024.0));
             SendAutomationResponse(RequestingSocket, RequestId, true,
                                    TEXT("Memory stats retrieved"), Resp, FString());
+            return true;
+        }
+        // ---------------------------------------------------------------------
+        // production_capabilities
+        // ---------------------------------------------------------------------
+        else if (LowerSubAction.Equals(TEXT("production_capabilities")))
+        {
+            TSharedPtr<FJsonObject> Capabilities = MakeShared<FJsonObject>();
+            Capabilities->SetBoolField(TEXT("success"), true);
+            Capabilities->SetStringField(TEXT("source"), TEXT("native-editor-capability-boundary"));
+            Capabilities->SetStringField(TEXT("executionMode"), TEXT("editor"));
+
+            TSharedPtr<FJsonObject> Status = MakeShared<FJsonObject>();
+            Status->SetStringField(TEXT("productionPipeline"), TEXT("partial_build_cook_stage_package_archive_no_platform_signing"));
+            Status->SetStringField(TEXT("releaseValidation"), TEXT("partial_artifact_gate_no_projectwide_unreal_validation"));
+            Status->SetStringField(TEXT("persistence"), TEXT("partial_data_asset_datatable_curvetable_savegame_slots_gameplay_tag_config_no_primary_assets_or_runtime_tags"));
+            Status->SetStringField(TEXT("cinematicsMedia"), TEXT("partial_sequencer_authoring_no_mrq_media_pipeline"));
+            Status->SetStringField(TEXT("blueprintGameplay"), TEXT("partial_project_architecture_required"));
+            Status->SetStringField(TEXT("animationCharacters"), TEXT("partial_engine_version_and_plugin_dependent"));
+            Status->SetStringField(TEXT("niagaraEffects"), TEXT("conditional_editor_and_plugin_dependent"));
+            Status->SetStringField(TEXT("audio"), TEXT("partial_plugin_and_project_backend_dependent"));
+            Status->SetStringField(TEXT("multiplayerOnline"), TEXT("partial_replication_lan_voice_online_subsystem_sessions_no_provider_specific_lobbies_identity_or_matchmaking"));
+            Status->SetStringField(TEXT("aiRuntimeGameplay"), TEXT("partial_runtime_pie_and_project_assets_required"));
+            Status->SetStringField(TEXT("assetsContent"), TEXT("partial_release_migration_and_audit_gates_required"));
+            Status->SetStringField(TEXT("worldBuilding"), TEXT("partial_plugin_assets_and_world_partition_boundaries"));
+            Capabilities->SetObjectField(TEXT("capabilities"), Status);
+            Capabilities->SetStringField(TEXT("verificationBoundary"),
+                TEXT("Static status only; live Unreal Editor/project verification is required for runtime, plugin, persistence, shader, and packaging claims."));
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                                   TEXT("Production capability boundary retrieved"), Capabilities, FString());
             return true;
         }
         // ---------------------------------------------------------------------

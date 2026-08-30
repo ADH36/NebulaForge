@@ -918,6 +918,20 @@ export interface GraphArgs extends HandlerArgs {
 // ============================================================================
 
 export interface SystemArgs extends HandlerArgs {
+    projectPath?: string;
+    filePath?: string;
+    content?: string;
+    backup?: boolean;
+    jobId?: string;
+    className?: string;
+    headerPath?: string;
+    sourcePath?: string;
+    variables?: Array<Record<string, unknown>>;
+    tag?: string;
+    comment?: string;
+    saveGameObject?: string;
+    slotName?: string;
+    userIndex?: number;
     command?: string;
     filename?: string;
     mode?: string;
@@ -997,6 +1011,14 @@ export interface PipelineArgs extends HandlerArgs {
     configuration?: string;
     arguments?: string;
     projectPath?: string;
+    async?: boolean;
+    jobId?: string;
+    uatOperation?: string;
+    archiveDirectory?: string;
+    requiredFiles?: string[];
+    requirePak?: boolean;
+    server?: boolean;
+    serverConfiguration?: string;
 }
 
 // ============================================================================

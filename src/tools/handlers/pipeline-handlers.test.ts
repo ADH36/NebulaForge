@@ -17,6 +17,15 @@ function runUbt(args: Partial<PipelineArgs>) {
   } as PipelineArgs, tools);
 }
 
+function runUat(args: Partial<PipelineArgs>) {
+  return handlePipelineTools('run_uat', {
+    platform: 'Linux',
+    configuration: 'Development',
+    projectPath: 'Game.uproject',
+    ...args
+  } as PipelineArgs, tools);
+}
+
 function platformFolder(): string {
   if (process.platform === 'win32') return process.arch === 'arm64' ? 'win-arm64' : 'win-x64';
   if (process.platform === 'darwin') return process.arch === 'arm64' ? 'mac-arm64' : 'mac-x64';
@@ -102,6 +111,42 @@ describe('handlePipelineTools run_ubt validation', () => {
       restoreEnv('UE_ENGINE_PATH', previousEnginePath);
       restoreEnv('UE_PROJECT_PATH', previousProjectPath);
       restoreEnv('DOTNET_CAPTURE_PATH', previousCapturePath);
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('handlePipelineTools run_uat validation', () => {
+  it('rejects unsupported operations before touching the engine or filesystem', async () => {
+    await expect(runUat({ uatOperation: 'deploy' }))
+      .rejects.toThrow(/uatOperation is not allowed/);
+  });
+
+  it('rejects managed BuildCookRun overrides in extra arguments', async () => {
+    await expect(runUat({ arguments: '-project=Other.uproject' }))
+      .rejects.toThrow(/cannot override/);
+  });
+});
+
+describe('handlePipelineTools validate_release', () => {
+  it('reports missing release artifacts and passes valid pak requirements', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-release-'));
+    try {
+      await fs.writeFile(path.join(tempRoot, 'Game-Win64-Shipping.pak'), 'pak');
+      const valid = await handlePipelineTools('validate_release', {
+        archiveDirectory: tempRoot,
+        requiredFiles: ['Game-Win64-Shipping.pak'],
+        requirePak: true
+      } as PipelineArgs, tools);
+      expect(valid).toMatchObject({ success: true, fileCount: 1, checks: { pak: true } });
+
+      const invalid = await handlePipelineTools('validate_release', {
+        archiveDirectory: tempRoot,
+        requiredFiles: ['missing.exe'],
+        requirePak: true
+      } as PipelineArgs, tools);
+      expect(invalid).toMatchObject({ success: false, error: 'RELEASE_VALIDATION_FAILED', missingFiles: ['missing.exe'] });
+    } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });

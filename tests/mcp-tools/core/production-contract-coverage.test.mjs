@@ -1,0 +1,62 @@
+import { runToolTests } from '../../test-runner.mjs';
+
+// Static contract coverage for capabilities that are intentionally environment
+// dependent. These cases ensure every advertised action and new parameter is
+// represented in the validation matrix even when Unreal is not running.
+await runToolTests('production-contract-coverage', [
+  { toolName: 'manage_asset', arguments: { action: 'create_data_asset', path: '/Game/MCPTest', name: 'ContractDataAsset', classPath: '/Script/Engine.DataAsset', properties: {}, save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'get_data_asset_properties', assetPath: '/Game/MCPTest/ContractDataAsset' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'set_data_asset_properties', assetPath: '/Game/MCPTest/ContractDataAsset', properties: {}, save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'create_data_table', path: '/Game/MCPTest', name: 'ContractDataTable', rowStructPath: '/Script/Engine.TableRowBase', save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'add_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'get_data_table_rows', assetPath: '/Game/MCPTest/ContractDataTable' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'create_curve_table', path: '/Game/MCPTest', name: 'ContractCurveTable', save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'add_curve_table_row', assetPath: '/Game/MCPTest/ContractCurveTable', rowName: 'ContractCurve', keys: [{ time: 0, value: 0 }], save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'get_curve_table_rows', assetPath: '/Game/MCPTest/ContractCurveTable' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'import_curve_table_csv', assetPath: '/Game/MCPTest/ContractCurveTable', csv: 'Name,ContractCurve\n0,0', save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'export_curve_table_csv', assetPath: '/Game/MCPTest/ContractCurveTable' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'inspect_asset_capabilities', assetPath: '/Game/MCPTest/ContractDataAsset' }, expected: 'success|error' },
+
+  { toolName: 'build_environment', arguments: { action: 'conform_spline_to_landscape' }, expected: 'success|error' },
+  { toolName: 'build_environment', arguments: { action: 'create_landscape_edit_layer', landscapeActor: 'ContractLandscape', editLayerName: 'ContractLayer' }, expected: 'success|error' },
+  { toolName: 'build_environment', arguments: { action: 'inspect_world_building_capabilities' }, expected: 'success|error' },
+  { toolName: 'build_environment', arguments: { action: 'list_landscape_edit_layers', landscapeActor: 'ContractLandscape' }, expected: 'success|error' },
+  { toolName: 'build_environment', arguments: { action: 'remove_landscape_edit_layer', landscapeActor: 'ContractLandscape', editLayerName: 'ContractLayer' }, expected: 'success|error' },
+  { toolName: 'build_environment', arguments: { action: 'verify_landscape_edit_layers', editLayerNames: ['ContractLayer'], reloadForVerification: false, verifyPersistence: false }, expected: 'success|error' },
+
+  { toolName: 'system_control', arguments: { action: 'run_uat', uatOperation: 'build_server', projectPath: 'Contract.uproject', async: true, server: true, serverConfiguration: 'Development' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'validate_release', archiveDirectory: 'ContractArchive', requiredFiles: ['Contract.uproject'], requirePak: false }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'get_job_status', jobId: 'contract-job' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'list_jobs' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'cancel_job', jobId: 'contract-job' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'read_project_file', filePath: 'Config/DefaultGame.ini' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'write_project_file', filePath: 'Config/Contract.ini', content: '[Contract]\nEnabled=True', backup: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'generate_save_game_class', className: 'UContractSaveGame', headerPath: 'Source/Contract/ContractSaveGame.h', sourcePath: 'Source/Contract/ContractSaveGame.cpp', variables: [{ name: 'Score', type: 'int32', defaultValue: 0 }], backup: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'list_gameplay_tags' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'add_gameplay_tag', tag: 'Contract.Test', comment: 'contract', backup: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'remove_gameplay_tag', tag: 'Contract.Test', backup: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'list_config_layers' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'get_config_value', configName: 'DefaultGame.ini', section: 'Contract', key: 'Enabled' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'set_config_value', configName: 'DefaultGame.ini', section: 'Contract', key: 'Enabled', value: 'True', backup: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'save_game_to_slot', saveGameObject: '/Game/Contract/SG.SG', slotName: 'ContractSlot', userIndex: 0 }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'load_game_from_slot', slotName: 'ContractSlot', userIndex: 0 }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'delete_save_game_slot', slotName: 'ContractSlot', userIndex: 0 }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'check_save_game_slot', slotName: 'ContractSlot', userIndex: 0 }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'list_save_game_slots', userIndex: 0 }, expected: 'success|error' },
+
+  { toolName: 'inspect', arguments: { action: 'production_capabilities' }, expected: 'success|error' },
+  { toolName: 'manage_ai', arguments: { action: 'inspect_ai_capabilities' }, expected: 'success|error' },
+  { toolName: 'manage_networking', arguments: { action: 'get_online_capabilities', localUserNum: 0 }, expected: 'success|error' },
+  { toolName: 'manage_networking', arguments: { action: 'create_online_session', sessionName: 'ContractSession', localUserNum: 0, maxPlayers: 2, bIsLANMatch: true }, expected: 'success|error' },
+  { toolName: 'manage_networking', arguments: { action: 'find_online_sessions', localUserNum: 0, maxSearchResults: 10, bIsLANMatch: true }, expected: 'success|error' },
+  { toolName: 'manage_networking', arguments: { action: 'join_online_session', sessionName: 'ContractSession', localUserNum: 0, searchId: 'online-search-1', resultIndex: 0 }, expected: 'success|error' },
+  { toolName: 'manage_networking', arguments: { action: 'destroy_online_session', sessionName: 'ContractSession', localUserNum: 0 }, expected: 'success|error' },
+  { toolName: 'manage_level_structure', arguments: { action: 'get_wp_cell_status' }, expected: 'success|error' },
+  { toolName: 'manage_level_structure', arguments: { action: 'load_cells' }, expected: 'success|error' },
+  { toolName: 'manage_level_structure', arguments: { action: 'pin_wp_cells' }, expected: 'success|error' },
+  { toolName: 'manage_level_structure', arguments: { action: 'prepare_pie_capture' }, expected: 'success|error' },
+  { toolName: 'manage_level_structure', arguments: { action: 'unload_cells' }, expected: 'success|error' },
+  { toolName: 'manage_level_structure', arguments: { action: 'unpin_wp_cells' }, expected: 'success|error' },
+  { toolName: 'control_editor', arguments: { action: 'screenshot', screenshotPath: 'Contract.png' }, expected: 'success|error' },
+  { toolName: 'manage_level_structure', arguments: { action: 'get_level_structure_info', reloadForVerification: false, verifyPersistence: false }, expected: 'success|error' }
+]);

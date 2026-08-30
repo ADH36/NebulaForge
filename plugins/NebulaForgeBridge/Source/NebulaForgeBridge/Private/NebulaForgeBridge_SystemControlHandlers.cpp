@@ -26,6 +26,8 @@
 #include "Engine/SkeletalMesh.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "GameFramework/SaveGame.h"
+#include "Kismet/GameplayStatics.h"
 #include "Exporters/Exporter.h"
 #include "IPythonScriptPlugin.h"
 #include "Misc/FileHelper.h"
@@ -1027,6 +1029,18 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("create_blueprint_interface") || Lower == TEXT("add_interface_function") ||
       Lower == TEXT("implement_interface") || Lower == TEXT("get_interface_info") ||
       Lower == TEXT("call_interface_function");
+  const bool bSaveGameAction =
+      Lower == TEXT("save_game_to_slot") || Lower == TEXT("load_game_from_slot") ||
+      Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
+      Lower == TEXT("list_save_game_slots");
+  const bool bHostWorkflowAction =
+      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") ||
+      Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
+      Lower == TEXT("cancel_job") || Lower == TEXT("read_project_file") ||
+      Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") ||
+      Lower == TEXT("list_gameplay_tags") || Lower == TEXT("add_gameplay_tag") ||
+      Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
+      Lower == TEXT("get_config_value") || Lower == TEXT("set_config_value");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -1037,7 +1051,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("start_session") &&
       Lower != TEXT("validate_assets") &&
       Lower != TEXT("execute_python") &&
-      !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction) {
+       !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction &&
+       !bHostWorkflowAction) {
     return false; // Not handled by this function
   }
 
@@ -1046,6 +1061,17 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     SendAutomationError(RequestingSocket, RequestId,
                         TEXT("System control payload missing"),
                         TEXT("INVALID_PAYLOAD"));
+    return true;
+  }
+
+  // These operations require the TypeScript host process: it owns the
+  // external-process job registry and project-file safety boundary. Keep the
+  // native endpoint contract explicit rather than falling through as unknown.
+  if (bHostWorkflowAction) {
+    SendAutomationError(
+        RequestingSocket, RequestId,
+        TEXT("This action is available through the stdio MCP host; the native /mcp endpoint does not own the host job or project-file registry"),
+        TEXT("HOST_ONLY"));
     return true;
   }
 
@@ -1059,6 +1085,85 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
 
   if (bDelegateInterfaceAction) {
     return HandleDelegateInterfaceAction(RequestId, Lower, Payload, RequestingSocket);
+  }
+
+  if (bSaveGameAction) {
+    FString SlotName;
+    Payload->TryGetStringField(TEXT("slotName"), SlotName);
+    SlotName.TrimStartAndEndInline();
+    int32 UserIndex = 0;
+    Payload->TryGetNumberField(TEXT("userIndex"), UserIndex);
+    if (UserIndex < 0 || UserIndex > 7) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("userIndex must be between 0 and 7"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (Lower != TEXT("list_save_game_slots") && SlotName.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("slotName is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    for (const TCHAR Character : SlotName) {
+      if (!(FChar::IsAlnum(Character) || Character == TCHAR('_') || Character == TCHAR('-'))) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("slotName contains unsupported characters"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+    }
+
+    if (Lower == TEXT("save_game_to_slot")) {
+      FString ObjectPath;
+      Payload->TryGetStringField(TEXT("saveGameObject"), ObjectPath);
+      USaveGame *SaveGame = LoadObject<USaveGame>(nullptr, *ObjectPath);
+      if (!SaveGame) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("saveGameObject must resolve to a loaded USaveGame object"), TEXT("OBJECT_NOT_FOUND"));
+        return true;
+      }
+      const bool bSaved = UGameplayStatics::SaveGameToSlot(SaveGame, SlotName, UserIndex);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("slotName"), SlotName);
+      Result->SetNumberField(TEXT("userIndex"), UserIndex);
+      Result->SetBoolField(TEXT("saved"), bSaved);
+      SendAutomationResponse(RequestingSocket, RequestId, bSaved, bSaved ? TEXT("SaveGame slot written") : TEXT("SaveGame slot write failed"), Result, bSaved ? FString() : TEXT("SAVE_FAILED"));
+      return true;
+    }
+    if (Lower == TEXT("load_game_from_slot")) {
+      USaveGame *Loaded = UGameplayStatics::LoadGameFromSlot(SlotName, UserIndex);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("slotName"), SlotName);
+      Result->SetNumberField(TEXT("userIndex"), UserIndex);
+      Result->SetBoolField(TEXT("exists"), Loaded != nullptr);
+      if (Loaded) Result->SetStringField(TEXT("classPath"), Loaded->GetClass()->GetPathName());
+      SendAutomationResponse(RequestingSocket, RequestId, Loaded != nullptr, Loaded ? TEXT("SaveGame slot loaded") : TEXT("SaveGame slot not found"), Result, Loaded ? FString() : TEXT("SLOT_NOT_FOUND"));
+      return true;
+    }
+    if (Lower == TEXT("delete_save_game_slot")) {
+      const bool bDeleted = UGameplayStatics::DeleteGameInSlot(SlotName, UserIndex);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("slotName"), SlotName);
+      Result->SetNumberField(TEXT("userIndex"), UserIndex);
+      Result->SetBoolField(TEXT("deleted"), bDeleted);
+      SendAutomationResponse(RequestingSocket, RequestId, bDeleted, bDeleted ? TEXT("SaveGame slot deleted") : TEXT("SaveGame slot delete failed"), Result, bDeleted ? FString() : TEXT("DELETE_FAILED"));
+      return true;
+    }
+    if (Lower == TEXT("check_save_game_slot")) {
+      const bool bExists = UGameplayStatics::DoesSaveGameExist(SlotName, UserIndex);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("slotName"), SlotName);
+      Result->SetNumberField(TEXT("userIndex"), UserIndex);
+      Result->SetBoolField(TEXT("exists"), bExists);
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame slot status retrieved"), Result, FString());
+      return true;
+    }
+    TArray<FString> SlotFiles;
+    const FString SaveDirectory = FPaths::ProjectSavedDir() / TEXT("SaveGames/");
+    IFileManager::Get().FindFiles(SlotFiles, *(SaveDirectory / TEXT("*.sav")), true, false);
+    TArray<TSharedPtr<FJsonValue>> Slots;
+    for (const FString &FileName : SlotFiles) {
+      Slots.Add(MakeShared<FJsonValueString>(FPaths::GetBaseFilename(FileName)));
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetArrayField(TEXT("slots"), Slots);
+    Result->SetNumberField(TEXT("count"), Slots.Num());
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame slots listed"), Result, FString());
+    return true;
   }
 
   if (Lower == TEXT("start_session")) {

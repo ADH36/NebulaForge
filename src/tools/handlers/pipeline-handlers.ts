@@ -6,12 +6,14 @@ import { spawn, exec } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import util from 'node:util';
+import { jobManager } from '../../services/job-manager.js';
 
 /** Promisified child_process.exec for async shell commands. */
 const execAsync = util.promisify(exec);
 const ALLOWED_UBT_PLATFORMS = new Set(['Win64', 'Mac', 'Linux', 'LinuxArm64', 'Android', 'IOS', 'TVOS', 'HoloLens', 'VisionOS']);
 const ALLOWED_UBT_CONFIGURATIONS = new Set(['Debug', 'DebugGame', 'Development', 'Shipping', 'Test']);
 const BLOCKED_UBT_OVERRIDE_OPTIONS = new Set(['project', 'projectfile', 'target', 'mode']);
+const ALLOWED_UAT_OPERATIONS = new Set(['build', 'cook', 'stage', 'package', 'archive', 'build_cook_stage_package', 'build_server', 'package_server', 'archive_server']);
 
 /** Reject UBT argument strings containing shell-dangerous characters. */
 function validateUbtArgumentsString(extraArgs: string): void {
@@ -92,6 +94,111 @@ function validateUbtExtraArgumentToken(token: string): void {
   if (optionName && BLOCKED_UBT_OVERRIDE_OPTIONS.has(optionName)) {
     throw new Error(`UBT argument ${optionName} cannot override the managed invocation.`);
   }
+}
+
+function validateUatOperation(operation: string): void {
+  if (!ALLOWED_UAT_OPERATIONS.has(operation)) {
+    throw new Error(`run_uat.uatOperation is not allowed: ${operation}`);
+  }
+}
+
+function validateUatArgumentsString(extraArgs: string): void {
+  validateUbtArgumentsString(extraArgs);
+  for (const token of tokenizeArgs(extraArgs)) {
+    const optionName = getUbtOptionName(token);
+    if (optionName && new Set(['project', 'platform', 'clientconfig', 'serverconfig', 'archivedirectory']).has(optionName)) {
+      throw new Error(`run_uat argument ${optionName} cannot override the managed invocation`);
+    }
+  }
+}
+
+async function findRunUatScript(): Promise<string | undefined> {
+  const configured = process.env.UE_ENGINE_PATH ?? process.env.UNREAL_ENGINE_PATH;
+  const engineRoot = configured
+    ? (isEngineDirectoryPath(configured) ? configured : path.join(configured, 'Engine'))
+    : undefined;
+  const candidates = engineRoot
+    ? [
+      path.join(engineRoot, 'Build', 'BatchFiles', process.platform === 'win32' ? 'RunUAT.bat' : 'RunUAT.sh'),
+      path.join(engineRoot, 'Build', 'BatchFiles', 'RunUAT.bat'),
+      path.join(engineRoot, 'Build', 'BatchFiles', 'RunUAT.sh')
+    ]
+    : [];
+  for (const candidate of candidates) {
+    try {
+      await fs.promises.access(candidate, fs.constants.F_OK);
+      return candidate;
+    } catch { /* try next candidate */ }
+  }
+  return undefined;
+}
+
+function resolveProjectFile(projectPath: string): string {
+  if (projectPath.toLowerCase().endsWith('.uproject')) return projectPath;
+  throw new Error('projectPath must point to a .uproject file for run_uat.');
+}
+
+async function collectReleaseFiles(root: string, current: string = root, output: string[] = []): Promise<string[]> {
+  if (output.length >= 10000) return output;
+  const entries = await fs.promises.readdir(current, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(current, entry.name);
+    if (entry.isDirectory()) {
+      await collectReleaseFiles(root, fullPath, output);
+    } else if (entry.isFile()) {
+      output.push(path.relative(root, fullPath).replace(/\\/g, '/'));
+    }
+    if (output.length >= 10000) break;
+  }
+  return output;
+}
+
+async function validateReleaseArtifact(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const archiveDirectory = typeof args.archiveDirectory === 'string' ? args.archiveDirectory.trim() : '';
+  if (!archiveDirectory) {
+    return { success: false, error: 'INVALID_ARGUMENT', message: 'archiveDirectory is required for validate_release' };
+  }
+  let stat: Awaited<ReturnType<typeof fs.promises.stat>>;
+  try {
+    stat = await fs.promises.stat(archiveDirectory);
+  } catch {
+    return { success: false, error: 'RELEASE_NOT_FOUND', message: `Release archive directory not found: ${archiveDirectory}`, archiveDirectory };
+  }
+  if (!stat.isDirectory()) {
+    return { success: false, error: 'INVALID_ARGUMENT', message: 'archiveDirectory must be a directory', archiveDirectory };
+  }
+
+  if (args.jobId) {
+    const job = jobManager.get(args.jobId);
+    if (!job) return { success: false, error: 'JOB_NOT_FOUND', message: `Job not found: ${args.jobId}`, jobId: args.jobId };
+    if (job.status !== 'completed') {
+      return { success: false, error: 'RELEASE_NOT_READY', message: `Build job is ${job.status}`, jobId: args.jobId, status: job.status };
+    }
+  }
+
+  const files = await collectReleaseFiles(archiveDirectory);
+  const requiredFiles = Array.isArray(args.requiredFiles) ? args.requiredFiles : [];
+  const invalidRequiredFiles = requiredFiles.filter(file => typeof file !== 'string' || !file.trim() || path.isAbsolute(file) || file.split(/[\\/]/).includes('..'));
+  if (invalidRequiredFiles.length > 0) {
+    return { success: false, error: 'INVALID_ARGUMENT', message: 'requiredFiles must contain safe relative paths', invalidRequiredFiles };
+  }
+  const missingFiles = requiredFiles.filter(file => !files.includes(file.replace(/\\/g, '/')));
+  const pakFiles = files.filter(file => file.toLowerCase().endsWith('.pak'));
+  const requirePak = args.requirePak === true;
+  const errors: string[] = [];
+  if (missingFiles.length > 0) errors.push(`Missing required files: ${missingFiles.join(', ')}`);
+  if (requirePak && pakFiles.length === 0) errors.push('No .pak file was found in the release archive.');
+  return cleanObject({
+    success: errors.length === 0,
+    error: errors.length === 0 ? undefined : 'RELEASE_VALIDATION_FAILED',
+    message: errors.length === 0 ? 'Release artifact validation passed' : errors.join(' '),
+    archiveDirectory,
+    fileCount: files.length,
+    pakFiles,
+    missingFiles,
+    requiredFiles,
+    checks: { archiveDirectory: true, requiredFiles: missingFiles.length === 0, pak: !requirePak || pakFiles.length > 0 }
+  });
 }
 
 /** Split a UBT argument string into tokens, respecting quoted segments. */
@@ -361,6 +468,56 @@ async function findBundledDotNetRoot(ubtPath: string): Promise<string | undefine
 /** Dispatch system_control pipeline actions to local UBT or the C++ bridge. */
 export async function handlePipelineTools(action: string, args: PipelineArgs, tools: ITools) {
   switch (action) {
+    case 'validate_release':
+      return validateReleaseArtifact(args);
+    case 'run_uat': {
+      const operation = args.uatOperation || 'build_cook_stage_package';
+      const platform = args.platform || 'Win64';
+      const configuration = args.configuration || 'Development';
+      const extraArgs = args.arguments || '';
+      validateUatOperation(operation);
+      validateUbtPlatform(platform);
+      validateUbtConfiguration(configuration);
+      validateUatArgumentsString(extraArgs);
+
+      const script = await findRunUatScript();
+      if (!script) {
+        throw new Error('RunUAT was not found. Set UE_ENGINE_PATH to an Unreal Engine root or Engine directory.');
+      }
+      const projectPath = args.projectPath || process.env.UE_PROJECT_PATH;
+      if (!projectPath) throw new Error('UE_PROJECT_PATH or projectPath is required for run_uat.');
+      const projectFile = resolveProjectFile(projectPath);
+      const archiveDirectory = args.archiveDirectory || path.join(path.dirname(projectFile), 'Saved', 'MCPBuilds');
+      const serverBuild = args.server === true || operation.endsWith('_server');
+      const baseOperation = serverBuild ? operation.replace(/_server$/, '') : operation;
+      const buildCookRunArgs = ['BuildCookRun', `-project=${projectFile}`, '-noP4', `-platform=${platform}`, `-clientconfig=${configuration}`];
+      if (serverBuild) buildCookRunArgs.push('-server', '-noclient', `-serverconfig=${args.serverConfiguration || configuration}`);
+      if (baseOperation === 'build' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-build');
+      if (baseOperation === 'cook' || baseOperation === 'stage' || baseOperation === 'package' || baseOperation === 'archive' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-cook');
+      if (baseOperation === 'stage' || baseOperation === 'package' || baseOperation === 'archive' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-stage');
+      if (baseOperation === 'package' || baseOperation === 'archive' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-pak');
+      if (baseOperation === 'archive' || baseOperation === 'build_cook_stage_package') buildCookRunArgs.push('-archive', `-archivedirectory=${archiveDirectory}`);
+      buildCookRunArgs.push(...tokenizeArgs(extraArgs));
+
+      const executable = process.platform === 'win32' ? 'cmd.exe' : 'bash';
+      const actualArgs = process.platform === 'win32' ? ['/d', '/s', '/c', script, ...buildCookRunArgs] : [script, ...buildCookRunArgs];
+      const child = spawn(executable, actualArgs, { shell: false });
+      const job = jobManager.startProcess({ label: `run_uat:${operation}/${platform}/${configuration}`, process: child });
+      if (args.async === true) {
+        return cleanObject({ success: true, started: true, jobId: job.jobId, status: job.status, operation, server: serverBuild, archiveDirectory });
+      }
+      return new Promise(resolve => {
+        child.once('close', code => resolve(cleanObject({
+          success: code === 0,
+          error: code === 0 ? undefined : 'UAT_FAILED',
+          message: code === 0 ? 'RunUAT completed successfully' : `RunUAT failed with code ${code}`,
+          operation,
+          archiveDirectory,
+          jobId: job.jobId
+        })));
+        child.once('error', error => resolve({ success: false, error: 'SPAWN_FAILED', message: error.message, jobId: job.jobId }));
+      });
+    }
     case 'run_ubt': {
       const target = args.target;
       const platform = args.platform || 'Win64';
@@ -437,6 +594,22 @@ export async function handlePipelineTools(action: string, args: PipelineArgs, to
           PATH: `${bundledDotNetRoot}${path.delimiter}${process.env.PATH ?? ''}`,
         }
         : process.env;
+
+      if (args.async === true) {
+        const child = spawn(executable, actualArgs, { shell: false, env: childEnv });
+        const job = jobManager.startProcess({
+          label: `run_ubt:${target}/${platform}/${configuration}`,
+          process: child,
+        });
+        return cleanObject({
+          success: true,
+          started: true,
+          jobId: job.jobId,
+          status: job.status,
+          command: `${executable} ${cmdArgs.map(arg => arg.includes(' ') ? `"${arg}"` : arg).join(' ')}`,
+          message: 'UnrealBuildTool job started. Poll system_control with action get_job_status.',
+        });
+      }
 
       return new Promise((resolve) => {
         const child = spawn(executable, actualArgs, { shell: false, env: childEnv });

@@ -253,7 +253,7 @@ function registerDefaultHandlers() {
   toolRegistry.register('system_control', async (args, tools) => {
     const action = getToolAction(args);
     if (action === 'console_command') return await handleConsoleCommand(args, tools);
-    if (action === 'run_ubt') return await handlePipelineTools(action, args, tools);
+    if (action === 'run_ubt' || action === 'run_uat' || action === 'validate_release') return await handlePipelineTools(action, args, tools);
     if (performanceActionSet.has(action)) return await handlePerformanceTools(action, args, tools);
     if (action === 'run_tests') return cleanObject(await executeAutomationRequest(tools, 'manage_tests', { ...args, subAction: action }, 'Bridge unavailable'));
     if (action === 'subscribe' || action === 'unsubscribe') {

@@ -29,7 +29,7 @@ describe('Inspect Handlers', () => {
       success: true,
       source: 'static-repository-audit',
       capabilities: expect.objectContaining({
-        productionPipeline: 'missing_cook_package_deploy_workflow',
+        productionPipeline: 'partial_build_cook_stage_package_archive_no_platform_signing',
         worldBuilding: 'partial_plugin_assets_and_world_partition_boundaries'
       })
     });

@@ -1410,8 +1410,20 @@ private:
                             const TSharedPtr<FJsonObject> &Payload,
                             TSharedPtr<FMcpBridgeWebSocket> Socket);
   bool HandleCreateMaterialInstance(const FString &RequestId,
-                                    const TSharedPtr<FJsonObject> &Payload,
-                                    TSharedPtr<FMcpBridgeWebSocket> Socket);
+                                     const TSharedPtr<FJsonObject> &Payload,
+                                     TSharedPtr<FMcpBridgeWebSocket> Socket);
+  bool HandleDataAssetAction(const FString &RequestId,
+                             const FString &Action,
+                             const TSharedPtr<FJsonObject> &Payload,
+                             TSharedPtr<FMcpBridgeWebSocket> Socket);
+  bool HandleDataTableAction(const FString &RequestId,
+                             const FString &Action,
+                             const TSharedPtr<FJsonObject> &Payload,
+                             TSharedPtr<FMcpBridgeWebSocket> Socket);
+  bool HandleCurveTableAction(const FString &RequestId,
+                              const FString &Action,
+                              const TSharedPtr<FJsonObject> &Payload,
+                              TSharedPtr<FMcpBridgeWebSocket> Socket);
   bool HandlePhysicalMaterialAction(const FString &RequestId,
                                     const FString &Action,
                                     const TSharedPtr<FJsonObject> &Payload,

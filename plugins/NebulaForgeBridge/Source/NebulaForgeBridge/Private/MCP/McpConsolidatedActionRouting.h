@@ -66,7 +66,11 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("set_asset_color"), TEXT("show_in_explorer"),
 		TEXT("set_search_text"),
 		TEXT("create_material"), TEXT("create_material_instance"),
-		TEXT("create_render_target"), TEXT("generate_lods"),
+		TEXT("create_render_target"), TEXT("create_data_asset"),
+		TEXT("get_data_asset_properties"), TEXT("set_data_asset_properties"),
+		TEXT("create_data_table"), TEXT("add_data_table_row"), TEXT("get_data_table_rows"),
+		TEXT("create_curve_table"), TEXT("add_curve_table_row"), TEXT("get_curve_table_rows"),
+		TEXT("import_curve_table_csv"), TEXT("export_curve_table_csv"), TEXT("generate_lods"),
 		TEXT("add_material_parameter"), TEXT("list_instances"),
 		TEXT("reset_instance_parameters"), TEXT("exists"),
 		TEXT("get_material_stats"), TEXT("nanite_rebuild_mesh"),
@@ -500,7 +504,14 @@ inline const TArray<FString>& SystemControlCore()
 		TEXT("profile"), TEXT("show_fps"), TEXT("set_quality"),
 		TEXT("screenshot"), TEXT("set_resolution"), TEXT("set_fullscreen"),
 		TEXT("execute_command"), TEXT("console_command"), TEXT("run_ubt"),
-		TEXT("run_tests"), TEXT("subscribe"), TEXT("unsubscribe"),
+      TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
+      TEXT("read_project_file"), TEXT("write_project_file"),
+      TEXT("generate_save_game_class"),
+      TEXT("list_gameplay_tags"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
+      TEXT("list_config_layers"), TEXT("get_config_value"), TEXT("set_config_value"),
+      TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("delete_save_game_slot"),
+      TEXT("check_save_game_slot"), TEXT("list_save_game_slots"),
+      TEXT("subscribe"), TEXT("unsubscribe"),
 		TEXT("spawn_category"), TEXT("start_session"),
 		TEXT("lumen_update_scene"), TEXT("play_sound"), TEXT("create_widget"),
 		TEXT("show_widget"), TEXT("add_widget_child"), TEXT("set_cvar"),
@@ -623,7 +634,9 @@ inline const TArray<FString>& Sessions()
 		TEXT("enable_voice_chat"), TEXT("configure_voice_settings"),
 		TEXT("set_voice_channel"), TEXT("mute_player"),
 		TEXT("set_voice_attenuation"), TEXT("configure_push_to_talk"),
-		TEXT("get_sessions_info")
+		TEXT("get_sessions_info"), TEXT("get_online_capabilities"),
+		TEXT("create_online_session"), TEXT("find_online_sessions"),
+		TEXT("join_online_session"), TEXT("destroy_online_session")
 	};
 	return Actions;
 }

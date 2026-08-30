@@ -3,6 +3,11 @@ import { ITools } from '../../types/tool-interfaces.js';
 import type { HandlerArgs, SystemArgs } from '../../types/handler-types.js';
 import { executeAutomationRequest, validateArgsSecurity } from './common-handlers.js';
 import { readOutputLog } from '../../utils/log-reader.js';
+import { jobManager } from '../../services/job-manager.js';
+import { readProjectFile, writeProjectFile } from '../../services/project-file-service.js';
+import { generateSaveGameClass } from '../../services/save-game-generator.js';
+import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../services/gameplay-tags-service.js';
+import { getConfigValue, listConfigLayers, setConfigValue } from '../../services/config-service.js';
 
 /** Response from various operations */
 interface OperationResponse {
@@ -64,6 +69,82 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
   const sysAction = String(action || '').toLowerCase();
 
   switch (sysAction) {
+    case 'get_job_status': {
+      const jobId = typeof (argsTyped as Record<string, unknown>).jobId === 'string'
+        ? String((argsTyped as Record<string, unknown>).jobId).trim()
+        : '';
+      if (!jobId) return { success: false, error: 'INVALID_ARGUMENT', message: 'jobId is required' };
+      const job = jobManager.get(jobId);
+      return job
+        ? { success: true, ...job }
+        : { success: false, error: 'JOB_NOT_FOUND', message: `Job not found: ${jobId}`, jobId };
+    }
+    case 'list_jobs':
+      return { success: true, jobs: jobManager.list() };
+    case 'cancel_job': {
+      const jobId = typeof (argsTyped as Record<string, unknown>).jobId === 'string'
+        ? String((argsTyped as Record<string, unknown>).jobId).trim()
+        : '';
+      if (!jobId) return { success: false, error: 'INVALID_ARGUMENT', message: 'jobId is required' };
+      const job = jobManager.cancel(jobId);
+      return job
+        ? { success: true, ...job }
+        : { success: false, error: 'JOB_NOT_FOUND', message: `Job not found: ${jobId}`, jobId };
+    }
+    case 'read_project_file': {
+      const filePath = typeof (argsTyped as Record<string, unknown>).filePath === 'string'
+        ? String((argsTyped as Record<string, unknown>).filePath)
+        : '';
+      if (!filePath) return { success: false, error: 'INVALID_ARGUMENT', message: 'filePath is required' };
+      return readProjectFile(argsTyped.projectPath, filePath);
+    }
+    case 'write_project_file': {
+      const record = argsTyped as Record<string, unknown>;
+      const filePath = typeof record.filePath === 'string' ? record.filePath : '';
+      const content = typeof record.content === 'string' ? record.content : undefined;
+      if (!filePath || content === undefined) return { success: false, error: 'INVALID_ARGUMENT', message: 'filePath and content are required' };
+      return writeProjectFile(argsTyped.projectPath, filePath, content, record.backup !== false);
+    }
+    case 'generate_save_game_class': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.className !== 'string' || typeof record.headerPath !== 'string' || typeof record.sourcePath !== 'string' || !Array.isArray(record.variables)) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'className, headerPath, sourcePath, and variables are required' };
+      }
+      return generateSaveGameClass({
+        projectPath: argsTyped.projectPath,
+        className: record.className,
+        headerPath: record.headerPath,
+        sourcePath: record.sourcePath,
+        variables: record.variables as Array<{ name: string; type: string; defaultValue?: string | number | boolean }>,
+        backup: record.backup !== false
+      });
+    }
+    case 'list_gameplay_tags':
+      return listGameplayTags(argsTyped.projectPath);
+    case 'add_gameplay_tag': {
+      if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
+      return addGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.comment ?? '', argsTyped.backup !== false);
+    }
+    case 'remove_gameplay_tag': {
+      if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
+      return removeGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.backup !== false);
+    }
+    case 'list_config_layers':
+      return listConfigLayers(argsTyped.projectPath);
+    case 'get_config_value': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'configName, section, and key are required' };
+      }
+      return getConfigValue(argsTyped.projectPath, record.configName, record.section, record.key);
+    }
+    case 'set_config_value': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'configName, section, key, and value are required' };
+      }
+      return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
+    }
     case 'show_fps':
       await executeAutomationRequest(tools, 'console_command', { command: argsTyped.enabled !== false ? 'stat fps' : 'stat fps 0' });
       return { success: true, message: `FPS display ${argsTyped.enabled !== false ? 'enabled' : 'disabled'}`, action: 'show_fps' };

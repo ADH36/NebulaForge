@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readProjectFile, writeProjectFile } from './project-file-service.js';
 
 const CONFIG_NAME = /^[A-Za-z][A-Za-z0-9_-]*\.ini$/;
-const SECTION_NAME = /^[^\[\]\r\n]{1,256}$/;
+const SECTION_NAME = /^[^\x5b\x5d\r\n]{1,256}$/;
 const KEY_NAME = /^[^=\r\n]{1,256}$/;
 const MAX_VALUE_LENGTH = 64 * 1024;
 
@@ -108,9 +108,15 @@ export async function setConfigValue(projectPath: string | undefined, configName
   if (!validName || !validSectionKey || typeof value !== 'string' || value.length > MAX_VALUE_LENGTH || /[\r\n]/.test(value)) {
     return { success: false, error: 'INVALID_ARGUMENT', message: 'configName, section, key, and value must be safe bounded values' };
   }
-  const existing = await readProjectFile(projectPath, configRelativePath(validName));
-  if (existing.success !== true && existing.error !== 'FILE_NOT_FOUND') return existing;
-  const updated = setIniValue(existing.success === true ? String(existing.content ?? '') : '', validSectionKey.section, validSectionKey.key, value);
+  let existingContent = '';
+  try {
+    const existing = await readProjectFile(projectPath, configRelativePath(validName));
+    if (existing.success === true) existingContent = String(existing.content ?? '');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/ENOENT|not found|does not exist/i.test(message)) return { success: false, error: 'CONFIG_READ_FAILED', message };
+  }
+  const updated = setIniValue(existingContent, validSectionKey.section, validSectionKey.key, value);
   if (!updated.changed) return { success: true, changed: false, configName: validName, section: validSectionKey.section, key: validSectionKey.key, value };
   const written = await writeProjectFile(projectPath, configRelativePath(validName), updated.content, backup);
   return { ...written, configName: validName, section: validSectionKey.section, key: validSectionKey.key, value, changed: true };

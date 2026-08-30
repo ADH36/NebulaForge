@@ -29,6 +29,7 @@ const VALID_ASSET_ACTIONS = new Set([
   'create_data_table', 'add_data_table_row', 'get_data_table_rows',
   'create_curve_table', 'add_curve_table_row', 'get_curve_table_rows',
   'import_curve_table_csv', 'export_curve_table_csv',
+  'create_media_player', 'create_media_source', 'create_media_texture', 'create_media_playlist',
   'generate_lods', 'add_material_parameter', 'list_instances',
   'reset_instance_parameters', 'get_material_stats', 'nanite_rebuild_mesh',
   // Material graph operations
@@ -774,6 +775,35 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
           return automationFailureResponse(res, failure, 'Failed to create render target', { name, packagePath });
         }
         return ResponseFactory.success(res, 'Render target created successfully');
+      }
+      case 'create_media_player':
+      case 'create_media_source':
+      case 'create_media_texture':
+      case 'create_media_playlist': {
+        const params = normalizeArgs(args, [
+          { key: 'name', required: true },
+          { key: 'packagePath', aliases: ['path'], default: '/Game' },
+          { key: 'mediaUrl' },
+          { key: 'mediaType', default: 'file' },
+          { key: 'mediaPlayerPath' },
+          { key: 'mediaSourcePath' },
+          { key: 'save', default: true }
+        ]);
+        const name = extractString(params, 'name');
+        const packagePath = extractOptionalString(params, 'packagePath') ?? '/Game';
+        const res = await executeAutomationRequest(tools, 'manage_asset', {
+          ...args,
+          action,
+          subAction: action,
+          name,
+          path: packagePath,
+          mediaUrl: extractOptionalString(params, 'mediaUrl'),
+          mediaType: extractOptionalString(params, 'mediaType') ?? 'file',
+          mediaPlayerPath: extractOptionalString(params, 'mediaPlayerPath'),
+          mediaSourcePath: extractOptionalString(params, 'mediaSourcePath'),
+          save: extractOptionalBoolean(params, 'save') ?? true
+        });
+        return ResponseFactory.success(res, `${action.replaceAll('_', ' ')} completed successfully`);
       }
       case 'nanite_rebuild_mesh': {
         const params = normalizeArgs(args, [

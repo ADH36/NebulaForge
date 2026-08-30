@@ -244,6 +244,13 @@ public class NebulaForgeBridge : ModuleRules
             // LevelSequenceEditor (optional plugin) - for Sequencer/Cinematics
             AddOptionalDynamicModule(Target, EngineDir, "LevelSequenceEditor", "LevelSequenceEditor");
 
+            // Movie Render Queue (optional plugins) - deterministic sequence rendering
+            AddOptionalDynamicModule(Target, EngineDir, "MovieRenderPipelineCore", "MovieRenderPipelineCore");
+            AddOptionalDynamicModule(Target, EngineDir, "MovieRenderPipelineRenderPasses", "MovieRenderPipelineRenderPasses");
+
+            // Media Framework runtime asset types
+            AddOptionalDynamicModule(Target, EngineDir, "MediaAssets", "MediaAssets");
+
             // NiagaraEditor (optional plugin) - for Niagara authoring
             AddOptionalDynamicModule(Target, EngineDir, "NiagaraEditor", "NiagaraEditor");
 

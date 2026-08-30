@@ -592,6 +592,24 @@ export async function handleSequenceTools(action: string, args: Record<string, u
 		});
 		return cleanObject(res);
 	}
+	case 'render_sequence_mrq': {
+		const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+		const outputPath = requireNonEmptyString(args.outputPath, 'outputPath', 'Missing required parameter: outputPath');
+		if (outputPath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(outputPath) || outputPath.includes('..')) {
+			throw new Error('outputPath must be a project-relative directory');
+		}
+		return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+			...args, path, outputPath, subAction: 'render_sequence_mrq'
+		}));
+	}
+	case 'get_mrq_status':
+		return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+			...args, subAction: 'get_mrq_status'
+		}));
+	case 'cancel_mrq':
+		return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+			...args, subAction: 'cancel_mrq'
+		}));
     default:
       // Ensure subAction is set for compatibility with C++ handler expectations
       const payload = { ...args };

@@ -4294,7 +4294,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectAction(
             Status->SetStringField(TEXT("productionPipeline"), TEXT("partial_build_cook_stage_package_archive_no_platform_signing"));
             Status->SetStringField(TEXT("releaseValidation"), TEXT("partial_artifact_gate_no_projectwide_unreal_validation"));
             Status->SetStringField(TEXT("persistence"), TEXT("partial_data_asset_datatable_curvetable_savegame_slots_gameplay_tag_config_no_primary_assets_or_runtime_tags"));
-            Status->SetStringField(TEXT("cinematicsMedia"), TEXT("partial_sequencer_authoring_no_mrq_media_pipeline"));
+            Status->SetStringField(TEXT("cinematicsMedia"), TEXT("partial_sequencer_mrq_png_output_demo_replay_no_media_pipeline"));
             Status->SetStringField(TEXT("blueprintGameplay"), TEXT("partial_project_architecture_required"));
             Status->SetStringField(TEXT("animationCharacters"), TEXT("partial_engine_version_and_plugin_dependent"));
             Status->SetStringField(TEXT("niagaraEffects"), TEXT("conditional_editor_and_plugin_dependent"));

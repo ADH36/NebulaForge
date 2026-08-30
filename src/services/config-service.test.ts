@@ -16,7 +16,7 @@ describe('config service', () => {
     const write = await setConfigValue(root, 'DefaultGame.ini', '/Script/Game.Settings', 'MaxPlayers', '8');
     expect(write.success).toBe(true);
     expect((await getConfigValue(root, 'DefaultGame.ini', '/Script/Game.Settings', 'MaxPlayers')).value).toBe('8');
-    expect(await fs.access(path.join(root, 'Config', 'DefaultGame.ini.bak'))).resolves.toBeUndefined();
+    await expect(fs.access(path.join(root, 'Config', 'DefaultGame.ini.bak'))).resolves.toBeUndefined();
   });
 
   it('rejects unsafe config names and multiline values', async () => {

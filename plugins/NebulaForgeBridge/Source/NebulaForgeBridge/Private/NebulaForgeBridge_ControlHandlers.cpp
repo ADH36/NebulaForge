@@ -97,6 +97,12 @@
 #include "GameFramework/Volume.h"
 #include "Landscape.h"
 #include "LandscapeInfo.h"
+#if __has_include("MediaPlayer.h")
+#include "MediaPlayer.h"
+#define MCP_HAS_MEDIA_PLAYER 1
+#else
+#define MCP_HAS_MEDIA_PLAYER 0
+#endif
 
 // -----------------------------------------------------------------------------
 // Editor-only Includes: Editor Subsystems (paths vary by UE version)
@@ -4926,6 +4932,61 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
     return HandleControlEditorResume(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("console_command") || LowerSub == TEXT("execute_command"))
     return HandleControlEditorConsoleCommand(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("play_demo") || LowerSub == TEXT("pause_demo") ||
+      LowerSub == TEXT("seek_demo") || LowerSub == TEXT("set_demo_playback_speed")) {
+    UWorld *World = GEditor->PlayWorld ? GEditor->PlayWorld.Get()
+                                       : GEditor->GetEditorWorldContext().World();
+    if (!World) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("NO_EDITOR_WORLD"),
+                                TEXT("No editor or PIE world is available for demo playback"), nullptr);
+      return true;
+    }
+
+    FString Command;
+    double NumericValue = 0.0;
+    if (LowerSub == TEXT("play_demo")) {
+      FString Filename;
+      Payload->TryGetStringField(TEXT("filename"), Filename);
+      if (Filename.IsEmpty()) Payload->TryGetStringField(TEXT("name"), Filename);
+      if (Filename.IsEmpty()) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                  TEXT("INVALID_ARGUMENT"),
+                                  TEXT("play_demo requires filename or name"), nullptr);
+        return true;
+      }
+      Command = FString::Printf(TEXT("DemoPlay %s"), *MakeSafeConsoleName(Filename, TEXT("Demo")));
+    } else if (LowerSub == TEXT("pause_demo")) {
+      Command = TEXT("DemoPause");
+    } else if (LowerSub == TEXT("seek_demo")) {
+      if (!Payload->TryGetNumberField(TEXT("demoTime"), NumericValue) ||
+          !FMath::IsFinite(NumericValue) || NumericValue < 0.0) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                  TEXT("INVALID_ARGUMENT"),
+                                  TEXT("demoTime must be a non-negative number"), nullptr);
+        return true;
+      }
+      Command = FString::Printf(TEXT("DemoGotoTime %.6f"), NumericValue);
+    } else {
+      if (!Payload->TryGetNumberField(TEXT("demoSpeed"), NumericValue) ||
+          !FMath::IsFinite(NumericValue) || NumericValue <= 0.0 || NumericValue > 16.0) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                  TEXT("INVALID_ARGUMENT"),
+                                  TEXT("demoSpeed must be greater than 0 and no more than 16"), nullptr);
+        return true;
+      }
+      Command = FString::Printf(TEXT("DemoTimeDilation %.6f"), NumericValue);
+    }
+
+    const bool bExecuted = GEditor->Exec(World, *Command);
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetStringField(TEXT("command"), Command);
+    Response->SetBoolField(TEXT("executed"), bExecuted);
+    SendAutomationResponse(RequestingSocket, RequestId, bExecuted,
+                           bExecuted ? TEXT("Demo playback command executed") : TEXT("Demo playback command failed"),
+                           Response, bExecuted ? FString() : TEXT("DEMO_COMMAND_FAILED"));
+    return true;
+  }
   if (LowerSub == TEXT("step_frame"))
     return HandleControlEditorStepFrame(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("start_recording"))

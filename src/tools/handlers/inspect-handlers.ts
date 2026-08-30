@@ -202,7 +202,7 @@ export async function handleInspectTools(action: string, args: HandlerArgs, tool
           productionPipeline: 'partial_build_cook_stage_package_archive_no_platform_signing',
           releaseValidation: 'partial_artifact_gate_no_projectwide_unreal_validation',
           persistence: 'partial_data_asset_datatable_curvetable_savegame_slots_gameplay_tag_config_no_primary_assets_or_runtime_tags',
-          cinematicsMedia: 'partial_sequencer_authoring_no_mrq_media_pipeline',
+          cinematicsMedia: 'partial_sequencer_mrq_png_output_demo_replay_no_media_pipeline',
           blueprintGameplay: 'partial_project_architecture_required',
           animationCharacters: 'partial_engine_version_and_plugin_dependent',
           niagaraEffects: 'conditional_editor_and_plugin_dependent',

@@ -48,6 +48,10 @@ public:
 				TEXT("single_frame_step"),
 				TEXT("start_recording"),
 				TEXT("stop_recording"),
+				TEXT("play_demo"),
+				TEXT("pause_demo"),
+				TEXT("seek_demo"),
+				TEXT("set_demo_playback_speed"),
 				TEXT("create_bookmark"),
 				TEXT("jump_to_bookmark"),
 				TEXT("set_preferences"),
@@ -117,6 +121,8 @@ public:
 			.Bool(TEXT("returnBase64"), TEXT("Return PNG image data as base64 when supported. Defaults to true for full_editor_window and game_viewport modes."))
 			.Bool(TEXT("includeMetadata"), TEXT("Attach caller-provided metadata to the response."))
 			.FreeformObject(TEXT("metadata"), TEXT("Caller-provided screenshot metadata."))
+			.Number(TEXT("demoTime"), TEXT("Demo playback time in seconds."))
+			.Number(TEXT("demoSpeed"), TEXT("Demo playback speed from 0 to 16."))
 			.Number(TEXT("deltaTime"), TEXT(""))
 			.String(TEXT("resolution"), TEXT("Resolution setting (e.g., 1024x1024)."))
 			.Bool(TEXT("realtime"), TEXT(""))

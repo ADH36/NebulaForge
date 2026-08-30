@@ -4,6 +4,8 @@ Audit date: 2026-08-30
 Scope: MCP tools, TypeScript handlers, Unreal native handlers, documentation, and integration tests.  
 Method: Static repository audit; runtime behavior still requires a live Unreal Editor/project verification pass.
 
+Current implementation update (2026-08-30): host project validation and declared-plugin management are now available through `system_control`; Movie Render Queue PNG submission/status/cancellation is available through `manage_sequence`. These host workflows remain intentionally explicit about native `/mcp` limitations.
+
 Legend: ✅ available or substantially covered · ❌ missing, incomplete, or production-blocking · ⚠️ conditional
 
 ## Summary
@@ -45,7 +47,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-33-testing--quality)
 | SaveGame class authoring | ⚠️ | `generate_save_game_class` generates constrained compile-ready C++ SaveGame classes; runtime slot operations remain incomplete. |
 | Save/load/delete slots | ⚠️ | Runtime slot save/load/delete/existence/list actions are implemented for `USaveGame` objects; async save/load and higher-level slot serialization orchestration remain incomplete. |
 | Gameplay Tags authoring | ⚠️ | Project Gameplay Tag config add/list/remove is implemented; runtime containers, native tag registration, and tag-table workflows remain incomplete. |
-| Config hierarchy management | ❌ | Not implemented. |
+| Config hierarchy management | ⚠️ | Config layer discovery plus validated section/key reads and atomic writes are implemented for project `.ini` files; full engine merge semantics and generated platform overrides still require live project verification. |
 | Data Assets and Primary Data Assets | ⚠️ | Generic and project-defined `UDataAsset` creation plus reflected property read/write are implemented; Primary Asset management remains incomplete. |
 | DataTables and CurveTables | ⚠️ | DataTable creation, reflected row insertion, and row readback are implemented; CurveTable rich-row authoring, readback, and CSV import/export are implemented, but simple-curve mode and advanced interpolation/tangent controls remain incomplete. |
 | Asset persistence verification | ⚠️ | Some systems verify package state; many operations only mark packages dirty or return completion without reload verification. |
@@ -58,7 +60,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-31-data--persistence)
 |---|:---:|---|
 | Master/subsequence/shot workflow | ❌ | Not implemented as a complete production workflow. |
 | Camera cuts, fades, events, material tracks | ❌ | Missing from the expanded cinematic roadmap. |
-| Movie Render Queue jobs | ❌ | No render-job, pass, burn-in, or queue automation. |
+| Movie Render Queue jobs | ⚠️ | Added guarded MRQ PNG image-sequence submission, project-relative output paths, status polling, and cancellation; presets, burn-ins, codecs, and multi-job queues remain incomplete. |
 | Media Framework | ❌ | Media players, sources, textures, playlists, and playback are absent. |
 | Take Recorder | ❌ | No recording workflow. |
 | Demo/replay system | ❌ | No replay or killcam automation. |

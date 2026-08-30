@@ -1034,7 +1034,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
       Lower == TEXT("list_save_game_slots");
   const bool bHostWorkflowAction =
-      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") ||
+      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("validate_project") || Lower == TEXT("manage_project_plugin") ||
       Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
       Lower == TEXT("cancel_job") || Lower == TEXT("read_project_file") ||
       Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") ||

@@ -294,7 +294,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_view_settings', 'navigate_to_path', 'sync_to_asset', 'sync_to_folder',
             'create_collection', 'add_to_collection', 'set_asset_color', 'show_in_explorer',
             'set_search_text',
-            'create_render_target', 'create_data_asset', 'get_data_asset_properties', 'set_data_asset_properties', 'create_data_table', 'add_data_table_row', 'get_data_table_rows', 'create_curve_table', 'add_curve_table_row', 'get_curve_table_rows', 'import_curve_table_csv', 'export_curve_table_csv', 'generate_lods', 'add_material_parameter', 'list_instances', 'reset_instance_parameters', 'exists', 'get_material_stats',
+            'create_render_target', 'create_data_asset', 'get_data_asset_properties', 'set_data_asset_properties', 'create_data_table', 'add_data_table_row', 'get_data_table_rows', 'create_curve_table', 'add_curve_table_row', 'get_curve_table_rows', 'import_curve_table_csv', 'export_curve_table_csv', 'create_media_player', 'create_media_source', 'create_media_texture', 'create_media_playlist', 'generate_lods', 'add_material_parameter', 'list_instances', 'reset_instance_parameters', 'exists', 'get_material_stats',
             'nanite_rebuild_mesh', 'bulk_rename', 'bulk_delete', 'source_control_checkout', 'source_control_submit',
             ...MATERIAL_AUTHORING_ACTIONS, ...TEXTURE_ACTIONS, ...PHYSICAL_MATERIAL_ACTIONS],
           description: 'Action to perform'
@@ -955,7 +955,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_view_mode', 'set_viewport_resolution',
             'console_command', 'execute_command',
             'screenshot', 'take_screenshot', 'step_frame', 'single_frame_step',
-            'start_recording', 'stop_recording',
+            'start_recording', 'stop_recording', 'play_demo', 'pause_demo', 'seek_demo', 'set_demo_playback_speed',
+            'open_media', 'play_media', 'pause_media', 'seek_media',
             'create_bookmark', 'jump_to_bookmark',
             'set_preferences', 'set_viewport_realtime',
             'open_asset', 'close_asset', 'simulate_input',
@@ -998,6 +999,11 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         returnBase64: { type: 'boolean', description: 'Return PNG image data as base64 when supported. Defaults to true for full_editor_window and game_viewport modes.' },
         includeMetadata: commonSchemas.booleanProp,
         metadata: commonSchemas.objectProp,
+        demoTime: commonSchemas.numberProp,
+        demoSpeed: commonSchemas.numberProp,
+        mediaPlayerPath: commonSchemas.assetPath,
+        mediaUrl: commonSchemas.stringProp,
+        mediaTime: commonSchemas.numberProp,
         deltaTime: commonSchemas.numberProp,
         resolution: commonSchemas.resolution,
         realtime: commonSchemas.booleanProp,
@@ -1543,6 +1549,10 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         width: commonSchemas.numberProp,
         height: commonSchemas.numberProp,
         format: commonSchemas.stringProp,
+        mediaUrl: commonSchemas.stringProp,
+        mediaType: { type: 'string', enum: ['file', 'stream'] },
+        mediaPlayerPath: commonSchemas.assetPath,
+        mediaSourcePath: commonSchemas.assetPath,
         postProcessBlendWeight: commonSchemas.numberProp,
         pathTracing: commonSchemas.booleanProp,
         materialIndex: commonSchemas.numberProp,
@@ -1763,7 +1773,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
           type: 'string',
           enum: [
             'profile', 'show_fps', 'set_quality', 'screenshot', 'set_resolution', 'set_fullscreen', 'execute_command', 'console_command',
-            'run_ubt', 'run_uat', 'validate_release', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'lumen_update_scene',
+            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'lumen_update_scene',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python'
@@ -1788,9 +1798,13 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         serverConfiguration: commonSchemas.stringProp,
         archiveDirectory: commonSchemas.outputPath,
         requiredFiles: commonSchemas.arrayOfStrings,
+        requiredDirectories: commonSchemas.arrayOfStrings,
+        pluginAction: { type: 'string', enum: ['list', 'enable', 'disable'] },
+        pluginName: commonSchemas.name,
         requirePak: commonSchemas.booleanProp,
         filePath: commonSchemas.stringProp,
         projectPath: commonSchemas.stringProp,
+        configName: commonSchemas.stringProp,
         content: { type: 'string', maxLength: 1048576 },
         backup: commonSchemas.booleanProp,
         className: commonSchemas.name,
@@ -1922,7 +1936,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'get_properties', 'set_properties', 'duplicate', 'rename', 'delete', 'list', 'get_metadata', 'set_metadata',
             'add_spawnable_from_class', 'add_track', 'add_section', 'set_display_rate', 'set_tick_resolution',
             'set_work_range', 'set_view_range', 'set_track_muted', 'set_track_solo', 'set_track_locked',
-            'list_tracks', 'remove_track', 'list_track_types'
+            'list_tracks', 'remove_track', 'list_track_types',
+            'render_sequence_mrq', 'get_mrq_status', 'cancel_mrq'
           ],
           description: 'Action'
         },
@@ -1955,6 +1970,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         playbackStart: commonSchemas.numberProp,
         playbackEnd: commonSchemas.numberProp,
         metadata: commonSchemas.objectProp
+        ,outputPath: commonSchemas.outputPath
+        ,mrqJobId: commonSchemas.stringProp
       },
       required: ['action']
     },

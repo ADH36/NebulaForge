@@ -8,6 +8,8 @@ import { readProjectFile, writeProjectFile } from '../../services/project-file-s
 import { generateSaveGameClass } from '../../services/save-game-generator.js';
 import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../services/gameplay-tags-service.js';
 import { getConfigValue, listConfigLayers, setConfigValue } from '../../services/config-service.js';
+import { validateProject } from '../../services/project-validation-service.js';
+import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 
 /** Response from various operations */
 interface OperationResponse {
@@ -97,6 +99,22 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         : '';
       if (!filePath) return { success: false, error: 'INVALID_ARGUMENT', message: 'filePath is required' };
       return readProjectFile(argsTyped.projectPath, filePath);
+    }
+    case 'validate_project': {
+      const record = argsTyped as Record<string, unknown>;
+      const requiredFiles = Array.isArray(record.requiredFiles)
+        ? record.requiredFiles.filter((entry): entry is string => typeof entry === 'string')
+        : undefined;
+      const requiredDirectories = Array.isArray(record.requiredDirectories)
+        ? record.requiredDirectories.filter((entry): entry is string => typeof entry === 'string')
+        : undefined;
+      return validateProject({ projectPath: argsTyped.projectPath, requiredFiles, requiredDirectories });
+    }
+    case 'manage_project_plugin': {
+      const record = argsTyped as Record<string, unknown>;
+      const pluginAction = typeof record.pluginAction === 'string' ? record.pluginAction : 'list';
+      const pluginName = typeof record.pluginName === 'string' ? record.pluginName : undefined;
+      return manageProjectPlugins(argsTyped.projectPath, pluginAction, pluginName, record.backup !== false);
     }
     case 'write_project_file': {
       const record = argsTyped as Record<string, unknown>;

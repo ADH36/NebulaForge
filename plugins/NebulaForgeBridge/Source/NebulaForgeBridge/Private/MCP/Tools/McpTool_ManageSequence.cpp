@@ -54,7 +54,10 @@ public:
 				TEXT("set_track_locked"),
 				TEXT("list_tracks"),
 				TEXT("remove_track"),
-				TEXT("list_track_types")
+				TEXT("list_track_types"),
+				TEXT("render_sequence_mrq"),
+				TEXT("get_mrq_status"),
+				TEXT("cancel_mrq")
 			}, TEXT("Action"))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.String(TEXT("path"), TEXT("Asset path (e.g., /Game/Path/Asset)."))
@@ -85,6 +88,8 @@ public:
 			.Number(TEXT("playbackStart"), TEXT(""))
 			.Number(TEXT("playbackEnd"), TEXT(""))
 			.FreeformObject(TEXT("metadata"), TEXT(""))
+			.String(TEXT("outputPath"), TEXT("Project-relative Movie Render Queue output directory."))
+			.String(TEXT("mrqJobId"), TEXT("Movie Render Queue job identifier."))
 			.Required({TEXT("action")})
 			.Build();
 	}

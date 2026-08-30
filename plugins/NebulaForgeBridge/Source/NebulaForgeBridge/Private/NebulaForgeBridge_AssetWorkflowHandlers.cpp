@@ -108,6 +108,16 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetToolsModule.h"
 #include "AssetViewUtils.h"
+#if __has_include("MediaPlayer.h") && __has_include("MediaTexture.h") && __has_include("MediaPlaylist.h") && __has_include("FileMediaSource.h") && __has_include("StreamMediaSource.h")
+#include "FileMediaSource.h"
+#include "MediaPlayer.h"
+#include "MediaPlaylist.h"
+#include "MediaTexture.h"
+#include "StreamMediaSource.h"
+#define MCP_HAS_MEDIA_ASSETS 1
+#else
+#define MCP_HAS_MEDIA_ASSETS 0
+#endif
 #if __has_include("ContentBrowserModule.h")
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
@@ -259,6 +269,108 @@ static void FinalizeHost(UMaterial* Material, UMaterialFunction* Function) {
 // ASSET ACTION DISPATCHER
 // =============================================================================
 
+#if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS
+static bool HandleMediaAssetAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket) {
+  if (!Payload.IsValid()) {
+    SendAutomationError(Socket, RequestId, TEXT("Media asset payload missing"), TEXT("INVALID_PAYLOAD"));
+    return true;
+  }
+
+  FString Name;
+  FString PackagePath;
+  Payload->TryGetStringField(TEXT("name"), Name);
+  Payload->TryGetStringField(TEXT("path"), PackagePath);
+  Name = SanitizeAssetName(Name);
+  PackagePath = SanitizeProjectRelativePath(PackagePath);
+  if (Name.IsEmpty() || PackagePath.IsEmpty()) {
+    SendAutomationError(Socket, RequestId, TEXT("name and path are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const FString PackageName = PackagePath + TEXT("/") + Name;
+  if (UEditorAssetLibrary::DoesAssetExist(PackageName)) {
+    SendAutomationError(Socket, RequestId, TEXT("Media asset already exists"), TEXT("ASSET_EXISTS"));
+    return true;
+  }
+
+  UPackage *Package = CreatePackage(*PackageName);
+  if (!Package) {
+    SendAutomationError(Socket, RequestId, TEXT("Unable to create media asset package"), TEXT("CREATE_FAILED"));
+    return true;
+  }
+
+  UObject *Asset = nullptr;
+  if (Action == TEXT("create_media_player")) {
+    Asset = NewObject<UMediaPlayer>(Package, UMediaPlayer::StaticClass(), FName(*Name), RF_Public | RF_Standalone);
+  } else if (Action == TEXT("create_media_playlist")) {
+    Asset = NewObject<UMediaPlaylist>(Package, UMediaPlaylist::StaticClass(), FName(*Name), RF_Public | RF_Standalone);
+  } else if (Action == TEXT("create_media_texture")) {
+    FString PlayerPath;
+    Payload->TryGetStringField(TEXT("mediaPlayerPath"), PlayerPath);
+    UMediaPlayer *Player = LoadObject<UMediaPlayer>(nullptr, *SanitizeProjectRelativePath(PlayerPath));
+    if (!Player) {
+      SendAutomationError(Socket, RequestId, TEXT("mediaPlayerPath must resolve to a UMediaPlayer"), TEXT("MEDIA_PLAYER_NOT_FOUND"));
+      return true;
+    }
+    UMediaTexture *Texture = NewObject<UMediaTexture>(Package, UMediaTexture::StaticClass(), FName(*Name), RF_Public | RF_Standalone);
+    if (Texture) Texture->SetDefaultMediaPlayer(Player);
+    Asset = Texture;
+  } else if (Action == TEXT("create_media_source")) {
+    FString Url;
+    FString MediaType;
+    Payload->TryGetStringField(TEXT("mediaUrl"), Url);
+    Payload->TryGetStringField(TEXT("mediaType"), MediaType);
+    if (Url.IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("mediaUrl is required for a media source"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (MediaType.Equals(TEXT("stream"), ESearchCase::IgnoreCase)) {
+      UStreamMediaSource *Source = NewObject<UStreamMediaSource>(Package, UStreamMediaSource::StaticClass(), FName(*Name), RF_Public | RF_Standalone);
+      if (Source) Source->StreamUrl = Url;
+      Asset = Source;
+    } else {
+      UFileMediaSource *Source = NewObject<UFileMediaSource>(Package, UFileMediaSource::StaticClass(), FName(*Name), RF_Public | RF_Standalone);
+      if (Source) Source->SetFilePath(Url);
+      Asset = Source;
+    }
+  }
+
+  if (!Asset) {
+    SendAutomationError(Socket, RequestId, TEXT("Unable to create media asset"), TEXT("CREATE_FAILED"));
+    return true;
+  }
+  FAssetRegistryModule::AssetCreated(Asset);
+  Package->MarkPackageDirty();
+
+  if (Action == TEXT("create_media_playlist")) {
+    FString SourcePath;
+    if (Payload->TryGetStringField(TEXT("mediaSourcePath"), SourcePath) && !SourcePath.IsEmpty()) {
+      UMediaSource *Source = LoadObject<UMediaSource>(nullptr, *SanitizeProjectRelativePath(SourcePath));
+      if (!Source || !Cast<UMediaPlaylist>(Asset)->Add(Source)) {
+        SendAutomationError(Socket, RequestId, TEXT("mediaSourcePath must resolve to a compatible media source"), TEXT("MEDIA_SOURCE_NOT_FOUND"));
+        return true;
+      }
+    }
+  }
+
+  bool bSave = false;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  const bool bSaved = !bSave || McpSafeAssetSave(Asset);
+  if (!bSaved) {
+    SendAutomationError(Socket, RequestId, TEXT("Media asset created but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Asset->GetPathName());
+  Result->SetStringField(TEXT("classPath"), Asset->GetClass()->GetPathName());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  SendAutomationResponse(Socket, RequestId, true, TEXT("Media asset created"), Result, FString());
+  return true;
+}
+#endif
+
 bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     const FString &RequestId, const FString &Action,
     const TSharedPtr<FJsonObject> &Payload,
@@ -335,6 +447,19 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
       Lower == TEXT("get_data_asset_properties") ||
       Lower == TEXT("set_data_asset_properties"))
     return HandleDataAssetAction(RequestId, Lower, Payload, RequestingSocket);
+  if (Lower == TEXT("create_media_player") ||
+      Lower == TEXT("create_media_source") ||
+      Lower == TEXT("create_media_texture") ||
+      Lower == TEXT("create_media_playlist")) {
+#if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS
+    return HandleMediaAssetAction(RequestId, Lower, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId,
+                         TEXT("Media Framework assets are unavailable in this build"),
+                         TEXT("MEDIA_ASSETS_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
   if (Lower == TEXT("create_data_table") ||
       Lower == TEXT("add_data_table_row") ||
       Lower == TEXT("get_data_table_rows"))

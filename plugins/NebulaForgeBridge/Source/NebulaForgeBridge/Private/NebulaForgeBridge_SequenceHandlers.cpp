@@ -39,6 +39,7 @@
 #include "McpHandlerUtils.h"
 
 #include "Modules/ModuleManager.h"  // Required for FModuleManager::IsModuleLoaded() runtime checks
+#include "Misc/Paths.h"
 #include "Dom/JsonObject.h"
 #include "LevelSequence.h"
 #include "NebulaForgeBridgeGlobals.h"
@@ -81,6 +82,17 @@
 #include "IAssetTools.h"
 #include "LevelSequenceEditorBlueprintLibrary.h"
 #include "Subsystems/AssetEditorSubsystem.h"
+
+#if __has_include("MoviePipelineQueueEngineSubsystem.h") && __has_include("MoviePipelineOutputSetting.h") && __has_include("MoviePipelineImageSequenceOutput.h")
+#include "MoviePipelineQueueEngineSubsystem.h"
+#include "MoviePipelineExecutorJob.h"
+#include "MoviePipelineConfigBase.h"
+#include "MoviePipelineOutputSetting.h"
+#include "MoviePipelineImageSequenceOutput.h"
+#define MCP_HAS_MRQ 1
+#else
+#define MCP_HAS_MRQ 0
+#endif
 
 // Header checks removed causing issues with private headers
 
@@ -2422,6 +2434,110 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceRemoveTrack(
 #endif
 }
 
+#if WITH_EDITOR && MCP_HAS_MRQ
+static bool HandleMovieRenderQueueAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket) {
+  UMoviePipelineQueueEngineSubsystem *Subsystem =
+      GEngine ? GEngine->GetEngineSubsystem<UMoviePipelineQueueEngineSubsystem>() : nullptr;
+  if (!Subsystem) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Movie Render Queue is unavailable"), nullptr,
+                           TEXT("MRQ_NOT_AVAILABLE"));
+    return true;
+  }
+
+  if (Action == TEXT("get_mrq_status")) {
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetBoolField(TEXT("isRendering"), Subsystem->IsRendering());
+    Response->SetStringField(TEXT("status"),
+                             Subsystem->IsRendering() ? TEXT("rendering") : TEXT("idle"));
+    if (UMoviePipelineExecutorBase *Executor = Subsystem->GetActiveExecutor()) {
+      Response->SetStringField(TEXT("executorClass"), Executor->GetClass()->GetPathName());
+    }
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Movie Render Queue status"), Response);
+    return true;
+  }
+
+  if (Action == TEXT("cancel_mrq")) {
+    if (UMoviePipelineExecutorBase *Executor = Subsystem->GetActiveExecutor()) {
+      Executor->CancelAllJobs();
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Movie Render Queue cancellation requested"), nullptr);
+    } else {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("No active Movie Render Queue render"), nullptr,
+                             TEXT("MRQ_NOT_RENDERING"));
+    }
+    return true;
+  }
+
+  FString SequencePath;
+  if (!Payload.IsValid() || !Payload->TryGetStringField(TEXT("path"), SequencePath) ||
+      SequencePath.IsEmpty()) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("render_sequence_mrq requires a sequence path"), nullptr,
+                           TEXT("INVALID_SEQUENCE"));
+    return true;
+  }
+  FString OutputPath;
+  if (!Payload->TryGetStringField(TEXT("outputPath"), OutputPath) || OutputPath.IsEmpty() ||
+      OutputPath.Contains(TEXT("..")) || OutputPath.StartsWith(TEXT("/")) ||
+      OutputPath.Contains(TEXT(":"))) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("outputPath must be a project-relative directory"), nullptr,
+                           TEXT("INVALID_OUTPUT_PATH"));
+    return true;
+  }
+  if (Subsystem->IsRendering()) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Movie Render Queue is already rendering"), nullptr,
+                           TEXT("MRQ_BUSY"));
+    return true;
+  }
+
+  ULevelSequence *Sequence = LoadObject<ULevelSequence>(nullptr, *SequencePath);
+  if (!Sequence) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Level sequence not found"), nullptr,
+                           TEXT("SEQUENCE_NOT_FOUND"));
+    return true;
+  }
+
+  UMoviePipelineExecutorJob *Job = Subsystem->AllocateJob(Sequence);
+  if (!Job || !Job->GetConfiguration()) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Unable to allocate Movie Render Queue job"), nullptr,
+                           TEXT("MRQ_JOB_ALLOCATION_FAILED"));
+    return true;
+  }
+  UMoviePipelineOutputSetting *OutputSetting =
+      Cast<UMoviePipelineOutputSetting>(Job->GetConfiguration()->FindOrAddSettingByClass(
+          UMoviePipelineOutputSetting::StaticClass()));
+  if (!OutputSetting) {
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Unable to configure Movie Render Queue output"), nullptr,
+                           TEXT("MRQ_OUTPUT_CONFIGURATION_FAILED"));
+    return true;
+  }
+  OutputSetting->OutputDirectory.Path = FPaths::Combine(FPaths::ProjectDir(), OutputPath);
+  Job->GetConfiguration()->FindOrAddSettingByClass(
+      UMoviePipelineImageSequenceOutput_PNG::StaticClass());
+  Subsystem->RenderJob(Job);
+
+  TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+  Response->SetStringField(TEXT("jobId"), Job->GetName().ToString());
+  Response->SetStringField(TEXT("sequencePath"), SequencePath);
+  Response->SetStringField(TEXT("outputPath"), OutputPath);
+  Response->SetStringField(TEXT("status"), TEXT("queued"));
+  SendAutomationResponse(RequestingSocket, RequestId, true,
+                         TEXT("Movie Render Queue job submitted"), Response);
+  return true;
+}
+#endif
+
 bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     const FString &RequestId, const FString &Action,
     const TSharedPtr<FJsonObject> &Payload,
@@ -2448,6 +2564,20 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
       else if (!EffectiveAction.StartsWith(TEXT("sequence_")))
         EffectiveAction = TEXT("sequence_") + EffectiveAction;
     }
+  }
+
+  if (EffectiveAction == TEXT("render_sequence_mrq") ||
+      EffectiveAction == TEXT("get_mrq_status") ||
+      EffectiveAction == TEXT("cancel_mrq")) {
+#if WITH_EDITOR && MCP_HAS_MRQ
+    return HandleMovieRenderQueueAction(RequestId, EffectiveAction, LocalPayload,
+                                        RequestingSocket);
+#else
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Movie Render Queue is unavailable in this build"), nullptr,
+                           TEXT("MRQ_NOT_AVAILABLE"));
+    return true;
+#endif
   }
 
   if (EffectiveAction == TEXT("sequence_create"))

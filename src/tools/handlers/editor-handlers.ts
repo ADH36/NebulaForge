@@ -71,6 +71,12 @@ const ACTION_REQUIRED_PARAMS: Record<string, string[]> = {
   'query_pie_actor': ['actorName'],
   'send_input': ['type'],
   'send_enhanced_input': ['key'],
+  'seek_demo': ['demoTime'],
+  'set_demo_playback_speed': ['demoSpeed'],
+  'open_media': ['mediaPlayerPath', 'mediaUrl'],
+  'play_media': ['mediaPlayerPath'],
+  'pause_media': ['mediaPlayerPath'],
+  'seek_media': ['mediaPlayerPath', 'mediaTime'],
 };
 
 /**
@@ -120,8 +126,16 @@ const ACTION_ALLOWED_PARAMS: Record<string, string[]> = {
   'create_bookmark': ['id', 'description', 'bookmarkName'],
   'jump_to_bookmark': ['id', 'bookmarkName'],
   'start_recording': ['filename', 'name', 'frameRate', 'durationSeconds', 'metadata'],
+  'play_demo': ['filename', 'name'],
+  'pause_demo': [],
+  'seek_demo': ['demoTime'],
+  'set_demo_playback_speed': ['demoSpeed'],
   'stop_recording': [],
   'set_viewport_realtime': ['enabled', 'realtime'],
+  'open_media': ['mediaPlayerPath', 'mediaUrl'],
+  'play_media': ['mediaPlayerPath'],
+  'pause_media': ['mediaPlayerPath'],
+  'seek_media': ['mediaPlayerPath', 'mediaTime'],
   'simulate_input': ['key', 'type', 'inputType', 'inputAction', 'x', 'y', 'button', 'playerIndex', 'axisName', 'axisValue', 'relative'],
   'get_pie_state': [],
   'query_pie_actor': ['actorName'],
@@ -552,6 +566,38 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
     case 'stop_recording': {
       const res = await executeAutomationRequest(tools, 'control_editor', { action: 'stop_recording' }) as Record<string, unknown>;
       return cleanObject(res);
+    }
+    case 'play_demo': {
+      const filename = requireNonEmptyString(args.filename || args.name, 'filename');
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'play_demo', filename }) as Record<string, unknown>);
+    }
+    case 'pause_demo':
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'pause_demo' }) as Record<string, unknown>);
+    case 'seek_demo': {
+      const demoTime = Number(args.demoTime);
+      if (!Number.isFinite(demoTime) || demoTime < 0) throw new Error('demoTime must be a non-negative number');
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'seek_demo', demoTime }) as Record<string, unknown>);
+    }
+    case 'set_demo_playback_speed': {
+      const demoSpeed = Number(args.demoSpeed);
+      if (!Number.isFinite(demoSpeed) || demoSpeed <= 0 || demoSpeed > 16) throw new Error('demoSpeed must be greater than 0 and no more than 16');
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'set_demo_playback_speed', demoSpeed }) as Record<string, unknown>);
+    }
+    case 'open_media': {
+      const mediaPlayerPath = requireNonEmptyString(args.mediaPlayerPath, 'mediaPlayerPath');
+      const mediaUrl = requireNonEmptyString(args.mediaUrl, 'mediaUrl');
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'open_media', mediaPlayerPath, mediaUrl }) as Record<string, unknown>);
+    }
+    case 'play_media':
+    case 'pause_media': {
+      const mediaPlayerPath = requireNonEmptyString(args.mediaPlayerPath, 'mediaPlayerPath');
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action, mediaPlayerPath }) as Record<string, unknown>);
+    }
+    case 'seek_media': {
+      const mediaPlayerPath = requireNonEmptyString(args.mediaPlayerPath, 'mediaPlayerPath');
+      const mediaTime = Number(args.mediaTime);
+      if (!Number.isFinite(mediaTime) || mediaTime < 0) throw new Error('mediaTime must be a non-negative number');
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'seek_media', mediaPlayerPath, mediaTime }) as Record<string, unknown>);
     }
     case 'step_frame': {
       // Support stepping multiple frames

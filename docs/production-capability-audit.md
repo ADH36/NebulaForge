@@ -138,14 +138,16 @@ Evidence: [AudioAuthoringHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebul
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Behavior Trees and EQS | ✅ | Authoring actions exist. |
-| StateTree, Smart Objects, Mass AI | ⚠️ | Require the relevant plugins/modules. |
-| Navigation authoring | ✅ | Nav bounds, modifiers, links, and rebuild actions exist. |
-| AI behavior visualization | ❌ | Gameplay Debugger/visual logging integration is incomplete. |
-| Large-crowd performance validation | ❌ | No production-scale crowd test workflow. |
-| Complete game-specific AI architecture | ❌ | Project classes/assets remain prerequisites. |
-| Inventory and interaction primitives | ✅ | Broad component and actor authoring exists. |
-| Save-backed inventory progression | ❌ | SaveGame/data persistence is missing. |
+| Behavior Trees and EQS | ✅ | Authoring and runtime query actions exist; runtime execution requires a PIE world and project-authored assets. |
+| StateTree, Smart Objects, Mass AI | ⚠️ | Native authoring paths exist and report module availability; each requires its relevant plugin/module. |
+| Navigation authoring | ✅ | Nav bounds, modifiers, links, path queries, validation, and rebuild actions exist. |
+| AI behavior visualization | ⚠️ | Gameplay Debugger availability is reported and debug runtime actions exist; project categories and live PIE state remain prerequisites. |
+| Large-crowd performance validation | ⚠️ | Mass AI authoring is available when enabled, but no universal production-scale soak/benchmark policy is assumed. |
+| Complete game-specific AI architecture | ⚠️ | Controllers, perception, behavior, navigation, StateTree, Smart Object, and Mass primitives exist; project classes/assets and game rules remain required. |
+| Inventory and interaction primitives | ✅ | Broad component, pickup, equipment, crafting, interaction, and UI authoring exists. |
+| Save-backed inventory progression | ⚠️ | Inventory authoring exists, but SaveGame slot persistence remains a project integration boundary. |
+
+AI/module and persistence readiness can be queried with `inspect_ai_capabilities` before authoring.
 
 ## Assets and content management
 

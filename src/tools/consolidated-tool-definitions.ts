@@ -3112,7 +3112,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'add_ai_perception_component', 'configure_sight_config', 'configure_hearing_config', 'configure_damage_sense_config', 'set_perception_team',
             'create_state_tree', 'add_state_tree_state', 'add_state_tree_transition', 'configure_state_tree_task',
             'create_smart_object_definition', 'add_smart_object_slot', 'configure_slot_behavior', 'add_smart_object_component',
-            'create_mass_entity_config', 'configure_mass_entity', 'add_mass_spawner',
+            'create_mass_entity_config', 'configure_mass_entity', 'add_mass_spawner', 'inspect_ai_capabilities',
             'get_ai_info',
             'create_blackboard', 'setup_perception',
             'set_focus', 'clear_focus',

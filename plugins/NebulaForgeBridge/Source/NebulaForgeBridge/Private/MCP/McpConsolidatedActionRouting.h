@@ -712,7 +712,7 @@ inline const TArray<FString>& ManageAICore()
 		TEXT("add_smart_object_slot"), TEXT("configure_slot_behavior"),
 		TEXT("add_smart_object_component"),
 		TEXT("create_mass_entity_config"), TEXT("configure_mass_entity"),
-		TEXT("add_mass_spawner"), TEXT("get_ai_info"),
+		TEXT("add_mass_spawner"), TEXT("inspect_ai_capabilities"), TEXT("get_ai_info"),
 		TEXT("create_blackboard"), TEXT("setup_perception"),
 		TEXT("create_nav_link_proxy"), TEXT("set_focus"), TEXT("clear_focus"),
 		TEXT("set_blackboard_value"), TEXT("get_blackboard_value"),

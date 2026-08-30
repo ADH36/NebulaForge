@@ -44,6 +44,9 @@ export async function handleAITools(
   });
 
   switch (action) {
+    case 'inspect_ai_capabilities':
+      return sendRequest('inspect_ai_capabilities');
+
     // =========================================================================
     // 16.1 AI Controller (3 actions)
     // =========================================================================

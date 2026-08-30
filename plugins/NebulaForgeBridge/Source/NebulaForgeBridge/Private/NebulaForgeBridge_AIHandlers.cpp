@@ -1144,6 +1144,28 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         return true;
     }
 
+    if (SubAction == TEXT("inspect_ai_capabilities"))
+    {
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetBoolField(TEXT("success"), true);
+        Result->SetBoolField(TEXT("behaviorTrees"), true);
+        Result->SetBoolField(TEXT("eqs"), true);
+        Result->SetBoolField(TEXT("perception"), true);
+        Result->SetBoolField(TEXT("navigationAuthoring"), true);
+        Result->SetBoolField(TEXT("stateTree"), IsStateTreeModuleAvailable());
+        Result->SetBoolField(TEXT("smartObjects"), IsSmartObjectsModuleAvailable());
+        Result->SetBoolField(TEXT("massAI"), IsMassModuleAvailable());
+        Result->SetBoolField(TEXT("gameplayDebuggerIntegration"), FModuleManager::Get().ModuleExists(TEXT("GameplayDebugger")));
+        Result->SetBoolField(TEXT("largeCrowdPerformanceValidation"), false);
+        Result->SetBoolField(TEXT("saveBackedInventoryProgression"), false);
+        Result->SetBoolField(TEXT("gameSpecificArchitecture"), false);
+        Result->SetStringField(TEXT("runtimeValidation"), TEXT("Runtime AI inspection, runtime EQS, and behavior execution require a running PIE world and project-authored assets."));
+        Result->SetStringField(TEXT("crowdValidationNote"), TEXT("Mass AI authoring availability does not constitute production-scale soak or performance validation."));
+        Result->SetStringField(TEXT("persistenceNote"), TEXT("Inventory and interaction primitives are authoring paths; SaveGame slot persistence is not provided by this handler."));
+        SendAutomationResponse(RequestingSocket, RequestId, TEXT("AI capability report generated"), Result, FString());
+        return true;
+    }
+
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
 
     if (SubAction == TEXT("inspect_runtime_ai") || SubAction == TEXT("query_runtime_ai") || SubAction == TEXT("debug_runtime_ai"))

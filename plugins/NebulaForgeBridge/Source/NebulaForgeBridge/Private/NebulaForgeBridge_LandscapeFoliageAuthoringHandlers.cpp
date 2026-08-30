@@ -261,6 +261,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeFoliageAuthoring(
 {
     const FString Lower = Action.ToLower();
     static const TSet<FString> SupportedActions = {
+        TEXT("inspect_world_building_capabilities"),
         TEXT("inspect_landscape"), TEXT("delete_landscape"),
         TEXT("resize_landscape"), TEXT("generate_landscape_heightmap"),
         TEXT("apply_landscape_erosion"), TEXT("sculpt_landscape_region"),
@@ -280,6 +281,31 @@ bool UNebulaForgeBridgeSubsystem::HandleLandscapeFoliageAuthoring(
     FString LandscapePath;
     Payload->TryGetStringField(TEXT("landscapeName"), LandscapeName);
     Payload->TryGetStringField(TEXT("landscapePath"), LandscapePath);
+
+    if (Lower == TEXT("inspect_world_building_capabilities"))
+    {
+        const bool bWorldPartition = World->GetWorldPartition() != nullptr;
+        const bool bLandscape = ALandscape::StaticClass() != nullptr;
+        const bool bWater = LoadClass<AActor>(nullptr, TEXT("/Script/Water.WaterBodyLake")) != nullptr;
+        const bool bPCG = FindObject<UClass>(nullptr, TEXT("/Script/PCG.PCGComponent")) != nullptr;
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetBoolField(TEXT("success"), true);
+        Result->SetBoolField(TEXT("editorWorldAvailable"), World != nullptr);
+        Result->SetBoolField(TEXT("landscapeAuthoring"), bLandscape);
+        Result->SetBoolField(TEXT("foliageAuthoring"), bLandscape);
+        Result->SetBoolField(TEXT("worldPartitionAvailable"), bWorldPartition);
+        Result->SetBoolField(TEXT("waterPluginAvailable"), bWater);
+        Result->SetBoolField(TEXT("pcgPluginAvailable"), bPCG);
+        Result->SetBoolField(TEXT("trafficInfrastructureAuthoring"), false);
+        Result->SetBoolField(TEXT("biomePipelineOrchestration"), false);
+        Result->SetStringField(TEXT("worldPartitionConversion"), bWorldPartition ? TEXT("already_enabled") : TEXT("editor_conversion_required"));
+        Result->SetStringField(TEXT("hlodScope"), TEXT("whole_map_or_hlod_layer"));
+        Result->SetStringField(TEXT("trafficInfrastructureNote"), TEXT("Road and river spline primitives are available; lane logic, traffic simulation, and project-specific decals require project authoring."));
+        Result->SetStringField(TEXT("biomePipelineNote"), TEXT("Compose landscape, material, foliage, water, navigation, and streaming actions using project assets; no universal project-independent biome recipe is assumed."));
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("World building capability report generated."), Result, FString());
+        return true;
+    }
 
     // These aliases are part of the public environment contract. Route them
     // through the same persistence-aware primitive handlers as the original

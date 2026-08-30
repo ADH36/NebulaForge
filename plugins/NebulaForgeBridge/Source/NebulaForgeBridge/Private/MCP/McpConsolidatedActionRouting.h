@@ -237,6 +237,7 @@ inline const TArray<FString>& BuildEnvironmentCore()
 		TEXT("create_landscape_material"), TEXT("configure_landscape_layer_blend"),
 		TEXT("scatter_landscape_foliage"), TEXT("inspect_generated_foliage"),
 		TEXT("regenerate_generated_foliage"), TEXT("clear_generated_foliage"),
+		TEXT("inspect_world_building_capabilities"),
 		TEXT("generate_lods"), TEXT("bake_lightmap"),
 		TEXT("export_snapshot"), TEXT("import_snapshot"), TEXT("delete"),
 		TEXT("create_sky_sphere"), TEXT("set_time_of_day"),

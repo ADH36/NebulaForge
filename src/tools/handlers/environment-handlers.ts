@@ -436,6 +436,7 @@ export async function handleEnvironmentTools(action: string, args: HandlerArgs, 
     case 'inspect_generated_foliage':
     case 'regenerate_generated_foliage':
     case 'clear_generated_foliage':
+    case 'inspect_world_building_capabilities':
       return cleanObject(await executeAutomationRequest(tools, 'build_environment', {
         ...argsRecord,
         action: envAction

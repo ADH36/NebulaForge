@@ -1164,6 +1164,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'get_foliage_instances', 'remove_foliage', 'paint_landscape', 'paint_landscape_layer',
             'modify_heightmap', 'set_landscape_material', 'create_landscape_grass_type',
             'create_landscape_edit_layer', 'list_landscape_edit_layers', 'verify_landscape_edit_layers', 'remove_landscape_edit_layer',
+            'inspect_world_building_capabilities',
             // UE 5.8.1 landscape / foliage authoring. These intentionally stay
             // on the consolidated environment tool so existing clients keep the
             // same tool budget and routing contract.

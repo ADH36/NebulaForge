@@ -168,16 +168,16 @@ Evidence: [AssetWorkflowHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebula
 |---|:---:|---|
 | Landscape creation/editing | ⚠️ | Core creation/editing plus advertised heightmap, erosion, regional sculpt, rule-paint, inspection, deletion, and foliage actions route to native handlers; topology resize remains an explicit heightmap-reimport boundary. |
 | Procedural heightmap/erosion workflow | ✅ | Native deterministic heightmap generation supports terrain features, seeded frequency/scale, optional source height data, and bounded thermal erosion iterations; writes use the existing persistence-aware landscape heightmap path. |
-| Foliage authoring/scattering | ⚠️ | Requires valid assets and editor/world prerequisites. |
-| PCG graph authoring | ⚠️ | Requires the PCG plugin/editor module; generation is asynchronous. |
-| World Partition conversion | ❌ | Existing maps must be converted through the Editor UI. |
-| Scoped HLOD rebuilds | ❌ | Cell/Data Layer scopes are rejected by the UE 5.8 commandlet path. |
+| Foliage authoring/scattering | ✅ | Native foliage types, instances, deterministic HISM scattering, inspection, regeneration, and generated-only clearing are implemented; valid assets and editor/world prerequisites are reported by `inspect_world_building_capabilities`. |
+| PCG graph authoring | ⚠️ | Native graph/node authoring exists; the PCG plugin/editor module is required and generation remains asynchronous. Capability availability is reported before authoring. |
+| World Partition conversion | ⚠️ | New World Partition levels and configuration are supported; existing non-World-Partition maps return an explicit `editor_conversion_required` capability instead of claiming conversion succeeded. |
+| Scoped HLOD rebuilds | ⚠️ | Whole-map and HLOD-layer commandlet rebuilds are supported; UE 5.8 does not expose cell/Data Layer scopes through the commandlet, and the limitation is reported explicitly. |
 | Water systems | ⚠️ | Require the Water plugin and available classes. |
 | Road/river spline authoring | ✅ | Spline and mesh scattering primitives exist. |
-| Full traffic/road infrastructure | ❌ | No traffic, lane logic, decals, terrain cutting, or complete road system. |
-| Production biome pipeline | ❌ | No end-to-end terrain, material, foliage, water, nav, streaming, and validation pipeline. |
+| Full traffic/road infrastructure | ⚠️ | Road/river spline and mesh primitives are native; lane logic, traffic simulation, terrain cutting, and project-specific decals require project gameplay/assets and are surfaced as unavailable by the capability report. |
+| Production biome pipeline | ⚠️ | The constituent landscape, procedural heightmap/erosion, material, foliage, water, navigation, spline, and streaming actions are available; a universal project-independent recipe is intentionally not synthesized without project assets and validation policy. |
 
-Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [EnvironmentHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_EnvironmentHandlers.cpp#L3275)
+Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [EnvironmentHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_EnvironmentHandlers.cpp#L2418), [LevelStructureHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_LevelStructureHandlers.cpp#L1253)
 
 ## Editor, runtime, and transport limitations
 

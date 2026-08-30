@@ -268,6 +268,48 @@ static bool HandleOnlineSessionLifecycle(
             TEXT("ONLINE_SUBSYSTEM_UNAVAILABLE"));
         return true;
     }
+    if (SubAction == TEXT("get_online_identity_status"))
+    {
+        const int32 LocalUserNum = FMath::Clamp(static_cast<int32>(GetJsonNumberField(Payload, TEXT("localUserNum"), 0.0)), 0, 7);
+        IOnlineIdentityPtr Identity = OnlineSubsystem->GetIdentityInterface();
+        if (!Identity.IsValid())
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("The selected Online Subsystem does not expose an identity interface."),
+                TEXT("IDENTITY_INTERFACE_UNAVAILABLE"));
+            return true;
+        }
+
+        const ELoginStatus::Type LoginStatus = Identity->GetLoginStatus(LocalUserNum);
+        const TCHAR* StatusName = TEXT("unknown");
+        switch (LoginStatus)
+        {
+        case ELoginStatus::NotLoggedIn: StatusName = TEXT("not_logged_in"); break;
+        case ELoginStatus::UsingLocalProfile: StatusName = TEXT("using_local_profile"); break;
+        case ELoginStatus::LoggedIn: StatusName = TEXT("logged_in"); break;
+        default: break;
+        }
+
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetStringField(TEXT("subsystem"), OnlineSubsystem->GetSubsystemName().ToString());
+        Result->SetNumberField(TEXT("localUserNum"), LocalUserNum);
+        Result->SetStringField(TEXT("loginStatus"), StatusName);
+        Result->SetBoolField(TEXT("loggedIn"), LoginStatus == ELoginStatus::LoggedIn);
+        const TSharedPtr<const FUniqueNetId> UniqueNetId = Identity->GetUniquePlayerId(LocalUserNum);
+        if (UniqueNetId.IsValid())
+        {
+            Result->SetStringField(TEXT("uniqueNetId"), UniqueNetId->ToString());
+        }
+        const FString Nickname = Identity->GetPlayerNickname(LocalUserNum);
+        if (!Nickname.IsEmpty())
+        {
+            Result->SetStringField(TEXT("nickname"), Nickname);
+        }
+        Subsystem->SendAutomationResponse(Socket, RequestId, true,
+            TEXT("Online identity status retrieved"), Result);
+        return true;
+    }
+
     IOnlineSessionPtr Sessions = OnlineSubsystem->GetSessionInterface();
     if (!Sessions.IsValid())
     {
@@ -297,6 +339,10 @@ static bool HandleOnlineSessionLifecycle(
         Result->SetBoolField(TEXT("identityInterface"), OnlineSubsystem->GetIdentityInterface().IsValid());
         Result->SetBoolField(TEXT("friendsInterface"), OnlineSubsystem->GetFriendsInterface().IsValid());
         Result->SetBoolField(TEXT("presenceInterface"), OnlineSubsystem->GetPresenceInterface().IsValid());
+        Result->SetBoolField(TEXT("achievementsInterface"), OnlineSubsystem->GetAchievementsInterface().IsValid());
+        Result->SetBoolField(TEXT("leaderboardsInterface"), OnlineSubsystem->GetLeaderboardsInterface().IsValid());
+        Result->SetBoolField(TEXT("statsInterface"), OnlineSubsystem->GetStatsInterface().IsValid());
+        Result->SetBoolField(TEXT("externalUIInterface"), OnlineSubsystem->GetExternalUIInterface().IsValid());
         Subsystem->SendAutomationResponse(Socket, RequestId, true,
             TEXT("Online Subsystem capabilities retrieved"), Result);
         return true;
@@ -1591,6 +1637,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSessionsAction(
         bHandled = HandleGetSessionsInfo(this, RequestId, Payload, Socket);
     }
     else if (SubAction == TEXT("get_online_capabilities") ||
+             SubAction == TEXT("get_online_identity_status") ||
              SubAction == TEXT("get_online_session_status") ||
              SubAction == TEXT("create_online_session") ||
              SubAction == TEXT("find_online_sessions") ||

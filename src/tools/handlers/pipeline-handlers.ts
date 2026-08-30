@@ -8,6 +8,8 @@ import fs from 'node:fs';
 import util from 'node:util';
 import { jobManager } from '../../services/job-manager.js';
 import { createHash } from 'node:crypto';
+import { manageProjectPlugins } from '../../services/project-plugin-service.js';
+import { validateProject } from '../../services/project-validation-service.js';
 
 /** Promisified child_process.exec for async shell commands. */
 const execAsync = util.promisify(exec);
@@ -186,10 +188,22 @@ async function validateReleaseArtifact(args: PipelineArgs): Promise<Record<strin
     return { success: false, error: 'INVALID_ARGUMENT', message: 'requiredFiles must contain safe relative paths', invalidRequiredFiles };
   }
   const missingFiles = requiredFiles.filter(file => !files.includes(file.replace(/\\/g, '/')));
+  const requiredDirectories = Array.isArray(args.requiredDirectories) ? args.requiredDirectories : [];
+  const invalidRequiredDirectories = requiredDirectories.filter(directory => typeof directory !== 'string' || !directory.trim() || path.isAbsolute(directory) || directory.split(/[\\/]/).includes('..'));
+  if (invalidRequiredDirectories.length > 0) {
+    return { success: false, error: 'INVALID_ARGUMENT', message: 'requiredDirectories must contain safe relative paths', invalidRequiredDirectories };
+  }
+  const missingDirectories: string[] = [];
+  for (const directory of requiredDirectories) {
+    const directoryPath = path.resolve(archiveDirectory, directory);
+    const directoryStat = await fs.promises.stat(directoryPath).catch(() => undefined);
+    if (!directoryStat?.isDirectory()) missingDirectories.push(directory.replace(/\\/g, '/'));
+  }
   const pakFiles = files.filter(file => file.toLowerCase().endsWith('.pak'));
   const requirePak = args.requirePak === true;
   const errors: string[] = [];
   if (missingFiles.length > 0) errors.push(`Missing required files: ${missingFiles.join(', ')}`);
+  if (missingDirectories.length > 0) errors.push(`Missing required directories: ${missingDirectories.join(', ')}`);
   if (requirePak && pakFiles.length === 0) errors.push('No .pak file was found in the release archive.');
   let manifestResult: Record<string, unknown> | undefined;
   if (args.manifestPath !== undefined) {
@@ -235,9 +249,46 @@ async function validateReleaseArtifact(args: PipelineArgs): Promise<Record<strin
     fileCount: files.length,
     pakFiles,
     missingFiles,
+    missingDirectories,
     requiredFiles,
+    requiredDirectories,
     ...(manifestResult ? { manifest: manifestResult } : {}),
-    checks: { archiveDirectory: true, requiredFiles: missingFiles.length === 0, pak: !requirePak || pakFiles.length > 0, manifest: manifestResult ? manifestResult.valid === true : true }
+    checks: { archiveDirectory: true, requiredFiles: missingFiles.length === 0, requiredDirectories: missingDirectories.length === 0, pak: !requirePak || pakFiles.length > 0, manifest: manifestResult ? manifestResult.valid === true : true }
+  });
+}
+
+async function runReleaseGate(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const artifact = await validateReleaseArtifact(args);
+  const checks: Record<string, unknown> = { artifact };
+  let valid = artifact.success === true;
+
+  if (args.projectPath && args.runProjectValidation !== false) {
+    const project = await validateProject({
+      projectPath: args.projectPath,
+      requiredFiles: args.projectRequiredFiles,
+      requiredDirectories: args.projectRequiredDirectories,
+      includeInventory: false,
+      validationMode: 'static',
+      enginePath: args.enginePath,
+      timeoutMs: args.timeoutMs
+    });
+    checks.project = project;
+    valid = valid && project.success === true;
+  }
+
+  if (args.projectPath && args.validatePlugins !== false) {
+    const plugins = await manageProjectPlugins(args.projectPath, 'validate');
+    checks.plugins = plugins;
+    valid = valid && plugins.success === true;
+  }
+
+  return cleanObject({
+    success: valid,
+    error: valid ? undefined : 'RELEASE_GATE_FAILED',
+    message: valid ? 'Release gate passed' : 'Release gate failed one or more checks',
+    checks,
+    passedChecks: Object.entries(checks).filter(([, value]) => (value as Record<string, unknown>).success === true).map(([name]) => name),
+    failedChecks: Object.entries(checks).filter(([, value]) => (value as Record<string, unknown>).success !== true).map(([name]) => name)
   });
 }
 
@@ -836,6 +887,8 @@ export async function handlePipelineTools(action: string, args: PipelineArgs, to
       return analyzeTrace(args);
     case 'validate_release':
       return validateReleaseArtifact(args);
+    case 'release_gate':
+      return runReleaseGate(args);
     case 'run_uat': {
       const operation = args.uatOperation || 'build_cook_stage_package';
       const platform = args.platform || 'Win64';

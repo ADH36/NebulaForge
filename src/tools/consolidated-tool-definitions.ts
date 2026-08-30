@@ -198,7 +198,7 @@ export const SESSION_ACTIONS = [
   'host_lan_server', 'join_lan_server', 'enable_voice_chat', 'configure_voice_settings',
   'set_voice_channel', 'mute_player', 'set_voice_attenuation', 'configure_push_to_talk',
   'get_sessions_info', 'get_online_capabilities', 'create_online_session',
-  'get_online_session_status', 'find_online_sessions', 'join_online_session', 'destroy_online_session', 'configure_network_conditions'
+  'get_online_session_status', 'get_online_identity_status', 'find_online_sessions', 'join_online_session', 'destroy_online_session', 'configure_network_conditions'
 ] as const;
 
 export const GAME_FRAMEWORK_ACTIONS = [
@@ -1785,7 +1785,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'check_for_errors', 'capture_insights_trace', 'analyze_trace', 'start_network_profiler', 'enable_visual_logger', 'add_visual_log_entry', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'lumen_update_scene',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
-            'set_project_setting', 'execute_python'
+            'set_project_setting', 'execute_python', 'release_gate'
           ,
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
           description: 'Action'
@@ -1808,6 +1808,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         archiveDirectory: commonSchemas.outputPath,
         requiredFiles: commonSchemas.arrayOfStrings,
         requiredDirectories: commonSchemas.arrayOfStrings,
+        projectRequiredFiles: commonSchemas.arrayOfStrings,
+        projectRequiredDirectories: commonSchemas.arrayOfStrings,
         includeInventory: { type: 'boolean', description: 'Include a bounded project content/config/map inventory in validation results. Defaults to true.' },
         validationMode: { type: 'string', enum: ['static', 'data_validation'], description: 'Validation depth. data_validation launches UnrealEditor-Cmd with the DataValidation commandlet and returns a managed job.' },
         validationArguments: commonSchemas.arrayOfStrings,
@@ -1822,6 +1824,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         encryptIniFiles: commonSchemas.booleanProp,
         encryptPakIndex: commonSchemas.booleanProp,
         includePrerequisites: commonSchemas.booleanProp,
+        runProjectValidation: commonSchemas.booleanProp,
+        validatePlugins: commonSchemas.booleanProp,
         filePath: commonSchemas.stringProp,
         projectPath: commonSchemas.stringProp,
         enginePath: commonSchemas.stringProp,

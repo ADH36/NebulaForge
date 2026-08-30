@@ -172,6 +172,30 @@ describe('handlePipelineTools validate_release', () => {
   });
 });
 
+describe('handlePipelineTools release_gate', () => {
+  it('aggregates artifact evidence into a shippability decision', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-release-gate-'));
+    try {
+      await fs.writeFile(path.join(tempRoot, 'Game-Win64-Shipping.pak'), 'pak');
+      const result = await handlePipelineTools('release_gate', {
+        archiveDirectory: tempRoot,
+        requiredFiles: ['Game-Win64-Shipping.pak'],
+        requirePak: true,
+        runProjectValidation: false,
+        validatePlugins: false
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({
+        success: true,
+        passedChecks: ['artifact'],
+        failedChecks: [],
+        checks: { artifact: { success: true } }
+      });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('handlePipelineTools deploy_package', () => {
   it('builds a confined Android deployment command in dry-run mode', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-deploy-'));

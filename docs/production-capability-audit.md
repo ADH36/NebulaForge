@@ -18,6 +18,8 @@ Profiling update: native `system_control` now exposes `start_session`, `get_sess
 
 Animation validation update: `animation_physics.validate_animation_asset` now validates that an asset exists and is a supported animation sequence or montage, reports duration and skeleton identity, and applies optional duration/skeleton gates with structured diagnostics.
 
+VFX validation update: `manage_effect.validate_niagara_system` now reports emitter/renderer counts and can fail explicit `maxEmitters` and `maxRenderers` budgets instead of treating every valid Niagara asset as production-ready.
+
 Profiling gate update: native `system_control.start_memory_report` requests a full Unreal memory report, `configure_stat_commands` applies only bounded stat names with structured rejection reporting, `capture_insights_trace` starts a confined file-backed `.utrace` capture, `start_network_profiler` controls `.nprof` recording, and Visual Logger recording/text markers are available. Host `analyze_trace` launches UnrealInsights in bounded headless analysis mode and reports its terminal result; metric export remains follow-up work.
 
 Automation update: `system_control.run_tests` can now persist a bounded terminal JSON report under `Saved/AutomationReports`, including job state, exit code, command, stdout, stderr, and truncation metadata.
@@ -26,17 +28,23 @@ The report also includes a conservative, explicitly non-authoritative `testSumma
 
 Release update: `system_control.validate_release` can optionally verify an in-archive SHA-256 manifest, in addition to required files and `.pak` presence, so build output can be integrity-gated before signing or distribution.
 
+Release-gate update: host `system_control.release_gate` composes release-artifact checks with optional static project validation and declared-plugin dependency validation, returning per-check results and passed/failed check names. Archive requirements use `requiredFiles`/`requiredDirectories`; source-project requirements use `projectRequiredFiles`/`projectRequiredDirectories` to prevent scope conflation.
+
 Packaging update: host `system_control.run_uat` now exposes explicit BuildCookRun controls for compressed output, encrypted INI files, encrypted PAK indexes, and platform prerequisites; project key management and platform-specific encryption policy remain required for a valid release.
 
 Map validation update: editor `system_control.check_map_errors` executes Unreal's Map Check against the loaded editor world and returns structured error/warning counts from the MapCheck log; it intentionally reports an unavailable-world error when no map is loaded.
 
 Functional-test update: editor `system_control.create_functional_test` creates a FunctionalTesting actor when the plugin is enabled, returns its object path, and leaves assertion/configuration policy to subsequent authoring actions.
 
-Capability-report update: `inspect.production_capabilities` now advertises the automation-report, SHA-256 release-manifest, Map Check, and Functional Testing additions so AI clients do not have to infer them from documentation.
+Capability-report update: `inspect.production_capabilities` now advertises the automation-report, SHA-256 release-manifest, release-gate, Map Check, Functional Testing, animation validation, VFX budget, and online identity additions so AI clients do not have to infer them from documentation.
 
 Blueprint validation update: `system_control.validate_blueprints` now performs a bounded editor sweep over `/Game` or explicitly selected asset paths, compiles each Blueprint, returns compiler messages and counts, and optionally saves only successful compilations.
 
 Online update: `manage_networking.get_online_session_status` reports the provider, session existence, and native Online Subsystem lifecycle state for a named session, allowing automation to verify asynchronous create/join/destroy progress.
+
+Online identity update: `manage_networking.get_online_identity_status` reports the active provider, local-user login state, nickname, and unique net ID when the configured Online Subsystem exposes `IOnlineIdentity`; provider-specific login/account linking remains an explicit integration boundary.
+
+Online capability update: `get_online_capabilities` now reports achievement, leaderboard, stats, and external-UI interface availability alongside sessions, identity, friends, and presence.
 
 Online reliability update: OnlineSubsystem create/find/join/destroy delegates now have bounded `timeoutMs` deadlines and exactly-once terminal response handling, so a provider that never completes cannot leave an MCP request hanging indefinitely.
 
@@ -149,7 +157,7 @@ Evidence: [AnimationHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForg
 | Ribbon/trail authoring | ⚠️ | Conditional implementation. |
 | Effect presets | ❌ | Legacy effect actions remain stubbed. |
 | Attachment/lifespan/pooling | ❌ | No complete effect lifecycle management. |
-| VFX performance validation | ❌ | No production VFX budget or profiling gate. |
+| VFX performance validation | ⚠️ | `validate_niagara_system` provides explicit emitter/renderer budget gates; GPU/CPU cost, memory, and frame-time budgets still require project-specific profiling captures. |
 
 Evidence: [native-automation-progress.md](./native-automation-progress.md#niagara--effect-handlers), [NiagaraHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_NiagaraHandlers.cpp#L247)
 
@@ -173,7 +181,7 @@ Evidence: [AudioAuthoringHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebul
 | Replication primitives | ✅ | Property replication, RPC, ownership, relevancy, and prediction controls exist. |
 | Local/LAN sessions | ✅ | LAN hosting/joining and local multiplayer are covered. |
 | Matchmaking and lobbies | ⚠️ | Provider-agnostic Online Subsystem session create/find/join/destroy lifecycle is implemented; provider-specific lobbies and matchmaking policies remain incomplete. |
-| Presence/account/platform identity | ⚠️ | Online capability discovery reports identity, presence, friends, and lobby interfaces; provider-specific account flows remain incomplete. |
+| Presence/account/platform identity | ⚠️ | Capability discovery plus `get_online_identity_status` report the active identity interface, login state, nickname, and unique net ID; provider-specific account, presence, and friends flows remain incomplete. |
 | Dedicated-server build/deploy | ⚠️ | `run_uat` now supports server/no-client BuildCookRun variants with a separate server configuration; deployment and platform hosting remain absent. |
 | Multiplayer soak/latency/reconnect tests | ❌ | No complete automated network test suite. |
 | Platform-grade voice integration | ⚠️ | Basic voice controls exist, but platform/backend integration is incomplete. |

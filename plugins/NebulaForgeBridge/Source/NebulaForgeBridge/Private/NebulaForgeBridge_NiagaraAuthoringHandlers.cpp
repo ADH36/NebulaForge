@@ -2990,7 +2990,8 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNiagaraAuthoringAction(
         // Check if system has emitters
         if (System->GetEmitterHandles().Num() == 0)
         {
-            WarningsArray.Add(MakeShared<FJsonValueString>(TEXT("System has no emitters.")));
+            bIsValid = false;
+            ErrorsArray.Add(MakeShared<FJsonValueString>(TEXT("System has no emitters.")));
         }
 
         // Check each emitter for issues

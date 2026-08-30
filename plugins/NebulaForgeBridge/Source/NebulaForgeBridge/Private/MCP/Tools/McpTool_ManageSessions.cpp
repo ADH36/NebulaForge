@@ -54,7 +54,8 @@ public:
 				TEXT("mute_player"),
 				TEXT("set_voice_attenuation"),
 				TEXT("configure_push_to_talk"),
-				TEXT("get_sessions_info")
+				TEXT("get_sessions_info"),
+				TEXT("get_online_identity_status")
 			}, TEXT("Sessions action to perform."))
 			.String(TEXT("sessionName"), TEXT("Name of the session."))
 			.Number(TEXT("maxPlayers"), TEXT(""))

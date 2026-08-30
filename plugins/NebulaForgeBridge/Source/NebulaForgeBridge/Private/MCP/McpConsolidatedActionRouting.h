@@ -507,7 +507,7 @@ inline const TArray<FString>& SystemControlCore()
 		TEXT("profile"), TEXT("show_fps"), TEXT("set_quality"),
 		TEXT("screenshot"), TEXT("set_resolution"), TEXT("set_fullscreen"),
 		TEXT("execute_command"), TEXT("console_command"), TEXT("run_ubt"),
-      TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("validate_project"), TEXT("inspect_platform_capabilities"), TEXT("manage_project_plugin"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
+      TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("release_gate"), TEXT("validate_project"), TEXT("inspect_platform_capabilities"), TEXT("manage_project_plugin"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
       TEXT("read_project_file"), TEXT("write_project_file"), TEXT("validate_blueprints"), TEXT("start_memory_report"), TEXT("configure_stat_commands"), TEXT("check_for_errors"), TEXT("start_network_profiler"), TEXT("enable_visual_logger"), TEXT("add_visual_log_entry"),
       TEXT("generate_save_game_class"),
       TEXT("list_gameplay_tags"), TEXT("get_runtime_gameplay_tag"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
@@ -639,7 +639,7 @@ inline const TArray<FString>& Sessions()
 		TEXT("set_voice_channel"), TEXT("mute_player"),
 		TEXT("set_voice_attenuation"), TEXT("configure_push_to_talk"),
 		TEXT("get_sessions_info"), TEXT("get_online_capabilities"),
-		TEXT("get_online_session_status"), TEXT("create_online_session"), TEXT("find_online_sessions"),
+		TEXT("get_online_session_status"), TEXT("get_online_identity_status"), TEXT("create_online_session"), TEXT("find_online_sessions"),
 		TEXT("join_online_session"), TEXT("destroy_online_session"),
 		TEXT("configure_network_conditions")
 	};

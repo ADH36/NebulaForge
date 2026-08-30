@@ -1028,6 +1028,13 @@ export interface PipelineArgs extends HandlerArgs {
     encryptIniFiles?: boolean;
     encryptPakIndex?: boolean;
     includePrerequisites?: boolean;
+    requiredDirectories?: string[];
+    projectRequiredFiles?: string[];
+    projectRequiredDirectories?: string[];
+    runProjectValidation?: boolean;
+    validatePlugins?: boolean;
+    enginePath?: string;
+    timeoutMs?: number;
     server?: boolean;
     serverConfiguration?: string;
     artifactPath?: string;

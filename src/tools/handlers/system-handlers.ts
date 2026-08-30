@@ -8,7 +8,7 @@ import { readProjectFile, writeProjectFile } from '../../services/project-file-s
 import { generateSaveGameClass } from '../../services/save-game-generator.js';
 import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../services/gameplay-tags-service.js';
 import { getConfigValue, listConfigLayers, setConfigValue } from '../../services/config-service.js';
-import { validateProject } from '../../services/project-validation-service.js';
+import { runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
 
@@ -109,7 +109,33 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       const requiredDirectories = Array.isArray(record.requiredDirectories)
         ? record.requiredDirectories.filter((entry): entry is string => typeof entry === 'string')
         : undefined;
-      return validateProject({ projectPath: argsTyped.projectPath, requiredFiles, requiredDirectories });
+      const validationMode = record.validationMode === 'data_validation' ? 'data_validation' : 'static';
+      const validationArguments = Array.isArray(record.validationArguments)
+        ? record.validationArguments.filter((entry): entry is string => typeof entry === 'string')
+        : undefined;
+      return validateProject({
+        projectPath: argsTyped.projectPath,
+        requiredFiles,
+        requiredDirectories,
+        includeInventory: record.includeInventory !== false,
+        validationMode,
+        enginePath: typeof record.enginePath === 'string' ? record.enginePath : undefined,
+        validationArguments,
+        timeoutMs: typeof record.timeoutMs === 'number' ? record.timeoutMs : undefined
+      });
+    }
+    case 'run_tests': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.projectPath === 'string' && record.projectPath.trim().length > 0) {
+        return runUnrealAutomationTests({
+          projectPath: record.projectPath,
+          enginePath: typeof record.enginePath === 'string' ? record.enginePath : undefined,
+          filter: typeof record.filter === 'string' ? record.filter : undefined,
+          test: typeof record.test === 'string' ? record.test : undefined,
+          timeoutMs: typeof record.timeoutMs === 'number' ? record.timeoutMs : undefined
+        });
+      }
+      return cleanObject(await executeAutomationRequest(tools, 'system_control', args, 'Automation bridge not available for system control operations')) as Record<string, unknown>;
     }
     case 'manage_project_plugin': {
       const record = argsTyped as Record<string, unknown>;

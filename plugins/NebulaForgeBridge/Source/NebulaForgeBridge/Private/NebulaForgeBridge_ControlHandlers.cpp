@@ -184,6 +184,7 @@
 #include "GameFramework/PlayerInput.h"
 #include "GameplayTagAssetInterface.h"
 #include "GameplayTagContainer.h"
+#include "GameplayTagsManager.h"
 #include "Materials/MaterialInterface.h"
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1)
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
@@ -3054,6 +3055,18 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorGetMetadata(
   }
   Data->SetArrayField(TEXT("tags"), TagsArray);
 
+  TArray<TSharedPtr<FJsonValue>> GameplayTagsArray;
+  const IGameplayTagAssetInterface* TaggedActor = Cast<IGameplayTagAssetInterface>(Found);
+  if (TaggedActor) {
+    FGameplayTagContainer GameplayTags;
+    TaggedActor->GetOwnedGameplayTags(GameplayTags);
+    for (const FGameplayTag& GameplayTag : GameplayTags) {
+      GameplayTagsArray.Add(MakeShared<FJsonValueString>(GameplayTag.ToString()));
+    }
+  }
+  Data->SetArrayField(TEXT("gameplayTags"), GameplayTagsArray);
+  Data->SetBoolField(TEXT("implementsGameplayTagAssetInterface"), TaggedActor != nullptr);
+
   const FTransform Current = Found->GetActorTransform();
   auto MakeArray = [](const FVector &Vec) {
     TArray<TSharedPtr<FJsonValue>> Arr;
@@ -4106,6 +4119,59 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return HandleControlActorAddTag(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("remove_tag"))
     return HandleControlActorRemoveTag(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("get_gameplay_tags"))
+    return HandleControlActorGet(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {
+    FString TargetName;
+    FString TagValue;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("tag"), TagValue);
+    TargetName.TrimStartAndEndInline();
+    TagValue.TrimStartAndEndInline();
+    if (TargetName.IsEmpty() || TagValue.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName and tag required"), nullptr);
+      return true;
+    }
+    AActor* Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    const FGameplayTag GameplayTag = UGameplayTagsManager::Get().RequestGameplayTag(FName(*TagValue), false);
+    if (!GameplayTag.IsValid()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("TAG_NOT_REGISTERED"), TEXT("tag is not registered with the Gameplay Tag Manager"), nullptr);
+      return true;
+    }
+    FStructProperty* ContainerProperty = nullptr;
+    for (const FName PropertyName : { FName(TEXT("OwnedGameplayTags")), FName(TEXT("GameplayTags")), FName(TEXT("OwnedTags")), FName(TEXT("TagContainer")) }) {
+      FStructProperty* Candidate = FindFProperty<FStructProperty>(Found->GetClass(), PropertyName);
+      if (Candidate && Candidate->Struct == FGameplayTagContainer::StaticStruct()) {
+        ContainerProperty = Candidate;
+        break;
+      }
+    }
+    if (!ContainerProperty) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("GAMEPLAY_TAG_CONTAINER_UNSUPPORTED"), TEXT("Actor has no writable FGameplayTagContainer property"), nullptr);
+      return true;
+    }
+    FGameplayTagContainer* Container = ContainerProperty->ContainerPtrToValuePtr<FGameplayTagContainer>(Found);
+    const bool bRemove = LowerSub == TEXT("remove_gameplay_tag");
+    const bool bWasPresent = Container->HasTagExact(GameplayTag);
+    Found->Modify();
+    if (bRemove) Container->RemoveTag(GameplayTag);
+    else Container->AddTag(GameplayTag);
+    Found->PostEditChange();
+    Found->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Result->SetStringField(TEXT("tag"), GameplayTag.ToString());
+    Result->SetStringField(TEXT("property"), ContainerProperty->GetName());
+    Result->SetBoolField(TEXT("wasPresent"), bWasPresent);
+    Result->SetBoolField(TEXT("changed"), bRemove ? bWasPresent : !bWasPresent);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                            bRemove ? TEXT("Gameplay Tag removed from actor") : TEXT("Gameplay Tag added to actor"), Result, FString());
+    return true;
+  }
   if (LowerSub == TEXT("find_by_name") || LowerSub == TEXT("find_actors_by_name"))
     return HandleControlActorFindByName(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("delete_by_tag"))

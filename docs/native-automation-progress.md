@@ -65,7 +65,7 @@ This document tracks ongoing work to replace stubbed or registry-based fallbacks
 | --- | --- | --- |
 | `system_control` (logs) | Implemented (`subscribe`). | Add real-time streaming. |
 | `system_control` (debug) | Implemented (`spawn_category`). | Add GGameplayDebugger integration. |
-| `system_control` (insights) | Implemented (`start_session`). | Add FTraceAuxiliary integration. |
+| `system_control` (insights) | Implemented (`start_session`, `stop_session`, `get_session_status`) with guarded `FTraceAuxiliary` state/stop handling. | Add trace-file capture and automated analysis/report persistence. |
 | `control_editor` (ui) | Implemented (`simulate_input`). | Add FSlateApplication integration. |
 
 ## SCS (Simple Construction Script) Helpers

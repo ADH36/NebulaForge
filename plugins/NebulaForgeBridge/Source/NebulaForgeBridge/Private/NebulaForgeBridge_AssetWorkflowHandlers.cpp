@@ -192,10 +192,13 @@
 #include "UObject/ObjectRedirector.h"
 #include "UObject/Package.h"
 #include "Engine/DataAsset.h"
+#include "Engine/AssetManager.h"
+#include "Engine/AssetManagerTypes.h"
 #include "Engine/DataTable.h"
 #include "Engine/CurveTable.h"
 #include "Curves/RichCurve.h"
 #include "UObject/StructOnScope.h"
+#include "UObject/SoftObjectPath.h"
 
 // -----------------------------------------------------------------------------
 // Editor-only Includes (Graph/Blueprint)
@@ -447,6 +450,75 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
       Lower == TEXT("get_data_asset_properties") ||
       Lower == TEXT("set_data_asset_properties"))
     return HandleDataAssetAction(RequestId, Lower, Payload, RequestingSocket);
+
+  if (Lower == TEXT("list_primary_assets") || Lower == TEXT("get_primary_asset")) {
+    UAssetManager& AssetManager = UAssetManager::Get();
+    auto GetString = [Payload](const TCHAR* Field) {
+      FString Value;
+      if (Payload.IsValid()) Payload->TryGetStringField(Field, Value);
+      return Value;
+    };
+
+    if (Lower == TEXT("list_primary_assets")) {
+      FString TypeName = GetString(TEXT("primaryAssetType"));
+      TArray<FPrimaryAssetId> AssetIds;
+      if (!TypeName.IsEmpty()) {
+        AssetManager.GetPrimaryAssetIdList(FPrimaryAssetType(*TypeName), AssetIds, EAssetManagerFilter::Default);
+      } else {
+        TArray<FPrimaryAssetTypeInfo> TypeInfos;
+        AssetManager.GetPrimaryAssetTypeInfoList(TypeInfos);
+        for (const FPrimaryAssetTypeInfo& TypeInfo : TypeInfos) {
+          TArray<FPrimaryAssetId> TypeAssetIds;
+          AssetManager.GetPrimaryAssetIdList(TypeInfo.PrimaryAssetType, TypeAssetIds, EAssetManagerFilter::Default);
+          AssetIds.Append(TypeAssetIds);
+        }
+      }
+
+      int32 Offset = 0;
+      int32 Limit = 200;
+      if (Payload.IsValid()) {
+        double Number = 0.0;
+        if (Payload->TryGetNumberField(TEXT("offset"), Number)) Offset = FMath::Max(0, FMath::Min(static_cast<int32>(Number), AssetIds.Num()));
+        if (Payload->TryGetNumberField(TEXT("limit"), Number)) Limit = FMath::Clamp(static_cast<int32>(Number), 1, 1000);
+      }
+      const int32 End = FMath::Min(AssetIds.Num(), Offset + Limit);
+      TArray<TSharedPtr<FJsonValue>> Assets;
+      for (int32 Index = Offset; Index < End; ++Index) {
+        const FPrimaryAssetId& Id = AssetIds[Index];
+        TSharedPtr<FJsonObject> Asset = MakeShared<FJsonObject>();
+        Asset->SetStringField(TEXT("id"), Id.ToString());
+        Asset->SetStringField(TEXT("type"), Id.PrimaryAssetType.ToString());
+        Asset->SetStringField(TEXT("name"), Id.PrimaryAssetName.ToString());
+        Asset->SetStringField(TEXT("path"), AssetManager.GetPrimaryAssetPath(Id).ToString());
+        Assets.Add(MakeShared<FJsonValueObject>(Asset));
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetArrayField(TEXT("assets"), Assets);
+      Result->SetNumberField(TEXT("total"), AssetIds.Num());
+      Result->SetNumberField(TEXT("offset"), Offset);
+      Result->SetNumberField(TEXT("limit"), Limit);
+      Result->SetBoolField(TEXT("truncated"), End < AssetIds.Num());
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Primary Assets listed"), Result, FString());
+      return true;
+    }
+
+    FString IdString = GetString(TEXT("primaryAssetId"));
+    FString AssetPath = GetString(TEXT("assetPath"));
+    FPrimaryAssetId Id = IdString.IsEmpty() ? FPrimaryAssetId() : FPrimaryAssetId::FromString(IdString);
+    if (!Id.IsValid() && !AssetPath.IsEmpty()) Id = AssetManager.GetPrimaryAssetIdForPath(FSoftObjectPath(AssetPath));
+    if (!Id.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("get_primary_asset requires a valid primaryAssetId or registered assetPath"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("id"), Id.ToString());
+    Result->SetStringField(TEXT("type"), Id.PrimaryAssetType.ToString());
+    Result->SetStringField(TEXT("name"), Id.PrimaryAssetName.ToString());
+    Result->SetStringField(TEXT("path"), AssetManager.GetPrimaryAssetPath(Id).ToString());
+    Result->SetBoolField(TEXT("loaded"), AssetManager.GetPrimaryAssetObject(Id) != nullptr);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Primary Asset inspected"), Result, FString());
+    return true;
+  }
   if (Lower == TEXT("create_media_player") ||
       Lower == TEXT("create_media_source") ||
       Lower == TEXT("create_media_texture") ||

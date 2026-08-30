@@ -1439,7 +1439,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `run_gauntlet_test`
 
 ### 33.2 Profiling
-- [ ] `start_unreal_insights`
+- [x] `start_unreal_insights` (via `system_control.start_session`)
+- [x] `stop_unreal_insights` / `get_unreal_insights_status` (via `system_control`)
 - [ ] `capture_insights_trace`
 - [ ] `analyze_trace`
 - [ ] `start_memory_report`

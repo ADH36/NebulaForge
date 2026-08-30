@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AutomationBridge } from '../../automation/index.js';
 import type { ITools } from '../../types/tool-interfaces.js';
-import { createSubActionDispatcher, executeAutomationRequest, getTimeoutMs, normalizePathFields, validateSecurityPatterns } from './common-handlers.js';
+import { createSubActionDispatcher, executeAutomationRequest, getTimeoutMs, normalizePathFields, standardizeResultContract, validateSecurityPatterns } from './common-handlers.js';
 
 vi.mock('../../config.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../config.js')>();
@@ -80,6 +80,23 @@ describe('getTimeoutMs', () => {
 
       expect(getTimeoutMs(1234)).toBe(1234);
     }
+  });
+});
+
+describe('standardizeResultContract async lifecycle', () => {
+  it('marks host jobs as running when a managed job is returned', () => {
+    expect(standardizeResultContract({ success: true, result: { started: true, jobId: 'job-1' } })).toMatchObject({
+      success: true,
+      status: 'running'
+    });
+  });
+
+  it('preserves a native terminal status', () => {
+    expect(standardizeResultContract({ success: true, status: 'completed', result: { saved: true } })).toEqual({
+      success: true,
+      status: 'completed',
+      result: { saved: true }
+    });
   });
 });
 

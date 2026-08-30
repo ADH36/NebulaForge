@@ -19,6 +19,7 @@ export interface JobSnapshot {
 
 interface ManagedJob extends JobSnapshot {
   process?: ChildProcessWithoutNullStreams;
+  deadlineTimer?: NodeJS.Timeout;
 }
 
 const MAX_OUTPUT_SIZE = 256 * 1024;
@@ -34,6 +35,7 @@ class JobManager {
   public startProcess(options: {
     label: string;
     process: ChildProcessWithoutNullStreams;
+    timeoutMs?: number;
   }): JobSnapshot {
     this.pruneFinishedJobs();
     const job: ManagedJob = {
@@ -48,6 +50,16 @@ class JobManager {
     };
     this.jobs.set(job.jobId, job);
 
+    if (options.timeoutMs !== undefined && Number.isFinite(options.timeoutMs) && options.timeoutMs > 0) {
+      job.deadlineTimer = setTimeout(() => {
+        if (job.status !== 'running' && job.status !== 'queued') return;
+        job.status = 'failed';
+        job.error = `Job exceeded timeout of ${options.timeoutMs}ms`;
+        job.finishedAt = new Date().toISOString();
+        job.process?.kill();
+      }, options.timeoutMs);
+    }
+
     options.process.stdout.on('data', (chunk: Buffer | string) => {
       this.appendOutput(job, 'output', chunk.toString());
     });
@@ -55,19 +67,21 @@ class JobManager {
       this.appendOutput(job, 'errorOutput', chunk.toString());
     });
     options.process.once('error', (error: Error) => {
+      if (job.deadlineTimer) clearTimeout(job.deadlineTimer);
       job.status = 'failed';
       job.error = error.message;
       job.finishedAt = new Date().toISOString();
     });
     options.process.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
+      if (job.deadlineTimer) clearTimeout(job.deadlineTimer);
       job.exitCode = code;
       job.signal = signal;
       if (job.status === 'cancelled') {
         job.finishedAt ??= new Date().toISOString();
-      } else {
+      } else if (job.status === 'running' || job.status === 'queued') {
         job.status = code === 0 ? 'completed' : 'failed';
-        job.finishedAt = new Date().toISOString();
       }
+      job.finishedAt ??= new Date().toISOString();
       job.process = undefined;
     });
 
@@ -91,6 +105,7 @@ class JobManager {
     if (job.status === 'running' || job.status === 'queued') {
       job.status = 'cancelled';
       job.finishedAt = new Date().toISOString();
+      if (job.deadlineTimer) clearTimeout(job.deadlineTimer);
       job.process?.kill();
     }
     return this.snapshot(job);

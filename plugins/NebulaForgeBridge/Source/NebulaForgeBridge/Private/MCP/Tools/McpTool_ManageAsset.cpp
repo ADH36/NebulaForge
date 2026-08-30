@@ -58,6 +58,8 @@ public:
 			.StringEnum(TEXT("mediaType"), { TEXT("file"), TEXT("stream") }, TEXT("Media source type."))
 			.String(TEXT("mediaPlayerPath"), TEXT("Media player asset path."))
 			.String(TEXT("mediaSourcePath"), TEXT("Media source asset path."))
+			.String(TEXT("primaryAssetType"), TEXT("Primary Asset type name."))
+			.String(TEXT("primaryAssetId"), TEXT("Primary Asset identifier (Type:Name)."))
 			.String(TEXT("meshPath"), TEXT("Mesh asset path."))
 			.String(TEXT("tag"), TEXT("Name of the tag."))
 			.FreeformObject(TEXT("metadata"), TEXT(""))

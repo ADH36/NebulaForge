@@ -40,4 +40,18 @@ describe('JobManager', () => {
     const finished = await waitForTerminal(started.jobId);
     expect(finished?.status).toBe('cancelled');
   });
+
+  it('fails and terminates a process that exceeds its deadline', async () => {
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    const started = jobManager.startProcess({ label: 'test-timeout', process: child, timeoutMs: 25 });
+    const finished = await waitForTerminal(started.jobId);
+
+    expect(finished).toMatchObject({
+      jobId: started.jobId,
+      status: 'failed',
+      error: 'Job exceeded timeout of 25ms'
+    });
+  });
 });

@@ -27,4 +27,13 @@ describe('manageProjectPlugins', () => {
     const result = await manageProjectPlugins(root, 'enable', 'MissingPlugin');
     expect(result.error).toBe('PLUGIN_NOT_DECLARED');
   });
+
+  it('validates local plugin descriptors and dependencies', async () => {
+    const root = await pluginFixture();
+    await fs.mkdir(path.join(root, 'Plugins', 'ExamplePlugin'), { recursive: true });
+    await fs.writeFile(path.join(root, 'Plugins', 'ExamplePlugin', 'ExamplePlugin.uplugin'), JSON.stringify({ FileVersion: 3, Plugins: [{ Name: 'MissingDependency' }] }));
+    const result = await manageProjectPlugins(root, 'validate');
+    expect(result.success).toBe(false);
+    expect(result.dependencyIssues).toEqual([{ plugin: 'ExamplePlugin', dependency: 'MissingDependency' }]);
+  });
 });

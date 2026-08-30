@@ -207,7 +207,14 @@ function isPathInside(root: string, candidate: string): boolean {
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
+function getProcessTimeoutMs(args: PipelineArgs): number | undefined {
+  return typeof args.timeoutMs === 'number' && Number.isFinite(args.timeoutMs) && args.timeoutMs > 0
+    ? args.timeoutMs
+    : undefined;
+}
+
 async function signRelease(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const processTimeoutMs = getProcessTimeoutMs(args);
   const platform = args.platform || 'Win64';
   const artifactInput = typeof args.artifactPath === 'string' ? args.artifactPath.trim() : '';
   if (!artifactInput) return { success: false, error: 'INVALID_ARGUMENT', message: 'artifactPath is required for sign_release' };
@@ -262,7 +269,7 @@ async function signRelease(args: PipelineArgs): Promise<Record<string, unknown>>
     return { success: false, error: 'SIGNING_SECRET_MISSING', message: `Signing password environment variable is not set: ${args.signingPasswordEnv}` };
   }
   const child = spawn(executable, commandArgs, { shell: false, env: childEnv });
-  const job = jobManager.startProcess({ label: `sign_release:${platform}`, process: child });
+  const job = jobManager.startProcess({ label: `sign_release:${platform}`, process: child, timeoutMs: processTimeoutMs });
   if (args.async === true) return { ...result, started: true, jobId: job.jobId, status: job.status };
   return await new Promise(resolve => {
     child.once('close', code => resolve({ ...result, success: code === 0, error: code === 0 ? undefined : 'SIGNING_FAILED', exitCode: code, jobId: job.jobId }));
@@ -271,6 +278,7 @@ async function signRelease(args: PipelineArgs): Promise<Record<string, unknown>>
 }
 
 async function runPackaged(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const processTimeoutMs = getProcessTimeoutMs(args);
   const artifactInput = typeof args.artifactPath === 'string' ? args.artifactPath.trim() : '';
   if (!artifactInput) return { success: false, error: 'INVALID_ARGUMENT', message: 'artifactPath is required for run_packaged' };
   const projectInput = args.projectPath || process.env.UE_PROJECT_PATH;
@@ -289,7 +297,7 @@ async function runPackaged(args: PipelineArgs): Promise<Record<string, unknown>>
   const result = { success: true, dryRun, artifactPath, arguments: commandArgs };
   if (dryRun) return result;
   const child = spawn(artifactPath, commandArgs, { shell: false, cwd: path.dirname(artifactPath), env: process.env });
-  const job = jobManager.startProcess({ label: `run_packaged:${path.basename(artifactPath)}`, process: child });
+  const job = jobManager.startProcess({ label: `run_packaged:${path.basename(artifactPath)}`, process: child, timeoutMs: processTimeoutMs });
   if (args.async === true) return { ...result, started: true, jobId: job.jobId, status: job.status };
   return await new Promise(resolve => {
     child.once('close', code => resolve({ ...result, success: code === 0, error: code === 0 ? undefined : 'PACKAGED_RUNTIME_FAILED', exitCode: code, jobId: job.jobId }));
@@ -602,7 +610,7 @@ export async function handlePipelineTools(action: string, args: PipelineArgs, to
       const executable = process.platform === 'win32' ? 'cmd.exe' : 'bash';
       const actualArgs = process.platform === 'win32' ? ['/d', '/s', '/c', script, ...buildCookRunArgs] : [script, ...buildCookRunArgs];
       const child = spawn(executable, actualArgs, { shell: false });
-      const job = jobManager.startProcess({ label: `run_uat:${operation}/${platform}/${configuration}`, process: child });
+      const job = jobManager.startProcess({ label: `run_uat:${operation}/${platform}/${configuration}`, process: child, timeoutMs: getProcessTimeoutMs(args) });
       if (args.async === true) {
         return cleanObject({ success: true, started: true, jobId: job.jobId, status: job.status, operation, server: serverBuild, archiveDirectory });
       }
@@ -700,6 +708,7 @@ export async function handlePipelineTools(action: string, args: PipelineArgs, to
         const job = jobManager.startProcess({
           label: `run_ubt:${target}/${platform}/${configuration}`,
           process: child,
+          timeoutMs: getProcessTimeoutMs(args),
         });
         return cleanObject({
           success: true,

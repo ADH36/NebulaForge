@@ -269,8 +269,12 @@ export function standardizeResultContract(response: unknown): unknown {
     return record;
   }
 
-  const failed = record.success === false || record.isError === true;
-  let status: 'success' | 'failed' | 'partial' = failed ? 'failed' : 'success';
+  const nested = record.result && typeof record.result === 'object' && !Array.isArray(record.result)
+    ? record.result as Record<string, unknown>
+    : undefined;
+  const failed = record.success === false || record.isError === true || nested?.success === false || nested?.isError === true;
+  const running = record.started === true || nested?.started === true || nested?.state === 'running' || nested?.status === 'running';
+  let status: 'success' | 'failed' | 'partial' | 'running' = failed ? 'failed' : running ? 'running' : 'success';
   if (!failed && Array.isArray(record.warnings) && record.warnings.length > 0 && record.verified === false) {
     status = 'partial';
   }

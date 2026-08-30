@@ -983,6 +983,10 @@ export interface SystemArgs extends HandlerArgs {
     priority?: number;
     activate?: boolean;
     taskType?: string;
+    validationMode?: 'static' | 'data_validation';
+    validationArguments?: string[];
+    enginePath?: string;
+    timeoutMs?: number;
 }
 
 // ============================================================================

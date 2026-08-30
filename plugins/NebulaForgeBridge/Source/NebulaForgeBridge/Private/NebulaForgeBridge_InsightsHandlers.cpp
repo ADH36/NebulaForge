@@ -9,6 +9,8 @@
 // -----------------------------------------------------------------------------
 // Action: manage_insights
 //   - start_session: Start Unreal Insights trace session with optional channels
+//   - stop_session: Stop the active trace session
+//   - get_session_status: Return active trace state and destination
 //
 // Dependencies:
 //   - Core: NebulaForgeBridgeSubsystem, NebulaForgeBridgeHelpers
@@ -66,6 +68,85 @@ bool UNebulaForgeBridgeSubsystem::HandleInsightsAction(
     if (SubAction.IsEmpty())
     {
         SubAction = GetJsonStringField(Payload, TEXT("action"));
+    }
+
+    // -------------------------------------------------------------------------
+    // stop_session: Stop the active trace session.
+    // -------------------------------------------------------------------------
+    if (SubAction == TEXT("stop_session"))
+    {
+        bool bTraceActive = false;
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
+        bTraceActive = FTraceAuxiliary::IsConnected();
+#endif
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+        const FTraceAuxiliary::ETraceSystemStatus TraceStatus = FTraceAuxiliary::GetTraceSystemStatus();
+        bTraceActive = bTraceActive ||
+            TraceStatus == FTraceAuxiliary::ETraceSystemStatus::TracingToServer ||
+            TraceStatus == FTraceAuxiliary::ETraceSystemStatus::TracingToFile;
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
+        bTraceActive = bTraceActive ||
+            TraceStatus == FTraceAuxiliary::ETraceSystemStatus::TracingToCustomRelay;
+#endif
+#endif
+        if (bTraceActive)
+        {
+            FTraceAuxiliary::Stop();
+        }
+
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetStringField(TEXT("action"), TEXT("manage_insights"));
+        Result->SetStringField(TEXT("subAction"), TEXT("stop_session"));
+        Result->SetStringField(TEXT("traceAction"), TEXT("stop_trace"));
+        Result->SetStringField(TEXT("status"), bTraceActive ? TEXT("stopped") : TEXT("already_stopped"));
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            bTraceActive ? TEXT("Trace session stopped.") : TEXT("No active trace session."), Result);
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
+    // get_session_status: Return the current trace state.
+    // -------------------------------------------------------------------------
+    if (SubAction == TEXT("get_session_status"))
+    {
+        bool bTraceActive = false;
+        FString Status = TEXT("inactive");
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
+        bTraceActive = FTraceAuxiliary::IsConnected();
+#endif
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+        const FTraceAuxiliary::ETraceSystemStatus TraceStatus = FTraceAuxiliary::GetTraceSystemStatus();
+        switch (TraceStatus)
+        {
+        case FTraceAuxiliary::ETraceSystemStatus::TracingToServer:
+            Status = TEXT("tracing_to_server");
+            bTraceActive = true;
+            break;
+        case FTraceAuxiliary::ETraceSystemStatus::TracingToFile:
+            Status = TEXT("tracing_to_file");
+            bTraceActive = true;
+            break;
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
+        case FTraceAuxiliary::ETraceSystemStatus::TracingToCustomRelay:
+            Status = TEXT("tracing_to_custom_relay");
+            bTraceActive = true;
+            break;
+#endif
+        default:
+            break;
+        }
+#endif
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetStringField(TEXT("action"), TEXT("manage_insights"));
+        Result->SetStringField(TEXT("subAction"), TEXT("get_session_status"));
+        Result->SetBoolField(TEXT("active"), bTraceActive);
+        Result->SetStringField(TEXT("status"), Status);
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
+        Result->SetStringField(TEXT("destination"), FTraceAuxiliary::GetTraceDestinationString());
+#endif
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            bTraceActive ? TEXT("Trace session is active.") : TEXT("Trace session is inactive."), Result);
+        return true;
     }
 
     // -------------------------------------------------------------------------

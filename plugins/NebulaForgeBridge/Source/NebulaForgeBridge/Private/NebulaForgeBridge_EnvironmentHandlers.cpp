@@ -4294,7 +4294,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectAction(
             Status->SetStringField(TEXT("productionPipeline"), TEXT("partial_build_cook_stage_package_archive_platform_signing_local_runtime_launch_no_deployment"));
             Status->SetStringField(TEXT("platformIntegration"), TEXT("partial_host_target_toolchain_discovery_signing_local_runtime_no_deployment"));
             Status->SetStringField(TEXT("releaseValidation"), TEXT("partial_artifact_gate_no_projectwide_unreal_validation"));
-            Status->SetStringField(TEXT("persistence"), TEXT("partial_data_asset_datatable_curvetable_savegame_slots_gameplay_tag_config_no_primary_assets_or_runtime_tags"));
+            Status->SetStringField(TEXT("persistence"), TEXT("partial_data_asset_datatable_curvetable_primary_asset_registry_runtime_savegame_slots_async_save_load_gameplay_tag_config_runtime_tag_queries_actor_tag_mutation"));
             Status->SetStringField(TEXT("cinematicsMedia"), TEXT("partial_sequencer_mrq_png_output_demo_replay_media_assets_player_controls_take_recorder_lifecycle_no_media_sources"));
             Status->SetStringField(TEXT("blueprintGameplay"), TEXT("partial_project_architecture_required"));
             Status->SetStringField(TEXT("animationCharacters"), TEXT("partial_engine_version_and_plugin_dependent"));

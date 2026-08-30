@@ -5,6 +5,12 @@
 #include "NebulaForgeBridgeHelpers.h"
 #include "NebulaForgeBridgeSubsystem.h"
 #include "McpHandlerUtils.h"
+#include "GameFramework/SaveGame.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/Guid.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
+#include "UObject/UObjectGlobals.h"
 
 #if WITH_EDITOR
 #include "Editor/UnrealEd/Public/Editor.h"
@@ -26,8 +32,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
-#include "GameFramework/SaveGame.h"
-#include "Kismet/GameplayStatics.h"
+#include "GameplayTagsManager.h"
 #include "Exporters/Exporter.h"
 #include "IPythonScriptPlugin.h"
 #include "Misc/FileHelper.h"
@@ -41,9 +46,6 @@
 #include "LatentActions.h"
 #include "Tickable.h"
 #include "UObject/UObjectIterator.h"
-#include "UObject/UObjectGlobals.h"
-#include "Serialization/JsonSerializer.h"
-#include "Serialization/JsonWriter.h"
 #endif
 
 #if WITH_EDITOR
@@ -118,6 +120,176 @@ private:
 };
 
 } // namespace
+#endif
+
+#if !WITH_EDITOR
+namespace {
+void SendManagedLifecycleEvent(UNebulaForgeBridgeSubsystem *Owner,
+                               const FString &EventName,
+                               const FString &OperationId,
+                               const TSharedPtr<FJsonObject> &Data) {
+  if (!Owner) return;
+  TSharedRef<FJsonObject> Event = MakeShared<FJsonObject>();
+  Event->SetStringField(TEXT("type"), TEXT("automation_event"));
+  Event->SetStringField(TEXT("event"), EventName);
+  Event->SetStringField(TEXT("operationId"), OperationId);
+  if (Data.IsValid()) Event->SetObjectField(TEXT("result"), Data.ToSharedRef());
+  FString Serialized;
+  const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Serialized);
+  FJsonSerializer::Serialize(Event, Writer);
+  Owner->SendRawMessage(Serialized);
+}
+}
+#endif
+
+#if !WITH_EDITOR
+bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
+    const FString &RequestId, const FString &Action,
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket) {
+  const FString Lower = Action.ToLower();
+  if (!Payload.IsValid()) {
+    SendAutomationError(RequestingSocket, RequestId, TEXT("System control payload missing"), TEXT("INVALID_PAYLOAD"));
+    return true;
+  }
+  FString SlotName;
+  Payload->TryGetStringField(TEXT("slotName"), SlotName);
+  SlotName.TrimStartAndEndInline();
+  int32 UserIndex = 0;
+  Payload->TryGetNumberField(TEXT("userIndex"), UserIndex);
+  if (UserIndex < 0 || UserIndex > 7) {
+    SendAutomationError(RequestingSocket, RequestId, TEXT("userIndex must be between 0 and 7"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  if (Lower != TEXT("list_save_game_slots") && SlotName.IsEmpty()) {
+    SendAutomationError(RequestingSocket, RequestId, TEXT("slotName is required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  for (const TCHAR Character : SlotName) {
+    if (!(FChar::IsAlnum(Character) || Character == TCHAR('_') || Character == TCHAR('-'))) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("slotName contains unsupported characters"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+  }
+
+  if (Lower == TEXT("save_game_to_slot")) {
+    FString ObjectPath;
+    Payload->TryGetStringField(TEXT("saveGameObject"), ObjectPath);
+    USaveGame *SaveGame = LoadObject<USaveGame>(nullptr, *ObjectPath);
+    if (!SaveGame) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("saveGameObject must resolve to a loaded USaveGame object"), TEXT("OBJECT_NOT_FOUND"));
+      return true;
+    }
+    bool bAsync = false;
+    Payload->TryGetBoolField(TEXT("async"), bAsync);
+    if (bAsync) {
+      const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+      const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
+      FMcpAsyncRecord Record;
+      Record.AsyncId = AsyncId;
+      Record.Execution = TEXT("save_game");
+      Record.Label = FString::Printf(TEXT("SaveGame:%s"), *SlotName);
+      Record.State = State;
+      ManagedAsyncActions.Add(AsyncId, Record);
+      const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+      UGameplayStatics::AsyncSaveGameToSlot(SaveGame, SlotName, UserIndex,
+        FAsyncSaveGameToSlotDelegate::CreateLambda([WeakThis, AsyncId, State](const FString&, const int32, bool bSuccess) {
+          State->bSucceeded.store(bSuccess);
+          State->bCompleted.store(true);
+          if (UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get()) {
+            TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
+            EventResult->SetStringField(TEXT("asyncId"), AsyncId);
+            EventResult->SetBoolField(TEXT("succeeded"), bSuccess);
+            EventResult->SetBoolField(TEXT("cancelled"), State->bCancelled.load());
+            EventResult->SetStringField(TEXT("state"), State->bCancelled.load() ? TEXT("cancelled") : (bSuccess ? TEXT("completed") : TEXT("failed")));
+            SendManagedLifecycleEvent(Owner, TEXT("save_game_completed"), AsyncId, EventResult);
+          }
+        }));
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("asyncId"), AsyncId);
+      Result->SetStringField(TEXT("slotName"), SlotName);
+      Result->SetNumberField(TEXT("userIndex"), UserIndex);
+      Result->SetStringField(TEXT("state"), TEXT("running"));
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame write started"), Result, FString());
+      return true;
+    }
+    const bool bSaved = UGameplayStatics::SaveGameToSlot(SaveGame, SlotName, UserIndex);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("slotName"), SlotName);
+    Result->SetNumberField(TEXT("userIndex"), UserIndex);
+    Result->SetBoolField(TEXT("saved"), bSaved);
+    SendAutomationResponse(RequestingSocket, RequestId, bSaved, bSaved ? TEXT("SaveGame slot written") : TEXT("SaveGame slot write failed"), Result, bSaved ? FString() : TEXT("SAVE_FAILED"));
+    return true;
+  }
+  if (Lower == TEXT("load_game_from_slot")) {
+    bool bAsync = false;
+    Payload->TryGetBoolField(TEXT("async"), bAsync);
+    if (bAsync) {
+      const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+      const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
+      FMcpAsyncRecord Record;
+      Record.AsyncId = AsyncId;
+      Record.Execution = TEXT("load_game");
+      Record.Label = FString::Printf(TEXT("LoadGame:%s"), *SlotName);
+      Record.State = State;
+      ManagedAsyncActions.Add(AsyncId, Record);
+      const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+      UGameplayStatics::AsyncLoadGameFromSlot(SlotName, UserIndex,
+        FAsyncLoadGameFromSlotDelegate::CreateLambda([WeakThis, AsyncId, State](const FString&, const int32, USaveGame *LoadedGame) {
+          const bool bSuccess = LoadedGame != nullptr;
+          State->bSucceeded.store(bSuccess);
+          State->bCompleted.store(true);
+          if (UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get()) {
+            TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
+            EventResult->SetStringField(TEXT("asyncId"), AsyncId);
+            EventResult->SetBoolField(TEXT("succeeded"), bSuccess);
+            EventResult->SetBoolField(TEXT("cancelled"), State->bCancelled.load());
+            EventResult->SetStringField(TEXT("state"), State->bCancelled.load() ? TEXT("cancelled") : (bSuccess ? TEXT("completed") : TEXT("failed")));
+            if (LoadedGame) EventResult->SetStringField(TEXT("classPath"), LoadedGame->GetClass()->GetPathName());
+            SendManagedLifecycleEvent(Owner, TEXT("load_game_completed"), AsyncId, EventResult);
+          }
+        }));
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("asyncId"), AsyncId);
+      Result->SetStringField(TEXT("slotName"), SlotName);
+      Result->SetNumberField(TEXT("userIndex"), UserIndex);
+      Result->SetStringField(TEXT("state"), TEXT("running"));
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame load started"), Result, FString());
+      return true;
+    }
+    USaveGame *Loaded = UGameplayStatics::LoadGameFromSlot(SlotName, UserIndex);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("slotName"), SlotName);
+    Result->SetNumberField(TEXT("userIndex"), UserIndex);
+    Result->SetBoolField(TEXT("exists"), Loaded != nullptr);
+    if (Loaded) Result->SetStringField(TEXT("classPath"), Loaded->GetClass()->GetPathName());
+    SendAutomationResponse(RequestingSocket, RequestId, Loaded != nullptr, Loaded ? TEXT("SaveGame slot loaded") : TEXT("SaveGame slot not found"), Result, Loaded ? FString() : TEXT("SLOT_NOT_FOUND"));
+    return true;
+  }
+  if (Lower == TEXT("delete_save_game_slot")) {
+    const bool bDeleted = UGameplayStatics::DeleteGameInSlot(SlotName, UserIndex);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("slotName"), SlotName);
+    Result->SetNumberField(TEXT("userIndex"), UserIndex);
+    Result->SetBoolField(TEXT("deleted"), bDeleted);
+    SendAutomationResponse(RequestingSocket, RequestId, bDeleted, bDeleted ? TEXT("SaveGame slot deleted") : TEXT("SaveGame slot delete failed"), Result, bDeleted ? FString() : TEXT("DELETE_FAILED"));
+    return true;
+  }
+  if (Lower == TEXT("check_save_game_slot")) {
+    const bool bExists = UGameplayStatics::DoesSaveGameExist(SlotName, UserIndex);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("slotName"), SlotName);
+    Result->SetNumberField(TEXT("userIndex"), UserIndex);
+    Result->SetBoolField(TEXT("exists"), bExists);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame slot checked"), Result, FString());
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("note"), TEXT("SaveGame slots are provider-managed; use check_save_game_slot for a known slot."));
+  Result->SetArrayField(TEXT("slots"), TArray<TSharedPtr<FJsonValue>>());
+  SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame slot listing is provider-managed"), Result, FString());
+  return true;
+}
 #endif
 
 // Subsystem actions resolve Unreal-managed lifetime scopes. They intentionally
@@ -1038,7 +1210,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
       Lower == TEXT("cancel_job") || Lower == TEXT("read_project_file") ||
       Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") ||
-      Lower == TEXT("list_gameplay_tags") || Lower == TEXT("add_gameplay_tag") ||
+      Lower == TEXT("list_gameplay_tags") || Lower == TEXT("get_runtime_gameplay_tag") || Lower == TEXT("add_gameplay_tag") ||
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
       Lower == TEXT("get_config_value") || Lower == TEXT("set_config_value");
 
@@ -1049,12 +1221,20 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       !Lower.StartsWith(TEXT("test_stale")) &&
       Lower != TEXT("export_asset") &&
       Lower != TEXT("start_session") &&
+      Lower != TEXT("stop_session") &&
+      Lower != TEXT("get_session_status") &&
       Lower != TEXT("validate_assets") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction &&
        !bHostWorkflowAction) {
     return false; // Not handled by this function
   }
+
+#if !WITH_EDITOR
+  if (bSaveGameAction) {
+    return HandleRuntimeSaveGameAction(RequestId, Lower, Payload, RequestingSocket);
+  }
+#endif
 
 #if WITH_EDITOR
   if (!Payload.IsValid()) {
@@ -1116,6 +1296,39 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
         SendAutomationError(RequestingSocket, RequestId, TEXT("saveGameObject must resolve to a loaded USaveGame object"), TEXT("OBJECT_NOT_FOUND"));
         return true;
       }
+      bool bAsyncSave = false;
+      Payload->TryGetBoolField(TEXT("async"), bAsyncSave);
+      if (bAsyncSave) {
+        const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+        const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
+        FMcpAsyncRecord Record;
+        Record.AsyncId = AsyncId;
+        Record.Execution = TEXT("save_game");
+        Record.Label = FString::Printf(TEXT("SaveGame:%s"), *SlotName);
+        Record.State = State;
+        ManagedAsyncActions.Add(AsyncId, Record);
+        const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+        UGameplayStatics::AsyncSaveGameToSlot(SaveGame, SlotName, UserIndex,
+            FAsyncSaveGameToSlotDelegate::CreateLambda([WeakThis, AsyncId, State](const FString&, const int32, bool bSuccess) {
+              State->bSucceeded.store(bSuccess);
+              State->bCompleted.store(true);
+              if (UNebulaForgeBridgeSubsystem* Owner = WeakThis.Get()) {
+                TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
+                EventResult->SetStringField(TEXT("asyncId"), AsyncId);
+                EventResult->SetBoolField(TEXT("succeeded"), bSuccess);
+                EventResult->SetBoolField(TEXT("cancelled"), State->bCancelled.load());
+                EventResult->SetStringField(TEXT("state"), State->bCancelled.load() ? TEXT("cancelled") : (bSuccess ? TEXT("completed") : TEXT("failed")));
+                SendManagedLifecycleEvent(Owner, TEXT("save_game_completed"), AsyncId, EventResult);
+              }
+            }));
+        TSharedPtr<FJsonObject> AsyncResult = McpHandlerUtils::CreateResultObject();
+        AsyncResult->SetStringField(TEXT("asyncId"), AsyncId);
+        AsyncResult->SetStringField(TEXT("slotName"), SlotName);
+        AsyncResult->SetNumberField(TEXT("userIndex"), UserIndex);
+        AsyncResult->SetStringField(TEXT("state"), TEXT("running"));
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame write started"), AsyncResult, FString());
+        return true;
+      }
       const bool bSaved = UGameplayStatics::SaveGameToSlot(SaveGame, SlotName, UserIndex);
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("slotName"), SlotName);
@@ -1125,6 +1338,41 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       return true;
     }
     if (Lower == TEXT("load_game_from_slot")) {
+      bool bAsyncLoad = false;
+      Payload->TryGetBoolField(TEXT("async"), bAsyncLoad);
+      if (bAsyncLoad) {
+        const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+        const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
+        FMcpAsyncRecord Record;
+        Record.AsyncId = AsyncId;
+        Record.Execution = TEXT("load_game");
+        Record.Label = FString::Printf(TEXT("LoadGame:%s"), *SlotName);
+        Record.State = State;
+        ManagedAsyncActions.Add(AsyncId, Record);
+        const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+        UGameplayStatics::AsyncLoadGameFromSlot(SlotName, UserIndex,
+            FAsyncLoadGameFromSlotDelegate::CreateLambda([WeakThis, AsyncId, State](const FString&, const int32, USaveGame* LoadedGame) {
+              const bool bSuccess = LoadedGame != nullptr;
+              State->bSucceeded.store(bSuccess);
+              State->bCompleted.store(true);
+              if (UNebulaForgeBridgeSubsystem* Owner = WeakThis.Get()) {
+                TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
+                EventResult->SetStringField(TEXT("asyncId"), AsyncId);
+                EventResult->SetBoolField(TEXT("succeeded"), bSuccess);
+                EventResult->SetBoolField(TEXT("cancelled"), State->bCancelled.load());
+                EventResult->SetStringField(TEXT("state"), State->bCancelled.load() ? TEXT("cancelled") : (bSuccess ? TEXT("completed") : TEXT("failed")));
+                if (LoadedGame) EventResult->SetStringField(TEXT("classPath"), LoadedGame->GetClass()->GetPathName());
+                SendManagedLifecycleEvent(Owner, TEXT("load_game_completed"), AsyncId, EventResult);
+              }
+            }));
+        TSharedPtr<FJsonObject> AsyncResult = McpHandlerUtils::CreateResultObject();
+        AsyncResult->SetStringField(TEXT("asyncId"), AsyncId);
+        AsyncResult->SetStringField(TEXT("slotName"), SlotName);
+        AsyncResult->SetNumberField(TEXT("userIndex"), UserIndex);
+        AsyncResult->SetStringField(TEXT("state"), TEXT("running"));
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame load started"), AsyncResult, FString());
+        return true;
+      }
       USaveGame *Loaded = UGameplayStatics::LoadGameFromSlot(SlotName, UserIndex);
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("slotName"), SlotName);
@@ -1166,7 +1414,32 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     return true;
   }
 
-  if (Lower == TEXT("start_session")) {
+  if (Lower == TEXT("get_runtime_gameplay_tag")) {
+    FString TagName;
+    Payload->TryGetStringField(TEXT("tag"), TagName);
+    TagName.TrimStartAndEndInline();
+    if (TagName.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("tag is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const FGameplayTag Tag = UGameplayTagsManager::Get().RequestGameplayTag(FName(*TagName), false);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("requestedTag"), TagName);
+    Result->SetBoolField(TEXT("valid"), Tag.IsValid());
+    Result->SetStringField(TEXT("canonicalTag"), Tag.IsValid() ? Tag.ToString() : FString());
+    if (Tag.IsValid()) {
+      const FGameplayTag Parent = Tag.RequestDirectParent();
+      Result->SetStringField(TEXT("parentTag"), Parent.IsValid() ? Parent.ToString() : FString());
+    }
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                            Tag.IsValid() ? TEXT("Runtime Gameplay Tag is registered") : TEXT("Runtime Gameplay Tag is not registered"),
+                            Result, FString());
+    return true;
+  }
+
+  if (Lower == TEXT("start_session") ||
+      Lower == TEXT("stop_session") ||
+      Lower == TEXT("get_session_status")) {
     return HandleInsightsAction(RequestId, TEXT("manage_insights"), Payload, RequestingSocket);
   }
 

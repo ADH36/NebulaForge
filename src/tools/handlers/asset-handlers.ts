@@ -26,6 +26,7 @@ const VALID_ASSET_ACTIONS = new Set([
   // Material operations
   'create_material', 'create_material_instance', 'create_render_target',
   'create_data_asset', 'get_data_asset_properties', 'set_data_asset_properties',
+  'list_primary_assets', 'get_primary_asset',
   'create_data_table', 'add_data_table_row', 'get_data_table_rows',
   'create_curve_table', 'add_curve_table_row', 'get_curve_table_rows',
   'import_curve_table_csv', 'export_curve_table_csv',

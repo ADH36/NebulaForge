@@ -35,11 +35,51 @@ export async function manageProjectPlugins(projectPath: string | undefined, plug
 
   const rawPlugins = Array.isArray(descriptor.Plugins) ? descriptor.Plugins : [];
   const plugins = rawPlugins.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object' && !Array.isArray(entry)));
+  if (pluginAction === 'validate') {
+    const localDescriptors = new Map<string, Record<string, unknown>>();
+    const pluginsRoot = path.join(root, 'Plugins');
+    try {
+      const pluginFolders = await fs.readdir(pluginsRoot, { withFileTypes: true });
+      for (const folder of pluginFolders.filter((entry) => entry.isDirectory())) {
+        const descriptorPath = path.join(pluginsRoot, folder.name, `${folder.name}.uplugin`);
+        try {
+          localDescriptors.set(folder.name, JSON.parse(await fs.readFile(descriptorPath, 'utf8')) as Record<string, unknown>);
+        } catch {
+          // Missing or malformed local descriptors are reported when declared.
+        }
+      }
+    } catch {
+      // A project may not have a local Plugins directory.
+    }
+    const missingLocalDescriptors = plugins
+      .map((entry) => typeof entry.Name === 'string' ? entry.Name : undefined)
+      .filter((name): name is string => typeof name === 'string' && !localDescriptors.has(name));
+    const dependencyIssues: Array<Record<string, string>> = [];
+    for (const [name, pluginDescriptor] of localDescriptors) {
+      const dependencies = Array.isArray(pluginDescriptor.Plugins) ? pluginDescriptor.Plugins : [];
+      for (const dependency of dependencies) {
+        if (!dependency || typeof dependency !== 'object' || Array.isArray(dependency)) continue;
+        const dependencyName = (dependency as Record<string, unknown>).Name;
+        if (typeof dependencyName === 'string' && !localDescriptors.has(dependencyName) && !plugins.some((entry) => entry.Name === dependencyName)) {
+          dependencyIssues.push({ plugin: name, dependency: dependencyName });
+        }
+      }
+    }
+    const valid = missingLocalDescriptors.length === 0 && dependencyIssues.length === 0;
+    return {
+      success: valid,
+      projectFile: descriptorName,
+      declaredPlugins: plugins,
+      missingLocalDescriptors,
+      dependencyIssues,
+      message: valid ? 'Project plugin declarations passed local dependency validation' : 'Project plugin dependency validation found issues'
+    };
+  }
   if (pluginAction === 'list') {
     return { success: true, projectFile: descriptorName, plugins };
   }
   if (pluginAction !== 'enable' && pluginAction !== 'disable') {
-    return { success: false, error: 'INVALID_PLUGIN_ACTION', message: 'pluginAction must be list, enable, or disable' };
+    return { success: false, error: 'INVALID_PLUGIN_ACTION', message: 'pluginAction must be list, validate, enable, or disable' };
   }
   if (!pluginName || !PLUGIN_NAME.test(pluginName)) {
     return { success: false, error: 'INVALID_PLUGIN_NAME', message: 'pluginName must be a valid Unreal plugin identifier' };

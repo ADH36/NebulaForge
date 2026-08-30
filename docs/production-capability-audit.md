@@ -8,7 +8,11 @@ Current implementation update (2026-08-30): host project validation and declared
 
 Media update: guarded Media Framework asset creation (`UMediaPlayer`, file/stream sources, `UMediaTexture`, and playlists), player open/play/pause/seek controls, demo replay controls, and Take Recorder start/stop/status lifecycle are now exposed. Media plugin availability, source-specific capture configuration, platform codecs, and packaged-runtime verification remain project-dependent.
 
+Persistence update: `manage_asset.list_primary_assets` and `manage_asset.get_primary_asset` now expose registered Unreal Asset Manager primary IDs, paths, pagination, and loaded state. `system_control.get_runtime_gameplay_tag` and `control_actor.get_gameplay_tags`/`add_gameplay_tag`/`remove_gameplay_tag` verify and safely mutate supported actor-owned Gameplay Tag containers. SaveGame slot save/load now supports managed async lifecycle IDs and completion events in editor and packaged/runtime builds. Project-specific primary-asset registration/rules/bundles and SaveGame schema/version orchestration remain project-dependent.
+
 Platform update: `system_control.inspect_platform_capabilities` now reports host/target platform support, discovered UAT/UBT paths, and available signing-tool categories without attempting an unsafe signing or deployment operation.
+
+Profiling update: native `system_control` now exposes `start_session`, `get_session_status`, and `stop_session` for Unreal trace sessions. Status and stop operations use guarded `FTraceAuxiliary` APIs where supported by the engine version; trace-file export, analysis, and persisted report generation remain follow-up work.
 
 Legend: ✅ available or substantially covered · ❌ missing, incomplete, or production-blocking · ⚠️ conditional
 
@@ -34,11 +38,11 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-32-build--deployment)
 | Capability | Status | Gap |
 |---|:---:|---|
 | Functional test authoring | ❌ | No production functional-test creation workflow. |
-| Automation test execution/results | ❌ | No complete MCP-driven automation test pipeline. |
-| Data Validation integration | ❌ | No project-wide data validation gate. |
-| Blueprint validation sweep | ❌ | No comprehensive compile/error validation across a project. |
+| Automation test execution/results | ⚠️ | `run_tests` can launch filtered or full Unreal automation tests through UnrealEditor-Cmd and waits for Unreal's automation queue-empty exit condition before reporting managed-job exit/output; project test modules and machine-readable report policy remain project dependent. |
+| Data Validation integration | ⚠️ | `validate_project` can launch UnrealEditor-Cmd's DataValidation commandlet as a bounded managed job; the engine/project must provide UnrealEditor-Cmd and the result must be polled to terminal state. |
+| Blueprint validation sweep | ⚠️ | Project-wide static validation and the live DataValidation commandlet gate are available; Blueprint compilation/error coverage still depends on the project's commandlet/plugin setup. |
 | Map error validation | ❌ | No complete map validation gate. |
-| Cook/package smoke tests | ❌ | No integrated release smoke test. |
+| Cook/package smoke tests | ⚠️ | `run_packaged` provides bounded local launch and managed process results; automated cook/package smoke policy and live Unreal verification remain project-dependent. |
 | Unreal Insights integration | ❌ | Trace capture and analysis remain incomplete. |
 | Memory/network/visual profiling | ❌ | No complete production profiling workflow. |
 
@@ -48,11 +52,11 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-33-testing--quality)
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| SaveGame class authoring | ⚠️ | `generate_save_game_class` generates constrained compile-ready C++ SaveGame classes; runtime slot operations remain incomplete. |
-| Save/load/delete slots | ⚠️ | Runtime slot save/load/delete/existence/list actions are implemented for `USaveGame` objects; async save/load and higher-level slot serialization orchestration remain incomplete. |
-| Gameplay Tags authoring | ⚠️ | Project Gameplay Tag config add/list/remove is implemented; runtime containers, native tag registration, and tag-table workflows remain incomplete. |
+| SaveGame class authoring | ⚠️ | `generate_save_game_class` generates constrained compile-ready C++ SaveGame classes; project-specific schema/versioning and migration remain a project integration boundary. |
+| Save/load/delete slots | ⚠️ | Editor and packaged/runtime slot save/load/delete/existence/list actions are implemented for `USaveGame` objects, including managed async save/load lifecycle IDs and completion events; higher-level slot serialization orchestration remains a project integration boundary. |
+| Gameplay Tags authoring | ⚠️ | Project Gameplay Tag config add/list/remove plus runtime registration, actor-container queries, and guarded actor-container mutation are implemented; native tag registration, tag-table workflows, and arbitrary subsystem container mutation remain incomplete. |
 | Config hierarchy management | ⚠️ | Config layer discovery plus validated section/key reads and atomic writes are implemented for project `.ini` files; full engine merge semantics and generated platform overrides still require live project verification. |
-| Data Assets and Primary Data Assets | ⚠️ | Generic and project-defined `UDataAsset` creation plus reflected property read/write are implemented; Primary Asset management remains incomplete. |
+| Data Assets and Primary Data Assets | ⚠️ | Generic and project-defined `UDataAsset` creation plus reflected property read/write are implemented; Asset Manager primary-asset listing and inspection are available, while project-specific registration/rules and bundle orchestration remain incomplete. |
 | DataTables and CurveTables | ⚠️ | DataTable creation, reflected row insertion, and row readback are implemented; CurveTable rich-row authoring, readback, and CSV import/export are implemented, but simple-curve mode and advanced interpolation/tangent controls remain incomplete. |
 | Asset persistence verification | ⚠️ | Some systems verify package state; many operations only mark packages dirty or return completion without reload verification. |
 
@@ -62,12 +66,12 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-31-data--persistence)
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Master/subsequence/shot workflow | ❌ | Not implemented as a complete production workflow. |
-| Camera cuts, fades, events, material tracks | ❌ | Missing from the expanded cinematic roadmap. |
+| Master/subsequence/shot workflow | ⚠️ | Level Sequence creation, binding, tracks/sections, playback, metadata, and MRQ output are available; master/subsequence/shot orchestration still requires a project-specific sequence layout. |
+| Camera cuts, fades, events, material tracks | ⚠️ | Generic track/section creation and discovered track types are available; specialized camera-cut/fade/event/material authoring remains engine/build dependent. |
 | Movie Render Queue jobs | ⚠️ | Added guarded MRQ PNG image-sequence submission, project-relative output paths, status polling, and cancellation; presets, burn-ins, codecs, and multi-job queues remain incomplete. |
-| Media Framework | ❌ | Media players, sources, textures, playlists, and playback are absent. |
-| Take Recorder | ❌ | No recording workflow. |
-| Demo/replay system | ❌ | No replay or killcam automation. |
+| Media Framework | ⚠️ | Media players, sources, textures, playlists, and guarded playback controls are available; codec/provider availability remains project dependent. |
+| Take Recorder | ⚠️ | Start/stop/status lifecycle is available when Take Recorder is compiled; track policy and capture-device configuration remain project dependent. |
+| Demo/replay system | ⚠️ | Replay controls and status are available where the replay subsystem is enabled; project recording configuration and killcam presentation remain project dependent. |
 | Lighting and post-processing controls | ✅ | Broad authoring coverage exists, but engine/project configuration remains conditional. |
 | Scene captures and reflection controls | ✅ | Implemented with renderer-dependent limitations. |
 
@@ -198,7 +202,7 @@ Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [Envir
 | In-process viewport PIE | ✅ | Best-supported runtime verification mode. |
 | Standalone PIE probes/input | ❌ | In-process probes and input delivery are not supported because standalone runs in another process. |
 | Standalone-window screenshots | ⚠️ | Direct external-window capture remains unsupported, but `mode: standalone_window` now safely reads a PNG written by the standalone game under `Saved/Screenshots` through `screenshotPath`. |
-| Unified asynchronous job system | ❌ | PCG, HLOD, shader, texture, and asset jobs use separate polling/timeout patterns. |
+| Unified asynchronous job system | ⚠️ | Host processes now share managed job lifecycle, output caps, cancellation, and polling; editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
 | Completion proof | ⚠️ | Several actions report “started” without proving final state. |
 | Undo/redo transactions | ⚠️ | Undo/redo now report success only when the editor accepts the command; transactional coverage remains incomplete across authoring handlers. |
 

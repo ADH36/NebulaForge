@@ -1632,7 +1632,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'add_blend_sample', 'force_rebuild_blend_space', 'set_axis_settings',
             'set_interpolation_settings', 'setup_retargeting',
             'add_layered_blend_per_bone', 'set_anim_graph_node_value',
-            'set_retarget_chain_mapping', 'get_animation_info',
+            'set_retarget_chain_mapping', 'get_animation_info', 'validate_animation_asset',
             'cleanup'
           ,
             ...SKELETON_ACTIONS],
@@ -1663,6 +1663,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         frame: commonSchemas.numberProp,
         time: commonSchemas.numberProp,
         length: commonSchemas.numberProp,
+        minDuration: commonSchemas.numberProp,
+        maxDuration: commonSchemas.numberProp,
+        expectedSkeletonPath: commonSchemas.assetPath,
         location: commonSchemas.location,
         rotation: commonSchemas.rotation,
         scale: commonSchemas.scale,
@@ -1779,7 +1782,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
           type: 'string',
           enum: [
             'profile', 'show_fps', 'set_quality', 'screenshot', 'set_resolution', 'set_fullscreen', 'execute_command', 'console_command',
-            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'check_for_errors', 'capture_insights_trace', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'lumen_update_scene',
+            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'check_for_errors', 'capture_insights_trace', 'analyze_trace', 'start_network_profiler', 'enable_visual_logger', 'add_visual_log_entry', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'lumen_update_scene',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python'
@@ -1834,6 +1837,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         statNames: commonSchemas.arrayOfStrings,
         logCategories: commonSchemas.arrayOfStrings,
         tracePath: commonSchemas.stringProp,
+        visualLogText: { type: 'string', maxLength: 4096 },
+        visualLogCategory: commonSchemas.stringProp,
         serverArtifactPath: commonSchemas.stringProp,
         clientArtifactPath: commonSchemas.stringProp,
         serverArguments: commonSchemas.stringProp,
@@ -1841,6 +1846,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         clientCount: commonSchemas.numberProp,
         serverPort: commonSchemas.numberProp,
         durationMs: commonSchemas.numberProp,
+        serverStartupTimeoutMs: commonSchemas.numberProp,
+        serverReadyPattern: { type: 'string', maxLength: 256, description: 'Optional literal/regex text expected in the dedicated server output before clients launch.' },
         dryRun: commonSchemas.booleanProp,
         configName: commonSchemas.stringProp,
         content: { type: 'string', maxLength: 1048576 },
@@ -1969,7 +1976,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         action: {
           type: 'string',
           enum: [
-            'create', 'open', 'add_camera', 'add_actor', 'add_actors', 'remove_actors',
+            'create', 'create_master_sequence', 'open', 'add_camera', 'create_cine_camera_actor', 'add_subsequence', 'add_shot_track', 'add_camera_cut_track', 'add_fade_track', 'add_level_visibility_track', 'add_skeletal_animation_track', 'add_transform_track', 'add_event_track', 'add_property_track', 'add_actor', 'add_actors', 'remove_actors',
             'get_bindings', 'play', 'pause', 'stop', 'set_playback_speed', 'add_keyframe',
             'get_properties', 'set_properties', 'duplicate', 'rename', 'delete', 'list', 'get_metadata', 'set_metadata',
             'add_spawnable_from_class', 'add_track', 'add_section', 'set_display_rate', 'set_tick_resolution',
@@ -2007,7 +2014,11 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         lengthInFrames: commonSchemas.numberProp,
         playbackStart: commonSchemas.numberProp,
         playbackEnd: commonSchemas.numberProp,
-        metadata: commonSchemas.objectProp
+        metadata: commonSchemas.objectProp,
+        subsequencePath: commonSchemas.assetPath,
+        childSequencePath: commonSchemas.assetPath,
+        durationFrames: commonSchemas.numberProp,
+        rowIndex: commonSchemas.numberProp
         ,outputPath: commonSchemas.outputPath
         ,mrqJobId: commonSchemas.stringProp
       },
@@ -2119,7 +2130,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             // Effects
             'create_reverb_effect', 'create_source_effect_chain', 'add_source_effect', 'create_submix_effect',
             // Utility
-            'get_audio_info'
+            'get_audio_info', 'validate_audio_asset'
           ],
           description: 'Action'
         },
@@ -2191,6 +2202,11 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         targetInputName: commonSchemas.stringProp,
         velocityScale: commonSchemas.numberProp,
         volumeAdjuster: commonSchemas.numberProp
+        ,minDuration: commonSchemas.numberProp
+        ,maxDuration: commonSchemas.numberProp
+        ,requiredSampleRate: commonSchemas.numberProp
+        ,requiredChannels: commonSchemas.numberProp
+        ,requireKnownType: commonSchemas.booleanProp
       },
       required: ['action']
     },
@@ -2516,6 +2532,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         system: commonSchemas.assetPath,
         systemPath: commonSchemas.assetPath,
         systemName: commonSchemas.stringProp,
+        maxEmitters: commonSchemas.integerProp,
+        maxRenderers: commonSchemas.integerProp,
         emitter: commonSchemas.stringProp,
         emitterName: commonSchemas.stringProp,
         emitterPath: commonSchemas.assetPath,

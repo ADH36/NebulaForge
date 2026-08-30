@@ -339,6 +339,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `add_sync_marker`
 - [x] `set_root_motion_settings`
 - [x] `set_additive_settings`
+- [x] `validate_animation_asset` (asset type, duration, and skeleton gates)
 
 ### 10.2 Animation Montages
 - [x] `create_montage`
@@ -1304,14 +1305,14 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Tool**: `manage_sequencer` (Expanded) + `manage_movie_render` + `manage_media`
 
 ### 30.1 Sequencer (Expanded)
-- [ ] `create_master_sequence`
-- [ ] `add_subsequence`
-- [ ] `add_shot_track`, `configure_shot_settings`
-- [ ] `create_cine_camera_actor`
+- [x] `create_master_sequence` (safe alias of Level Sequence creation)
+- [x] `add_subsequence` (native MovieSceneSubTrack section authoring)
+- [x] `add_shot_track` (native cinematic-shot track); [ ] `configure_shot_settings`
+- [x] `create_cine_camera_actor` (safe alias of camera binding authoring)
 - [ ] `configure_camera_settings` (filmback, lens, focus)
-- [ ] `add_camera_cut_track`, `add_camera_shake_track`
+- [x] `add_camera_cut_track`; [ ] `add_camera_shake_track`
 - [ ] `configure_camera_rig_rail`, `configure_camera_rig_crane`
-- [ ] Additional tracks: `add_fade_track`, `add_level_visibility_track`, `add_material_parameter_track`, `add_particle_track`, `add_skeletal_animation_track`, `add_transform_track`, `add_event_track`, `add_property_track`
+- [x] Additional generic tracks: `add_fade_track`, `add_level_visibility_track`, `add_skeletal_animation_track`, `add_transform_track`, `add_event_track`, `add_property_track`; [ ] material/particle-specific tracks
 
 ### 30.2 Movie Render Queue
 - [ ] `create_render_job`
@@ -1430,9 +1431,9 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Tools**: `manage_testing`, `manage_profiling`, `manage_validation`
 
 ### 33.1 Automation Testing
-- [ ] `create_functional_test`
+- [x] `create_functional_test`
 - [ ] `create_automation_test`
-- [ ] `run_automation_tests`
+- [x] `run_automation_tests` (managed job/report path)
 - [ ] `get_test_results`
 - [ ] `create_test_level`
 - [ ] `configure_test_settings`
@@ -1442,11 +1443,11 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `start_unreal_insights` (via `system_control.start_session`)
 - [x] `stop_unreal_insights` / `get_unreal_insights_status` (via `system_control`)
 - [x] `capture_insights_trace` (confined file-backed `.utrace` capture)
-- [ ] `analyze_trace`
+- [x] `analyze_trace` (bounded UnrealInsights headless analysis job)
 - [x] `start_memory_report`
-- [ ] `start_network_profiler`
-- [ ] `enable_visual_logger`
-- [ ] `add_visual_log_entry`
+- [x] `start_network_profiler` (bounded enable/disable control)
+- [x] `enable_visual_logger`
+- [x] `add_visual_log_entry`
 - [ ] `enable_gameplay_debugger`
 - [x] `configure_stat_commands`
 
@@ -1454,8 +1455,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_asset_validator`
 - [ ] `run_data_validation`
 - [x] `check_for_errors` (bounded message-log category error gate)
-- [ ] `fix_redirectors`
-- [ ] `check_map_errors`
+- [x] `fix_redirectors`
+- [x] `check_map_errors`
 - [x] `validate_blueprints` (bounded project or path sweep with compiler diagnostics)
 
 ---

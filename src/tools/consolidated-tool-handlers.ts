@@ -137,7 +137,7 @@ const animationAuthoringActionSet = new Set<string>([
   'create_aim_offset', 'add_aim_offset_sample',
   'create_anim_blueprint', 'create_animation_bp', 'create_animation_blueprint', 'add_state_machine', 'add_state', 'add_transition', 'set_transition_rules',
   'add_blend_node', 'add_cached_pose', 'add_slot_node', 'add_layered_blend_per_bone', 'set_anim_graph_node_value',
-  'create_control_rig', 'create_ik_rig', 'create_ik_retargeter', 'set_retarget_chain_mapping', 'get_animation_info'
+  'create_control_rig', 'create_ik_rig', 'create_ik_retargeter', 'set_retarget_chain_mapping', 'get_animation_info', 'validate_animation_asset'
 ]);
 const audioAuthoringActionSet = new Set<string>([
   'create_sound_cue', 'create_sound_class', 'create_sound_mix',
@@ -149,7 +149,7 @@ const audioAuthoringActionSet = new Set<string>([
   'configure_spatialization', 'configure_occlusion', 'configure_reverb_send',
   'create_dialogue_voice', 'create_dialogue_wave', 'set_dialogue_context',
   'create_reverb_effect', 'create_source_effect_chain', 'add_source_effect', 'create_submix_effect',
-  'get_audio_info'
+  'get_audio_info', 'validate_audio_asset'
 ]);
 
 function normalizeToolCall(

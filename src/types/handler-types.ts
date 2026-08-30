@@ -1044,6 +1044,9 @@ export interface PipelineArgs extends HandlerArgs {
     clientCount?: number;
     serverPort?: number;
     durationMs?: number;
+    serverStartupTimeoutMs?: number;
+    serverReadyPattern?: string;
+    tracePath?: string;
     dryRun?: boolean;
 }
 

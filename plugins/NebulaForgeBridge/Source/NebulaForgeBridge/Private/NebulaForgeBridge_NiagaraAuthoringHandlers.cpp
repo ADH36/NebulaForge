@@ -2942,6 +2942,50 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNiagaraAuthoringAction(
         TArray<TSharedPtr<FJsonValue>> WarningsArray;
 
         bool bIsValid = true;
+        int32 RendererCount = 0;
+        for (const FNiagaraEmitterHandle& Handle : System->GetEmitterHandles())
+        {
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+            MCP_NIAGARA_EMITTER_DATA_TYPE* EmitterData = Handle.GetEmitterData();
+#else
+            MCP_NIAGARA_EMITTER_DATA_TYPE* EmitterData = Handle.GetInstance();
+#endif
+            if (EmitterData)
+            {
+                RendererCount += EmitterData->GetRenderers().Num();
+            }
+        }
+
+        double MaxEmitters = -1.0;
+        if (Payload->TryGetNumberField(TEXT("maxEmitters"), MaxEmitters) &&
+            MaxEmitters >= 0.0 && System->GetEmitterHandles().Num() > MaxEmitters)
+        {
+            bIsValid = false;
+            ErrorsArray.Add(MakeShared<FJsonValueString>(FString::Printf(
+                TEXT("Emitter count %d exceeds maxEmitters %.0f."),
+                System->GetEmitterHandles().Num(), MaxEmitters)));
+        }
+
+        double MaxRenderers = -1.0;
+        if (Payload->TryGetNumberField(TEXT("maxRenderers"), MaxRenderers) &&
+            MaxRenderers >= 0.0 && RendererCount > MaxRenderers)
+        {
+            bIsValid = false;
+            ErrorsArray.Add(MakeShared<FJsonValueString>(FString::Printf(
+                TEXT("Renderer count %d exceeds maxRenderers %.0f."),
+                RendererCount, MaxRenderers)));
+        }
+
+        ValidationResult->SetNumberField(TEXT("emitterCount"), System->GetEmitterHandles().Num());
+        ValidationResult->SetNumberField(TEXT("rendererCount"), RendererCount);
+        if (MaxEmitters >= 0.0)
+        {
+            ValidationResult->SetNumberField(TEXT("maxEmitters"), MaxEmitters);
+        }
+        if (MaxRenderers >= 0.0)
+        {
+            ValidationResult->SetNumberField(TEXT("maxRenderers"), MaxRenderers);
+        }
 
         // Check if system has emitters
         if (System->GetEmitterHandles().Num() == 0)

@@ -51,9 +51,10 @@ function getMessageString(res: SequenceActionResponse | null | undefined): strin
 
 export async function handleSequenceTools(action: string, args: Record<string, unknown>, tools: ITools) {
   const seqAction = String(action || '').trim();
-  args = normalizePathFields(args, ['path', 'destinationPath']);
+  args = normalizePathFields(args, ['path', 'destinationPath', 'subsequencePath', 'childSequencePath']);
   switch (seqAction) {
-    case 'create': {
+    case 'create':
+    case 'create_master_sequence': {
       const name = requireNonEmptyString(args.name, 'name', 'Missing required parameter: name');
       const basePath = typeof args.path === 'string' ? args.path.trim().replace(/\/$/, '') : '/Game/Sequences';
 
@@ -102,13 +103,58 @@ export async function handleSequenceTools(action: string, args: Record<string, u
       }) as SequenceActionResponse;
       return cleanObject(res);
     }
-    case 'add_camera': {
+    case 'add_camera':
+    case 'create_cine_camera_actor': {
       const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
       const res = await executeAutomationRequest(tools, 'manage_sequence', {
         ...args,
         path,
         spawnable: args.spawnable !== false,
         subAction: 'add_camera'
+      }) as SequenceActionResponse;
+      return cleanObject(res);
+    }
+    case 'add_subsequence': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const subsequencePath = requireNonEmptyString(args.subsequencePath ?? args.childSequencePath, 'subsequencePath', 'Missing required parameter: subsequencePath');
+      const durationFrames = Number(args.durationFrames);
+      if (!Number.isInteger(durationFrames) || durationFrames < 1 || durationFrames > 10000000) {
+        throw new Error('durationFrames must be an integer between 1 and 10000000');
+      }
+      const res = await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args,
+        path,
+        subsequencePath,
+        durationFrames,
+        subAction: 'add_subsequence'
+      }) as SequenceActionResponse;
+      return cleanObject(res);
+    }
+    case 'add_shot_track':
+    case 'add_camera_cut_track':
+    case 'add_fade_track':
+    case 'add_level_visibility_track':
+    case 'add_skeletal_animation_track':
+    case 'add_transform_track':
+    case 'add_event_track':
+    case 'add_property_track': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const trackTypes: Record<string, string> = {
+        add_shot_track: 'CinematicShot',
+        add_camera_cut_track: 'CameraCut',
+        add_fade_track: 'Fade',
+        add_level_visibility_track: 'LevelVisibility',
+        add_skeletal_animation_track: 'SkeletalAnimation',
+        add_transform_track: '3DTransform',
+        add_event_track: 'Event',
+        add_property_track: 'Property'
+      };
+      const trackType = trackTypes[seqAction];
+      const res = await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args,
+        path,
+        trackType,
+        subAction: 'add_track'
       }) as SequenceActionResponse;
       return cleanObject(res);
     }

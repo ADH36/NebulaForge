@@ -89,4 +89,32 @@ describe('handleAnimationAuthoringTools numeric normalization', () => {
       trackIndex: 2
     }), {});
   });
+
+  it('validates animation gate bounds before Unreal dispatch', async () => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+
+    await handleAnimationAuthoringTools('validate_animation_asset', {
+      action: 'validate_animation_asset',
+      assetPath: '/Game/Animations/TestAnim',
+      minDuration: 0.25,
+      maxDuration: 30,
+      expectedSkeletonPath: '/Game/Characters/TestSkeleton'
+    }, tools);
+
+    expect(sendAutomationRequest).toHaveBeenCalledWith('manage_animation_authoring', expect.objectContaining({
+      subAction: 'validate_animation_asset',
+      assetPath: '/Game/Animations/TestAnim',
+      minDuration: 0.25,
+      maxDuration: 30,
+      expectedSkeletonPath: '/Game/Characters/TestSkeleton'
+    }), {});
+
+    const invalid = await handleAnimationAuthoringTools('validate_animation_asset', {
+      action: 'validate_animation_asset',
+      assetPath: '/Game/Animations/TestAnim',
+      minDuration: 5,
+      maxDuration: 1
+    }, tools);
+    expect(invalid).toMatchObject({ success: false, error: 'INVALID_ARGUMENT' });
+  });
 });

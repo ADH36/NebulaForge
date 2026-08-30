@@ -348,6 +348,49 @@ function getMoveKey(args: EditorArgs): string {
   return x < 0 ? 'A' : 'D';
 }
 
+function getPlaytestValue(value: unknown, valuePath: string): unknown {
+  if (!valuePath.trim()) return value;
+  let current: unknown = value;
+  for (const segment of valuePath.split('.')) {
+    if (!segment || !current || typeof current !== 'object' || Array.isArray(current)) return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
+function evaluatePlaytestAssertion(result: Record<string, unknown>, rawAssertion: unknown): { passed: boolean; reason?: string } {
+  if (!rawAssertion || typeof rawAssertion !== 'object' || Array.isArray(rawAssertion)) {
+    return { passed: false, reason: 'assertion must be an object' };
+  }
+  const assertion = rawAssertion as Record<string, unknown>;
+  const valuePath = typeof assertion.path === 'string' ? assertion.path : '';
+  const actual = getPlaytestValue(result, valuePath);
+  const label = typeof assertion.label === 'string' && assertion.label.trim() ? assertion.label.trim() : valuePath || 'assertion';
+  if (Object.prototype.hasOwnProperty.call(assertion, 'equals') && actual !== assertion.equals) {
+    return { passed: false, reason: `${label}: expected ${JSON.stringify(assertion.equals)}, got ${JSON.stringify(actual)}` };
+  }
+  if (Object.prototype.hasOwnProperty.call(assertion, 'contains')) {
+    const expected = assertion.contains;
+    const contains = typeof actual === 'string' && typeof expected === 'string'
+      ? actual.includes(expected)
+      : Array.isArray(actual) && actual.some(value => value === expected);
+    if (!contains) return { passed: false, reason: `${label}: expected ${JSON.stringify(actual)} to contain ${JSON.stringify(expected)}` };
+  }
+  if (Object.prototype.hasOwnProperty.call(assertion, 'greaterThan')) {
+    const expected = assertion.greaterThan;
+    if (typeof actual !== 'number' || typeof expected !== 'number' || actual <= expected) {
+      return { passed: false, reason: `${label}: expected ${JSON.stringify(actual)} to be greater than ${JSON.stringify(expected)}` };
+    }
+  }
+  if (assertion.truthy === true && !actual) return { passed: false, reason: `${label}: expected a truthy value` };
+  if (assertion.exists === true && actual === undefined) return { passed: false, reason: `${label}: expected a present value` };
+  const recognized = ['equals', 'contains', 'greaterThan', 'truthy', 'exists', 'path', 'label'];
+  if (!recognized.some(key => Object.prototype.hasOwnProperty.call(assertion, key))) {
+    return { passed: false, reason: `${label}: no supported assertion operator was provided` };
+  }
+  return { passed: true };
+}
+
 async function runPlaytestSequence(args: EditorArgs, tools: ITools): Promise<Record<string, unknown>> {
   const sequence = Array.isArray(args.sequence) ? args.sequence : [];
   const timeoutMs = getBoundedTimeoutMs(args.timeoutMs);
@@ -366,11 +409,16 @@ async function runPlaytestSequence(args: EditorArgs, tools: ITools): Promise<Rec
       const stepArgs: EditorArgs = { ...args, ...step, action, timeoutMs: Math.min(getBoundedTimeoutMs(step.timeoutMs ?? timeoutMs), remainingMs) };
       delete stepArgs.sequence;
       delete stepArgs.autoStop;
+      delete (stepArgs as EditorArgs & { assertion?: unknown }).assertion;
       const startedStepAt = Date.now();
       const result = await handleEditorTools(action, stepArgs, tools) as Record<string, unknown>;
       const passed = isSuccessful(result);
-      steps.push({ index, action, passed, durationMs: Date.now() - startedStepAt, result });
-      if (!passed) throw new Error(`Play-test step ${index + 1} (${action}) failed`);
+      const assertionResult = step.assertion === undefined || step.assertion === null
+        ? { passed: true }
+        : evaluatePlaytestAssertion(result, step.assertion);
+      const stepPassed = passed && assertionResult.passed;
+      steps.push({ index, action, passed: stepPassed, durationMs: Date.now() - startedStepAt, result, ...(step.assertion !== undefined ? { assertion: assertionResult } : {}) });
+      if (!stepPassed) throw new Error(`Play-test step ${index + 1} (${action}) failed${assertionResult.reason ? `: ${assertionResult.reason}` : ''}`);
     }
   } catch (error) {
     failure = error instanceof Error ? error.message : String(error);

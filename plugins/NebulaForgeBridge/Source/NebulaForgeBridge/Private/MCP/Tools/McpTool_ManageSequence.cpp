@@ -23,8 +23,19 @@ public:
 		return FMcpSchemaBuilder()
 			.StringEnum(TEXT("action"), {
 				TEXT("create"),
+				TEXT("create_master_sequence"),
 				TEXT("open"),
 				TEXT("add_camera"),
+				TEXT("create_cine_camera_actor"),
+				TEXT("add_subsequence"),
+				TEXT("add_shot_track"),
+				TEXT("add_camera_cut_track"),
+				TEXT("add_fade_track"),
+				TEXT("add_level_visibility_track"),
+				TEXT("add_skeletal_animation_track"),
+				TEXT("add_transform_track"),
+				TEXT("add_event_track"),
+				TEXT("add_property_track"),
 				TEXT("add_actor"),
 				TEXT("add_actors"),
 				TEXT("remove_actors"),
@@ -88,6 +99,10 @@ public:
 			.Number(TEXT("playbackStart"), TEXT(""))
 			.Number(TEXT("playbackEnd"), TEXT(""))
 			.FreeformObject(TEXT("metadata"), TEXT(""))
+			.String(TEXT("subsequencePath"), TEXT("Child sequence asset path."))
+			.String(TEXT("childSequencePath"), TEXT("Alias for subsequencePath."))
+			.Number(TEXT("durationFrames"), TEXT("Subsequence duration in frames."))
+			.Number(TEXT("rowIndex"), TEXT("Optional subsequence track row."))
 			.String(TEXT("outputPath"), TEXT("Project-relative Movie Render Queue output directory."))
 			.String(TEXT("mrqJobId"), TEXT("Movie Render Queue job identifier."))
 			.Required({TEXT("action")})

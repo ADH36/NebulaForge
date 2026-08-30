@@ -80,4 +80,28 @@ describe('handleAudioAuthoringTools payload mapping', () => {
     const payload = sendAutomationRequest.mock.calls[0]?.[1] ?? {};
     expect(payload).not.toHaveProperty('spatialization');
   });
+
+  it('maps audio validation constraints to the native inspection gate', async () => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+
+    await handleAudioAuthoringTools('validate_audio_asset', {
+      action: 'validate_audio_asset',
+      assetPath: '/Game/Audio/TestWave',
+      minDuration: 0.25,
+      maxDuration: 30,
+      requiredSampleRate: 48000,
+      requiredChannels: 2,
+      requireKnownType: true
+    }, tools);
+
+    expect(sendAutomationRequest).toHaveBeenCalledWith('manage_audio_authoring', expect.objectContaining({
+      subAction: 'validate_audio_asset',
+      assetPath: '/Game/Audio/TestWave.TestWave',
+      minDuration: 0.25,
+      maxDuration: 30,
+      requiredSampleRate: 48000,
+      requiredChannels: 2,
+      requireKnownType: true
+    }), expect.any(Object));
+  });
 });

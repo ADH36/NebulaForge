@@ -289,4 +289,21 @@ describe('handleEditorTools', () => {
     expect(sendAutomationRequest).toHaveBeenCalledWith('control_editor', { action: 'stop' }, { timeoutMs: 100 });
     expect(sendAutomationRequest).toHaveBeenLastCalledWith('control_editor', { action: 'get_pie_state' }, { timeoutMs: 100 });
   });
+
+  it('evaluates per-step play-test assertions and reports assertion failures', async () => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+    sendAutomationRequest
+      .mockResolvedValueOnce({ success: true, value: { health: 100 } })
+      .mockResolvedValueOnce({ success: true, alreadyStopped: false })
+      .mockResolvedValueOnce({ success: true, isInPIE: false });
+
+    const result = await handleEditorTools('run_playtest_sequence', {
+      action: 'run_playtest_sequence',
+      sequence: [{ action: 'get_pie_metrics', assertion: { path: 'value.health', equals: 90, label: 'health check' } }]
+    }, tools) as { success: boolean; report: { failure?: string; steps: Array<Record<string, unknown>> } };
+
+    expect(result.success).toBe(false);
+    expect(result.report.failure).toContain('health check: expected 90');
+    expect(result.report.steps[0]).toMatchObject({ action: 'get_pie_metrics', passed: false });
+  });
 });

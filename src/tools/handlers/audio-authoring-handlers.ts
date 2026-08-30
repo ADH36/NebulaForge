@@ -359,6 +359,11 @@ export async function handleAudioAuthoringTools(
       return sendRequest('get_audio_info');
     }
 
+    case 'validate_audio_asset': {
+      requireNonEmptyString(argsRecord.assetPath, 'assetPath', 'Missing required parameter: assetPath');
+      return sendRequest('validate_audio_asset');
+    }
+
     // =========================================================================
     // Default / Unknown Action
     // =========================================================================

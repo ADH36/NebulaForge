@@ -464,7 +464,80 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
   FString Message;
   FString ErrorCode;
 
-  if (LowerSub == TEXT("cleanup")) {
+  if (LowerSub == TEXT("get_animation_info")) {
+    FString AssetPath;
+    if (!Payload->TryGetStringField(TEXT("assetPath"), AssetPath) || AssetPath.IsEmpty()) {
+      Message = TEXT("assetPath is required for get_animation_info");
+      ErrorCode = TEXT("INVALID_ARGUMENT");
+    } else if (UAnimationAsset* AnimationAsset = LoadObject<UAnimationAsset>(nullptr, *AssetPath)) {
+      Resp->SetStringField(TEXT("assetPath"), AssetPath);
+      Resp->SetStringField(TEXT("assetClass"), AnimationAsset->GetClass()->GetPathName());
+      Resp->SetNumberField(TEXT("playLength"), AnimationAsset->GetPlayLength());
+      if (const UAnimSequenceBase* Sequence = Cast<UAnimSequenceBase>(AnimationAsset)) {
+        if (Sequence->GetSkeleton()) {
+          Resp->SetStringField(TEXT("skeletonPath"), Sequence->GetSkeleton()->GetPathName());
+        }
+      }
+      bSuccess = true;
+      Message = TEXT("Animation info retrieved");
+    } else {
+      Message = FString::Printf(TEXT("Animation asset not found: %s"), *AssetPath);
+      ErrorCode = TEXT("ASSET_NOT_FOUND");
+    }
+  } else if (LowerSub == TEXT("validate_animation_asset")) {
+    FString AssetPath;
+    if (!Payload->TryGetStringField(TEXT("assetPath"), AssetPath) || AssetPath.IsEmpty()) {
+      Message = TEXT("assetPath is required for validate_animation_asset");
+      ErrorCode = TEXT("INVALID_ARGUMENT");
+    } else {
+      UAnimationAsset* AnimationAsset = LoadObject<UAnimationAsset>(nullptr, *AssetPath);
+      TArray<TSharedPtr<FJsonValue>> ValidationErrors;
+      if (!AnimationAsset) {
+        ValidationErrors.Add(MakeShared<FJsonValueString>(TEXT("Animation asset was not found")));
+      } else if (UAnimSequenceBase* Sequence = Cast<UAnimSequenceBase>(AnimationAsset)) {
+        const float Duration = Sequence->GetPlayLength();
+        Resp->SetStringField(TEXT("assetPath"), AssetPath);
+        Resp->SetStringField(TEXT("assetClass"), AnimationAsset->GetClass()->GetPathName());
+        Resp->SetNumberField(TEXT("duration"), Duration);
+        if (Sequence->GetSkeleton()) {
+          Resp->SetStringField(TEXT("skeletonPath"), Sequence->GetSkeleton()->GetPathName());
+        }
+
+        double MinDuration = 0.0;
+        if (Payload->TryGetNumberField(TEXT("minDuration"), MinDuration) &&
+            MinDuration >= 0.0 && Duration < MinDuration) {
+          ValidationErrors.Add(MakeShared<FJsonValueString>(FString::Printf(
+              TEXT("Duration %.3f is below minDuration %.3f"), Duration, MinDuration)));
+        }
+        double MaxDuration = 0.0;
+        if (Payload->TryGetNumberField(TEXT("maxDuration"), MaxDuration) &&
+            MaxDuration >= 0.0 && Duration > MaxDuration) {
+          ValidationErrors.Add(MakeShared<FJsonValueString>(FString::Printf(
+              TEXT("Duration %.3f exceeds maxDuration %.3f"), Duration, MaxDuration)));
+        }
+
+        FString ExpectedSkeletonPath;
+        if (Payload->TryGetStringField(TEXT("expectedSkeletonPath"), ExpectedSkeletonPath) &&
+            !ExpectedSkeletonPath.IsEmpty() &&
+            (!Sequence->GetSkeleton() ||
+             !Sequence->GetSkeleton()->GetPathName().Equals(ExpectedSkeletonPath, ESearchCase::IgnoreCase))) {
+          ValidationErrors.Add(MakeShared<FJsonValueString>(FString::Printf(
+              TEXT("Skeleton does not match expectedSkeletonPath '%s'"), *ExpectedSkeletonPath)));
+        }
+      } else {
+        ValidationErrors.Add(MakeShared<FJsonValueString>(
+            TEXT("Asset is not a supported animation sequence or montage")));
+      }
+
+      Resp->SetArrayField(TEXT("validationErrors"), ValidationErrors);
+      Resp->SetBoolField(TEXT("validationPassed"), ValidationErrors.Num() == 0);
+      bSuccess = ValidationErrors.Num() == 0;
+      Message = bSuccess ? TEXT("Animation asset validation passed") : TEXT("Animation asset validation failed");
+      if (!bSuccess) {
+        ErrorCode = TEXT("ANIMATION_VALIDATION_FAILED");
+      }
+    }
+  } else if (LowerSub == TEXT("cleanup")) {
     const TArray<TSharedPtr<FJsonValue>> *ArtifactsArray = nullptr;
     if (!Payload->TryGetArrayField(TEXT("artifacts"), ArtifactsArray) ||
         !ArtifactsArray) {

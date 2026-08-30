@@ -354,6 +354,79 @@ async function findHostCommand(command: string): Promise<string | undefined> {
   }
 }
 
+async function findInsightsCommand(): Promise<string | undefined> {
+  const configured = process.env.UNREAL_INSIGHTS_PATH;
+  const engineInput = process.env.UE_ENGINE_PATH || process.env.UNREAL_ENGINE_PATH;
+  const engineRoot = engineInput ? (isEngineDirectoryPath(engineInput) ? engineInput : path.join(engineInput, 'Engine')) : undefined;
+  const candidates = [
+    configured,
+    ...(engineRoot ? [
+      path.join(engineRoot, 'Binaries', 'Win64', 'UnrealInsights.exe'),
+      path.join(engineRoot, 'Binaries', 'Linux', 'UnrealInsights'),
+      path.join(engineRoot, 'Binaries', 'Mac', 'UnrealInsights'),
+      path.join(engineRoot, 'Binaries', 'Mac', 'UnrealInsights.app', 'Contents', 'MacOS', 'UnrealInsights')
+    ] : [])
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  for (const candidate of candidates) {
+    if (path.isAbsolute(candidate) && await fs.promises.stat(candidate).then(stat => stat.isFile()).catch(() => false)) return candidate;
+  }
+  return findHostCommand(process.platform === 'win32' ? 'UnrealInsights.exe' : 'UnrealInsights');
+}
+
+async function analyzeTrace(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const traceInput = typeof args.tracePath === 'string' ? args.tracePath.trim() : '';
+  if (!traceInput) return { success: false, error: 'INVALID_ARGUMENT', message: 'tracePath is required for analyze_trace' };
+  const rootInput = args.archiveDirectory || args.projectPath || process.env.UE_PROJECT_PATH;
+  if (!rootInput) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'archiveDirectory, projectPath, or UE_PROJECT_PATH is required to constrain tracePath' };
+  const root = path.resolve(rootInput.toLowerCase().endsWith('.uproject') ? path.dirname(rootInput) : rootInput);
+  const tracePath = path.isAbsolute(traceInput) ? path.resolve(traceInput) : path.resolve(root, traceInput);
+  if (!isPathInside(root, tracePath)) return { success: false, error: 'PATH_SECURITY_VIOLATION', message: 'tracePath must remain inside archiveDirectory/projectPath', tracePath };
+  if (!/\.(utrace|trace)$/i.test(tracePath)) return { success: false, error: 'INVALID_TRACE_PATH', message: 'tracePath must identify a .utrace or .trace file', tracePath };
+  const traceStat = await fs.promises.stat(tracePath).catch(() => undefined);
+  if (!traceStat || !traceStat.isFile()) return { success: false, error: 'TRACE_NOT_FOUND', message: `Trace file not found: ${tracePath}`, tracePath };
+  const dryRun = args.dryRun === true;
+  const executable = dryRun ? undefined : await findInsightsCommand();
+  if (!dryRun && !executable) return { success: false, error: 'UNREAL_INSIGHTS_NOT_FOUND', message: 'UnrealInsights executable was not found. Set UE_ENGINE_PATH or UNREAL_INSIGHTS_PATH.', tracePath };
+  const commandArgs = [`-OpenTraceFile=${tracePath}`, '-AutoQuit', '-NoUI'];
+  const result = { success: true, dryRun, tracePath, executable: executable || 'UnrealInsights', arguments: commandArgs.map(value => value === `-OpenTraceFile=${tracePath}` ? '-OpenTraceFile=<trace>' : value), analysisMode: 'open_and_validate' };
+  if (dryRun) return result;
+  const child = spawn(executable || 'UnrealInsights', commandArgs, { shell: false, cwd: path.dirname(tracePath), windowsHide: true });
+  const job = jobManager.startProcess({ label: `analyze_trace:${path.basename(tracePath)}`, process: child, timeoutMs: getProcessTimeoutMs(args) });
+  if (args.async === true) return { ...result, started: true, jobId: job.jobId, status: job.status };
+  return await new Promise(resolve => {
+    child.once('close', code => resolve({ ...result, success: code === 0, error: code === 0 ? undefined : 'TRACE_ANALYSIS_FAILED', exitCode: code, jobId: job.jobId }));
+    child.once('error', error => resolve({ ...result, success: false, error: 'SPAWN_FAILED', message: error.message, jobId: job.jobId }));
+  });
+}
+
+async function waitForPackagedServerStartup(
+  jobId: string,
+  readyPattern: RegExp | undefined,
+  timeoutMs: number,
+): Promise<{ ready: boolean; reason?: string }> {
+  if (!readyPattern) {
+    await new Promise(resolve => setTimeout(resolve, Math.min(timeoutMs, 250)));
+    const snapshot = jobManager.get(jobId);
+    return snapshot && snapshot.status !== 'failed' && snapshot.status !== 'cancelled'
+      ? { ready: true }
+      : { ready: false, reason: 'server_process_failed' };
+  }
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const snapshot = jobManager.get(jobId);
+    if (!snapshot || snapshot.status === 'failed' || snapshot.status === 'cancelled') {
+      return { ready: false, reason: 'server_process_failed' };
+    }
+    if (readyPattern && readyPattern.test(`${snapshot.output}\n${snapshot.errorOutput}`)) {
+      return { ready: true };
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return readyPattern
+    ? { ready: false, reason: 'server_ready_pattern_timeout' }
+    : { ready: true };
+}
+
 async function deployPackage(args: PipelineArgs): Promise<Record<string, unknown>> {
   const platform = (args.platform || '').trim();
   if (platform !== 'Android' && platform !== 'IOS' && platform !== 'TVOS') {
@@ -413,6 +486,9 @@ async function runNetworkSoak(args: PipelineArgs): Promise<Record<string, unknow
   const serverPort = Number.isInteger(args.serverPort) ? args.serverPort as number : 7777;
   if (serverPort < 1024 || serverPort > 65535) return { success: false, error: 'INVALID_SERVER_PORT', message: 'serverPort must be between 1024 and 65535' };
   const durationMs = Number.isFinite(args.durationMs) && (args.durationMs as number) > 0 ? Math.min(args.durationMs as number, 24 * 60 * 60 * 1000) : 60_000;
+  const startupTimeoutMs = Number.isFinite(args.serverStartupTimeoutMs) && (args.serverStartupTimeoutMs as number) > 0
+    ? Math.min(args.serverStartupTimeoutMs as number, 5 * 60 * 1000)
+    : 30_000;
   const serverArguments = args.serverArguments || '';
   const clientArguments = args.clientArguments || '';
   validateUbtArgumentsString(serverArguments);
@@ -421,20 +497,54 @@ async function runNetworkSoak(args: PipelineArgs): Promise<Record<string, unknow
   if (hasPortOverride) return { success: false, error: 'INVALID_ARGUMENT', message: 'serverArguments and clientArguments cannot override the managed serverPort' };
   const serverArgs = [...tokenizeArgs(serverArguments), `-port=${serverPort}`];
   const clientArgs = [...tokenizeArgs(clientArguments), `127.0.0.1:${serverPort}`];
-  const launches: Array<{ role: string; executable: string; arguments: string[] }> = [
-    { role: 'server', executable: server.path as string, arguments: serverArgs },
-    ...Array.from({ length: clientCount }, (_, index) => ({ role: `client-${index + 1}`, executable: client.path as string, arguments: clientArgs }))
+  let readyPattern: RegExp | undefined;
+  if (args.serverReadyPattern !== undefined) {
+    if (typeof args.serverReadyPattern !== 'string' || args.serverReadyPattern.trim().length === 0) {
+      return { success: false, error: 'INVALID_SERVER_READY_PATTERN', message: 'serverReadyPattern must be a non-empty pattern when provided' };
+    }
+    try {
+      readyPattern = new RegExp(args.serverReadyPattern.trim());
+    } catch (error) {
+      return { success: false, error: 'INVALID_SERVER_READY_PATTERN', message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+  const serverLaunch = { role: 'server', executable: server.path as string, arguments: serverArgs };
+  const dryRun = args.dryRun === true;
+  if (dryRun) {
+    return {
+      success: true,
+      dryRun: true,
+      serverPort,
+      clientCount,
+      durationMs,
+      startupTimeoutMs,
+      serverReadyPattern: args.serverReadyPattern,
+      launches: [serverLaunch, ...Array.from({ length: clientCount }, (_, index) => ({ role: `client-${index + 1}`, executable: client.path as string, arguments: clientArgs }))]
+    };
+  }
+  const serverChild = spawn(serverLaunch.executable, serverLaunch.arguments, { shell: false, cwd: path.dirname(serverLaunch.executable), windowsHide: true });
+  const serverJob = jobManager.startProcess({ label: `run_network_soak:${serverLaunch.role}`, process: serverChild, timeoutMs: durationMs });
+  const startup = await waitForPackagedServerStartup(serverJob.jobId, readyPattern, startupTimeoutMs);
+  if (!startup.ready) {
+    jobManager.cancel(serverJob.jobId);
+    return { success: false, error: 'SERVER_STARTUP_FAILED', message: `Packaged server did not become ready: ${startup.reason || 'unknown reason'}`, serverJobId: serverJob.jobId, startupTimeoutMs };
+  }
+  const jobs = [
+    { ...serverLaunch, jobId: serverJob.jobId, status: serverJob.status, child: serverChild },
+    ...Array.from({ length: clientCount }, (_, index) => {
+      const launch = { role: `client-${index + 1}`, executable: client.path as string, arguments: clientArgs };
+      const child = spawn(launch.executable, launch.arguments, { shell: false, cwd: path.dirname(launch.executable), windowsHide: true });
+      const job = jobManager.startProcess({ label: `run_network_soak:${launch.role}`, process: child, timeoutMs: durationMs });
+      return { ...launch, jobId: job.jobId, status: job.status, child };
+    })
   ];
-  const jobs = launches.map(launch => {
-    const child = spawn(launch.executable, launch.arguments, { shell: false, cwd: path.dirname(launch.executable), windowsHide: true });
-    const job = jobManager.startProcess({ label: `run_network_soak:${launch.role}`, process: child, timeoutMs: durationMs });
-    return { ...launch, jobId: job.jobId, status: job.status, child };
-  });
   const baseResult = {
     success: true,
     serverPort,
     clientCount,
     durationMs,
+    startupTimeoutMs,
+    serverReadyPattern: args.serverReadyPattern,
     serverArtifactPath: server.path,
     clientArtifactPath: client.path,
     jobs: jobs.map(({ child: _child, ...job }) => ({ ...job, arguments: job.arguments.map(value => value === '127.0.0.1:' + serverPort ? '<server>' : value) }))
@@ -722,6 +832,8 @@ export async function handlePipelineTools(action: string, args: PipelineArgs, to
       return deployPackage(args);
     case 'run_network_soak':
       return runNetworkSoak(args);
+    case 'analyze_trace':
+      return analyzeTrace(args);
     case 'validate_release':
       return validateReleaseArtifact(args);
     case 'run_uat': {

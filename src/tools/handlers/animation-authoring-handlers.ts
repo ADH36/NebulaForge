@@ -1685,6 +1685,35 @@ export async function handleAnimationAuthoringTools(
         return ResponseFactory.success(res, res.message ?? `Chain mapping '${sourceChain}' -> '${targetChain}' set`);
       }
 
+  case 'validate_animation_asset': {
+    const params = normalizeArgs(args, [
+      { key: 'assetPath', required: true },
+      { key: 'minDuration' },
+      { key: 'maxDuration' },
+      { key: 'expectedSkeletonPath' },
+    ]);
+    const rawAssetPath = extractString(params, 'assetPath');
+    const assetPathValidation = validatePath(rawAssetPath, 'assetPath');
+    if (!assetPathValidation.valid) return assetPathValidation.error;
+    const expectedSkeletonPath = extractOptionalString(params, 'expectedSkeletonPath');
+    const minDuration = optionalNonNegativeNumber(params['minDuration']);
+    const maxDuration = optionalNonNegativeNumber(params['maxDuration']);
+    if (minDuration !== undefined && maxDuration !== undefined && minDuration > maxDuration) {
+      return ResponseFactory.errorWithCode('INVALID_ARGUMENT', 'minDuration cannot exceed maxDuration');
+    }
+    const res = (await executeAutomationRequest(tools, 'manage_animation_authoring', {
+      subAction: 'validate_animation_asset',
+      assetPath: assetPathValidation.sanitized,
+      minDuration,
+      maxDuration,
+      expectedSkeletonPath,
+    })) as AutomationResponse;
+    if (res.success === false) {
+      return ResponseFactory.error(res.error ?? 'Animation asset validation failed', res.errorCode);
+    }
+    return ResponseFactory.success(res, res.message ?? 'Animation asset validation completed');
+  }
+
   // ===== Utility =====
   case 'get_animation_info': {
     const params = normalizeArgs(args, [

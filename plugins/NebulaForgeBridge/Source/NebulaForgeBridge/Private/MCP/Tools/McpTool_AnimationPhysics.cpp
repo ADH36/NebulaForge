@@ -48,6 +48,9 @@ public:
 			.Number(TEXT("frame"), TEXT(""))
 			.Number(TEXT("time"), TEXT(""))
 			.Number(TEXT("length"), TEXT(""))
+			.Number(TEXT("minDuration"), TEXT("Minimum permitted animation duration in seconds."))
+			.Number(TEXT("maxDuration"), TEXT("Maximum permitted animation duration in seconds."))
+			.String(TEXT("expectedSkeletonPath"), TEXT("Expected skeleton asset path for validation."))
 			.Object(TEXT("location"), TEXT("3D location (x, y, z)."),
 				[](FMcpSchemaBuilder& S) {
 				S.Number(TEXT("x")).Number(TEXT("y")).Number(TEXT("z"));

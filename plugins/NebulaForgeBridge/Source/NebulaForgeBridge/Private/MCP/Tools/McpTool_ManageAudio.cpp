@@ -72,7 +72,8 @@ public:
 				TEXT("create_source_effect_chain"),
 				TEXT("add_source_effect"),
 				TEXT("create_submix_effect"),
-				TEXT("get_audio_info")
+				TEXT("get_audio_info"),
+				TEXT("validate_audio_asset")
 			}, TEXT("Action"))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.String(TEXT("soundPath"), TEXT("Sound asset path."))
@@ -86,6 +87,11 @@ public:
 			})
 			.Number(TEXT("volume"), TEXT(""))
 			.Number(TEXT("pitch"), TEXT(""))
+			.Number(TEXT("minDuration"), TEXT("Minimum audio duration in seconds."))
+			.Number(TEXT("maxDuration"), TEXT("Maximum audio duration in seconds."))
+			.Number(TEXT("requiredSampleRate"), TEXT("Required sample rate in Hz."))
+			.Number(TEXT("requiredChannels"), TEXT("Required channel count."))
+			.Bool(TEXT("requireKnownType"), TEXT("Fail validation for unsupported audio asset classes."))
 			.Number(TEXT("startTime"), TEXT(""))
 			.String(TEXT("attenuationPath"), TEXT("Asset path (e.g., /Game/Path/Asset)."))
 			.String(TEXT("concurrencyPath"), TEXT("Asset path (e.g., /Game/Path/Asset)."))

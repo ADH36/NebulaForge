@@ -203,7 +203,7 @@ export async function handleInspectTools(action: string, args: HandlerArgs, tool
           platformIntegration: 'partial_host_target_toolchain_discovery_signing_android_ios_simulator_deployment_no_external_hosting',
           releaseValidation: 'partial_artifact_gate_required_files_pak_sha256_manifest_no_projectwide_unreal_validation',
           testingQuality: 'partial_automation_tests_terminal_json_reports_data_validation_map_check_functional_test_actor_authoring_blueprint_compile_sweep',
-          profilingQuality: 'partial_insights_session_lifecycle_memory_report_stat_configuration_no_trace_analysis_or_visual_log_capture',
+          profilingQuality: 'partial_insights_session_lifecycle_file_trace_capture_headless_trace_analysis_memory_report_network_profiler_visual_logger_stat_configuration_no_metric_export',
           persistence: 'partial_data_asset_datatable_curvetable_primary_asset_registry_runtime_savegame_slots_async_save_load_gameplay_tag_config_runtime_tag_queries_actor_tag_mutation',
           cinematicsMedia: 'partial_sequencer_mrq_png_output_demo_replay_media_assets_player_controls_take_recorder_lifecycle_no_media_sources',
           blueprintGameplay: 'partial_project_architecture_required',

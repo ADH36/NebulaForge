@@ -1387,7 +1387,12 @@ if (SubAction == TEXT("create_metasound"))
 
         bool bSuccess = Builder.SetGraphInputDefault(FName(*InputName), Literal);
 
-        if (bSuccess)
+        if (Response->HasField(TEXT("validationPassed")))
+        {
+            SendAutomationResponse(RequestingSocket, RequestId, bSuccess, Message, Response,
+                bSuccess ? FString() : TEXT("AUDIO_VALIDATION_FAILED"));
+        }
+        else if (bSuccess)
         {
             McpSafeAssetSave(MetaSound);
 
@@ -2510,6 +2515,81 @@ if (SubAction == TEXT("create_metasound"))
     }
 
     // ===== Utility =====
+
+    if (SubAction == TEXT("validate_audio_asset"))
+    {
+        FString AssetPath = NormalizeAudioPath(McpHandlerUtils::GetOptionalString(Params, TEXT("assetPath"), TEXT("")));
+        if (AssetPath.IsEmpty())
+        {
+            return McpHandlerUtils::BuildErrorResponse(TEXT("MISSING_PATH"), TEXT("Asset path is required"));
+        }
+
+        // Reuse the authoritative type-specific inspection path so validation
+        // stays aligned with get_audio_info as UE audio classes evolve.
+        TSharedPtr<FJsonObject> InfoParams = MakeShared<FJsonObject>();
+        InfoParams->Values = Params->Values;
+        InfoParams->SetStringField(TEXT("assetPath"), AssetPath);
+        InfoParams->SetStringField(TEXT("subAction"), TEXT("get_audio_info"));
+        TSharedPtr<FJsonObject> Info = HandleAudioAuthoringRequest(InfoParams);
+        if (!Info.IsValid() || !GetJsonBoolField(Info, TEXT("success")))
+        {
+            return Info.IsValid() ? Info : McpHandlerUtils::BuildErrorResponse(TEXT("INSPECTION_FAILED"), TEXT("Unable to inspect audio asset"));
+        }
+
+        TArray<TSharedPtr<FJsonValue>> ValidationErrors;
+        FString Type = McpHandlerUtils::GetOptionalString(Info, TEXT("type"), TEXT("Unknown"));
+        const bool bRequireKnownType = McpHandlerUtils::GetOptionalBool(Params, TEXT("requireKnownType"), true);
+        if (bRequireKnownType && Type.Equals(TEXT("Unknown"), ESearchCase::IgnoreCase))
+        {
+            ValidationErrors.Add(MakeShared<FJsonValueString>(TEXT("Unsupported audio asset class")));
+        }
+
+        double Duration = 0.0;
+        const bool bHasDuration = Info->TryGetNumberField(TEXT("duration"), Duration);
+        double MinimumDuration = 0.0;
+        if (Params->TryGetNumberField(TEXT("minDuration"), MinimumDuration) && (!bHasDuration || Duration < MinimumDuration))
+        {
+            ValidationErrors.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("Duration %.3f is below minimum %.3f seconds"), Duration, MinimumDuration)));
+        }
+        double MaximumDuration = 0.0;
+        if (Params->TryGetNumberField(TEXT("maxDuration"), MaximumDuration) && (!bHasDuration || Duration > MaximumDuration))
+        {
+            ValidationErrors.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("Duration %.3f exceeds maximum %.3f seconds"), Duration, MaximumDuration)));
+        }
+
+        int32 RequiredSampleRate = 0;
+        if (Params->TryGetNumberField(TEXT("requiredSampleRate"), RequiredSampleRate))
+        {
+            int32 ActualSampleRate = 0;
+            Info->TryGetNumberField(TEXT("sampleRate"), ActualSampleRate);
+            if (ActualSampleRate != RequiredSampleRate)
+            {
+                ValidationErrors.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("Sample rate %d does not match required %d Hz"), ActualSampleRate, RequiredSampleRate)));
+            }
+        }
+
+        int32 RequiredChannels = 0;
+        if (Params->TryGetNumberField(TEXT("requiredChannels"), RequiredChannels))
+        {
+            int32 ActualChannels = 0;
+            Info->TryGetNumberField(TEXT("numChannels"), ActualChannels);
+            if (ActualChannels != RequiredChannels)
+            {
+                ValidationErrors.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("Channel count %d does not match required %d"), ActualChannels, RequiredChannels)));
+            }
+        }
+
+        const bool bValid = ValidationErrors.Num() == 0;
+        Response->SetStringField(TEXT("assetPath"), AssetPath);
+        Response->SetStringField(TEXT("assetClass"), McpHandlerUtils::GetOptionalString(Info, TEXT("assetClass"), TEXT("")));
+        Response->SetStringField(TEXT("type"), Type);
+        Response->SetBoolField(TEXT("validationPassed"), bValid);
+        Response->SetArrayField(TEXT("validationErrors"), ValidationErrors);
+        Response->SetObjectField(TEXT("audioInfo"), Info);
+        Response->SetBoolField(TEXT("success"), bValid);
+        Response->SetStringField(TEXT("message"), bValid ? TEXT("Audio asset validation passed") : TEXT("Audio asset validation failed"));
+        return Response;
+    }
 
     if (SubAction == TEXT("get_audio_info"))
     {

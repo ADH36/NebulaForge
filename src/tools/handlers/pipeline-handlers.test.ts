@@ -225,4 +225,52 @@ describe('handlePipelineTools run_network_soak', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it('supports a side-effect-free dry run and validates readiness patterns', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-soak-dry-run-'));
+    try {
+      await fs.writeFile(path.join(tempRoot, 'Server.exe'), 'server');
+      await fs.writeFile(path.join(tempRoot, 'Client.exe'), 'client');
+      const result = await handlePipelineTools('run_network_soak', {
+        archiveDirectory: tempRoot,
+        serverArtifactPath: 'Server.exe',
+        clientArtifactPath: 'Client.exe',
+        clientCount: 2,
+        serverPort: 7777,
+        durationMs: 5000,
+        serverStartupTimeoutMs: 1000,
+        serverReadyPattern: 'LogNet: Ready',
+        dryRun: true
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({ success: true, dryRun: true, startupTimeoutMs: 1000, serverReadyPattern: 'LogNet: Ready' });
+
+      const invalid = await handlePipelineTools('run_network_soak', {
+        archiveDirectory: tempRoot,
+        serverArtifactPath: 'Server.exe',
+        clientArtifactPath: 'Client.exe',
+        serverReadyPattern: '[',
+        dryRun: true
+      } as PipelineArgs, tools);
+      expect(invalid).toMatchObject({ success: false, error: 'INVALID_SERVER_READY_PATTERN' });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('handlePipelineTools analyze_trace', () => {
+  it('builds a confined headless UnrealInsights command in dry-run mode', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-trace-'));
+    try {
+      await fs.writeFile(path.join(tempRoot, 'capture.utrace'), 'trace');
+      const result = await handlePipelineTools('analyze_trace', {
+        archiveDirectory: tempRoot,
+        tracePath: 'capture.utrace',
+        dryRun: true
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({ success: true, dryRun: true, analysisMode: 'open_and_validate', executable: 'UnrealInsights', arguments: ['-OpenTraceFile=<trace>', '-AutoQuit', '-NoUI'] });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
 });

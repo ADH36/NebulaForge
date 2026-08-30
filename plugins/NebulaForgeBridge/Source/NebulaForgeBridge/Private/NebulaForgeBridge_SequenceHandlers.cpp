@@ -50,6 +50,8 @@
 #include "MovieSceneSection.h"
 #include "MovieSceneSequence.h"
 #include "MovieSceneTrack.h"
+#include "Tracks/MovieSceneSubTrack.h"
+#include "Tracks/MovieSceneSubSection.h"
 #include "UObject/UObjectIterator.h"
 
 // UE 5.0 compatibility: GetTracks() was introduced in UE 5.1, use GetMasterTracks() in 5.0
@@ -2559,8 +2561,32 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         !Sub.IsEmpty()) {
       EffectiveAction = Sub.ToLower();
       // If subAction is just "create", map to "sequence_create" for consistency
-      if (EffectiveAction == TEXT("create"))
+      if (EffectiveAction == TEXT("create") ||
+          EffectiveAction == TEXT("create_master_sequence"))
         EffectiveAction = TEXT("sequence_create");
+      else if (EffectiveAction == TEXT("create_cine_camera_actor"))
+        EffectiveAction = TEXT("sequence_add_camera");
+      else if (EffectiveAction == TEXT("add_shot_track") ||
+               EffectiveAction == TEXT("add_camera_cut_track") ||
+               EffectiveAction == TEXT("add_fade_track") ||
+               EffectiveAction == TEXT("add_level_visibility_track") ||
+               EffectiveAction == TEXT("add_skeletal_animation_track") ||
+               EffectiveAction == TEXT("add_transform_track") ||
+               EffectiveAction == TEXT("add_event_track") ||
+               EffectiveAction == TEXT("add_property_track"))
+      {
+        FString TrackType;
+        if (EffectiveAction == TEXT("add_shot_track")) TrackType = TEXT("CinematicShot");
+        else if (EffectiveAction == TEXT("add_camera_cut_track")) TrackType = TEXT("CameraCut");
+        else if (EffectiveAction == TEXT("add_fade_track")) TrackType = TEXT("Fade");
+        else if (EffectiveAction == TEXT("add_level_visibility_track")) TrackType = TEXT("LevelVisibility");
+        else if (EffectiveAction == TEXT("add_skeletal_animation_track")) TrackType = TEXT("SkeletalAnimation");
+        else if (EffectiveAction == TEXT("add_transform_track")) TrackType = TEXT("3DTransform");
+        else if (EffectiveAction == TEXT("add_event_track")) TrackType = TEXT("Event");
+        else TrackType = TEXT("Property");
+        LocalPayload->SetStringField(TEXT("trackType"), TrackType);
+        EffectiveAction = TEXT("sequence_add_track");
+      }
       else if (!EffectiveAction.StartsWith(TEXT("sequence_")))
         EffectiveAction = TEXT("sequence_") + EffectiveAction;
     }
@@ -2824,6 +2850,82 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
           FString::Printf(TEXT("Failed to add track of type: %s"), *TrackType),
           nullptr, TEXT("TRACK_CREATION_FAILED"));
     }
+    return true;
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_subsequence")) {
+    const FString ParentPath = ResolveSequencePath(LocalPayload);
+    FString ChildPath;
+    LocalPayload->TryGetStringField(TEXT("subsequencePath"), ChildPath);
+    if (ChildPath.IsEmpty()) LocalPayload->TryGetStringField(TEXT("childSequencePath"), ChildPath);
+    if (ParentPath.IsEmpty() || ChildPath.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId,
+          TEXT("path and subsequencePath are required for add_subsequence"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (ParentPath.Equals(ChildPath, ESearchCase::IgnoreCase)) {
+      SendAutomationError(RequestingSocket, RequestId,
+          TEXT("A sequence cannot contain itself as a subsequence"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+
+    ULevelSequence* ParentSequence = LoadObject<ULevelSequence>(nullptr, *ParentPath);
+    UMovieSceneSequence* ChildSequence = LoadObject<UMovieSceneSequence>(nullptr, *ChildPath);
+    if (!ParentSequence) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Parent level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    if (!ChildSequence) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Subsequence asset not found"), TEXT("SUBSEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    UMovieScene* MovieScene = ParentSequence->GetMovieScene();
+    if (!MovieScene) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Parent MovieScene not available"), TEXT("MOVIESCENE_UNAVAILABLE"));
+      return true;
+    }
+    int32 StartFrame = 0;
+    LocalPayload->TryGetNumberField(TEXT("startFrame"), StartFrame);
+    int32 DurationFrames = 0;
+    if (!LocalPayload->TryGetNumberField(TEXT("durationFrames"), DurationFrames) || DurationFrames <= 0 || DurationFrames > 10000000) {
+      SendAutomationError(RequestingSocket, RequestId,
+          TEXT("durationFrames must be between 1 and 10000000"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    int32 RowIndex = INDEX_NONE;
+    LocalPayload->TryGetNumberField(TEXT("rowIndex"), RowIndex);
+    UMovieSceneSubTrack* SubTrack = nullptr;
+    for (UMovieSceneTrack* Track : MCP_GET_MOVIESCENE_TRACKS(MovieScene)) {
+      if (UMovieSceneSubTrack* Candidate = Cast<UMovieSceneSubTrack>(Track)) {
+        SubTrack = Candidate;
+        break;
+      }
+    }
+    if (!SubTrack) SubTrack = MovieScene->AddTrack<UMovieSceneSubTrack>();
+    if (!SubTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create a subsequence track"), TEXT("TRACK_CREATE_FAILED"));
+      return true;
+    }
+    if (SubTrack->ContainsSequence(*ChildSequence)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Subsequence is already present in the parent sequence"), TEXT("DUPLICATE_SUBSEQUENCE"));
+      return true;
+    }
+    UMovieSceneSubSection* Section = RowIndex >= 0
+        ? SubTrack->AddSequenceOnRow(ChildSequence, FFrameNumber(StartFrame), DurationFrames, RowIndex)
+        : SubTrack->AddSequence(ChildSequence, FFrameNumber(StartFrame), DurationFrames);
+    if (!Section) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create subsequence section"), TEXT("SECTION_CREATE_FAILED"));
+      return true;
+    }
+    ParentSequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("parentSequencePath"), ParentSequence->GetPathName());
+    Result->SetStringField(TEXT("subsequencePath"), ChildSequence->GetPathName());
+    Result->SetNumberField(TEXT("startFrame"), StartFrame);
+    Result->SetNumberField(TEXT("durationFrames"), DurationFrames);
+    if (RowIndex >= 0) Result->SetNumberField(TEXT("rowIndex"), RowIndex);
+    Result->SetBoolField(TEXT("persisted"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Subsequence section added"), Result);
     return true;
   }
 

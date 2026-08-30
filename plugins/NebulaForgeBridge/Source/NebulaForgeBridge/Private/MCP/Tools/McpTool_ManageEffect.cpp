@@ -91,6 +91,8 @@ public:
 			.String(TEXT("system"), TEXT("Niagara system asset path alias."))
 			.String(TEXT("systemPath"), TEXT("Niagara system asset path."))
 			.String(TEXT("systemName"), TEXT("Niagara actor/system label."))
+			.Number(TEXT("maxEmitters"), TEXT("Maximum emitter count for validate_niagara_system."))
+			.Number(TEXT("maxRenderers"), TEXT("Maximum renderer count for validate_niagara_system."))
 			.String(TEXT("emitter"), TEXT("Emitter name alias."))
 			.String(TEXT("emitterName"), TEXT("Emitter name in a Niagara system."))
 			.String(TEXT("emitterPath"), TEXT("Niagara emitter asset path."))

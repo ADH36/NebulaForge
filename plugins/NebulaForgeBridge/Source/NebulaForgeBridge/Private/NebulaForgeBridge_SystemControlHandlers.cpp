@@ -52,6 +52,7 @@
 #include "Engine/Blueprint.h"
 #include "Kismet2/CompilerResultsLog.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "VisualLogger/VisualLoggerKismetLibrary.h"
 #endif
 
 #if WITH_EDITOR
@@ -1212,10 +1213,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
       Lower == TEXT("list_save_game_slots");
   const bool bHostWorkflowAction =
-      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("validate_project") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("deploy_package") || Lower == TEXT("run_network_soak") || Lower == TEXT("manage_project_plugin") ||
+      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("validate_project") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("deploy_package") || Lower == TEXT("run_network_soak") || Lower == TEXT("analyze_trace") || Lower == TEXT("manage_project_plugin") ||
       Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
       Lower == TEXT("cancel_job") || Lower == TEXT("read_project_file") ||
-      Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") || Lower == TEXT("validate_blueprints") || Lower == TEXT("capture_insights_trace") ||
+      Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") ||
       Lower == TEXT("list_gameplay_tags") || Lower == TEXT("get_runtime_gameplay_tag") || Lower == TEXT("add_gameplay_tag") ||
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
       Lower == TEXT("get_config_value") || Lower == TEXT("set_config_value");
@@ -1237,6 +1238,9 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("configure_stat_commands") &&
       Lower != TEXT("check_for_errors") &&
       Lower != TEXT("capture_insights_trace") &&
+      Lower != TEXT("start_network_profiler") &&
+      Lower != TEXT("enable_visual_logger") &&
+      Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction &&
        !bHostWorkflowAction) {
@@ -1816,6 +1820,62 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     SendAutomationResponse(RequestingSocket, RequestId, ErrorCount == 0,
         ErrorCount == 0 ? TEXT("No errors found in requested message-log categories") : TEXT("Editor errors found in requested message-log categories"),
         Result, ErrorCount == 0 ? FString() : TEXT("EDITOR_ERRORS_FOUND"));
+    return true;
+  }
+
+  if (Lower == TEXT("start_network_profiler")) {
+    bool bEnabled = true;
+    if (Payload->HasField(TEXT("enabled"))) Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+    const FString Command = bEnabled ? TEXT("netprofile enable") : TEXT("netprofile disable");
+    const bool bHandled = GEngine && GEngine->Exec(nullptr, *Command);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("command"), Command);
+    Result->SetBoolField(TEXT("enabled"), bEnabled);
+    Result->SetBoolField(TEXT("commandHandled"), bHandled);
+    Result->SetStringField(TEXT("outputDirectory"), FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Profiling")));
+    SendAutomationResponse(RequestingSocket, RequestId, bHandled,
+        bHandled ? TEXT("Network profiler state updated.") : TEXT("Network profiler command was not handled."), Result,
+        bHandled ? FString() : TEXT("NETWORK_PROFILER_FAILED"));
+    return true;
+  }
+
+  if (Lower == TEXT("enable_visual_logger")) {
+    bool bEnabled = true;
+    if (Payload->HasField(TEXT("enabled"))) Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+    UVisualLoggerKismetLibrary::EnableRecording(bEnabled);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("enabled"), bEnabled);
+    Result->SetBoolField(TEXT("recordingRequested"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+        bEnabled ? TEXT("Visual Logger recording enabled.") : TEXT("Visual Logger recording disabled."), Result);
+    return true;
+  }
+
+  if (Lower == TEXT("add_visual_log_entry")) {
+    FString Text;
+    if (!Payload->TryGetStringField(TEXT("visualLogText"), Text) || Text.TrimStartAndEnd().IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("visualLogText is required for add_visual_log_entry"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    Text.TrimStartAndEndInline();
+    if (Text.Len() > 4096) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("visualLogText must be at most 4096 characters"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    FString Category = TEXT("MCP");
+    Payload->TryGetStringField(TEXT("visualLogCategory"), Category);
+    Category.TrimStartAndEndInline();
+    if (Category.IsEmpty() || Category.Len() > 64) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("visualLogCategory must be 1-64 characters"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+    UVisualLoggerKismetLibrary::LogText(World, Text, FName(*Category), true);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("text"), Text);
+    Result->SetStringField(TEXT("category"), Category);
+    Result->SetBoolField(TEXT("logged"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Visual log entry added."), Result);
     return true;
   }
 

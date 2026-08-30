@@ -442,7 +442,8 @@ inline const TArray<FString>& AnimationAuthoring()
 		TEXT("add_layered_blend_per_bone"),
 		TEXT("set_anim_graph_node_value"), TEXT("create_control_rig"),
 		TEXT("create_ik_rig"), TEXT("create_ik_retargeter"),
-		TEXT("set_retarget_chain_mapping"), TEXT("get_animation_info")
+		TEXT("set_retarget_chain_mapping"), TEXT("get_animation_info"),
+		TEXT("validate_animation_asset")
 	};
 	return Actions;
 }
@@ -495,7 +496,7 @@ inline const TArray<FString>& AudioAuthoring()
 		TEXT("create_dialogue_wave"), TEXT("set_dialogue_context"),
 		TEXT("create_reverb_effect"), TEXT("create_source_effect_chain"),
 		TEXT("add_source_effect"), TEXT("create_submix_effect"),
-		TEXT("get_audio_info")
+		TEXT("get_audio_info"), TEXT("validate_audio_asset")
 	};
 	return Actions;
 }
@@ -507,7 +508,7 @@ inline const TArray<FString>& SystemControlCore()
 		TEXT("screenshot"), TEXT("set_resolution"), TEXT("set_fullscreen"),
 		TEXT("execute_command"), TEXT("console_command"), TEXT("run_ubt"),
       TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("validate_project"), TEXT("inspect_platform_capabilities"), TEXT("manage_project_plugin"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
-      TEXT("read_project_file"), TEXT("write_project_file"), TEXT("validate_blueprints"), TEXT("start_memory_report"), TEXT("configure_stat_commands"), TEXT("check_for_errors"),
+      TEXT("read_project_file"), TEXT("write_project_file"), TEXT("validate_blueprints"), TEXT("start_memory_report"), TEXT("configure_stat_commands"), TEXT("check_for_errors"), TEXT("start_network_profiler"), TEXT("enable_visual_logger"), TEXT("add_visual_log_entry"),
       TEXT("generate_save_game_class"),
       TEXT("list_gameplay_tags"), TEXT("get_runtime_gameplay_tag"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
       TEXT("list_config_layers"), TEXT("get_config_value"), TEXT("set_config_value"),
@@ -556,7 +557,7 @@ inline const TArray<FString>& Performance()
 		TEXT("merge_actors"), TEXT("configure_occlusion_culling"),
 		TEXT("optimize_shaders"), TEXT("configure_nanite"),
 		TEXT("configure_world_partition")
-		, TEXT("sign_release"), TEXT("run_packaged"), TEXT("deploy_package"), TEXT("run_network_soak")
+		, TEXT("sign_release"), TEXT("run_packaged"), TEXT("deploy_package"), TEXT("run_network_soak"), TEXT("analyze_trace")
 	};
 	return Actions;
 }

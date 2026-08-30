@@ -89,11 +89,76 @@
 #include "MoviePipelineQueueEngineSubsystem.h"
 #include "MoviePipelineQueue.h"
 #include "MoviePipelineConfigBase.h"
+#include "MoviePipelinePrimaryConfig.h"
 #include "MoviePipelineOutputSetting.h"
 #include "MoviePipelineImageSequenceOutput.h"
+#if __has_include("MoviePipelineEXROutput.h")
+#include "MoviePipelineEXROutput.h"
+#define MCP_HAS_MRQ_EXR 1
+#else
+#define MCP_HAS_MRQ_EXR 0
+#endif
+#include "MoviePipelineExecutor.h"
 #define MCP_HAS_MRQ 1
 #else
 #define MCP_HAS_MRQ 0
+#endif
+
+#if WITH_EDITOR && MCP_HAS_MRQ
+void UNebulaForgeBridgeSubsystem::BeginMovieRenderQueueTracking(
+    const FString &JobId, UMoviePipelineExecutorBase *Executor) {
+  ActiveMRQJobId = JobId;
+  LastMRQJobId = JobId;
+  LastMRQError.Empty();
+  bLastMRQCompleted = false;
+  bLastMRQSuccess = false;
+  if (!Executor) {
+    return;
+  }
+
+  const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+  Executor->OnExecutorErrored().AddLambda(
+      [WeakThis, JobId](UMoviePipelineExecutorBase *, UMoviePipeline *,
+                        bool bIsFatal, FText ErrorText) {
+        if (UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get()) {
+          if (Owner->ActiveMRQJobId == JobId && bIsFatal) {
+            Owner->LastMRQError = ErrorText.ToString();
+          }
+        }
+      });
+  Executor->OnExecutorFinished().AddLambda(
+      [WeakThis, JobId](UMoviePipelineExecutorBase *, bool bSuccess) {
+        if (UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get()) {
+          if (Owner->ActiveMRQJobId == JobId) {
+            Owner->LastMRQJobId = JobId;
+            Owner->bLastMRQCompleted = true;
+            Owner->bLastMRQSuccess = bSuccess && Owner->LastMRQError.IsEmpty();
+            Owner->ActiveMRQJobId.Empty();
+          }
+        }
+      });
+}
+
+TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedStatus(
+    const FString &RequestedJobId) const {
+  const FString JobId = !ActiveMRQJobId.IsEmpty() ? ActiveMRQJobId : LastMRQJobId;
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetBoolField(TEXT("known"), !JobId.IsEmpty() &&
+                                      (RequestedJobId.IsEmpty() || RequestedJobId == JobId));
+  Result->SetStringField(TEXT("jobId"), JobId);
+  Result->SetStringField(TEXT("mrqJobId"), JobId);
+  if (bLastMRQCompleted) {
+    Result->SetStringField(TEXT("status"), bLastMRQSuccess ? TEXT("completed") : TEXT("failed"));
+    Result->SetBoolField(TEXT("completed"), true);
+    Result->SetBoolField(TEXT("success"), bLastMRQSuccess);
+    if (!LastMRQError.IsEmpty()) Result->SetStringField(TEXT("error"), LastMRQError);
+  } else {
+    Result->SetStringField(TEXT("status"), ActiveMRQJobId.IsEmpty() ? TEXT("idle") : TEXT("rendering"));
+    Result->SetBoolField(TEXT("completed"), false);
+    Result->SetBoolField(TEXT("success"), false);
+  }
+  return Result;
+}
 #endif
 
 // Header checks removed causing issues with private headers
@@ -2452,12 +2517,29 @@ static bool HandleMovieRenderQueueAction(
   }
 
   if (Action == TEXT("get_mrq_status")) {
+    FString RequestedJobId;
+    if (Payload.IsValid()) Payload->TryGetStringField(TEXT("mrqJobId"), RequestedJobId);
+    if (RequestedJobId.IsEmpty() && Payload.IsValid()) Payload->TryGetStringField(TEXT("jobId"), RequestedJobId);
     TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
     Response->SetBoolField(TEXT("isRendering"), Subsystem->IsRendering());
     Response->SetStringField(TEXT("status"),
                              Subsystem->IsRendering() ? TEXT("rendering") : TEXT("idle"));
     if (UMoviePipelineExecutorBase *Executor = Subsystem->GetActiveExecutor()) {
       Response->SetStringField(TEXT("executorClass"), Executor->GetClass()->GetPathName());
+    }
+    const TSharedPtr<FJsonObject> TrackedStatus = Owner->GetMovieRenderQueueTrackedStatus(RequestedJobId);
+    if (TrackedStatus.IsValid()) {
+      for (const TPair<FString, TSharedPtr<FJsonValue>> &Field : TrackedStatus->Values) {
+        if (Field.Value.IsValid()) Response->SetField(Field.Key, Field.Value);
+      }
+      bool bKnown = true;
+      TrackedStatus->TryGetBoolField(TEXT("known"), bKnown);
+      if (!bKnown && !RequestedJobId.IsEmpty()) {
+        Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+            TEXT("Movie Render Queue job was not found"), Response,
+            TEXT("MRQ_JOB_NOT_FOUND"));
+        return true;
+      }
     }
     Owner->SendAutomationResponse(RequestingSocket, RequestId, true,
                            TEXT("Movie Render Queue status"), Response);
@@ -2516,6 +2598,28 @@ static bool HandleMovieRenderQueueAction(
                            TEXT("MRQ_JOB_ALLOCATION_FAILED"));
     return true;
   }
+
+  FString MrqPresetPath;
+  if (Payload->TryGetStringField(TEXT("mrqPresetPath"), MrqPresetPath) && !MrqPresetPath.IsEmpty()) {
+    if (!IsValidAssetPath(MrqPresetPath)) {
+      Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+          TEXT("mrqPresetPath must be a valid Unreal asset path"), nullptr,
+          TEXT("INVALID_MRQ_PRESET_PATH"));
+      return true;
+    }
+    UMoviePipelinePrimaryConfig *Preset =
+        Cast<UMoviePipelinePrimaryConfig>(UEditorAssetLibrary::LoadAsset(MrqPresetPath));
+    if (!Preset) {
+      Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+          TEXT("Movie Render Queue preset was not found or is not a UMoviePipelinePrimaryConfig"), nullptr,
+          TEXT("MRQ_PRESET_INVALID"));
+      return true;
+    }
+    // Copy into the job-owned transient configuration. The preset asset remains
+    // immutable and is never passed directly to the active renderer.
+    Job->GetConfiguration()->CopyFrom(Preset);
+    Job->SetPresetOrigin(Preset);
+  }
   UMoviePipelineOutputSetting *OutputSetting =
       Cast<UMoviePipelineOutputSetting>(Job->GetConfiguration()->FindOrAddSettingByClass(
           UMoviePipelineOutputSetting::StaticClass()));
@@ -2526,14 +2630,97 @@ static bool HandleMovieRenderQueueAction(
     return true;
   }
   OutputSetting->OutputDirectory.Path = FPaths::Combine(FPaths::ProjectDir(), OutputPath);
-  Job->GetConfiguration()->FindOrAddSettingByClass(
-      UMoviePipelineImageSequenceOutput_PNG::StaticClass());
+
+  // Apply optional deterministic render settings.  Keep these values on the
+  // transient MRQ job so the source sequence is never modified as a side
+  // effect of rendering.
+  FString ResolutionText;
+  int32 OutputWidth = 0;
+  int32 OutputHeight = 0;
+  if (Payload->TryGetStringField(TEXT("resolution"), ResolutionText) && !ResolutionText.IsEmpty()) {
+    ResolutionText.ReplaceInline(TEXT("X"), TEXT("x"));
+    ResolutionText.ReplaceInline(TEXT("*"), TEXT("x"));
+    TArray<FString> ResolutionParts;
+    ResolutionText.ParseIntoArray(ResolutionParts, TEXT("x"), true);
+    if (ResolutionParts.Num() == 2) {
+      OutputWidth = FCString::Atoi(*ResolutionParts[0]);
+      OutputHeight = FCString::Atoi(*ResolutionParts[1]);
+    }
+    if (OutputWidth < 1 || OutputHeight < 1 || OutputWidth > 16384 || OutputHeight > 16384) {
+      Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+          TEXT("resolution must be WIDTHxHEIGHT with values between 1 and 16384"), nullptr,
+          TEXT("INVALID_RESOLUTION"));
+      return true;
+    }
+    OutputSetting->OutputResolution = FIntPoint(OutputWidth, OutputHeight);
+  }
+
+  bool bHasStartFrame = false;
+  bool bHasEndFrame = false;
+  double StartFrameValue = 0.0;
+  double EndFrameValue = 0.0;
+  bHasStartFrame = Payload->TryGetNumberField(TEXT("startFrame"), StartFrameValue);
+  bHasEndFrame = Payload->TryGetNumberField(TEXT("endFrame"), EndFrameValue);
+  if (bHasStartFrame != bHasEndFrame ||
+      (bHasStartFrame && (!FMath::IsFinite(StartFrameValue) || !FMath::IsFinite(EndFrameValue) ||
+                          StartFrameValue < -1000000.0 || EndFrameValue > 1000000.0 ||
+                          StartFrameValue > EndFrameValue))) {
+    Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+        TEXT("startFrame and endFrame must be supplied together with startFrame <= endFrame and values between -1000000 and 1000000"), nullptr,
+        TEXT("INVALID_FRAME_RANGE"));
+    return true;
+  }
+  if (bHasStartFrame) {
+    OutputSetting->bUseCustomPlaybackRange = true;
+    OutputSetting->CustomStartFrame = FMath::RoundToInt(StartFrameValue);
+    OutputSetting->CustomEndFrame = FMath::RoundToInt(EndFrameValue);
+  }
+  FString OutputFormat = TEXT("png");
+  Payload->TryGetStringField(TEXT("outputFormat"), OutputFormat);
+  OutputFormat.TrimStartAndEndInline();
+  OutputFormat.ToLowerInline();
+  UClass* ImageOutputClass = UMoviePipelineImageSequenceOutput_PNG::StaticClass();
+  if (OutputFormat == TEXT("jpg") || OutputFormat == TEXT("jpeg")) {
+    ImageOutputClass = UMoviePipelineImageSequenceOutput_JPG::StaticClass();
+    OutputFormat = TEXT("jpg");
+  } else if (OutputFormat == TEXT("bmp")) {
+    ImageOutputClass = UMoviePipelineImageSequenceOutput_BMP::StaticClass();
+  } else if (OutputFormat == TEXT("exr")) {
+#if MCP_HAS_MRQ_EXR
+    ImageOutputClass = UMoviePipelineImageSequenceOutput_EXR::StaticClass();
+#else
+    Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+        TEXT("EXR output is unavailable because the MRQ render-passes module is not present"), nullptr,
+        TEXT("MRQ_FORMAT_NOT_AVAILABLE"));
+    return true;
+#endif
+  } else if (OutputFormat != TEXT("png")) {
+    Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+        TEXT("outputFormat must be one of png, jpg, jpeg, bmp, or exr"), nullptr,
+        TEXT("INVALID_OUTPUT_FORMAT"));
+    return true;
+  }
+  Job->GetConfiguration()->FindOrAddSettingByClass(ImageOutputClass);
   Subsystem->RenderJob(Job);
+  Owner->BeginMovieRenderQueueTracking(Job->GetName(), Subsystem->GetActiveExecutor());
 
   TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
   Response->SetStringField(TEXT("jobId"), Job->GetName());
+  Response->SetStringField(TEXT("mrqJobId"), Job->GetName());
   Response->SetStringField(TEXT("sequencePath"), SequencePath);
   Response->SetStringField(TEXT("outputPath"), OutputPath);
+  if (!MrqPresetPath.IsEmpty()) Response->SetStringField(TEXT("mrqPresetPath"), MrqPresetPath);
+  Response->SetStringField(TEXT("outputFormat"), OutputFormat);
+  Response->SetBoolField(TEXT("customResolution"), OutputWidth > 0 && OutputHeight > 0);
+  if (OutputWidth > 0 && OutputHeight > 0) {
+    Response->SetNumberField(TEXT("outputWidth"), OutputWidth);
+    Response->SetNumberField(TEXT("outputHeight"), OutputHeight);
+  }
+  Response->SetBoolField(TEXT("customFrameRange"), bHasStartFrame);
+  if (bHasStartFrame) {
+    Response->SetNumberField(TEXT("startFrame"), OutputSetting->CustomStartFrame);
+    Response->SetNumberField(TEXT("endFrame"), OutputSetting->CustomEndFrame);
+  }
   Response->SetStringField(TEXT("status"), TEXT("queued"));
   Owner->SendAutomationResponse(RequestingSocket, RequestId, true,
                          TEXT("Movie Render Queue job submitted"), Response);
@@ -2548,11 +2735,29 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
   const FString Lower = Action.ToLower();
   // Also handle manage_sequence which acts as a dispatcher for sub-actions
   if (!Lower.StartsWith(TEXT("sequence_")) &&
-      !Lower.Equals(TEXT("manage_sequence")))
+      !Lower.Equals(TEXT("manage_sequence")) &&
+      !Lower.Equals(TEXT("render_sequence_queue")))
     return false;
 
   TSharedPtr<FJsonObject> LocalPayload =
       Payload.IsValid() ? Payload : McpHandlerUtils::CreateResultObject();
+  if (Lower.Equals(TEXT("render_sequence_queue"))) {
+    SendAutomationError(RequestingSocket, RequestId,
+                        TEXT("Render queue orchestration is owned by the TypeScript MCP host"),
+                        TEXT("HOST_ONLY"));
+    return true;
+  }
+  if (Lower.Equals(TEXT("manage_sequence"))) {
+    FString RequestedSubAction;
+    LocalPayload->TryGetStringField(TEXT("subAction"), RequestedSubAction);
+    if (RequestedSubAction.IsEmpty()) LocalPayload->TryGetStringField(TEXT("action"), RequestedSubAction);
+    if (RequestedSubAction.Equals(TEXT("render_sequence_queue"), ESearchCase::IgnoreCase)) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Render queue orchestration is owned by the TypeScript MCP host"),
+                          TEXT("HOST_ONLY"));
+      return true;
+    }
+  }
   FString EffectiveAction = Lower;
 
   // If generic manage_sequence, extract the sub-action to determine behavior

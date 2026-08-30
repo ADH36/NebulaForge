@@ -45,6 +45,8 @@ public:
 			.String(TEXT("newName"), TEXT("New name for renaming."))
 			.Bool(TEXT("overwrite"), TEXT("Overwrite if the asset/file already exists."))
 			.Bool(TEXT("save"), TEXT("Save the asset(s) after the operation."))
+			.Bool(TEXT("requireClean"), TEXT("Require the loaded package to be clean after persistence verification."))
+			.Bool(TEXT("verifyReload"), TEXT("Unload and reload the asset to verify persistence across an editor reload cycle."))
 			.Bool(TEXT("fixupRedirectors"), TEXT(""))
 			.String(TEXT("directoryPath"), TEXT("Path to a directory."))
 			.String(TEXT("name"), TEXT("Name identifier."))

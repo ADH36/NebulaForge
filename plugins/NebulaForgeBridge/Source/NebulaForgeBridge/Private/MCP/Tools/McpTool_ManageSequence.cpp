@@ -68,7 +68,8 @@ public:
 				TEXT("list_track_types"),
 				TEXT("render_sequence_mrq"),
 				TEXT("get_mrq_status"),
-				TEXT("cancel_mrq")
+				TEXT("cancel_mrq"),
+				TEXT("render_sequence_queue")
 			}, TEXT("Action"))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.String(TEXT("path"), TEXT("Asset path (e.g., /Game/Path/Asset)."))
@@ -91,6 +92,8 @@ public:
 			.Bool(TEXT("locked"), TEXT(""))
 			.Number(TEXT("startFrame"), TEXT(""))
 			.Number(TEXT("endFrame"), TEXT(""))
+			.StringEnum(TEXT("outputFormat"), { TEXT("png"), TEXT("jpg"), TEXT("jpeg"), TEXT("bmp"), TEXT("exr") }, TEXT("MRQ image-sequence output format."))
+			.String(TEXT("mrqPresetPath"), TEXT("Optional /Game UMoviePipelinePrimaryConfig asset copied into the transient MRQ job."))
 			.String(TEXT("frameRate"), TEXT(""))
 			.String(TEXT("resolution"), TEXT(""))
 			.Number(TEXT("start"), TEXT(""))
@@ -105,6 +108,10 @@ public:
 			.Number(TEXT("rowIndex"), TEXT("Optional subsequence track row."))
 			.String(TEXT("outputPath"), TEXT("Project-relative Movie Render Queue output directory."))
 			.String(TEXT("mrqJobId"), TEXT("Movie Render Queue job identifier."))
+			.Array(TEXT("queue"), TEXT("Bounded ordered render jobs; each item requires path and outputPath."))
+			.Bool(TEXT("waitForCompletion"), TEXT("Wait for each queued MRQ job to reach a terminal state."))
+			.Number(TEXT("pollIntervalMs"), TEXT("Polling interval for queued MRQ jobs."))
+			.Number(TEXT("timeoutMs"), TEXT("Overall timeout for queued MRQ jobs."))
 			.Required({TEXT("action")})
 			.Build();
 	}

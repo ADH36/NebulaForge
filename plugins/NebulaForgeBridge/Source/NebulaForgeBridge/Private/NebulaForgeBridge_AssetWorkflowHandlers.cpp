@@ -579,6 +579,97 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleResetInstanceParameters(RequestId, Payload, RequestingSocket);
   if (Lower == TEXT("exists"))
     return HandleDoesAssetExist(RequestId, Payload, RequestingSocket);
+  if (Lower == TEXT("verify_asset_persistence")) {
+#if WITH_EDITOR
+    FString AssetPath;
+    if (!Payload.IsValid() || !Payload->TryGetStringField(TEXT("assetPath"), AssetPath) || AssetPath.IsEmpty()) {
+      SendAutomationResponse(RequestingSocket, RequestId, false, TEXT("assetPath required"), nullptr, TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    AssetPath = SanitizeProjectRelativePath(AssetPath);
+    if (AssetPath.IsEmpty()) {
+      SendAutomationResponse(RequestingSocket, RequestId, false, TEXT("Invalid assetPath"), nullptr, TEXT("SECURITY_VIOLATION"));
+      return true;
+    }
+    UObject *Asset = UEditorAssetLibrary::LoadAsset(AssetPath);
+    const bool bAssetExists = Asset != nullptr;
+    const FString PackageName = bAssetExists && Asset->GetOutermost()
+                                    ? Asset->GetOutermost()->GetName()
+                                    : FPackageName::ObjectPathToPackageName(AssetPath);
+    const bool bPackageExistsOnDisk = !PackageName.IsEmpty() && FPackageName::DoesPackageExist(PackageName);
+    const bool bPackageDirty = bAssetExists && Asset->GetOutermost() && Asset->GetOutermost()->IsDirty();
+    bool bRequireClean = true;
+    Payload->TryGetBoolField(TEXT("requireClean"), bRequireClean);
+    bool bVerifyReload = false;
+    Payload->TryGetBoolField(TEXT("verifyReload"), bVerifyReload);
+    bool bReloadVerified = false;
+    FString ReloadError;
+    FString ReloadedClassPath;
+    if (bVerifyReload)
+    {
+      if (!bAssetExists || !bPackageExistsOnDisk)
+      {
+        ReloadError = TEXT("Asset or package is missing; reload verification cannot start");
+      }
+      else if (bPackageDirty)
+      {
+        // Never unload a dirty package: doing so would discard editor changes.
+        ReloadError = TEXT("Package is dirty; save it before requesting reload verification");
+      }
+      else
+      {
+        const FString OriginalClassPath = Asset->GetClass()->GetPathName();
+        TArray<FAssetData> AssetsToUnload;
+        AssetsToUnload.Add(FAssetData(Asset));
+        if (!UnloadLoadedPackagesForAssets(AssetsToUnload, TEXT("verify_asset_persistence")))
+        {
+          ReloadError = TEXT("The asset package could not be unloaded safely");
+        }
+        else
+        {
+          UObject* ReloadedAsset = UEditorAssetLibrary::LoadAsset(AssetPath);
+          if (!ReloadedAsset)
+          {
+            ReloadError = TEXT("The asset could not be reloaded after unloading its package");
+          }
+          else
+          {
+            ReloadedClassPath = ReloadedAsset->GetClass()->GetPathName();
+            bReloadVerified = ReloadedClassPath == OriginalClassPath &&
+                               ReloadedAsset->GetOutermost() &&
+                               !ReloadedAsset->GetOutermost()->IsDirty();
+            if (!bReloadVerified)
+            {
+              ReloadError = TEXT("Reloaded asset class or package state did not match the persisted asset");
+            }
+          }
+        }
+      }
+    }
+    const bool bBasicVerified = bAssetExists && bPackageExistsOnDisk && (!bRequireClean || !bPackageDirty);
+    const bool bVerified = bBasicVerified && (!bVerifyReload || bReloadVerified);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), AssetPath);
+    Result->SetStringField(TEXT("packageName"), PackageName);
+    Result->SetStringField(TEXT("classPath"), bAssetExists ? Asset->GetClass()->GetPathName() : FString());
+    Result->SetBoolField(TEXT("assetExists"), bAssetExists);
+    Result->SetBoolField(TEXT("packageExistsOnDisk"), bPackageExistsOnDisk);
+    Result->SetBoolField(TEXT("packageDirty"), bPackageDirty);
+    Result->SetBoolField(TEXT("requireClean"), bRequireClean);
+    Result->SetBoolField(TEXT("reloadRequested"), bVerifyReload);
+    Result->SetBoolField(TEXT("reloadVerified"), bReloadVerified);
+    Result->SetStringField(TEXT("reloadedClassPath"), ReloadedClassPath);
+    if (!ReloadError.IsEmpty()) Result->SetStringField(TEXT("reloadError"), ReloadError);
+    Result->SetBoolField(TEXT("persistenceVerified"), bVerified);
+    SendAutomationResponse(RequestingSocket, RequestId, bVerified,
+                           bVerified ? TEXT("Asset persistence verified") : TEXT("Asset persistence verification failed"),
+                           Result, bVerified ? FString() : TEXT("PERSISTENCE_NOT_VERIFIED"));
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Asset persistence verification requires editor build"), TEXT("NOT_IMPLEMENTED"));
+    return true;
+#endif
+  }
   if (Lower == TEXT("get_material_stats"))
     return HandleGetMaterialStats(RequestId, Payload, RequestingSocket);
 

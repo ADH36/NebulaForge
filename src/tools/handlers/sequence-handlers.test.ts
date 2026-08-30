@@ -116,4 +116,80 @@ describe('handleSequenceTools path normalization', () => {
       expect.objectContaining({ subAction: 'add_track', trackType: 'Fade', path: '/Game/MCPTest/Sequences/SEQ_Master' })
     );
   });
+
+  it('submits a bounded ordered render queue', async () => {
+    executeAutomationRequestMock.mockResolvedValue({ success: true, result: { jobId: 'mrq-test' } });
+    const result = await handleSequenceTools('render_sequence_queue', {
+      queue: [
+        { path: '/Game/Cinematics/Intro', outputPath: 'Saved/Renders/Intro' },
+        { path: '/Game/Cinematics/Outro', outputPath: 'Saved/Renders/Outro' }
+      ],
+      waitForCompletion: false
+    }, {} as never);
+    expect(result).toMatchObject({ success: true, queuedJobs: 2, completedJobs: 0 });
+    expect(executeAutomationRequestMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails a waiting render queue when native submission omits its job id', async () => {
+    executeAutomationRequestMock.mockResolvedValue({ success: true, result: { status: 'queued' } });
+    const result = await handleSequenceTools('render_sequence_queue', {
+      queue: [{ path: '/Game/Cinematics/Intro', outputPath: 'Saved/Renders/Intro' }],
+      waitForCompletion: true,
+      timeoutMs: 1000
+    }, {} as never);
+    expect(result).toMatchObject({ success: false, error: 'RENDER_QUEUE_MISSING_JOB_ID' });
+  });
+
+  it('forwards deterministic MRQ resolution and frame range settings', async () => {
+    executeAutomationRequestMock.mockResolvedValue({ success: true, result: { mrqJobId: 'mrq-configured' } });
+    await handleSequenceTools('render_sequence_mrq', {
+      path: '/Game/Cinematics/Intro',
+      outputPath: 'Saved/Renders/Intro',
+      outputFormat: 'exr',
+      resolution: '1920x1080',
+      startFrame: 10,
+      endFrame: 120
+    }, {} as never);
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {},
+      'manage_sequence',
+      expect.objectContaining({
+        subAction: 'render_sequence_mrq',
+        resolution: '1920x1080',
+        outputFormat: 'exr',
+        startFrame: 10,
+        endFrame: 120
+      })
+    );
+  });
+
+  it('forwards an MRQ preset asset without rewriting it', async () => {
+    executeAutomationRequestMock.mockResolvedValue({ success: true, result: { mrqJobId: 'mrq-preset' } });
+    await handleSequenceTools('render_sequence_mrq', {
+      path: '/Game/Cinematics/Intro',
+      outputPath: 'Saved/Renders/Intro',
+      mrqPresetPath: '/Game/Cinematics/Presets/Default'
+    }, {} as never);
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {},
+      'manage_sequence',
+      expect.objectContaining({
+        subAction: 'render_sequence_mrq',
+        mrqPresetPath: '/Game/Cinematics/Presets/Default'
+      })
+    );
+  });
+
+  it('treats a native terminal MRQ completion as successful', async () => {
+    executeAutomationRequestMock
+      .mockResolvedValueOnce({ success: true, result: { jobId: 'mrq-complete' } })
+      .mockResolvedValueOnce({ success: true, result: { mrqJobId: 'mrq-complete', status: 'completed', completed: true, success: true } });
+    const result = await handleSequenceTools('render_sequence_queue', {
+      queue: [{ path: '/Game/Cinematics/Intro', outputPath: 'Saved/Renders/Intro' }],
+      waitForCompletion: true,
+      timeoutMs: 1000,
+      pollIntervalMs: 25
+    }, {} as never);
+    expect(result).toMatchObject({ success: true, queuedJobs: 1, completedJobs: 1 });
+  });
 });

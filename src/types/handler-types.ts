@@ -126,6 +126,7 @@ export interface AssetArgs extends HandlerArgs {
     filter?: string;
     recursive?: boolean;
     overwrite?: boolean;
+    verifyReload?: boolean;
     classNames?: string[];
     packagePaths?: string[];
     parentMaterial?: string;
@@ -430,10 +431,16 @@ export interface SequenceArgs extends HandlerArgs {
     end?: number;
     startFrame?: number;
     endFrame?: number;
+    outputFormat?: string;
+    mrqPresetPath?: string;
     assetPath?: string;
     muted?: boolean;
     solo?: boolean;
     locked?: boolean;
+    queue?: Array<Record<string, unknown>>;
+    waitForCompletion?: boolean;
+    pollIntervalMs?: number;
+    timeoutMs?: number;
 }
 
 // ============================================================================
@@ -1031,6 +1038,8 @@ export interface PipelineArgs extends HandlerArgs {
     requiredDirectories?: string[];
     projectRequiredFiles?: string[];
     projectRequiredDirectories?: string[];
+    architectureManifestPath?: string;
+    validateArchitecture?: boolean;
     runProjectValidation?: boolean;
     runAutomationTests?: boolean;
     testName?: string;

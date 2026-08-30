@@ -226,6 +226,7 @@ public class NebulaForgeBridge : ModuleRules
             AddOptionalDynamicModule(Target, EngineDir, "ControlRig", "ControlRig");
             AddOptionalDynamicModule(Target, EngineDir, "ControlRigDeveloper", "ControlRigDeveloper");
             AddOptionalDynamicModule(Target, EngineDir, "ControlRigEditor", "ControlRigEditor");
+            AddOptionalDynamicModule(Target, EngineDir, "IKRigEditor", "IKRigEditor");
 
             // ProceduralMeshComponent (optional plugin) - for procedural geometry
             AddOptionalDynamicModule(Target, EngineDir, "ProceduralMeshComponent", "ProceduralMeshComponent");

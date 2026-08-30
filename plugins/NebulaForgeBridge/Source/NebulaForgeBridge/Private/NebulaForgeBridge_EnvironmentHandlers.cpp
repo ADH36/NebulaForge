@@ -4297,12 +4297,12 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectAction(
             Status->SetStringField(TEXT("testingQuality"), TEXT("partial_automation_test_authoring_automation_tests_terminal_json_reports_data_validation_map_check_functional_test_actor_authoring_blueprint_compile_sweep_gameplay_debugger_control"));
             Status->SetStringField(TEXT("profilingQuality"), TEXT("partial_insights_session_lifecycle_file_trace_capture_headless_trace_analysis_memory_report_network_profiler_visual_logger_stat_configuration_no_metric_export"));
             Status->SetStringField(TEXT("persistence"), TEXT("partial_data_asset_datatable_curvetable_primary_asset_registry_runtime_savegame_slots_async_save_load_gameplay_tag_config_runtime_tag_queries_actor_tag_mutation"));
-            Status->SetStringField(TEXT("cinematicsMedia"), TEXT("partial_sequencer_mrq_png_output_demo_replay_media_assets_player_controls_take_recorder_lifecycle_no_media_sources"));
+            Status->SetStringField(TEXT("cinematicsMedia"), TEXT("partial_sequencer_mrq_png_output_ordered_host_render_queue_demo_replay_media_assets_sources_player_controls_take_recorder_lifecycle_no_transactional_recovery"));
             Status->SetStringField(TEXT("blueprintGameplay"), TEXT("partial_project_architecture_required"));
             Status->SetStringField(TEXT("animationCharacters"), TEXT("partial_engine_version_and_plugin_dependent"));
             Status->SetStringField(TEXT("niagaraEffects"), TEXT("conditional_editor_and_plugin_dependent"));
             Status->SetStringField(TEXT("audio"), TEXT("partial_plugin_and_project_backend_dependent"));
-            Status->SetStringField(TEXT("multiplayerOnline"), TEXT("partial_replication_lan_voice_online_subsystem_sessions_session_status_network_fault_injection_packaged_server_client_soak_runner_no_provider_specific_lobbies_identity_or_matchmaking_assertions"));
+            Status->SetStringField(TEXT("multiplayerOnline"), TEXT("partial_replication_lan_voice_online_subsystem_sessions_session_status_identity_status_presence_read_write_network_fault_injection_packaged_server_client_soak_runner_no_provider_specific_lobbies_or_matchmaking_assertions"));
             Status->SetStringField(TEXT("aiRuntimeGameplay"), TEXT("partial_runtime_pie_and_project_assets_required"));
             Status->SetStringField(TEXT("assetsContent"), TEXT("partial_release_migration_and_audit_gates_required"));
             Status->SetStringField(TEXT("worldBuilding"), TEXT("partial_plugin_assets_and_world_partition_boundaries"));

@@ -106,6 +106,20 @@
 #define MCP_HAS_CONTROLRIG_BLUEPRINT 0
 #endif
 
+#if __has_include("Rigs/RigHierarchyController.h")
+#include "Rigs/RigHierarchyController.h"
+#define MCP_HAS_CONTROLRIG_HIERARCHY 1
+#else
+#define MCP_HAS_CONTROLRIG_HIERARCHY 0
+#endif
+
+#if __has_include("RigVMModel/RigVMController.h")
+#include "RigVMModel/RigVMController.h"
+#define MCP_HAS_RIGVM_CONTROLLER 1
+#else
+#define MCP_HAS_RIGVM_CONTROLLER 0
+#endif
+
 // RigVM Blueprint Generated Class (needed for ControlRig creation fallback in UE 5.1-5.4)
 #if __has_include("RigVMBlueprintGeneratedClass.h")
 #include "RigVMBlueprintGeneratedClass.h"
@@ -133,6 +147,13 @@
 #define MCP_HAS_IKRIG 1
 #else
 #define MCP_HAS_IKRIG 0
+#endif
+
+#if __has_include("RigEditor/IKRigController.h")
+#include "RigEditor/IKRigController.h"
+#define MCP_HAS_IKRIG_CONTROLLER 1
+#else
+#define MCP_HAS_IKRIG_CONTROLLER 0
 #endif
 
 // IK Rig Factory (for creating IK Rig assets)
@@ -3429,19 +3450,70 @@ if (SubAction == TEXT("add_montage_notify"))
 
     if (SubAction == TEXT("add_control"))
     {
-#if MCP_HAS_CONTROLRIG
+#if MCP_HAS_CONTROLRIG && MCP_HAS_CONTROLRIG_BLUEPRINT && MCP_HAS_CONTROLRIG_HIERARCHY
         FString AssetPath = NormalizeAnimPath(GetStringFieldAnimAuth(Params, TEXT("assetPath"), TEXT("")));
         FString ControlName = GetStringFieldAnimAuth(Params, TEXT("controlName"), TEXT(""));
+        FString ControlTypeName = GetStringFieldAnimAuth(Params, TEXT("controlType"), TEXT("Transform"));
+        FString ParentBone = GetStringFieldAnimAuth(Params, TEXT("parentBone"), TEXT(""));
+        FString ParentControl = GetStringFieldAnimAuth(Params, TEXT("parentControl"), TEXT(""));
         bool bSave = GetBoolFieldAnimAuth(Params, TEXT("save"), true);
 
-        if (ControlName.IsEmpty())
+        if (AssetPath.IsEmpty() || ControlName.IsEmpty())
         {
-            ANIM_ERROR_RESPONSE(TEXT("controlName is required"), TEXT("MISSING_CONTROL_NAME"));
+            ANIM_ERROR_RESPONSE(TEXT("assetPath and controlName are required"), TEXT("MISSING_CONTROL_ARGUMENT"));
         }
 
-        ANIM_ERROR_RESPONSE(
-            TEXT("add_control is handled by the animation_physics runtime authoring route; call animation_physics with action=add_control."),
-            TEXT("WRONG_HANDLER_ROUTE"));
+        UControlRigBlueprint* ControlRigBP = Cast<UControlRigBlueprint>(UEditorAssetLibrary::LoadAsset(AssetPath));
+        if (!ControlRigBP)
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Control Rig not found: %s"), *AssetPath), TEXT("ASSET_NOT_FOUND"));
+        }
+
+        ERigControlType ControlType = ERigControlType::Transform;
+        if (ControlTypeName.Equals(TEXT("Bool"), ESearchCase::IgnoreCase)) ControlType = ERigControlType::Bool;
+        else if (ControlTypeName.Equals(TEXT("Float"), ESearchCase::IgnoreCase)) ControlType = ERigControlType::Float;
+        else if (ControlTypeName.Equals(TEXT("Integer"), ESearchCase::IgnoreCase)) ControlType = ERigControlType::Integer;
+        else if (ControlTypeName.Equals(TEXT("Vector2D"), ESearchCase::IgnoreCase)) ControlType = ERigControlType::Vector2D;
+        else if (ControlTypeName.Equals(TEXT("Position"), ESearchCase::IgnoreCase)) ControlType = ERigControlType::Position;
+        else if (ControlTypeName.Equals(TEXT("Scale"), ESearchCase::IgnoreCase)) ControlType = ERigControlType::Scale;
+        else if (ControlTypeName.Equals(TEXT("Rotator"), ESearchCase::IgnoreCase)) ControlType = ERigControlType::Rotator;
+        else if (ControlTypeName.Equals(TEXT("EulerTransform"), ESearchCase::IgnoreCase)) ControlType = ERigControlType::EulerTransform;
+        else if (!ControlTypeName.Equals(TEXT("Transform"), ESearchCase::IgnoreCase))
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Unsupported controlType: %s"), *ControlTypeName), TEXT("INVALID_CONTROL_TYPE"));
+        }
+
+        FRigElementKey ParentKey;
+        if (!ParentBone.IsEmpty()) ParentKey = FRigElementKey(*ParentBone, ERigElementType::Bone);
+        else if (!ParentControl.IsEmpty()) ParentKey = FRigElementKey(*ParentControl, ERigElementType::Control);
+
+        URigHierarchyController* HierarchyController = ControlRigBP->GetHierarchyController();
+        if (!HierarchyController)
+        {
+            ANIM_ERROR_RESPONSE(TEXT("Control Rig hierarchy controller unavailable"), TEXT("CONTROLLER_UNAVAILABLE"));
+        }
+
+        FRigControlSettings Settings;
+        Settings.ControlType = ControlType;
+        Settings.AnimationType = ERigControlAnimationType::AnimationControl;
+        Settings.PrimaryAxis = ERigControlAxis::X;
+        Settings.bShapeVisible = true;
+        FRigControlValue Value;
+        Value.SetFromTransform(FTransform::Identity, ControlType, Settings.PrimaryAxis);
+        const FRigElementKey AddedKey = HierarchyController->AddControl(*ControlName, ParentKey, Settings, Value);
+        if (!AddedKey.IsValid())
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Failed to add Control Rig control: %s"), *ControlName), TEXT("AUTHORING_FAILED"));
+        }
+
+        if (!SaveAnimAsset(ControlRigBP, bSave))
+        {
+            ANIM_ERROR_RESPONSE(TEXT("Failed to save Control Rig asset"), TEXT("SAVE_FAILED"));
+        }
+        Response->SetStringField(TEXT("assetPath"), ControlRigBP->GetPathName());
+        Response->SetStringField(TEXT("controlName"), AddedKey.Name.ToString());
+        Response->SetStringField(TEXT("controlType"), ControlTypeName);
+        ANIM_SUCCESS_RESPONSE(FString::Printf(TEXT("Control '%s' added to Control Rig"), *AddedKey.Name.ToString()));
 #else
         ANIM_ERROR_RESPONSE(TEXT("Control Rig module not available"), TEXT("NOT_SUPPORTED"));
 #endif
@@ -3450,13 +3522,117 @@ if (SubAction == TEXT("add_montage_notify"))
 
     if (SubAction == TEXT("add_rig_unit"))
     {
-#if MCP_HAS_CONTROLRIG
+#if MCP_HAS_CONTROLRIG_BLUEPRINT && MCP_HAS_RIGVM_CONTROLLER
         FString AssetPath = NormalizeAnimPath(GetStringFieldAnimAuth(Params, TEXT("assetPath"), TEXT("")));
         FString UnitType = GetStringFieldAnimAuth(Params, TEXT("unitType"), TEXT(""));
+        FString UnitName = GetStringFieldAnimAuth(Params, TEXT("unitName"), TEXT(""));
+        bool bSave = GetBoolFieldAnimAuth(Params, TEXT("save"), true);
+        const TSharedPtr<FJsonObject>* SettingsObject = nullptr;
+        Params->TryGetObjectField(TEXT("settings"), SettingsObject);
 
-        ANIM_ERROR_RESPONSE(
-            TEXT("add_rig_unit is handled by the animation_physics runtime authoring route; call animation_physics with action=add_rig_unit."),
-            TEXT("WRONG_HANDLER_ROUTE"));
+        if (AssetPath.IsEmpty() || UnitType.IsEmpty())
+        {
+            ANIM_ERROR_RESPONSE(TEXT("assetPath and unitType are required"), TEXT("MISSING_UNIT_ARGUMENT"));
+        }
+        UControlRigBlueprint* ControlRigBP = Cast<UControlRigBlueprint>(UEditorAssetLibrary::LoadAsset(AssetPath));
+        if (!ControlRigBP)
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Control Rig not found: %s"), *AssetPath), TEXT("ASSET_NOT_FOUND"));
+        }
+        FString StructPath = UnitType;
+        UScriptStruct* UnitStruct = Cast<UScriptStruct>(StaticLoadObject(UScriptStruct::StaticClass(), nullptr, *StructPath));
+        if (!UnitStruct)
+        {
+            for (UScriptStruct* Candidate : URigVMController::GetRegisteredUnitStructs())
+            {
+                if (Candidate && Candidate->GetName().Equals(UnitType, ESearchCase::IgnoreCase))
+                {
+                    UnitStruct = Candidate;
+                    break;
+                }
+            }
+        }
+        if (!UnitStruct)
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Rig unit struct not found: %s"), *UnitType), TEXT("UNIT_NOT_FOUND"));
+        }
+        URigVMController* Controller = ControlRigBP->GetController();
+        if (!Controller)
+        {
+            ANIM_ERROR_RESPONSE(TEXT("Control Rig VM controller unavailable"), TEXT("CONTROLLER_UNAVAILABLE"));
+        }
+        URigVMUnitNode* Node = Controller->AddUnitNode(UnitStruct, TEXT("Execute"), FVector2D::ZeroVector, UnitName);
+        if (!Node)
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Failed to add rig unit: %s"), *UnitType), TEXT("AUTHORING_FAILED"));
+        }
+
+        // Apply primitive values to matching RigVM pins after node creation.
+        // RigVM stores pin defaults as text, so this remains compatible across
+        // UE 5.x without depending on individual RigUnit property layouts.
+        TArray<TSharedPtr<FJsonValue>> AppliedSettings;
+        TArray<TSharedPtr<FJsonValue>> FailedSettings;
+        if (SettingsObject && SettingsObject->IsValid())
+        {
+            for (const TPair<FString, TSharedPtr<FJsonValue>>& Setting : (*SettingsObject)->Values)
+            {
+                if (!Setting.Value.IsValid())
+                {
+                    continue;
+                }
+                FString DefaultValue;
+                if (Setting.Value->Type == EJson::String)
+                {
+                    DefaultValue = Setting.Value->AsString();
+                }
+                else if (Setting.Value->Type == EJson::Number)
+                {
+                    DefaultValue = LexToString(Setting.Value->AsNumber());
+                }
+                else if (Setting.Value->Type == EJson::Boolean)
+                {
+                    DefaultValue = Setting.Value->AsBool() ? TEXT("True") : TEXT("False");
+                }
+                else
+                {
+                    TSharedPtr<FJsonObject> Failure = MakeShared<FJsonObject>();
+                    Failure->SetStringField(TEXT("pin"), Setting.Key);
+                    Failure->SetStringField(TEXT("reason"), TEXT("Only string, number, and boolean settings are supported"));
+                    FailedSettings.Add(MakeShared<FJsonValueObject>(Failure));
+                    continue;
+                }
+
+                const FString PinPath = Node->GetName().ToString() + TEXT(".") + Setting.Key;
+                if (Controller->SetPinDefaultValue(PinPath, DefaultValue))
+                {
+                    AppliedSettings.Add(MakeShared<FJsonValueString>(Setting.Key));
+                }
+                else
+                {
+                    TSharedPtr<FJsonObject> Failure = MakeShared<FJsonObject>();
+                    Failure->SetStringField(TEXT("pin"), Setting.Key);
+                    Failure->SetStringField(TEXT("reason"), TEXT("RigVM pin was not found or rejected the default value"));
+                    FailedSettings.Add(MakeShared<FJsonValueObject>(Failure));
+                }
+            }
+        }
+        if (FailedSettings.Num() > 0)
+        {
+            // Keep the authoring operation atomic: never leave a partially
+            // configured unit in the asset when a requested setting fails.
+            Controller->RemoveNode(Node);
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Rig unit created but %d settings could not be applied"), FailedSettings.Num()), TEXT("SETTINGS_APPLY_FAILED"));
+        }
+        if (!SaveAnimAsset(ControlRigBP, bSave))
+        {
+            ANIM_ERROR_RESPONSE(TEXT("Failed to save Control Rig asset"), TEXT("SAVE_FAILED"));
+        }
+        Response->SetStringField(TEXT("assetPath"), ControlRigBP->GetPathName());
+        Response->SetStringField(TEXT("unitType"), UnitStruct->GetPathName());
+        Response->SetStringField(TEXT("unitName"), Node->GetName().ToString());
+        Response->SetArrayField(TEXT("settingsApplied"), AppliedSettings);
+        Response->SetArrayField(TEXT("settingsFailed"), FailedSettings);
+        ANIM_SUCCESS_RESPONSE(FString::Printf(TEXT("Rig unit '%s' added"), *Node->GetName().ToString()));
 #else
         ANIM_ERROR_RESPONSE(TEXT("Control Rig module not available"), TEXT("NOT_SUPPORTED"));
 #endif
@@ -3465,10 +3641,41 @@ if (SubAction == TEXT("add_montage_notify"))
 
     if (SubAction == TEXT("connect_rig_elements"))
     {
-#if MCP_HAS_CONTROLRIG
-        ANIM_ERROR_RESPONSE(
-            TEXT("connect_rig_elements is handled by the animation_physics runtime authoring route; call animation_physics with action=connect_rig_elements."),
-            TEXT("WRONG_HANDLER_ROUTE"));
+#if MCP_HAS_CONTROLRIG_BLUEPRINT && MCP_HAS_RIGVM_CONTROLLER
+        FString AssetPath = NormalizeAnimPath(GetStringFieldAnimAuth(Params, TEXT("assetPath"), TEXT("")));
+        FString SourceElement = GetStringFieldAnimAuth(Params, TEXT("sourceElement"), TEXT(""));
+        FString SourcePin = GetStringFieldAnimAuth(Params, TEXT("sourcePin"), TEXT(""));
+        FString TargetElement = GetStringFieldAnimAuth(Params, TEXT("targetElement"), TEXT(""));
+        FString TargetPin = GetStringFieldAnimAuth(Params, TEXT("targetPin"), TEXT(""));
+        bool bSave = GetBoolFieldAnimAuth(Params, TEXT("save"), true);
+        if (AssetPath.IsEmpty() || SourceElement.IsEmpty() || SourcePin.IsEmpty() || TargetElement.IsEmpty() || TargetPin.IsEmpty())
+        {
+            ANIM_ERROR_RESPONSE(TEXT("assetPath, sourceElement, sourcePin, targetElement, and targetPin are required"), TEXT("MISSING_LINK_ARGUMENT"));
+        }
+        UControlRigBlueprint* ControlRigBP = Cast<UControlRigBlueprint>(UEditorAssetLibrary::LoadAsset(AssetPath));
+        if (!ControlRigBP)
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Control Rig not found: %s"), *AssetPath), TEXT("ASSET_NOT_FOUND"));
+        }
+        URigVMController* Controller = ControlRigBP->GetController();
+        if (!Controller)
+        {
+            ANIM_ERROR_RESPONSE(TEXT("Control Rig VM controller unavailable"), TEXT("CONTROLLER_UNAVAILABLE"));
+        }
+        const FString OutputPath = SourceElement + TEXT(".") + SourcePin;
+        const FString InputPath = TargetElement + TEXT(".") + TargetPin;
+        if (!Controller->AddLink(OutputPath, InputPath))
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Failed to connect %s to %s"), *OutputPath, *InputPath), TEXT("LINK_FAILED"));
+        }
+        if (!SaveAnimAsset(ControlRigBP, bSave))
+        {
+            ANIM_ERROR_RESPONSE(TEXT("Failed to save Control Rig asset"), TEXT("SAVE_FAILED"));
+        }
+        Response->SetStringField(TEXT("assetPath"), ControlRigBP->GetPathName());
+        Response->SetStringField(TEXT("sourcePin"), OutputPath);
+        Response->SetStringField(TEXT("targetPin"), InputPath);
+        ANIM_SUCCESS_RESPONSE(TEXT("Control Rig elements connected"));
 #else
         ANIM_ERROR_RESPONSE(TEXT("Control Rig module not available"), TEXT("NOT_SUPPORTED"));
 #endif
@@ -3588,18 +3795,44 @@ if (SubAction == TEXT("create_ik_rig"))
 
     if (SubAction == TEXT("add_ik_chain"))
     {
-#if MCP_HAS_IKRIG
+#if MCP_HAS_IKRIG && MCP_HAS_IKRIG_CONTROLLER
         FString AssetPath = NormalizeAnimPath(GetStringFieldAnimAuth(Params, TEXT("assetPath"), TEXT("")));
         FString ChainName = GetStringFieldAnimAuth(Params, TEXT("chainName"), TEXT(""));
+        FString StartBone = GetStringFieldAnimAuth(Params, TEXT("startBone"), TEXT(""));
+        FString EndBone = GetStringFieldAnimAuth(Params, TEXT("endBone"), TEXT(""));
+        FString GoalName = GetStringFieldAnimAuth(Params, TEXT("goal"), TEXT(""));
+        bool bSave = GetBoolFieldAnimAuth(Params, TEXT("save"), true);
 
-        if (ChainName.IsEmpty())
+        if (AssetPath.IsEmpty() || ChainName.IsEmpty() || StartBone.IsEmpty() || EndBone.IsEmpty())
         {
-            ANIM_ERROR_RESPONSE(TEXT("chainName is required"), TEXT("MISSING_CHAIN_NAME"));
+            ANIM_ERROR_RESPONSE(TEXT("assetPath, chainName, startBone, and endBone are required"), TEXT("MISSING_CHAIN_ARGUMENT"));
         }
 
-        ANIM_ERROR_RESPONSE(
-            TEXT("add_ik_chain is handled by the animation_physics runtime authoring route; call animation_physics with action=add_ik_chain."),
-            TEXT("WRONG_HANDLER_ROUTE"));
+        UIKRigDefinition* IKRig = Cast<UIKRigDefinition>(UEditorAssetLibrary::LoadAsset(AssetPath));
+        if (!IKRig)
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("IK Rig not found: %s"), *AssetPath), TEXT("ASSET_NOT_FOUND"));
+        }
+        UIKRigController* Controller = UIKRigController::GetController(IKRig);
+        if (!Controller)
+        {
+            ANIM_ERROR_RESPONSE(TEXT("IK Rig controller unavailable"), TEXT("CONTROLLER_UNAVAILABLE"));
+        }
+        const FName AddedChain = Controller->AddRetargetChain(*ChainName, *StartBone, *EndBone, *GoalName);
+        if (AddedChain.IsNone())
+        {
+            ANIM_ERROR_RESPONSE(FString::Printf(TEXT("Failed to add IK chain '%s'"), *ChainName), TEXT("AUTHORING_FAILED"));
+        }
+        if (!SaveAnimAsset(IKRig, bSave))
+        {
+            ANIM_ERROR_RESPONSE(TEXT("Failed to save IK Rig asset"), TEXT("SAVE_FAILED"));
+        }
+        Response->SetStringField(TEXT("assetPath"), IKRig->GetPathName());
+        Response->SetStringField(TEXT("chainName"), AddedChain.ToString());
+        Response->SetStringField(TEXT("startBone"), StartBone);
+        Response->SetStringField(TEXT("endBone"), EndBone);
+        if (!GoalName.IsEmpty()) Response->SetStringField(TEXT("goal"), GoalName);
+        ANIM_SUCCESS_RESPONSE(FString::Printf(TEXT("IK chain '%s' added"), *AddedChain.ToString()));
 #else
         ANIM_ERROR_RESPONSE(TEXT("IK Rig module not available"), TEXT("NOT_SUPPORTED"));
 #endif

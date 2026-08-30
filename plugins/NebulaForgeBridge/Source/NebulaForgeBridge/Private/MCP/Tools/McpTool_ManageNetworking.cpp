@@ -110,6 +110,8 @@ public:
 			.Number(TEXT("packetOrder"), TEXT("Enable packet reordering for network test conditions (0 or 1)."))
 			.Bool(TEXT("reset"), TEXT("Reset all artificial network test conditions."))
 			.Number(TEXT("localUserNum"), TEXT("Local online user index."))
+			.String(TEXT("presenceState"), TEXT("Presence state: online, away, extended_away, do_not_disturb, chat, or offline."))
+			.String(TEXT("statusText"), TEXT("Provider-visible presence status text."))
 			.String(TEXT("searchId"), TEXT("Search token returned by find_online_sessions."))
 			.Number(TEXT("resultIndex"), TEXT("Search result index to join."))
 			.Number(TEXT("maxSearchResults"), TEXT("Maximum online session results to return."))

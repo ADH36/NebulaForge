@@ -82,9 +82,13 @@ public:
 				TEXT("enable_gpu_simulation"),
 				TEXT("add_simulation_stage"),
 				TEXT("get_niagara_info"),
-				TEXT("validate_niagara_system")
+				TEXT("validate_niagara_system"),
+				TEXT("create_effect_preset"),
+				TEXT("apply_effect_preset"),
+				TEXT("validate_effect_preset")
 			}, TEXT("Effect/Niagara action to perform."))
 			.String(TEXT("name"), TEXT("Name identifier."))
+			.String(TEXT("projectPath"), TEXT("Project path used by host-managed effect presets."))
 			.String(TEXT("path"), TEXT("Directory path for asset creation."))
 			.String(TEXT("savePath"), TEXT("Path to save the asset."))
 			.String(TEXT("assetPath"), TEXT("Asset path (e.g., /Game/Path/Asset.Asset)."))
@@ -111,6 +115,10 @@ public:
 			.Number(TEXT("deltaTime"), TEXT("Simulation delta time."))
 			.Integer(TEXT("steps"), TEXT("Simulation step count."))
 			.String(TEXT("preset"), TEXT("Particle preset or asset path."))
+			.String(TEXT("presetPath"), TEXT("Project-relative effect preset JSON path."))
+			.String(TEXT("presetName"), TEXT("Effect preset name."))
+			.Array(TEXT("actions"), TEXT("Effect preset action objects."))
+			.Bool(TEXT("backup"), TEXT("Create a backup before writing a preset."))
 			.String(TEXT("shape"), TEXT(""))
 			.String(TEXT("shapeType"), TEXT(""))
 			.Number(TEXT("radius"), TEXT(""))

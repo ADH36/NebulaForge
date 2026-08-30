@@ -141,6 +141,9 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
   if (!bIsCreateEffect && !bIsNiagaraModule && !bIsSpawnNiagara &&
       !Lower.Equals(TEXT("manage_effect")) &&
       !Lower.Equals(TEXT("set_niagara_parameter")) &&
+      !Lower.Equals(TEXT("create_effect_preset")) &&
+      !Lower.Equals(TEXT("apply_effect_preset")) &&
+      !Lower.Equals(TEXT("validate_effect_preset")) &&
       !Lower.Equals(TEXT("list_debug_shapes")) &&
       !Lower.Equals(TEXT("clear_debug_shapes")))
     return false;
@@ -218,6 +221,14 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
   };
 
   const FString NativeSubAction = NormalizeNativeManageEffectSubAction();
+  if (NativeSubAction == TEXT("create_effect_preset") ||
+      NativeSubAction == TEXT("apply_effect_preset") ||
+      NativeSubAction == TEXT("validate_effect_preset")) {
+    SendAutomationError(RequestingSocket, RequestId,
+                         TEXT("Effect preset files and orchestration are owned by the TypeScript MCP host"),
+                         TEXT("HOST_ONLY"));
+    return true;
+  }
   if (IsNiagaraAuthoringSubAction(NativeSubAction)) {
     return HandleManageNiagaraAuthoringAction(
         RequestId, TEXT("manage_niagara_authoring"), LocalPayload,

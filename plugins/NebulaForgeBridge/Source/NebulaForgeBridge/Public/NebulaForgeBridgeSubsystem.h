@@ -14,6 +14,7 @@
 class FMcpNativeTransport;
 class UObject;
 class UWorld;
+class UMoviePipelineExecutorBase;
 
 #include "NebulaForgeBridgeSubsystem.generated.h"
 
@@ -139,6 +140,14 @@ public:
   void SendAutomationError(TSharedPtr<FMcpBridgeWebSocket> TargetSocket,
                             const FString &RequestId, const FString &Message,
                             const FString &ErrorCode);
+
+  /** Track MRQ executor lifecycle so status polling can distinguish success,
+   * failure, and cancellation instead of treating every idle executor as a
+   * successful render. */
+  void BeginMovieRenderQueueTracking(const FString &JobId,
+                                     UMoviePipelineExecutorBase *Executor);
+  TSharedPtr<FJsonObject> GetMovieRenderQueueTrackedStatus(
+      const FString &RequestedJobId) const;
 
   /**
    * Send a progress update message during long-running operations.
@@ -362,6 +371,14 @@ private:
   TMap<FString, FMcpTimerRecord> ManagedTimers;
   TMap<FString, FMcpLatentRecord> ManagedLatentActions;
   TMap<FString, FMcpAsyncRecord> ManagedAsyncActions;
+  FString ActiveAutomationTestAsyncId;
+  FDelegateHandle AutomationTestEndDelegateHandle;
+  FDelegateHandle AutomationTestsCompleteDelegateHandle;
+  FString ActiveMRQJobId;
+  FString LastMRQJobId;
+  FString LastMRQError;
+  bool bLastMRQCompleted = false;
+  bool bLastMRQSuccess = false;
   UPROPERTY(Transient)
   TMap<FString, TObjectPtr<UMcpManagedGameplayTask>> ManagedGameplayTasks;
   TMap<FString, TWeakObjectPtr<UObject>> ManagedGameplayTaskOwners;

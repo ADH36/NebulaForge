@@ -3,6 +3,7 @@ import { ITools } from '../../types/tool-interfaces.js';
 import type { HandlerArgs, EffectArgs, AutomationResponse } from '../../types/handler-types.js';
 import { executeAutomationRequest } from './common-handlers.js';
 import { sanitizePath } from '../../utils/path-security.js';
+import { createEffectPreset, loadEffectPreset } from '../../services/effect-preset-service.js';
 
 const DEFAULT_EFFECT_SAVE_PATH = '/Game/MCPTest/ManageEffectDefaults';
 const DEFAULT_NIAGARA_SYSTEM_NAME = `MCP_ManageEffectDefaultSystem_${process.pid}`;
@@ -212,6 +213,53 @@ export async function handleEffectTools(action: string, args: HandlerArgs, tools
   // Always ensure action/subAction are present before any routing.
   ensureActionAndSubAction(action, mutableArgs);
   sanitizeEffectPaths(mutableArgs);
+
+  if (action === 'create_effect_preset') {
+    const presetArgs = mutableArgs as Record<string, unknown>;
+    try {
+      return cleanObject(await createEffectPreset({
+        projectPath: typeof presetArgs.projectPath === 'string' ? presetArgs.projectPath : undefined,
+        presetPath: String(presetArgs.presetPath ?? ''),
+        name: String(presetArgs.presetName ?? presetArgs.name ?? ''),
+        actions: Array.isArray(presetArgs.actions) ? presetArgs.actions : [],
+        backup: presetArgs.backup !== false
+      })) as Record<string, unknown>;
+    } catch (error) {
+      return { success: false, error: 'INVALID_EFFECT_PRESET', message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  if (action === 'validate_effect_preset') {
+    try {
+      const preset = await loadEffectPreset({
+        projectPath: typeof mutableArgs.projectPath === 'string' ? mutableArgs.projectPath : undefined,
+        presetPath: String(mutableArgs.presetPath ?? '')
+      });
+      return { success: true, valid: true, presetPath: String(mutableArgs.presetPath), name: preset.name, actionCount: preset.actions.length, actions: preset.actions.map(entry => entry.action) };
+    } catch (error) {
+      return { success: false, valid: false, error: 'INVALID_EFFECT_PRESET', message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  if (action === 'apply_effect_preset') {
+    try {
+      const preset = await loadEffectPreset({
+        projectPath: typeof mutableArgs.projectPath === 'string' ? mutableArgs.projectPath : undefined,
+        presetPath: String(mutableArgs.presetPath ?? '')
+      });
+      const results: Array<Record<string, unknown>> = [];
+      for (const entry of preset.actions) {
+        const result = await handleEffectTools(entry.action, { ...entry.args } as HandlerArgs, tools);
+        results.push(result);
+        if (result.success === false) {
+          return { success: false, error: 'EFFECT_PRESET_ACTION_FAILED', presetName: preset.name, action: entry.action, appliedActions: results.length - 1, results };
+        }
+      }
+      return { success: true, presetName: preset.name, appliedActions: results.length, results };
+    } catch (error) {
+      return { success: false, error: 'EFFECT_PRESET_FAILED', message: error instanceof Error ? error.message : String(error) };
+    }
+  }
 
   // =========================================================================
   // PARAMETER NORMALIZATION — map test-friendly aliases to C++ field names

@@ -117,7 +117,7 @@ export const SUBSYSTEM_ACTIONS = [
 export const ASYNC_TIMER_ACTIONS = [
   'set_timer', 'clear_timer', 'pause_timer', 'resume_timer', 'get_timer', 'list_timers',
   'create_latent_action', 'clear_latent_action', 'get_latent_action', 'list_latent_actions',
-  'create_async_action', 'cancel_async_action', 'get_async_action', 'list_async_actions',
+  'create_async_action', 'cancel_async_action', 'get_async_action', 'wait_for_async_action', 'list_async_actions',
   'create_gameplay_task', 'end_gameplay_task', 'get_gameplay_task', 'list_gameplay_tasks',
   'configure_task_priority',
 ] as const;
@@ -198,7 +198,7 @@ export const SESSION_ACTIONS = [
   'host_lan_server', 'join_lan_server', 'enable_voice_chat', 'configure_voice_settings',
   'set_voice_channel', 'mute_player', 'set_voice_attenuation', 'configure_push_to_talk',
   'get_sessions_info', 'get_online_capabilities', 'create_online_session',
-  'get_online_session_status', 'get_online_identity_status', 'find_online_sessions', 'join_online_session', 'destroy_online_session', 'configure_network_conditions'
+  'get_online_session_status', 'get_online_identity_status', 'get_online_presence', 'set_online_presence', 'find_online_sessions', 'join_online_session', 'destroy_online_session', 'configure_network_conditions'
 ] as const;
 
 export const GAME_FRAMEWORK_ACTIONS = [
@@ -289,7 +289,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
           type: 'string',
           enum: [
             'list', 'import', 'duplicate', 'duplicate_asset', 'rename', 'rename_asset', 'move', 'move_asset', 'delete', 'delete_asset', 'delete_assets', 'create_folder', 'search_assets',
-            'get_dependencies', 'get_source_control_state', 'analyze_graph', 'get_asset_graph', 'create_thumbnail', 'set_tags', 'get_metadata', 'set_metadata', 'validate', 'fixup_redirectors', 'find_by_tag', 'generate_report', 'inspect_asset_capabilities',
+            'get_dependencies', 'get_source_control_state', 'analyze_graph', 'get_asset_graph', 'create_thumbnail', 'set_tags', 'get_metadata', 'set_metadata', 'validate', 'fixup_redirectors', 'find_by_tag', 'verify_asset_persistence', 'generate_report', 'inspect_asset_capabilities',
             // Phase 34.2: Content Browser navigation, views, collections, and discovery.
             'set_view_settings', 'navigate_to_path', 'sync_to_asset', 'sync_to_folder',
             'create_collection', 'add_to_collection', 'set_asset_color', 'show_in_explorer',
@@ -316,6 +316,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         newName: commonSchemas.newName,
         overwrite: commonSchemas.overwrite,
         save: commonSchemas.save,
+        requireClean: commonSchemas.booleanProp,
+        verifyReload: commonSchemas.booleanProp,
         fixupRedirectors: commonSchemas.booleanProp,
         directoryPath: commonSchemas.directoryPath,
         name: commonSchemas.name,
@@ -1783,7 +1785,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
           type: 'string',
           enum: [
             'profile', 'show_fps', 'set_quality', 'screenshot', 'set_resolution', 'set_fullscreen', 'execute_command', 'console_command',
-            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'check_for_errors', 'capture_insights_trace', 'analyze_trace', 'start_network_profiler', 'enable_visual_logger', 'add_visual_log_entry', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'create_automation_test', 'get_test_results', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'enable_gameplay_debugger', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'lumen_update_scene',
+            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'create_game_architecture_manifest', 'add_architecture_requirement', 'validate_game_architecture', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'check_for_errors', 'capture_insights_trace', 'analyze_trace', 'start_network_profiler', 'enable_visual_logger', 'add_visual_log_entry', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'create_automation_test', 'get_test_results', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'enable_gameplay_debugger', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'lumen_update_scene',
             'wait_for_job',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
@@ -1812,16 +1814,29 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         requiredDirectories: commonSchemas.arrayOfStrings,
         projectRequiredFiles: commonSchemas.arrayOfStrings,
         projectRequiredDirectories: commonSchemas.arrayOfStrings,
+        architectureManifestPath: commonSchemas.stringProp,
+        validateArchitecture: commonSchemas.booleanProp,
         includeInventory: { type: 'boolean', description: 'Include a bounded project content/config/map inventory in validation results. Defaults to true.' },
         validationMode: { type: 'string', enum: ['static', 'data_validation'], description: 'Validation depth. data_validation launches UnrealEditor-Cmd with the DataValidation commandlet and returns a managed job.' },
         validationArguments: commonSchemas.arrayOfStrings,
         timeoutMs: commonSchemas.numberProp,
+        pollIntervalMs: commonSchemas.numberProp,
         reportPath: { type: 'string', description: 'Optional JSON report filename written under Saved/AutomationReports after run_tests completes.' },
         testName: commonSchemas.name,
         pluginAction: { type: 'string', enum: ['list', 'validate', 'enable', 'disable'] },
         pluginName: commonSchemas.name,
         requirePak: commonSchemas.booleanProp,
         manifestPath: { type: 'string', description: 'Optional release JSON manifest inside archiveDirectory mapping files to SHA-256 hashes.' },
+        projectName: commonSchemas.name,
+        requirements: commonSchemas.arrayOfObjects,
+        requirement: commonSchemas.objectProp,
+        requirementId: commonSchemas.name,
+        requirementKind: { type: 'string', enum: ['module', 'asset', 'test', 'file', 'directory'] },
+        requirementPath: commonSchemas.stringProp,
+        description: { type: 'string', maxLength: 1024 },
+        required: commonSchemas.booleanProp,
+        replaceExisting: commonSchemas.booleanProp,
+        includeOptional: commonSchemas.booleanProp,
         compressed: commonSchemas.booleanProp,
         encryptIniFiles: commonSchemas.booleanProp,
         encryptPakIndex: commonSchemas.booleanProp,
@@ -1991,7 +2006,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'add_spawnable_from_class', 'add_track', 'add_section', 'set_display_rate', 'set_tick_resolution',
             'set_work_range', 'set_view_range', 'set_track_muted', 'set_track_solo', 'set_track_locked',
             'list_tracks', 'remove_track', 'list_track_types',
-            'render_sequence_mrq', 'get_mrq_status', 'cancel_mrq'
+            'render_sequence_mrq', 'get_mrq_status', 'cancel_mrq', 'render_sequence_queue'
           ],
           description: 'Action'
         },
@@ -2016,6 +2031,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         locked: commonSchemas.booleanProp,
         startFrame: commonSchemas.numberProp,
         endFrame: commonSchemas.numberProp,
+        outputFormat: { type: 'string', enum: ['png', 'jpg', 'jpeg', 'bmp', 'exr'], description: 'MRQ image-sequence output format. Defaults to png.' },
+        mrqPresetPath: { ...commonSchemas.assetPath, description: 'Optional UMoviePipelinePrimaryConfig asset copied into the transient MRQ job.' },
         frameRate: commonSchemas.stringProp,
         resolution: commonSchemas.stringProp,
         start: commonSchemas.numberProp,
@@ -2030,13 +2047,29 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         rowIndex: commonSchemas.numberProp
         ,outputPath: commonSchemas.outputPath
         ,mrqJobId: commonSchemas.stringProp
+        ,queue: commonSchemas.arrayOfObjects
+        ,waitForCompletion: commonSchemas.booleanProp
+        ,pollIntervalMs: commonSchemas.numberProp
+        ,timeoutMs: commonSchemas.numberProp
       },
       required: ['action']
     },
     outputSchema: {
       type: 'object',
       properties: {
-        ...commonSchemas.outputBase
+        ...commonSchemas.outputBase,
+        jobId: commonSchemas.stringProp,
+        mrqJobId: commonSchemas.stringProp,
+        sequencePath: commonSchemas.assetPath,
+        outputPath: commonSchemas.outputPath,
+        mrqPresetPath: commonSchemas.assetPath,
+        outputFormat: commonSchemas.stringProp,
+        customResolution: commonSchemas.booleanProp,
+        outputWidth: commonSchemas.numberProp,
+        outputHeight: commonSchemas.numberProp,
+        customFrameRange: commonSchemas.booleanProp,
+        startFrame: commonSchemas.numberProp,
+        endFrame: commonSchemas.numberProp
       }
     }
   },
@@ -2543,12 +2576,13 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'add_static_mesh_data_interface', 'add_spline_data_interface', 'add_audio_spectrum_data_interface',
             'add_collision_query_data_interface', 'add_event_generator', 'add_event_receiver',
             'configure_event_payload', 'enable_gpu_simulation', 'add_simulation_stage',
-            'get_niagara_info', 'validate_niagara_system'
+            'get_niagara_info', 'validate_niagara_system', 'create_effect_preset', 'apply_effect_preset', 'validate_effect_preset'
           ],
           description: 'Effect/Niagara action to perform.'
         },
         // Common parameters
         name: commonSchemas.name,
+        projectPath: commonSchemas.stringProp,
         path: commonSchemas.directoryPathForCreation,
         savePath: commonSchemas.savePath,
         assetPath: commonSchemas.assetPath,
@@ -2575,6 +2609,10 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         steps: commonSchemas.integerProp,
         // Debug/particle/fog/light parameters
         preset: commonSchemas.stringProp,
+        presetPath: commonSchemas.stringProp,
+        presetName: commonSchemas.name,
+        actions: commonSchemas.arrayOfObjects,
+        backup: commonSchemas.booleanProp,
         shape: commonSchemas.stringProp,
         shapeType: commonSchemas.stringProp,
         radius: commonSchemas.numberProp,
@@ -3964,6 +4002,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         packetOrder: { type: 'number', minimum: 0, maximum: 1 },
         reset: commonSchemas.booleanProp,
         localUserNum: commonSchemas.numberProp,
+        presenceState: { type: 'string', enum: ['online', 'away', 'extended_away', 'do_not_disturb', 'chat', 'offline'] },
+        statusText: commonSchemas.stringProp,
         searchId: commonSchemas.stringProp,
         resultIndex: commonSchemas.numberProp,
         maxSearchResults: commonSchemas.numberProp,

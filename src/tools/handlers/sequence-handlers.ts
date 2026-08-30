@@ -36,6 +36,26 @@ function markSequenceDeleted(path: unknown) {
   deletedSequences.delete(norm);
 }
 
+function mrqState(response: Record<string, unknown>): { terminal: boolean; success: boolean } {
+  const payload = response.result && typeof response.result === 'object' && !Array.isArray(response.result)
+    ? response.result as Record<string, unknown>
+    : response;
+  const status = typeof payload.status === 'string' ? payload.status.toLowerCase() : '';
+  const terminal = ['completed', 'failed', 'cancelled', 'canceled', 'error'].includes(status) || payload.completed === true;
+  return { terminal, success: status === 'completed' || (terminal && payload.success === true) };
+}
+
+async function waitForMrq(tools: ITools, mrqJobId: string, timeoutMs: number, pollIntervalMs: number): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    const response = await executeAutomationRequest(tools, 'manage_sequence', { subAction: 'get_mrq_status', mrqJobId }) as Record<string, unknown>;
+    const state = mrqState(response);
+    if (state.terminal) return { ...response, terminal: true, timedOut: false, ready: state.success };
+    if (Date.now() >= deadline) return { ...response, terminal: false, timedOut: true, ready: false };
+    await new Promise(resolve => setTimeout(resolve, Math.min(pollIntervalMs, Math.max(1, deadline - Date.now()))));
+  }
+}
+
 /** Helper to safely get string from error/message */
 function getErrorString(res: SequenceActionResponse | null | undefined): string {
   if (!res) return '';
@@ -51,7 +71,43 @@ function getMessageString(res: SequenceActionResponse | null | undefined): strin
 
 export async function handleSequenceTools(action: string, args: Record<string, unknown>, tools: ITools) {
   const seqAction = String(action || '').trim();
-  args = normalizePathFields(args, ['path', 'destinationPath', 'subsequencePath', 'childSequencePath']);
+  args = normalizePathFields(args, ['path', 'destinationPath', 'subsequencePath', 'childSequencePath', 'mrqPresetPath']);
+  if (seqAction === 'render_sequence_queue') {
+    const queue = Array.isArray(args.queue) ? args.queue : [];
+    if (queue.length === 0 || queue.length > 32) throw new Error('queue must contain between 1 and 32 render jobs');
+    const waitForCompletion = args.waitForCompletion === true;
+    const timeoutMs = args.timeoutMs === undefined ? 30 * 60 * 1000 : Number(args.timeoutMs);
+    const pollIntervalMs = args.pollIntervalMs === undefined ? 250 : Number(args.pollIntervalMs);
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 6 * 60 * 60 * 1000 || !Number.isFinite(pollIntervalMs) || pollIntervalMs < 25 || pollIntervalMs > 5000) {
+      throw new Error('timeoutMs must be between 1 and 21600000 and pollIntervalMs between 25 and 5000');
+    }
+    const startedAt = Date.now();
+    const results: Array<Record<string, unknown>> = [];
+    for (let index = 0; index < queue.length; index++) {
+      const item = queue[index];
+      if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error(`queue[${index}] must be an object`);
+      const submitted = await handleSequenceTools('render_sequence_mrq', item as Record<string, unknown>, tools) as Record<string, unknown>;
+      results.push({ index, submitted });
+      if (submitted.success === false) return { success: false, error: 'RENDER_QUEUE_SUBMISSION_FAILED', failedIndex: index, results };
+      const payload = submitted.result && typeof submitted.result === 'object' && !Array.isArray(submitted.result) ? submitted.result as Record<string, unknown> : submitted;
+      // Native MRQ historically returned `jobId`; accept both while keeping
+      // one canonical identifier for status polling.
+      const mrqJobId = typeof payload.mrqJobId === 'string'
+        ? payload.mrqJobId
+        : (typeof payload.jobId === 'string' ? payload.jobId : undefined);
+      if (waitForCompletion && !mrqJobId) {
+        return { success: false, error: 'RENDER_QUEUE_MISSING_JOB_ID', failedIndex: index, results };
+      }
+      if (waitForCompletion && mrqJobId) {
+        const remaining = timeoutMs - (Date.now() - startedAt);
+        if (remaining <= 0) return { success: false, error: 'RENDER_QUEUE_TIMEOUT', timedOut: true, failedIndex: index, results };
+        const terminal = await waitForMrq(tools, mrqJobId, remaining, pollIntervalMs);
+        results[results.length - 1] = { index, submitted, terminal };
+        if (terminal.ready !== true) return { success: false, error: terminal.timedOut === true ? 'RENDER_QUEUE_TIMEOUT' : 'RENDER_QUEUE_JOB_FAILED', failedIndex: index, results };
+      }
+    }
+    return { success: true, queuedJobs: results.length, completedJobs: waitForCompletion ? results.length : 0, results };
+  }
   switch (seqAction) {
     case 'create':
     case 'create_master_sequence': {

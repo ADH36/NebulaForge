@@ -4,7 +4,7 @@ Audit date: 2026-08-30
 Scope: MCP tools, TypeScript handlers, Unreal native handlers, documentation, and integration tests.  
 Method: Static repository audit; runtime behavior still requires a live Unreal Editor/project verification pass.
 
-Current implementation update (2026-08-30): host project validation and declared-plugin management are now available through `system_control`; Movie Render Queue PNG submission/status/cancellation is available through `manage_sequence`. These host workflows remain intentionally explicit about native `/mcp` limitations.
+Current implementation update (2026-08-30): host project validation and declared-plugin management are now available through `system_control`; Movie Render Queue PNG/JPG/BMP/EXR submission, stable status/cancellation, deterministic overrides, and immutable primary-config preset copying are available through `manage_sequence`. These host workflows remain intentionally explicit about native `/mcp` limitations.
 
 Media update: guarded Media Framework asset creation (`UMediaPlayer`, file/stream sources, `UMediaTexture`, and playlists), player open/play/pause/seek controls, demo replay controls, and Take Recorder start/stop/status lifecycle are now exposed. Media plugin availability, source-specific capture configuration, platform codecs, and packaged-runtime verification remain project-dependent.
 
@@ -22,7 +22,7 @@ VFX validation update: `manage_effect.validate_niagara_system` now reports emitt
 
 Profiling gate update: native `system_control.start_memory_report` requests a full Unreal memory report, `configure_stat_commands` applies only bounded stat names with structured rejection reporting, `capture_insights_trace` starts a confined file-backed `.utrace` capture, `start_network_profiler` controls `.nprof` recording, and Visual Logger recording/text markers are available. Host `analyze_trace` launches UnrealInsights in bounded headless analysis mode and reports its terminal result; metric export remains follow-up work.
 
-Automation update: `system_control.create_automation_test` generates a safe compile-ready C++ automation-test skeleton; `system_control.run_tests` can persist a bounded terminal JSON report under `Saved/AutomationReports`, and `system_control.get_test_results` retrieves a confined report or terminal job evidence with explicit pass state. `system_control.enable_gameplay_debugger` safely enables or disables a Gameplay Debugger category through the existing native module/config/replicator path. Reports include job state, exit code, command, stdout, stderr, and truncation metadata; `get_job_status` exposes `completionPending`/`completionError` while asynchronous report persistence finishes.
+Automation update: `system_control.create_automation_test` generates a safe compile-ready C++ automation-test skeleton; the stdio host path persists a bounded terminal JSON report under `Saved/AutomationReports`, while the native `/mcp` path now returns a managed `asyncId`, captures individual test failures, emits a terminal completion event, and exposes the result through `get_async_action`. `system_control.get_test_results` retrieves a confined host report or terminal job evidence with explicit pass state. `system_control.enable_gameplay_debugger` safely enables or disables a Gameplay Debugger category through the existing native module/config/replicator path. Reports include job state, exit code, command, stdout, stderr, and truncation metadata; `get_job_status` exposes `completionPending`/`completionError` while asynchronous report persistence finishes.
 
 The report also includes a conservative, explicitly non-authoritative `testSummary` heuristic; raw output and process exit state remain the source of truth.
 
@@ -70,7 +70,7 @@ NebulaForge provides broad Unreal Editor automation, but it is not yet a complet
 |---|:---:|---|
 | Build and deployment tool | ⚠️ | TypeScript `system_control` provides validated `run_uat` BuildCookRun operations, controlled signing, bounded local packaged launch, Android/iOS/tvOS local deployment, and host job polling; external stores and hosting remain absent, while native `/mcp` reports host-only actions explicitly. |
 | Cook content | ⚠️ | `run_uat` supports cook through BuildCookRun, but live Unreal verification is still required. |
-| Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations, `validate_release`, controlled signing, bounded local packaged launch, and local device deployment exist; external stores and hosting remain absent. |
+| Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations, `validate_release`, controlled signing, bounded local packaged launch, local device deployment, and optional architecture-manifest release gating exist; external stores and hosting remain absent. |
 | Platform builds and signing | ⚠️ | Host signing is supported for Win64, Mac/iOS, and Android when tools and credentials are supplied; Linux and console signing/provider deployment remain project/toolchain dependent. |
 | Plugin enable/disable management | ⚠️ | `manage_project_plugin` lists, validates, enables, and disables declared project plugins; dependency resolution and live project reload remain project-dependent. |
 | Asset chunking, compression, encryption, PAK creation | ⚠️ | `run_uat` exposes bounded packaging, compression, encrypted INI, encrypted PAK index, and prerequisite controls; chunk rules and key management remain project/platform dependent. |
@@ -83,7 +83,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-32-build--deployment)
 |---|:---:|---|
 | Functional test authoring | ⚠️ | `create_functional_test` creates a FunctionalTesting actor when the plugin is available; test-specific steps and assertions remain project-authored. |
 | Automation test authoring | ⚠️ | `create_automation_test` generates a safe compile-ready C++ automation-test skeleton; project assertions and module/build wiring remain project-authored. |
-| Automation test execution/results | ⚠️ | `run_tests` launches filtered or full Unreal automation tests through UnrealEditor-Cmd as a managed job; callers poll terminal state, while `release_gate` waits for completion and fails on timeout/nonzero exit. |
+| Automation test execution/results | ⚠️ | Stdio `run_tests` launches filtered or full Unreal automation tests through UnrealEditor-Cmd as a managed job; native `/mcp` launches in-editor tests through a managed `asyncId`, captures test-end failures, emits completion, and supports `get_async_action` polling. `release_gate` waits for host completion and fails on timeout/nonzero exit; project assertion quality remains project-authored. |
 | Data Validation integration | ⚠️ | `validate_project` can launch UnrealEditor-Cmd's DataValidation commandlet as a bounded managed job; the engine/project must provide UnrealEditor-Cmd and the result must be polled to terminal state. |
 | Blueprint validation sweep | ⚠️ | Project-wide static validation and the live DataValidation commandlet gate are available; Blueprint compilation/error coverage still depends on the project's commandlet/plugin setup. |
 | Map error validation | ⚠️ | `check_map_errors` runs Map Check against the loaded editor world; map availability and project-specific validation policy remain prerequisites. |
@@ -103,7 +103,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-33-testing--quality)
 | Config hierarchy management | ⚠️ | Config layer discovery plus validated section/key reads and atomic writes are implemented for project `.ini` files; full engine merge semantics and generated platform overrides still require live project verification. |
 | Data Assets and Primary Data Assets | ⚠️ | Generic and project-defined `UDataAsset` creation plus reflected property read/write are implemented; Asset Manager primary-asset listing and inspection are available, while project-specific registration/rules and bundle orchestration remain incomplete. |
 | DataTables and CurveTables | ⚠️ | DataTable creation, reflected row insertion, and row readback are implemented; CurveTable rich-row authoring, readback, and CSV import/export are implemented, but simple-curve mode and advanced interpolation/tangent controls remain incomplete. |
-| Asset persistence verification | ⚠️ | Some systems verify package state; many operations only mark packages dirty or return completion without reload verification. |
+| Asset persistence verification | ⚠️ | `verify_asset_persistence` checks a confined asset's loaded object, on-disk package existence, and dirty state with explicit `requireClean`; opt-in `verifyReload` safely unloads/reloads the package and compares class/clean state, while per-asset semantic diffs remain engine/project dependent. |
 
 Evidence: [Roadmap.md](./Roadmap.md#phase-31-data--persistence)
 
@@ -113,7 +113,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-31-data--persistence)
 |---|:---:|---|
 | Master/subsequence/shot workflow | ⚠️ | Level Sequence creation, binding, tracks/sections, playback, metadata, and MRQ output are available; master/subsequence/shot orchestration still requires a project-specific sequence layout. |
 | Camera cuts, fades, events, material tracks | ⚠️ | Generic track/section creation and discovered track types are available; specialized camera-cut/fade/event/material authoring remains engine/build dependent. |
-| Movie Render Queue jobs | ⚠️ | Added guarded MRQ PNG image-sequence submission, project-relative output paths, status polling, and cancellation; presets, burn-ins, codecs, and multi-job queues remain incomplete. |
+| Movie Render Queue jobs | ⚠️ | Guarded MRQ PNG/JPG/BMP/EXR image-sequence submission, stable job IDs (`jobId`/`mrqJobId`), executor callback-backed completed/failed status, bounded `WIDTHxHEIGHT` resolution and frame-range overrides, project-relative output paths, status polling, cancellation, ordered `render_sequence_queue` orchestration, and immutable-copy application of `UMoviePipelinePrimaryConfig` presets are available; burn-ins, video codecs, and transactional multi-job recovery remain incomplete. |
 | Media Framework | ⚠️ | Media players, sources, textures, playlists, and guarded playback controls are available; codec/provider availability remains project dependent. |
 | Take Recorder | ⚠️ | Start/stop/status lifecycle is available when Take Recorder is compiled; track policy and capture-device configuration remain project dependent. |
 | Demo/replay system | ⚠️ | Replay controls and status are available where the replay subsystem is enabled; project recording configuration and killcam presentation remain project dependent. |
@@ -130,7 +130,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-30-cinematics--media)
 | Blueprint graph editing | ⚠️ | Coverage depends on available K2 schemas, headers, and node types. |
 | Arbitrary K2 node support | ⚠️ | Generic reflected `nodeClass` creation now supports project/plugin `UEdGraphNode` classes when loaded; node-specific pin configuration and unsupported editor-only classes still require project/engine validation. |
 | Blueprint compilation | ⚠️ | Can be asynchronous and is not always proven complete. |
-| Project-specific gameplay architecture | ❌ | Tools create primitives but do not generate a complete tested game architecture. |
+| Project-specific gameplay architecture | ⚠️ | Host-managed architecture manifests now let AI declare required modules, assets, files, directories, and tests and validate their presence; generated gameplay classes, wiring, and behavioral proof remain project-specific. |
 | Gameplay error handling and validation | ⚠️ | `release_gate` can run project Unreal automation tests and fail on test failure; project-authored gameplay assertions and coverage remain required. |
 
 Evidence: [BlueprintHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_BlueprintHandlers.cpp#L4248)
@@ -143,8 +143,8 @@ Evidence: [BlueprintHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForg
 | Bone tracks and bone keys | ⚠️ | Unsupported paths exist by engine/build configuration. |
 | Curve key authoring | ⚠️ | Not consistently available across supported engine versions. |
 | Montage section editing | ⚠️ | Some timing/editing APIs are unavailable. |
-| Control Rig graph editing | ❌ | Controls, rig units, and pin connections are unsupported in some builds. |
-| IK Rig chain editing | ❌ | Requires manual IK Rig editor authoring. |
+| Control Rig graph editing | ⚠️ | Editor builds now author controls, RigVM units, and pin links; requires ControlRig/RigVM editor modules and remains editor-only. |
+| IK Rig chain editing | ⚠️ | Editor builds now author retarget chains through UIKRigController; requires IKRigEditor and remains editor-only. |
 | Ragdoll setup/activation | ⚠️ | Editor-only limitations remain. |
 | Animation preview/compression validation | ⚠️ | `validate_animation_asset` provides existence, supported-class, duration, and expected-skeleton gates with structured diagnostics; preview rendering and compression-budget analysis remain project/engine dependent. |
 
@@ -158,7 +158,7 @@ Evidence: [AnimationHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForg
 | Niagara system/emitter creation | ⚠️ | Native non-editor paths return `NOT_IMPLEMENTED`. |
 | Niagara spawning and parameter mutation | ⚠️ | Multiple actions are editor-only or have unsupported paths. |
 | Ribbon/trail authoring | ⚠️ | Conditional implementation. |
-| Effect presets | ❌ | Legacy effect actions remain stubbed. |
+| Effect presets | ⚠️ | Host-managed, project-confined JSON presets can be created, validated, and applied as ordered MCP effect actions; native Niagara graph semantics and transactional rollback remain engine/project dependent. |
 | Attachment/lifespan/pooling | ⚠️ | Explicit actor attachment, bounded lifespan, and destruction are available; reusable effect pooling and project-specific ownership policies remain project-authored. |
 | VFX performance validation | ⚠️ | `validate_niagara_system` provides explicit emitter/renderer budget gates; GPU/CPU cost, memory, and frame-time budgets still require project-specific profiling captures. |
 
@@ -184,7 +184,7 @@ Evidence: [AudioAuthoringHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebul
 | Replication primitives | ✅ | Property replication, RPC, ownership, relevancy, and prediction controls exist. |
 | Local/LAN sessions | ✅ | LAN hosting/joining and local multiplayer are covered. |
 | Matchmaking and lobbies | ⚠️ | Provider-agnostic Online Subsystem session create/find/join/destroy lifecycle is implemented; provider-specific lobbies and matchmaking policies remain incomplete. |
-| Presence/account/platform identity | ⚠️ | Capability discovery plus `get_online_identity_status` report the active identity interface, login state, nickname, and unique net ID; provider-specific account, presence, and friends flows remain incomplete. |
+| Presence/account/platform identity | ⚠️ | Capability discovery plus `get_online_identity_status`, `get_online_presence`, and `set_online_presence` report and update provider presence when the active identity/presence interfaces support it; provider-specific account, friends, and platform UI flows remain incomplete. |
 | Dedicated-server build/deploy | ⚠️ | `run_uat` now supports server/no-client BuildCookRun variants with a separate server configuration; deployment and platform hosting remain absent. |
 | Multiplayer soak/latency/reconnect tests | ⚠️ | Packaged server/client soak orchestration now has bounded server and per-client readiness gates plus cleanup; replication assertions, latency thresholds, reconnect scenarios, and provider matchmaking remain project-authored. |
 | Platform-grade voice integration | ⚠️ | Basic voice controls exist, but platform/backend integration is incomplete. |
@@ -247,8 +247,8 @@ Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [Envir
 | In-process viewport PIE | ✅ | Best-supported runtime verification mode. |
 | Standalone PIE probes/input | ❌ | In-process probes and input delivery are not supported because standalone runs in another process. |
 | Standalone-window screenshots | ⚠️ | Direct external-window capture remains unsupported, but `mode: standalone_window` now safely reads a PNG written by the standalone game under `Saved/Screenshots` through `screenshotPath`. |
-| Unified asynchronous job system | ⚠️ | Host processes now share managed job lifecycle, output caps, cancellation, and polling; editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
-| Completion proof | ⚠️ | Host jobs now expose `wait_for_job` for bounded terminal-state proof; editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
+| Unified asynchronous job system | ⚠️ | Host processes now share managed job lifecycle, output caps, cancellation, and polling; `wait_for_async_action` provides bounded terminal waiting for native editor async actions, while editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
+| Completion proof | ⚠️ | Host jobs expose `wait_for_job`, and native managed async actions expose `wait_for_async_action` with timeout/cancel/success state reporting; editor-native PCG/HLOD/shader/asset jobs still use separate Unreal-side state machines. |
 | Undo/redo transactions | ⚠️ | Undo/redo now report success only when the editor accepts the command; transactional coverage remains incomplete across authoring handlers. |
 
 The WebSocket handshake now advertises `executionMode: editor`, `pieRuntimeWorld: true`, and `packagedRuntimeAuthoring: false` so clients can select a supported execution path explicitly. A true packaged authoring implementation still requires a separate Runtime module, runtime-safe handler set, and packaged transport; changing `WITH_EDITOR` guards alone would be unsafe.

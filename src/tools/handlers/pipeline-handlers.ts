@@ -7,6 +7,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import util from 'node:util';
 import { jobManager } from '../../services/job-manager.js';
+import { validateGameArchitecture } from '../../services/game-architecture-service.js';
 import { createHash } from 'node:crypto';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
@@ -277,6 +278,21 @@ async function runReleaseGate(args: PipelineArgs): Promise<Record<string, unknow
     });
     checks.project = project;
     valid = valid && project.success === true;
+  }
+
+  if (args.projectPath && args.validateArchitecture === true) {
+    let architecture: Record<string, unknown>;
+    try {
+      architecture = await validateGameArchitecture({
+        projectPath: args.projectPath,
+        manifestPath: args.architectureManifestPath || 'Config/Architecture/game.json',
+        includeOptional: false
+      });
+    } catch (error) {
+      architecture = { success: false, valid: false, error: 'ARCHITECTURE_MANIFEST_INVALID', message: error instanceof Error ? error.message : String(error) };
+    }
+    checks.architecture = architecture;
+    valid = valid && architecture.success === true;
   }
 
   if (args.projectPath && args.validatePlugins !== false) {

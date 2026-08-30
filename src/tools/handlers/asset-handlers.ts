@@ -14,7 +14,7 @@ const VALID_ASSET_ACTIONS = new Set([
   // Core asset operations
   'list', 'import', 'duplicate', 'rename', 'move', 'delete',
   'create_folder', 'search_assets', 'get_dependencies', 'validate',
-  'fixup_redirectors', 'find_by_tag', 'exists', 'bulk_rename', 'bulk_delete',
+  'fixup_redirectors', 'find_by_tag', 'exists', 'verify_asset_persistence', 'bulk_rename', 'bulk_delete',
   'duplicate_asset', 'rename_asset', 'move_asset', 'delete_asset', 'delete_assets',
   // Phase 34.2 Content Browser operations
   'set_view_settings', 'navigate_to_path', 'sync_to_asset', 'sync_to_folder',
@@ -882,6 +882,18 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
           assetPath
         });
         return ResponseFactory.success(res, 'Asset existence check complete');
+      }
+      case 'verify_asset_persistence': {
+        const params = normalizeArgs(args, [
+          { key: 'assetPath', required: true }
+        ]);
+        const assetPath = extractString(params, 'assetPath');
+        const res = await executeAutomationRequest(tools, 'verify_asset_persistence', {
+          assetPath,
+          requireClean: (args as AssetArgs).requireClean !== false,
+          verifyReload: (args as AssetArgs).verifyReload === true
+        });
+        return ResponseFactory.success(res, 'Asset persistence verification complete');
       }
       case 'get_material_stats': {
         const params = normalizeArgs(args, [

@@ -548,6 +548,15 @@ void UNebulaForgeBridgeSubsystem::ShutdownManagedAsyncOperations() {
     if (Pair.Value.State.IsValid()) Pair.Value.State->bCancelled.store(true);
   }
   ManagedAsyncActions.Empty();
+  if (AutomationTestEndDelegateHandle.IsValid()) {
+    FAutomationTestFramework::Get().OnTestEndEvent.Remove(AutomationTestEndDelegateHandle);
+    AutomationTestEndDelegateHandle.Reset();
+  }
+  if (AutomationTestsCompleteDelegateHandle.IsValid()) {
+    FAutomationTestFramework::Get().OnAfterAllTestsEvent.Remove(AutomationTestsCompleteDelegateHandle);
+    AutomationTestsCompleteDelegateHandle.Reset();
+  }
+  ActiveAutomationTestAsyncId.Empty();
 
   for (TPair<FString, TObjectPtr<UMcpManagedGameplayTask>> &Pair : ManagedGameplayTasks) {
     if (Pair.Value) Pair.Value->EndTask();
@@ -1245,8 +1254,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
       Lower == TEXT("list_save_game_slots");
   const bool bHostWorkflowAction =
-      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("release_gate") || Lower == TEXT("validate_project") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("deploy_package") || Lower == TEXT("run_network_soak") || Lower == TEXT("analyze_trace") || Lower == TEXT("manage_project_plugin") ||
-      Lower == TEXT("wait_for_job") || Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
+      Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("release_gate") || Lower == TEXT("validate_project") || Lower == TEXT("create_game_architecture_manifest") || Lower == TEXT("add_architecture_requirement") || Lower == TEXT("validate_game_architecture") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("deploy_package") || Lower == TEXT("run_network_soak") || Lower == TEXT("analyze_trace") || Lower == TEXT("manage_project_plugin") ||
+      Lower == TEXT("wait_for_job") || Lower == TEXT("wait_for_async_action") || Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
       Lower == TEXT("cancel_job") || Lower == TEXT("read_project_file") ||
       Lower == TEXT("write_project_file") || Lower == TEXT("generate_save_game_class") ||
       Lower == TEXT("create_automation_test") ||
@@ -2176,24 +2185,89 @@ FMessageLog LogListing{FName(*Category)};
       TestCommand = FString::Printf(TEXT("automation RunTests %s"), *Filter);
     }
 
-    // Execute the automation command
-    if (GEngine && GEditor && GEditor->GetEditorWorldContext().World()) {
-      GEngine->Exec(GEditor->GetEditorWorldContext().World(), *TestCommand);
-
-      TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
-      Result->SetStringField(TEXT("command"), TestCommand);
-      Result->SetStringField(TEXT("filter"), Filter);
-
-      // Note: Automation tests run asynchronously in UE.
-      // The command starts the tests, but results come later via automation framework.
-      SendAutomationResponse(RequestingSocket, RequestId, true,
-                             TEXT("Automation tests started. Check Output Log for results."),
-                             Result);
-    } else {
+    if (!GEngine || !GEditor || !GEditor->GetEditorWorldContext().World()) {
       SendAutomationError(RequestingSocket, RequestId,
                           TEXT("Editor world not available for running tests"),
                           TEXT("EDITOR_NOT_AVAILABLE"));
+      return true;
     }
+
+    if (!ActiveAutomationTestAsyncId.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Automation tests are already running"), TEXT("TESTS_BUSY"));
+      return true;
+    }
+    if (!CanRegisterManagedAsyncAction()) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Managed async action capacity is exhausted"),
+                          TEXT("ASYNC_CAPACITY_EXCEEDED"));
+      return true;
+    }
+
+    const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+    const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
+    State->bSucceeded.store(true);
+    FMcpAsyncRecord Record;
+    Record.AsyncId = AsyncId;
+    Record.Execution = TEXT("automation_tests");
+    Record.Label = Filter.IsEmpty() ? TEXT("automation:all") : FString::Printf(TEXT("automation:%s"), *Filter);
+    Record.State = State;
+    ManagedAsyncActions.Add(AsyncId, Record);
+    ActiveAutomationTestAsyncId = AsyncId;
+
+    FAutomationTestFramework &Framework = FAutomationTestFramework::Get();
+    AutomationTestEndDelegateHandle = Framework.OnTestEndEvent.AddLambda(
+        [State](FAutomationTestBase *Test) {
+          if (Test && !Test->GetLastExecutionSuccessState()) {
+            State->bSucceeded.store(false);
+          }
+        });
+    AutomationTestsCompleteDelegateHandle = Framework.OnAfterAllTestsEvent.AddLambda(
+        [WeakThis = TWeakObjectPtr<UNebulaForgeBridgeSubsystem>(this), AsyncId, State](void) {
+          if (UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get()) {
+            if (Owner->AutomationTestEndDelegateHandle.IsValid()) {
+              FAutomationTestFramework::Get().OnTestEndEvent.Remove(Owner->AutomationTestEndDelegateHandle);
+              Owner->AutomationTestEndDelegateHandle.Reset();
+            }
+            if (Owner->AutomationTestsCompleteDelegateHandle.IsValid()) {
+              FAutomationTestFramework::Get().OnAfterAllTestsEvent.Remove(Owner->AutomationTestsCompleteDelegateHandle);
+              Owner->AutomationTestsCompleteDelegateHandle.Reset();
+            }
+            State->bCompleted.store(true);
+            Owner->ActiveAutomationTestAsyncId.Empty();
+            TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
+            EventResult->SetStringField(TEXT("asyncId"), AsyncId);
+            EventResult->SetStringField(TEXT("state"), TEXT("completed"));
+            EventResult->SetBoolField(TEXT("succeeded"), State->bSucceeded.load());
+            SendManagedLifecycleEvent(Owner, TEXT("automation_tests_completed"), AsyncId, EventResult);
+          }
+        });
+
+    if (!GEngine->Exec(GEditor->GetEditorWorldContext().World(), *TestCommand)) {
+      if (AutomationTestEndDelegateHandle.IsValid()) {
+        Framework.OnTestEndEvent.Remove(AutomationTestEndDelegateHandle);
+        AutomationTestEndDelegateHandle.Reset();
+      }
+      if (AutomationTestsCompleteDelegateHandle.IsValid()) {
+        Framework.OnAfterAllTestsEvent.Remove(AutomationTestsCompleteDelegateHandle);
+        AutomationTestsCompleteDelegateHandle.Reset();
+      }
+      State->bSucceeded.store(false);
+      State->bCompleted.store(true);
+      ActiveAutomationTestAsyncId.Empty();
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Unreal rejected the automation test command"), TEXT("TEST_START_FAILED"));
+      return true;
+    }
+
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("asyncId"), AsyncId);
+    Result->SetStringField(TEXT("command"), TestCommand);
+    Result->SetStringField(TEXT("filter"), Filter);
+    Result->SetStringField(TEXT("state"), TEXT("running"));
+    Result->SetBoolField(TEXT("completed"), false);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Automation tests started; poll asyncId with get_async_action"), Result);
     return true;
   } else   if (Lower == TEXT("test_progress_protocol")) {
     // Test action for heartbeat/progress protocol

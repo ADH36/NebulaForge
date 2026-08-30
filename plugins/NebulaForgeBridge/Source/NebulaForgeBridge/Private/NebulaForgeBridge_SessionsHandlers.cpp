@@ -89,6 +89,7 @@
 #include "OnlineSubsystem.h"
 #include "Interfaces/VoiceInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
 #include "Online/OnlineSessionNames.h"
@@ -308,6 +309,90 @@ static bool HandleOnlineSessionLifecycle(
         }
         Subsystem->SendAutomationResponse(Socket, RequestId, true,
             TEXT("Online identity status retrieved"), Result);
+        return true;
+    }
+
+    if (SubAction == TEXT("get_online_presence") || SubAction == TEXT("set_online_presence"))
+    {
+        IOnlinePresencePtr Presence = OnlineSubsystem->GetPresenceInterface();
+        if (!Presence.IsValid())
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("The selected Online Subsystem does not expose a presence interface."),
+                TEXT("PRESENCE_INTERFACE_UNAVAILABLE"));
+            return true;
+        }
+        const int32 LocalUserNum = FMath::Clamp(static_cast<int32>(GetJsonNumberField(Payload, TEXT("localUserNum"), 0.0)), 0, 7);
+        IOnlineIdentityPtr Identity = OnlineSubsystem->GetIdentityInterface();
+        const TSharedPtr<const FUniqueNetId> UserId = Identity.IsValid() ? Identity->GetUniquePlayerId(LocalUserNum) : nullptr;
+        if (!UserId.IsValid())
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("A logged-in local user is required for presence operations."),
+                TEXT("IDENTITY_NOT_AVAILABLE"));
+            return true;
+        }
+        if (SubAction == TEXT("get_online_presence"))
+        {
+            TSharedPtr<FOnlineUserPresence> CachedPresence;
+            const EOnlineCachedResult::Type CacheResult = Presence->GetCachedPresence(*UserId, CachedPresence);
+            if (CacheResult != EOnlineCachedResult::Success || !CachedPresence.IsValid())
+            {
+                Subsystem->SendAutomationError(Socket, RequestId,
+                    TEXT("No cached online presence is available for this user."),
+                    TEXT("PRESENCE_NOT_CACHED"));
+                return true;
+            }
+            TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+            Result->SetStringField(TEXT("subsystem"), OnlineSubsystem->GetSubsystemName().ToString());
+            Result->SetNumberField(TEXT("localUserNum"), LocalUserNum);
+            const TCHAR* CachedState = TEXT("unknown");
+            switch (CachedPresence->Status.State)
+            {
+            case EOnlinePresenceState::Online: CachedState = TEXT("online"); break;
+            case EOnlinePresenceState::Away: CachedState = TEXT("away"); break;
+            case EOnlinePresenceState::ExtendedAway: CachedState = TEXT("extended_away"); break;
+            case EOnlinePresenceState::DoNotDisturb: CachedState = TEXT("do_not_disturb"); break;
+            case EOnlinePresenceState::Chat: CachedState = TEXT("chat"); break;
+            case EOnlinePresenceState::Offline: CachedState = TEXT("offline"); break;
+            default: break;
+            }
+            Result->SetStringField(TEXT("presenceState"), CachedState);
+            Result->SetStringField(TEXT("statusText"), CachedPresence->Status.StatusStr);
+            Result->SetBoolField(TEXT("isOnline"), CachedPresence->Status.State == EOnlinePresenceState::Online);
+            Subsystem->SendAutomationResponse(Socket, RequestId, true, TEXT("Online presence retrieved"), Result);
+            return true;
+        }
+
+        FString PresenceState = GetJsonStringField(Payload, TEXT("presenceState"), TEXT("online"));
+        PresenceState.ToLowerInline();
+        EOnlinePresenceState::Type State = EOnlinePresenceState::Online;
+        if (PresenceState == TEXT("away")) State = EOnlinePresenceState::Away;
+        else if (PresenceState == TEXT("extended_away")) State = EOnlinePresenceState::ExtendedAway;
+        else if (PresenceState == TEXT("do_not_disturb")) State = EOnlinePresenceState::DoNotDisturb;
+        else if (PresenceState == TEXT("chat")) State = EOnlinePresenceState::Chat;
+        else if (PresenceState == TEXT("offline")) State = EOnlinePresenceState::Offline;
+        else if (PresenceState != TEXT("online"))
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("presenceState must be online, away, extended_away, do_not_disturb, chat, or offline."),
+                TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        FOnlineUserPresenceStatus Status;
+        Status.State = State;
+        Status.StatusStr = GetJsonStringField(Payload, TEXT("statusText"), TEXT(""));
+        Presence->SetPresence(*UserId, Status,
+            FOnPresenceTaskCompleteDelegate::CreateLambda(
+                [Subsystem, RequestId, Socket, PresenceState](const FUniqueNetId &, bool bWasSuccessful)
+                {
+                    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+                    Result->SetStringField(TEXT("presenceState"), PresenceState);
+                    Result->SetBoolField(TEXT("updated"), bWasSuccessful);
+                    Subsystem->SendAutomationResponse(Socket, RequestId, bWasSuccessful,
+                        bWasSuccessful ? TEXT("Online presence updated") : TEXT("Online presence update failed"),
+                        Result, bWasSuccessful ? FString() : TEXT("PRESENCE_UPDATE_FAILED"));
+                }));
         return true;
     }
 
@@ -1639,6 +1724,8 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSessionsAction(
     }
     else if (SubAction == TEXT("get_online_capabilities") ||
              SubAction == TEXT("get_online_identity_status") ||
+             SubAction == TEXT("get_online_presence") ||
+             SubAction == TEXT("set_online_presence") ||
              SubAction == TEXT("get_online_session_status") ||
              SubAction == TEXT("create_online_session") ||
              SubAction == TEXT("find_online_sessions") ||

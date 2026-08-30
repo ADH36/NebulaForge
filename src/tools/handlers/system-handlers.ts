@@ -12,6 +12,7 @@ import { getConfigValue, listConfigLayers, setConfigValue } from '../../services
 import { getAutomationTestResults, runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
+import { addArchitectureRequirement, createGameArchitectureManifest, validateGameArchitecture } from '../../services/game-architecture-service.js';
 
 /** Response from various operations */
 interface OperationResponse {
@@ -33,6 +34,19 @@ interface AssetValidationResult {
 }
 
 const SUPPORTED_SCREENSHOT_MODES = new Set(['editor_viewport', 'game_viewport', 'full_editor_window']);
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+function asyncState(response: Record<string, unknown>): { terminal: boolean; succeeded: boolean; cancelled: boolean } {
+  const nested = response.result && typeof response.result === 'object' && !Array.isArray(response.result)
+    ? response.result as Record<string, unknown>
+    : response;
+  const state = typeof nested.state === 'string' ? nested.state.toLowerCase() : '';
+  const completed = nested.completed === true || state === 'completed' || state === 'cancelled' || state === 'failed';
+  return { terminal: completed, succeeded: nested.succeeded !== false && state !== 'failed', cancelled: nested.cancelled === true || state === 'cancelled' };
+}
 
 function getScreenshotMode(args: SystemArgs): { mode?: string; error?: string } {
   if (typeof args.mode !== 'string' || args.mode.trim() === '') {
@@ -85,6 +99,25 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       if (!waited.job) return { success: false, error: 'JOB_NOT_FOUND', message: `Job not found: ${jobId}`, jobId };
       return { success: !waited.timedOut && waited.job.status === 'completed', ready: !waited.timedOut, timedOut: waited.timedOut, ...waited.job };
     }
+    case 'wait_for_async_action': {
+      const record = argsTyped as Record<string, unknown>;
+      const asyncId = typeof record.asyncId === 'string' ? record.asyncId.trim() : '';
+      if (!asyncId) return { success: false, error: 'INVALID_ARGUMENT', message: 'asyncId is required' };
+      const timeoutMs = typeof record.timeoutMs === 'number' ? record.timeoutMs : 30000;
+      const pollIntervalMs = typeof record.pollIntervalMs === 'number' ? record.pollIntervalMs : 100;
+      if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 600000 || !Number.isFinite(pollIntervalMs) || pollIntervalMs < 10 || pollIntervalMs > 5000) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'timeoutMs must be between 1 and 600000 and pollIntervalMs between 10 and 5000' };
+      }
+      const deadline = Date.now() + timeoutMs;
+      while (true) {
+        const response = await executeAutomationRequest(tools, 'system_control', { action: 'get_async_action', asyncId }, 'Automation bridge not available for async action status') as Record<string, unknown>;
+        if (response.success === false) return { ...response, asyncId, ready: false, timedOut: false };
+        const status = asyncState(response);
+        if (status.terminal) return { ...response, asyncId, ready: status.succeeded && !status.cancelled, timedOut: false, terminal: true };
+        if (Date.now() >= deadline) return { ...response, asyncId, ready: false, timedOut: true, terminal: false };
+        await delay(Math.min(pollIntervalMs, Math.max(1, deadline - Date.now())));
+      }
+    }
     case 'get_job_status': {
       const jobId = typeof (argsTyped as Record<string, unknown>).jobId === 'string'
         ? String((argsTyped as Record<string, unknown>).jobId).trim()
@@ -135,6 +168,34 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         enginePath: typeof record.enginePath === 'string' ? record.enginePath : undefined,
         validationArguments,
         timeoutMs: typeof record.timeoutMs === 'number' ? record.timeoutMs : undefined
+      });
+    }
+    case 'create_game_architecture_manifest': {
+      const record = argsTyped as Record<string, unknown>;
+      return createGameArchitectureManifest({
+        projectPath: typeof record.projectPath === 'string' ? record.projectPath : undefined,
+        manifestPath: String(record.manifestPath ?? ''),
+        projectName: String(record.projectName ?? ''),
+        requirements: Array.isArray(record.requirements) ? record.requirements : undefined,
+        backup: record.backup !== false
+      });
+    }
+    case 'add_architecture_requirement': {
+      const record = argsTyped as Record<string, unknown>;
+      return addArchitectureRequirement({
+        projectPath: typeof record.projectPath === 'string' ? record.projectPath : undefined,
+        manifestPath: String(record.manifestPath ?? ''),
+        requirement: record.requirement ?? { id: record.requirementId, kind: record.requirementKind, path: record.requirementPath, description: record.description, required: record.required },
+        replaceExisting: record.replaceExisting !== false,
+        backup: record.backup !== false
+      });
+    }
+    case 'validate_game_architecture': {
+      const record = argsTyped as Record<string, unknown>;
+      return validateGameArchitecture({
+        projectPath: typeof record.projectPath === 'string' ? record.projectPath : undefined,
+        manifestPath: String(record.manifestPath ?? ''),
+        includeOptional: record.includeOptional === true
       });
     }
     case 'run_tests': {

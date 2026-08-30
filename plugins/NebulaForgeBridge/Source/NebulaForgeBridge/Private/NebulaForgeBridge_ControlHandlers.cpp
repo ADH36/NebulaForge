@@ -97,11 +97,19 @@
 #include "GameFramework/Volume.h"
 #include "Landscape.h"
 #include "LandscapeInfo.h"
+#include "LevelSequence.h"
 #if __has_include("MediaPlayer.h")
 #include "MediaPlayer.h"
 #define MCP_HAS_MEDIA_PLAYER 1
 #else
 #define MCP_HAS_MEDIA_PLAYER 0
+#endif
+#if __has_include("Recorder/TakeRecorderSubsystem.h") && __has_include("Recorder/TakeRecorder.h")
+#include "Recorder/TakeRecorder.h"
+#include "Recorder/TakeRecorderSubsystem.h"
+#define MCP_HAS_TAKE_RECORDER 1
+#else
+#define MCP_HAS_TAKE_RECORDER 0
 #endif
 
 // -----------------------------------------------------------------------------
@@ -4986,6 +4994,122 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
                            bExecuted ? TEXT("Demo playback command executed") : TEXT("Demo playback command failed"),
                            Response, bExecuted ? FString() : TEXT("DEMO_COMMAND_FAILED"));
     return true;
+  }
+  if (LowerSub == TEXT("open_media") || LowerSub == TEXT("play_media") ||
+      LowerSub == TEXT("pause_media") || LowerSub == TEXT("seek_media")) {
+#if MCP_HAS_MEDIA_PLAYER
+    FString PlayerPath;
+    Payload->TryGetStringField(TEXT("mediaPlayerPath"), PlayerPath);
+    UMediaPlayer *Player = LoadObject<UMediaPlayer>(nullptr, *SanitizeProjectRelativePath(PlayerPath));
+    if (!Player) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("MEDIA_PLAYER_NOT_FOUND"),
+                                TEXT("mediaPlayerPath must resolve to a UMediaPlayer asset"), nullptr);
+      return true;
+    }
+    bool bResult = false;
+    if (LowerSub == TEXT("open_media")) {
+      FString Url;
+      Payload->TryGetStringField(TEXT("mediaUrl"), Url);
+      if (Url.IsEmpty()) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                  TEXT("INVALID_ARGUMENT"), TEXT("mediaUrl is required"), nullptr);
+        return true;
+      }
+      bResult = Player->OpenUrl(Url);
+    } else if (LowerSub == TEXT("play_media")) {
+      bResult = Player->Play();
+    } else if (LowerSub == TEXT("pause_media")) {
+      bResult = Player->Pause();
+    } else {
+      double MediaTime = 0.0;
+      if (!Payload->TryGetNumberField(TEXT("mediaTime"), MediaTime) ||
+          !FMath::IsFinite(MediaTime) || MediaTime < 0.0) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                  TEXT("INVALID_ARGUMENT"),
+                                  TEXT("mediaTime must be a non-negative number"), nullptr);
+        return true;
+      }
+      bResult = Player->Seek(FTimespan::FromSeconds(MediaTime));
+    }
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetBoolField(TEXT("success"), bResult);
+    Response->SetBoolField(TEXT("isPlaying"), Player->IsPlaying());
+    Response->SetBoolField(TEXT("isReady"), Player->IsReady());
+    Response->SetStringField(TEXT("mediaPlayerPath"), Player->GetPathName());
+    SendAutomationResponse(RequestingSocket, RequestId, bResult,
+                           bResult ? TEXT("Media command executed") : TEXT("Media command failed"),
+                           Response, bResult ? FString() : TEXT("MEDIA_COMMAND_FAILED"));
+    return true;
+#else
+    SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                              TEXT("MEDIA_ASSETS_NOT_AVAILABLE"),
+                              TEXT("Media Framework is not available in this build"), nullptr);
+    return true;
+#endif
+  }
+  if (LowerSub == TEXT("start_take_recording") ||
+      LowerSub == TEXT("stop_take_recording") ||
+      LowerSub == TEXT("get_take_recording_status")) {
+#if MCP_HAS_TAKE_RECORDER
+    UTakeRecorderSubsystem *TakeSubsystem =
+        GEngine ? GEngine->GetEngineSubsystem<UTakeRecorderSubsystem>() : nullptr;
+    if (!TakeSubsystem) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("TAKE_RECORDER_NOT_AVAILABLE"),
+                                TEXT("Take Recorder subsystem is unavailable"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("get_take_recording_status")) {
+      TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+      const bool bRecording = UTakeRecorder::GetActiveRecorder() != nullptr;
+      Response->SetBoolField(TEXT("recording"), bRecording);
+      Response->SetStringField(TEXT("status"), bRecording ? TEXT("recording") : TEXT("idle"));
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Take Recorder status"), Response, FString());
+      return true;
+    }
+    if (LowerSub == TEXT("stop_take_recording")) {
+      const bool bWasRecording = UTakeRecorder::GetActiveRecorder() != nullptr;
+      TakeSubsystem->StopRecording();
+      TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+      Response->SetBoolField(TEXT("wasRecording"), bWasRecording);
+      Response->SetBoolField(TEXT("recording"), UTakeRecorder::GetActiveRecorder() != nullptr);
+      SendAutomationResponse(RequestingSocket, RequestId, true,
+                             TEXT("Take Recorder stop requested"), Response, FString());
+      return true;
+    }
+
+    FString SequencePath;
+    Payload->TryGetStringField(TEXT("sequencePath"), SequencePath);
+    if (!SequencePath.IsEmpty()) {
+      ULevelSequence *Sequence = LoadObject<ULevelSequence>(nullptr, *SanitizeProjectRelativePath(SequencePath));
+      if (!Sequence) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                  TEXT("SEQUENCE_NOT_FOUND"),
+                                  TEXT("sequencePath must resolve to a Level Sequence"), nullptr);
+        return true;
+      }
+      TakeSubsystem->SetRecordIntoLevelSequence(Sequence);
+    }
+    bool bOpenSequencer = true;
+    bool bShowErrorMessage = false;
+    Payload->TryGetBoolField(TEXT("openSequencer"), bOpenSequencer);
+    Payload->TryGetBoolField(TEXT("showErrorMessage"), bShowErrorMessage);
+    const bool bStarted = TakeSubsystem->StartRecording(bOpenSequencer, bShowErrorMessage);
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetBoolField(TEXT("started"), bStarted);
+    Response->SetBoolField(TEXT("recording"), UTakeRecorder::GetActiveRecorder() != nullptr);
+    SendAutomationResponse(RequestingSocket, RequestId, bStarted,
+                           bStarted ? TEXT("Take Recorder started") : TEXT("Take Recorder failed to start"),
+                           Response, bStarted ? FString() : TEXT("TAKE_RECORDER_START_FAILED"));
+    return true;
+#else
+    SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                              TEXT("TAKE_RECORDER_NOT_AVAILABLE"),
+                              TEXT("Take Recorder plugin is not available in this build"), nullptr);
+    return true;
+#endif
   }
   if (LowerSub == TEXT("step_frame"))
     return HandleControlEditorStepFrame(RequestId, Payload, RequestingSocket);

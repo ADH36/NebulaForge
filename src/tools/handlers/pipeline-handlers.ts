@@ -14,6 +14,7 @@ const ALLOWED_UBT_PLATFORMS = new Set(['Win64', 'Mac', 'Linux', 'LinuxArm64', 'A
 const ALLOWED_UBT_CONFIGURATIONS = new Set(['Debug', 'DebugGame', 'Development', 'Shipping', 'Test']);
 const BLOCKED_UBT_OVERRIDE_OPTIONS = new Set(['project', 'projectfile', 'target', 'mode']);
 const ALLOWED_UAT_OPERATIONS = new Set(['build', 'cook', 'stage', 'package', 'archive', 'build_cook_stage_package', 'build_server', 'package_server', 'archive_server']);
+const SIGNING_PASSWORD_ENV = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 
 /** Reject UBT argument strings containing shell-dangerous characters. */
 function validateUbtArgumentsString(extraArgs: string): void {
@@ -198,6 +199,101 @@ async function validateReleaseArtifact(args: PipelineArgs): Promise<Record<strin
     missingFiles,
     requiredFiles,
     checks: { archiveDirectory: true, requiredFiles: missingFiles.length === 0, pak: !requirePak || pakFiles.length > 0 }
+  });
+}
+
+function isPathInside(root: string, candidate: string): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+async function signRelease(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const platform = args.platform || 'Win64';
+  const artifactInput = typeof args.artifactPath === 'string' ? args.artifactPath.trim() : '';
+  if (!artifactInput) return { success: false, error: 'INVALID_ARGUMENT', message: 'artifactPath is required for sign_release' };
+  if (!ALLOWED_UBT_PLATFORMS.has(platform)) return { success: false, error: 'UNSUPPORTED_PLATFORM', message: `Unsupported signing platform: ${platform}`, platform };
+
+  const projectInput = args.projectPath || process.env.UE_PROJECT_PATH;
+  const projectRoot = projectInput ? path.resolve(projectInput.toLowerCase().endsWith('.uproject') ? path.dirname(projectInput) : projectInput) : undefined;
+  const archiveRoot = args.archiveDirectory ? path.resolve(args.archiveDirectory) : projectRoot;
+  if (!archiveRoot) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'projectPath or archiveDirectory is required to constrain artifactPath' };
+  const artifactPath = path.isAbsolute(artifactInput) ? path.resolve(artifactInput) : path.resolve(archiveRoot, artifactInput);
+  if (!isPathInside(archiveRoot, artifactPath)) return { success: false, error: 'PATH_SECURITY_VIOLATION', message: 'artifactPath must remain inside archiveDirectory/projectPath', artifactPath };
+  const artifactStat = await fs.promises.stat(artifactPath).catch(() => undefined);
+  if (!artifactStat) return { success: false, error: 'ARTIFACT_NOT_FOUND', message: `Signing artifact not found: ${artifactPath}`, artifactPath };
+
+  let executable: string | undefined;
+  let commandArgs: string[] = [];
+  if (platform === 'Win64') {
+    executable = process.env.SIGNTOOL_PATH;
+    if (!executable) {
+      const probe = await execAsync('where signtool.exe').catch(() => undefined);
+      executable = probe?.stdout.split(/\r?\n/).map(line => line.trim()).find(Boolean);
+    }
+    const certificate = args.certificatePath?.trim();
+    const identity = args.signingIdentity?.trim();
+    if (!certificate && !identity) return { success: false, error: 'SIGNING_IDENTITY_REQUIRED', message: 'Win64 signing requires certificatePath or signingIdentity thumbprint' };
+    commandArgs = ['sign', '/fd', 'SHA256'];
+    if (certificate) commandArgs.push('/f', certificate);
+    else commandArgs.push('/sha1', identity as string);
+    commandArgs.push(artifactPath);
+  } else if (platform === 'Mac' || platform === 'IOS') {
+    executable = process.env.CODESIGN_PATH || 'codesign';
+    const identity = args.signingIdentity?.trim();
+    if (!identity) return { success: false, error: 'SIGNING_IDENTITY_REQUIRED', message: `${platform} signing requires signingIdentity` };
+    commandArgs = ['--force', '--deep', '--sign', identity, artifactPath];
+  } else if (platform === 'Android') {
+    executable = process.env.JARSIGNER_PATH || 'jarsigner';
+    const keystore = args.keystorePath?.trim();
+    const alias = args.signingAlias?.trim();
+    if (!keystore || !alias) return { success: false, error: 'SIGNING_IDENTITY_REQUIRED', message: 'Android signing requires keystorePath and signingAlias' };
+    if (args.signingPasswordEnv && !SIGNING_PASSWORD_ENV.test(args.signingPasswordEnv)) return { success: false, error: 'INVALID_ARGUMENT', message: 'signingPasswordEnv must be a safe environment variable name' };
+    commandArgs = ['-keystore', keystore, artifactPath, alias];
+  } else {
+    return { success: false, error: 'SIGNING_NOT_SUPPORTED', message: `Signing is not implemented for ${platform}`, platform };
+  }
+  if (!executable) return { success: false, error: 'SIGNING_TOOL_NOT_FOUND', message: `No signing tool found for ${platform}`, platform };
+  const dryRun = args.dryRun === true;
+  const result = { success: true, dryRun, platform, artifactPath, executable, arguments: commandArgs.map(value => value === artifactPath ? '<artifact>' : value) };
+  if (dryRun) return result;
+
+  const childEnv = { ...process.env };
+  if (args.signingPasswordEnv && childEnv[args.signingPasswordEnv] === undefined) {
+    return { success: false, error: 'SIGNING_SECRET_MISSING', message: `Signing password environment variable is not set: ${args.signingPasswordEnv}` };
+  }
+  const child = spawn(executable, commandArgs, { shell: false, env: childEnv });
+  const job = jobManager.startProcess({ label: `sign_release:${platform}`, process: child });
+  if (args.async === true) return { ...result, started: true, jobId: job.jobId, status: job.status };
+  return await new Promise(resolve => {
+    child.once('close', code => resolve({ ...result, success: code === 0, error: code === 0 ? undefined : 'SIGNING_FAILED', exitCode: code, jobId: job.jobId }));
+    child.once('error', error => resolve({ ...result, success: false, error: 'SPAWN_FAILED', message: error.message, jobId: job.jobId }));
+  });
+}
+
+async function runPackaged(args: PipelineArgs): Promise<Record<string, unknown>> {
+  const artifactInput = typeof args.artifactPath === 'string' ? args.artifactPath.trim() : '';
+  if (!artifactInput) return { success: false, error: 'INVALID_ARGUMENT', message: 'artifactPath is required for run_packaged' };
+  const projectInput = args.projectPath || process.env.UE_PROJECT_PATH;
+  const projectRoot = projectInput ? path.resolve(projectInput.toLowerCase().endsWith('.uproject') ? path.dirname(projectInput) : projectInput) : undefined;
+  const archiveRoot = args.archiveDirectory ? path.resolve(args.archiveDirectory) : projectRoot;
+  if (!archiveRoot) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'projectPath or archiveDirectory is required to constrain artifactPath' };
+  const artifactPath = path.isAbsolute(artifactInput) ? path.resolve(artifactInput) : path.resolve(archiveRoot, artifactInput);
+  if (!isPathInside(archiveRoot, artifactPath)) return { success: false, error: 'PATH_SECURITY_VIOLATION', message: 'artifactPath must remain inside archiveDirectory/projectPath', artifactPath };
+  const artifactStat = await fs.promises.stat(artifactPath).catch(() => undefined);
+  if (!artifactStat) return { success: false, error: 'ARTIFACT_NOT_FOUND', message: `Packaged executable not found: ${artifactPath}`, artifactPath };
+  if (!artifactStat.isFile()) return { success: false, error: 'INVALID_ARTIFACT', message: 'artifactPath must identify an executable file', artifactPath };
+  const extraArgs = args.arguments || '';
+  validateUbtArgumentsString(extraArgs);
+  const commandArgs = tokenizeArgs(extraArgs);
+  const dryRun = args.dryRun === true;
+  const result = { success: true, dryRun, artifactPath, arguments: commandArgs };
+  if (dryRun) return result;
+  const child = spawn(artifactPath, commandArgs, { shell: false, cwd: path.dirname(artifactPath), env: process.env });
+  const job = jobManager.startProcess({ label: `run_packaged:${path.basename(artifactPath)}`, process: child });
+  if (args.async === true) return { ...result, started: true, jobId: job.jobId, status: job.status };
+  return await new Promise(resolve => {
+    child.once('close', code => resolve({ ...result, success: code === 0, error: code === 0 ? undefined : 'PACKAGED_RUNTIME_FAILED', exitCode: code, jobId: job.jobId }));
+    child.once('error', error => resolve({ ...result, success: false, error: 'SPAWN_FAILED', message: error.message, jobId: job.jobId }));
   });
 }
 
@@ -468,6 +564,10 @@ async function findBundledDotNetRoot(ubtPath: string): Promise<string | undefine
 /** Dispatch system_control pipeline actions to local UBT or the C++ bridge. */
 export async function handlePipelineTools(action: string, args: PipelineArgs, tools: ITools) {
   switch (action) {
+    case 'sign_release':
+      return signRelease(args);
+    case 'run_packaged':
+      return runPackaged(args);
     case 'validate_release':
       return validateReleaseArtifact(args);
     case 'run_uat': {

@@ -1019,6 +1019,13 @@ export interface PipelineArgs extends HandlerArgs {
     requirePak?: boolean;
     server?: boolean;
     serverConfiguration?: string;
+    artifactPath?: string;
+    certificatePath?: string;
+    signingIdentity?: string;
+    keystorePath?: string;
+    signingAlias?: string;
+    signingPasswordEnv?: string;
+    dryRun?: boolean;
 }
 
 // ============================================================================

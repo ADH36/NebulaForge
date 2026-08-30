@@ -251,6 +251,9 @@ public class NebulaForgeBridge : ModuleRules
             // Media Framework runtime asset types
             AddOptionalDynamicModule(Target, EngineDir, "MediaAssets", "MediaAssets");
 
+            // Take Recorder lifecycle and recording subsystem
+            AddOptionalDynamicModule(Target, EngineDir, "TakeRecorder", "TakeRecorder");
+
             // NiagaraEditor (optional plugin) - for Niagara authoring
             AddOptionalDynamicModule(Target, EngineDir, "NiagaraEditor", "NiagaraEditor");
 

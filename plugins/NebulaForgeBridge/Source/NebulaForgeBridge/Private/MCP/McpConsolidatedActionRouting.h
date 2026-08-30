@@ -505,7 +505,7 @@ inline const TArray<FString>& SystemControlCore()
 		TEXT("profile"), TEXT("show_fps"), TEXT("set_quality"),
 		TEXT("screenshot"), TEXT("set_resolution"), TEXT("set_fullscreen"),
 		TEXT("execute_command"), TEXT("console_command"), TEXT("run_ubt"),
-      TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("validate_project"), TEXT("manage_project_plugin"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
+      TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("validate_project"), TEXT("inspect_platform_capabilities"), TEXT("manage_project_plugin"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
       TEXT("read_project_file"), TEXT("write_project_file"),
       TEXT("generate_save_game_class"),
       TEXT("list_gameplay_tags"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
@@ -555,6 +555,7 @@ inline const TArray<FString>& Performance()
 		TEXT("merge_actors"), TEXT("configure_occlusion_culling"),
 		TEXT("optimize_shaders"), TEXT("configure_nanite"),
 		TEXT("configure_world_partition")
+		, TEXT("sign_release"), TEXT("run_packaged")
 	};
 	return Actions;
 }

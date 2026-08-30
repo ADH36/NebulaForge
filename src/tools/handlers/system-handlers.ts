@@ -10,6 +10,7 @@ import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../servi
 import { getConfigValue, listConfigLayers, setConfigValue } from '../../services/config-service.js';
 import { validateProject } from '../../services/project-validation-service.js';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
+import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
 
 /** Response from various operations */
 interface OperationResponse {
@@ -116,6 +117,10 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       const pluginName = typeof record.pluginName === 'string' ? record.pluginName : undefined;
       return manageProjectPlugins(argsTyped.projectPath, pluginAction, pluginName, record.backup !== false);
     }
+    case 'inspect_platform_capabilities':
+      return inspectPlatformCapabilities(typeof (argsTyped as Record<string, unknown>).enginePath === 'string'
+        ? String((argsTyped as Record<string, unknown>).enginePath)
+        : undefined);
     case 'write_project_file': {
       const record = argsTyped as Record<string, unknown>;
       const filePath = typeof record.filePath === 'string' ? record.filePath : '';

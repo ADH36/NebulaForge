@@ -48,6 +48,13 @@ public:
 				TEXT("single_frame_step"),
 				TEXT("start_recording"),
 				TEXT("stop_recording"),
+				TEXT("open_media"),
+				TEXT("play_media"),
+				TEXT("pause_media"),
+				TEXT("seek_media"),
+				TEXT("start_take_recording"),
+				TEXT("stop_take_recording"),
+				TEXT("get_take_recording_status"),
 				TEXT("play_demo"),
 				TEXT("pause_demo"),
 				TEXT("seek_demo"),
@@ -123,6 +130,12 @@ public:
 			.FreeformObject(TEXT("metadata"), TEXT("Caller-provided screenshot metadata."))
 			.Number(TEXT("demoTime"), TEXT("Demo playback time in seconds."))
 			.Number(TEXT("demoSpeed"), TEXT("Demo playback speed from 0 to 16."))
+			.String(TEXT("mediaPlayerPath"), TEXT("Media player asset path."))
+			.String(TEXT("mediaUrl"), TEXT("Media URL to open."))
+			.Number(TEXT("mediaTime"), TEXT("Media playback time in seconds."))
+			.String(TEXT("sequencePath"), TEXT("Optional level sequence to record into."))
+			.Bool(TEXT("openSequencer"), TEXT("Open Sequencer when starting Take Recorder."))
+			.Bool(TEXT("showErrorMessage"), TEXT("Show the editor error message when Take Recorder fails."))
 			.Number(TEXT("deltaTime"), TEXT(""))
 			.String(TEXT("resolution"), TEXT("Resolution setting (e.g., 1024x1024)."))
 			.Bool(TEXT("realtime"), TEXT(""))

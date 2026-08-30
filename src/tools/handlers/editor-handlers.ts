@@ -77,6 +77,9 @@ const ACTION_REQUIRED_PARAMS: Record<string, string[]> = {
   'play_media': ['mediaPlayerPath'],
   'pause_media': ['mediaPlayerPath'],
   'seek_media': ['mediaPlayerPath', 'mediaTime'],
+  'start_take_recording': [],
+  'stop_take_recording': [],
+  'get_take_recording_status': [],
 };
 
 /**
@@ -136,6 +139,9 @@ const ACTION_ALLOWED_PARAMS: Record<string, string[]> = {
   'play_media': ['mediaPlayerPath'],
   'pause_media': ['mediaPlayerPath'],
   'seek_media': ['mediaPlayerPath', 'mediaTime'],
+  'start_take_recording': ['sequencePath', 'openSequencer', 'showErrorMessage'],
+  'stop_take_recording': [],
+  'get_take_recording_status': [],
   'simulate_input': ['key', 'type', 'inputType', 'inputAction', 'x', 'y', 'button', 'playerIndex', 'axisName', 'axisValue', 'relative'],
   'get_pie_state': [],
   'query_pie_actor': ['actorName'],
@@ -599,6 +605,21 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       if (!Number.isFinite(mediaTime) || mediaTime < 0) throw new Error('mediaTime must be a non-negative number');
       return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'seek_media', mediaPlayerPath, mediaTime }) as Record<string, unknown>);
     }
+    case 'start_take_recording': {
+      const sequencePath = typeof args.sequencePath === 'string' && args.sequencePath.trim().length > 0
+        ? args.sequencePath.trim()
+        : undefined;
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', {
+        action: 'start_take_recording',
+        sequencePath,
+        openSequencer: args.openSequencer !== false,
+        showErrorMessage: args.showErrorMessage === true
+      }) as Record<string, unknown>);
+    }
+    case 'stop_take_recording':
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'stop_take_recording' }) as Record<string, unknown>);
+    case 'get_take_recording_status':
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'get_take_recording_status' }) as Record<string, unknown>);
     case 'step_frame': {
       // Support stepping multiple frames
       const steps = typeof args.steps === 'number' && args.steps > 0 ? args.steps : 1;

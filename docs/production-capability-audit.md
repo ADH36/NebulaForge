@@ -6,6 +6,10 @@ Method: Static repository audit; runtime behavior still requires a live Unreal E
 
 Current implementation update (2026-08-30): host project validation and declared-plugin management are now available through `system_control`; Movie Render Queue PNG submission/status/cancellation is available through `manage_sequence`. These host workflows remain intentionally explicit about native `/mcp` limitations.
 
+Media update: guarded Media Framework asset creation (`UMediaPlayer`, file/stream sources, `UMediaTexture`, and playlists), player open/play/pause/seek controls, demo replay controls, and Take Recorder start/stop/status lifecycle are now exposed. Media plugin availability, source-specific capture configuration, platform codecs, and packaged-runtime verification remain project-dependent.
+
+Platform update: `system_control.inspect_platform_capabilities` now reports host/target platform support, discovered UAT/UBT paths, and available signing-tool categories without attempting an unsafe signing or deployment operation.
+
 Legend: ✅ available or substantially covered · ❌ missing, incomplete, or production-blocking · ⚠️ conditional
 
 ## Summary
@@ -16,10 +20,10 @@ NebulaForge provides broad Unreal Editor automation, but it is not yet a complet
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Build and deployment tool | ⚠️ | TypeScript `system_control` now provides validated `run_uat` BuildCookRun operations and host job polling; platform signing/deployment remains absent, while native `/mcp` reports host-only actions explicitly. |
+| Build and deployment tool | ⚠️ | TypeScript `system_control` provides validated `run_uat` BuildCookRun operations, controlled `sign_release`, bounded local `run_packaged`, and host job polling; external deployment remains absent, while native `/mcp` reports host-only actions explicitly. |
 | Cook content | ⚠️ | `run_uat` supports cook through BuildCookRun, but live Unreal verification is still required. |
-| Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations and `validate_release` artifact checks exist; deployment and platform signing remain absent. |
-| Platform builds and signing | ❌ | Windows, Linux, Mac, iOS, Android, and console workflows are not implemented. |
+| Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations, `validate_release`, controlled signing, and bounded local packaged launch exist; external deployment remains absent. |
+| Platform builds and signing | ⚠️ | Host signing is supported for Win64, Mac/iOS, and Android when tools and credentials are supplied; Linux and console signing/provider deployment remain project/toolchain dependent. |
 | Plugin enable/disable management | ❌ | No complete project dependency/plugin management workflow. |
 | Asset chunking, compression, encryption, PAK creation | ❌ | Release packaging controls are absent. |
 
@@ -221,3 +225,6 @@ Evidence: [Roadmap.md](./Roadmap.md), [testing-guide.md](./testing-guide.md), [U
 5. Complete Sequencer, Movie Render Queue, media, replay, and Take Recorder support.
 6. Add online services and multiplayer soak/reconnect testing.
 7. Add unified asynchronous jobs, completion verification, transactions, and rollback.
+### Latest implementation note (2026-08-30)
+
+The host pipeline now supports controlled `sign_release` execution for Win64, Mac/iOS, and Android when the platform signing tool and credentials are explicitly supplied, plus `run_packaged` for bounded local packaged-runtime launch and job polling. Both validate artifact boundaries and support dry-run inspection. Deployment/upload to external stores or hosting providers remains intentionally unimplemented.

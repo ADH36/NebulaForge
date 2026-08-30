@@ -199,10 +199,11 @@ export async function handleInspectTools(action: string, args: HandlerArgs, tool
         source: 'static-repository-audit',
         executionMode: 'editor',
         capabilities: {
-          productionPipeline: 'partial_build_cook_stage_package_archive_no_platform_signing',
+          productionPipeline: 'partial_build_cook_stage_package_archive_platform_signing_local_runtime_launch_no_deployment',
+          platformIntegration: 'partial_host_target_toolchain_discovery_signing_local_runtime_no_deployment',
           releaseValidation: 'partial_artifact_gate_no_projectwide_unreal_validation',
           persistence: 'partial_data_asset_datatable_curvetable_savegame_slots_gameplay_tag_config_no_primary_assets_or_runtime_tags',
-          cinematicsMedia: 'partial_sequencer_mrq_png_output_demo_replay_no_media_pipeline',
+          cinematicsMedia: 'partial_sequencer_mrq_png_output_demo_replay_media_assets_player_controls_take_recorder_lifecycle_no_media_sources',
           blueprintGameplay: 'partial_project_architecture_required',
           animationCharacters: 'partial_engine_version_and_plugin_dependent',
           niagaraEffects: 'conditional_editor_and_plugin_dependent',

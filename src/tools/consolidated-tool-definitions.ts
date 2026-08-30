@@ -1937,7 +1937,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
   {
     name: 'inspect',
     category: 'core',
-    description: 'Inspect any UObject: read/write properties, list components, export snapshots, and query class info. Actions: inspect_cdo (Blueprint CDO properties + all components without spawning an actor; use blueprintPath, optional detailed/componentName/propertyNames), inspect_class (class metadata), inspect_object (world actor), get_property/set_property, get_components, list_objects, find_by_class, find_by_tag, runtime_report.',
+    description: 'Inspect any UObject and query production capability boundaries. Actions include inspect_cdo, inspect_class, inspect_object, get_property/set_property, get_components, list_objects, find_by_class, find_by_tag, runtime_report, and production_capabilities.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1948,7 +1948,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'get_texture_details', 'get_material_details', 'get_level_details', 'get_component_details',
             'set_property', 'get_property',
             'get_components', 'get_component_property', 'set_component_property',
-            'inspect_class', 'inspect_cdo', 'runtime_report', 'pie_report', 'list_objects',
+            'inspect_class', 'inspect_cdo', 'runtime_report', 'pie_report', 'production_capabilities', 'list_objects',
             'get_metadata', 'add_tag', 'find_by_tag',
             'create_snapshot', 'restore_snapshot', 'export', 'delete_object', 'find_by_class', 'get_bounding_box',
             'get_project_settings', 'get_world_settings', 'get_viewport_info', 'get_selected_actors',

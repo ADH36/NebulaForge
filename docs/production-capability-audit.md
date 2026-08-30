@@ -8,7 +8,7 @@ Legend: ✅ available or substantially covered · ❌ missing, incomplete, or pr
 
 ## Summary
 
-NebulaForge provides broad Unreal Editor automation, but it is not yet a complete production game-building platform. The largest gaps are build/deployment, release validation, persistence/data systems, online services, cinematics/rendering, and several advertised actions whose native implementations are incomplete.
+NebulaForge provides broad Unreal Editor automation, but it is not yet a complete production game-building platform. The largest gaps are build/deployment, release validation, persistence/data systems, online services, cinematics/rendering, and project-specific gameplay architecture. The `inspect` tool's `production_capabilities` action exposes the same static boundary to clients.
 
 ## Production pipeline
 
@@ -204,7 +204,7 @@ Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md#pie-and-
 
 - ❌ The roadmap marks several systems complete despite native `NOT_IMPLEMENTED` and `NOT_AVAILABLE` branches.
 - ❌ Integration expectations often accept `success|not found`, which can conceal missing implementations.
-- ❌ No single matrix combines implementation status, persistence verification, runtime behavior, packaging, and release validation.
+- ⚠️ This document combines implementation status, persistence verification, runtime behavior, packaging, and release validation at static-audit level; live Unreal/project verification is still required.
 - ❌ Most integration tests are feature-focused rather than full production-game workflows.
 - ⚠️ Native compilation, World Partition readiness, shader completion, and true map reload persistence require a live UE Editor integration run.
 

@@ -22,6 +22,20 @@ describe('Inspect Handlers', () => {
     } as unknown as ITools;
   });
 
+  it('returns the repository-wide production capability boundary without bridge access', async () => {
+    const result = await handleInspectTools('production_capabilities', {}, mockTools);
+
+    expect(result).toMatchObject({
+      success: true,
+      source: 'static-repository-audit',
+      capabilities: expect.objectContaining({
+        productionPipeline: 'missing_cook_package_deploy_workflow',
+        worldBuilding: 'partial_plugin_assets_and_world_partition_boundaries'
+      })
+    });
+    expect(mockExecuteAutomationRequest).not.toHaveBeenCalled();
+  });
+
   it('routes get_blueprint_details through blueprint_get', async () => {
     mockExecuteAutomationRequest.mockResolvedValue({ success: true, variables: [{ name: 'Strength_Min' }] });
 

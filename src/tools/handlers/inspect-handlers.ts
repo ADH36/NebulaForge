@@ -193,6 +193,28 @@ export async function handleInspectTools(action: string, args: HandlerArgs, tool
   };
 
   switch (normalizedAction) {
+    case 'production_capabilities':
+      return cleanObject({
+        success: true,
+        source: 'static-repository-audit',
+        executionMode: 'editor',
+        capabilities: {
+          productionPipeline: 'missing_cook_package_deploy_workflow',
+          releaseValidation: 'partial_asset_level_and_targeted_tests',
+          persistence: 'partial_editor_asset_persistence_no_savegame_slots',
+          cinematicsMedia: 'partial_sequencer_authoring_no_mrq_media_pipeline',
+          blueprintGameplay: 'partial_project_architecture_required',
+          animationCharacters: 'partial_engine_version_and_plugin_dependent',
+          niagaraEffects: 'conditional_editor_and_plugin_dependent',
+          audio: 'partial_plugin_and_project_backend_dependent',
+          multiplayerOnline: 'partial_replication_lan_voice_no_online_services',
+          aiRuntimeGameplay: 'partial_runtime_pie_and_project_assets_required',
+          assetsContent: 'partial_release_migration_and_audit_gates_required',
+          worldBuilding: 'partial_plugin_assets_and_world_partition_boundaries'
+        },
+        verificationBoundary: 'Static status only; live Unreal Editor/project verification is required for runtime, plugin, persistence, shader, and packaging claims.'
+      });
+
     case 'inspect_object': {
       if (originalAction === 'get_blueprint_details') {
         const requestedPath = await resolveObjectPath(normalizedArgs, tools) ?? '';

@@ -12,6 +12,15 @@ A production-minded Model Context Protocol (MCP) server and Unreal Engine 5 brid
 
 > **Status:** broad editor automation is available today. Project-specific gameplay architecture, platform certification, external stores, and some engine/plugin-dependent workflows still require live project verification.
 
+### Recent capability additions
+
+- DataTable row modification and deletion with transactional reflected-property validation and optional safe saves.
+- Managed asynchronous PCG generation with timeout, cancellation, completion events, and polling.
+- Desktop packaging/staging for Windows, Linux, and macOS, plus Android ADB and iOS/tvOS simulator deployment when host prerequisites are available.
+- Release gates that combine project/plugin checks, archive and SHA-256 manifest validation, and optional Unreal automation tests.
+- Unreal Insights, memory, network-profiler, stat, and Visual Logger capture workflows with bounded job results.
+- Media Framework playback, Take Recorder lifecycle, replay controls, online identity/presence status, and controlled network conditions.
+
 ---
 
 ## Table of Contents
@@ -454,10 +463,15 @@ docker run -it --rm -e UE_PROJECT_PATH=/project unreal-mcp
 ## Development
 
 ```bash
-npm run build       # Build TypeScript
-npm run lint        # Run ESLint
-npm run test:unit   # Run unit tests
-npm run test:all    # Run all tests
+npm install
+npm run build:core       # Compile TypeScript
+npm run type-check       # Type-check without emitting
+npm run lint             # Run ESLint
+npm run test:unit        # Vitest unit tests
+npm run test:smoke       # Mock-mode stdio smoke test
+npm run test:native-parity
+npm run test:params      # Static parameter-combination audit
+npm test                 # Unreal-dependent integration suite
 ```
 
 ---

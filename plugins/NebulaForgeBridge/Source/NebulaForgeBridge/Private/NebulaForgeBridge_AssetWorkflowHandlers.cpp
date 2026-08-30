@@ -211,6 +211,51 @@
 
 #endif // WITH_EDITOR
 
+#if WITH_EDITOR
+static bool ParseCurveInterpModeAW(const FString& Value, ERichCurveInterpMode& OutMode)
+{
+  if (Value.Equals(TEXT("linear"), ESearchCase::IgnoreCase)) { OutMode = RCIM_Linear; return true; }
+  if (Value.Equals(TEXT("constant"), ESearchCase::IgnoreCase)) { OutMode = RCIM_Constant; return true; }
+  if (Value.Equals(TEXT("cubic"), ESearchCase::IgnoreCase)) { OutMode = RCIM_Cubic; return true; }
+  if (Value.Equals(TEXT("none"), ESearchCase::IgnoreCase)) { OutMode = RCIM_None; return true; }
+  return false;
+}
+
+static bool ParseCurveTangentModeAW(const FString& Value, ERichCurveTangentMode& OutMode)
+{
+  if (Value.Equals(TEXT("auto"), ESearchCase::IgnoreCase)) { OutMode = RCTM_Auto; return true; }
+  if (Value.Equals(TEXT("user"), ESearchCase::IgnoreCase)) { OutMode = RCTM_User; return true; }
+  if (Value.Equals(TEXT("break"), ESearchCase::IgnoreCase)) { OutMode = RCTM_Break; return true; }
+  if (Value.Equals(TEXT("smart_auto"), ESearchCase::IgnoreCase) || Value.Equals(TEXT("smartauto"), ESearchCase::IgnoreCase)) { OutMode = RCTM_SmartAuto; return true; }
+  if (Value.Equals(TEXT("none"), ESearchCase::IgnoreCase)) { OutMode = RCTM_None; return true; }
+  return false;
+}
+
+static bool ParseCurveTangentWeightModeAW(const FString& Value, ERichCurveTangentWeightMode& OutMode)
+{
+  if (Value.Equals(TEXT("none"), ESearchCase::IgnoreCase)) { OutMode = RCTWM_WeightedNone; return true; }
+  if (Value.Equals(TEXT("arrive"), ESearchCase::IgnoreCase)) { OutMode = RCTWM_WeightedArrive; return true; }
+  if (Value.Equals(TEXT("leave"), ESearchCase::IgnoreCase)) { OutMode = RCTWM_WeightedLeave; return true; }
+  if (Value.Equals(TEXT("both"), ESearchCase::IgnoreCase)) { OutMode = RCTWM_WeightedBoth; return true; }
+  return false;
+}
+
+static FString CurveInterpModeToStringAW(ERichCurveInterpMode Mode)
+{
+  switch (Mode) { case RCIM_Constant: return TEXT("constant"); case RCIM_Cubic: return TEXT("cubic"); case RCIM_None: return TEXT("none"); default: return TEXT("linear"); }
+}
+
+static FString CurveTangentModeToStringAW(ERichCurveTangentMode Mode)
+{
+  switch (Mode) { case RCTM_User: return TEXT("user"); case RCTM_Break: return TEXT("break"); case RCTM_SmartAuto: return TEXT("smart_auto"); case RCTM_None: return TEXT("none"); default: return TEXT("auto"); }
+}
+
+static FString CurveTangentWeightModeToStringAW(ERichCurveTangentWeightMode Mode)
+{
+  switch (Mode) { case RCTWM_WeightedArrive: return TEXT("arrive"); case RCTWM_WeightedLeave: return TEXT("leave"); case RCTWM_WeightedBoth: return TEXT("both"); default: return TEXT("none"); }
+}
+#endif
+
 // =============================================================================
 // MF-AWARE HELPERS (shared by Tier 3 material handlers)
 // =============================================================================

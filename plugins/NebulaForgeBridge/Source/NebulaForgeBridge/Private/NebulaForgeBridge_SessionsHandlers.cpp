@@ -456,7 +456,7 @@ static bool HandleOnlineSessionLifecycle(
         TSharedRef<FOnlineSessionSearch> Search = MakeShared<FOnlineSessionSearch>();
         Search->MaxSearchResults = MaxResults;
         Search->bIsLanQuery = GetJsonBoolField(Payload, TEXT("bIsLANMatch"), false);
-        Search->QuerySettings.Set(SEARCH_PRESENCE, GetJsonBoolField(Payload, TEXT("bUsesPresence"), true), EOnlineComparisonOp::Equals);
+        Search->QuerySettings.Set(FName(TEXT("PRESENCE")), GetJsonBoolField(Payload, TEXT("bUsesPresence"), true), EOnlineComparisonOp::Equals);
         const TSharedRef<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
         const TSharedRef<FOnlineRequestGuard> Guard = MakeShared<FOnlineRequestGuard>();
         *Handle = Sessions->AddOnFindSessionsCompleteDelegate_Handle(

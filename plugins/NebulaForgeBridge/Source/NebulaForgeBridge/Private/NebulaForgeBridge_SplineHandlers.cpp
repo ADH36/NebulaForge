@@ -2453,7 +2453,8 @@ static bool GenerateSplineMeshSegments(
             return false;
         }
 
-        const float SegmentLength = SplineComp->GetSegmentLength(StartIndex, 1.0f);
+        const FSplineCurves SplineCurves = SplineComp->GetSplineCurves();
+        const float SegmentLength = SplineCurves.GetSegmentLength(StartIndex, 1.0f, SplineComp->IsClosedLoop());
         const int32 SubCount = bUseMaxSegmentLength && SegmentLength > static_cast<float>(MaxSegmentLength)
             ? FMath::Clamp(FMath::CeilToInt(SegmentLength / static_cast<float>(MaxSegmentLength)), 1, 256)
             : 1;

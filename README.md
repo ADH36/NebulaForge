@@ -1,571 +1,476 @@
 <div align="center">
 
-# ⚡ NebulaForge
+<img src="docs/images/nebula-forge-banner.svg" alt="NebulaForge — Unreal Engine MCP automation" width="100%">
 
-### Give your AI assistant a controllable Unreal Engine
+# NebulaForge
 
-Inspect worlds. Author assets. Build gameplay. Run tests. Profile performance. Ship with confidence.
+### The AI control plane for Unreal Engine
 
-[**Get Started**](#getting-started) · [**Explore Features**](#features) · [**Production Audit**](docs/production-capability-audit.md) · [**Join Discussions**](https://github.com/ADH36/NebulaForge/discussions)
+Turn natural-language intent into validated Unreal Editor work: inspect, author, simulate, test, profile, package, and iterate.
 
-</div>
-
-<p align="center">
-  <img src="docs/images/nebula-forge-banner.svg" alt="NebulaForge — Unreal Engine MCP automation" width="100%">
+<p>
+  <a href="#-start-here"><strong>Start here</strong></a> ·
+  <a href="#-what-you-can-build"><strong>Explore capabilities</strong></a> ·
+  <a href="docs/production-capability-audit.md"><strong>See the production audit</strong></a> ·
+  <a href="https://github.com/ADH36/NebulaForge/discussions"><strong>Join the community</strong></a>
 </p>
 
-<div align="center">
-
-<img src="https://img.shields.io/badge/Unreal%20Engine-5.0--5.8-0E1128?style=for-the-badge&logo=unrealengine" alt="Unreal Engine 5.0 to 5.8">
-<img src="https://img.shields.io/badge/MCP-Streamable%20HTTP%20%7C%20stdio-6E56CF?style=for-the-badge" alt="MCP transports">
-<img src="https://img.shields.io/badge/TypeScript%20%2B%20C%2B%2B-automation-3178C6?style=for-the-badge" alt="TypeScript and C++">
-<img src="https://img.shields.io/badge/Tools-23%20canonical-22C55E?style=for-the-badge" alt="23 canonical tools">
+[![Unreal Engine](https://img.shields.io/badge/Unreal%20Engine-5.0--5.8-0E1128?style=for-the-badge&logo=unrealengine)](https://www.unrealengine.com/)
+[![MCP](https://img.shields.io/badge/MCP-HTTP%20%2B%20SSE%20%7C%20stdio-6E56CF?style=for-the-badge)](https://modelcontextprotocol.io/)
+[![Tools](https://img.shields.io/badge/Tools-23%20canonical-22C55E?style=for-the-badge)](#-the-tool-surface)
+[![License](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 
 </div>
 
+---
+
+## ✦ Start here
+
 <div align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![NPM Package](https://img.shields.io/npm/v/unreal-nebula-forge-mcp-server)](https://www.npmjs.com/package/unreal-nebula-forge-mcp-server)
-[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-Published-green)](https://registry.modelcontextprotocol.io/)
-[![Roadmap](https://img.shields.io/badge/Roadmap-Explore-blueviolet?logo=github)](https://github.com/users/ADH36/projects/3)
+| 🟣 **Native MCP** | 🔵 **TypeScript bridge** |
+|:---:|:---:|
+| Direct HTTP + SSE inside Unreal | stdio + WebSocket for clients and CI |
+| No Node.js or npm required | Node.js 18+ |
+| Best for the fastest local setup | Best for host-side workflows |
+| <code>http://127.0.0.1:3000/mcp</code> | <code>node dist/cli.js</code> |
 
 </div>
-
-A production-minded Model Context Protocol (MCP) server and Unreal Engine 5 bridge that lets AI assistants inspect, author, test, play, profile, and package Unreal projects. Built with TypeScript and C++.
-
-> **Status:** broad editor automation is available today. Project-specific gameplay architecture, platform certification, external stores, and some engine/plugin-dependent workflows still require live project verification.
 
 <details open>
-<summary><strong>✨ Recent capability additions</strong></summary>
+<summary><strong>⚡ Fastest setup — Native MCP</strong></summary>
 
-- DataTable row modification and deletion with transactional reflected-property validation and optional safe saves.
-- Managed asynchronous PCG generation with timeout, cancellation, completion events, and polling.
-- Desktop packaging/staging for Windows, Linux, and macOS, plus Android ADB and iOS/tvOS simulator deployment when host prerequisites are available.
-- Release gates that combine project/plugin checks, archive and SHA-256 manifest validation, and optional Unreal automation tests.
-- Unreal Insights, memory, network-profiler, stat, and Visual Logger capture workflows with bounded job results.
-- Media Framework playback, Take Recorder lifecycle, replay controls, online identity/presence status, and controlled network conditions.
+1. Copy or link <code>plugins/NebulaForgeBridge</code> into your Unreal project.
+2. Enable <strong>Native MCP</strong> in <strong>Edit → Project Settings → Plugins → NebulaForge Bridge</strong>.
+3. Restart the editor.
+4. Connect your MCP client to <code>http://127.0.0.1:3000/mcp</code>.
+
+Claude Code:
+
+~~~bash
+claude mcp add unreal-engine --transport http http://127.0.0.1:3000/mcp
+~~~
+
+Cursor, in <code>.cursor/mcp.json</code>:
+
+~~~json
+{
+  "mcpServers": {
+    "unreal-engine": {
+      "url": "http://127.0.0.1:3000/mcp"
+    }
+  }
+}
+~~~
+
+Look for the MCP indicator in the Unreal status bar. The <code>LogMcpNativeTransport</code> category shows sessions, calls, progress, and failures.
 
 </details>
 
----
+<details>
+<summary><strong>🛠 Flexible setup — TypeScript bridge</strong></summary>
 
-## Table of Contents
+Install and run from npm:
 
-- [Features](#features)
-- [Getting Started](#getting-started)
-- [Configuration](#configuration)
-- [Available Tools](#available-tools)
-- [Production Workflows](#production-workflows)
-- [Docker](#docker)
-- [Documentation](#documentation)
-- [Community](#community)
-- [Development](#development)
-- [Contributing](#contributing)
-
----
-
-## The short version
-
-NebulaForge turns natural-language intent into validated Unreal Editor operations through one compact MCP surface. Pick the connection that fits your workflow:
-
-<div align="center">
-
-| 🟣 **Native MCP** | 🔵 **TypeScript Bridge** |
-|---|---|
-| Direct HTTP + SSE from the editor | stdio for Claude Desktop, Cursor, scripts, and CI |
-| No Node.js or npm required | Node.js 18+ with WebSocket automation |
-| http://127.0.0.1:3000/mcp | node dist/cli.js |
-| Best for the fastest local setup | Best for host-side workflows and integrations |
-
-</div>
-
-~~~mermaid
-flowchart LR
-    A[AI assistant] --> B{Choose a transport}
-    B -->|Native MCP| C[HTTP + SSE]
-    B -->|TypeScript bridge| D[stdio + WebSocket]
-    C --> E[NebulaForge Bridge]
-    D --> E
-    E --> F[Unreal Editor]
-    E --> G[PIE / packaged verification]
-    E --> H[Assets, worlds, gameplay, tests, release]
+~~~bash
+npx unreal-nebula-forge-mcp-server
 ~~~
 
----
+Or clone and build:
 
-## Features
-
-| Category | Capabilities |
-|----------|-------------|
-| **Assets & Data** | Browse, inspect, import, duplicate, rename, delete, validate, and author Materials, Data Assets, Primary Assets, DataTables, CurveTables, Media, audio, and physical materials |
-| **World Building** | Levels, sublevels, World Partition, HLOD, data layers, landscapes, splines, foliage, water, sky, weather, time of day, procedural geometry, and PCG |
-| **Actors & Blueprints** | Spawn and transform actors; edit components, SCS templates, graphs, pins, variables, widgets, bindings, CDOs, materials, cameras, tags, physics, and input |
-| **Gameplay & AI** | GAS, character movement, combat, inventory, interaction, Behavior Trees, EQS, State Trees, Smart Objects, perception, navigation, Control Rig, IK Rig, cloth, vehicles, and ragdolls |
-| **Editor & Runtime** | PIE, packaged launches, cameras, viewports, screenshots, simulated input, runtime inspection, SaveGame slots, Gameplay Tags, config, and async jobs |
-| **VFX, Audio & Cinematics** | Niagara and VFX budgets, Sequencer, Movie Render Queue, Sound Cues, MetaSounds, source effects, media playback, Take Recorder, and replays |
-| **Testing & Release** | Automation/functional tests, Blueprint/map/data validation, Unreal Insights, memory/network profiling, UAT packaging, signing, local deployment, release gates, and manifest checks |
-| **Online Services** | Session lifecycle, identity, achievements, leaderboards, stats, friends, presence, external UI, and controlled network conditions |
-
-### Architecture
-
-- **Native C++ Automation** — All operations route through the NebulaForge Bridge plugin
-- **Dual Transport** — Native HTTP/SSE (no bridge needed) or WebSocket via TypeScript bridge
-- **Dynamic Type Discovery** — Runtime introspection for lights, debug shapes, and sequencer tracks
-- **Graceful Degradation** — Server starts even without an active Unreal connection
-- **On-Demand Connection** — Retries automation handshakes with exponential backoff
-- **Command Safety** — Blocks dangerous console commands with pattern-based validation
-- **Capability Token Auth** — Optional token-based authentication for both WS and HTTP transports
-- **Asset Caching** — 10-second TTL for improved performance
-- **Metrics Rate Limiting** — Per-IP rate limiting (60 req/min) on Prometheus endpoint
-- **Centralized Configuration** — Unified class aliases and type definitions
-
----
-
-### Quick mental model
-
-| If you want to... | Start with |
-|---|---|
-| Connect directly from Claude Code or Cursor | Native MCP at http://127.0.0.1:3000/mcp |
-| Use Claude Desktop, scripts, or CI over stdio | TypeScript bridge with Node.js 18+ |
-| Discover what this project can support | inspect → production_capabilities |
-| Run long work safely | Managed async actions with status, progress, cancellation, and terminal results |
-| Add a native Unreal operation | The bridge handler map and plugin extension guide |
-
-## Getting Started
-
-### Prerequisites
-
-- **Unreal Engine** 5.0–5.8 (5.8 preview validated)
-
-Choose your transport:
-- **Option A: Native MCP** (recommended) — no additional dependencies
-- **Option B: TypeScript Bridge** — requires **Node.js** 18+
-
-### Step 1: Install MCP Server (Option B only — skip for Native MCP)
-
-> Skip this step if using **Option A: Native MCP Transport** ([Step 4A](#option-a-native-mcp-transport-direct-http--no-bridge-needed) below).
-
-**NPX (Recommended):**
-```bash
-npx unreal-nebula-forge-mcp-server
-```
-
-**Clone & Build:**
-```bash
+~~~bash
 git clone https://github.com/ADH36/NebulaForge.git
 cd NebulaForge
 npm install
-npm run build
+npm run build:core
 node dist/cli.js
-```
+~~~
 
-### Step 2: Install Unreal Plugin
+Example client configuration:
 
-The NebulaForge Bridge plugin is included at `NebulaForge/plugins/NebulaForgeBridge`.
-
-#### From source (requires a project with code target)
-
-Your project must have a code target (`.sln` or `.xcworkspace`).
-Blueprint-only projects cannot compile native plugins — to convert, add any class via **Tools > New C++ Class** in the editor.
-
-**Method 1: Copy Folder**
-```text
-Copy:  NebulaForge/plugins/NebulaForgeBridge/
-To:    YourUnrealProject/Plugins/NebulaForgeBridge/
-```
-
-**Method 2: External Plugin Directory (no copy needed)**
-1. Open Unreal Editor → **Edit → Plugins**
-2. Click **Plugin Directories** (bottom-left)
-3. In **Additional Plugin Directories**, add the path to `NebulaForge/plugins/`
-4. Restart the editor — the plugin will be picked up from the external location
-
-This saves the path in your `.uproject` file so the plugin stays linked without copying.
-
-The plugin compiles automatically when you open the project — UE detects the `.uplugin` + `Source/` and runs UnrealBuildTool.
-
-**Video Guide:**
-
-https://github.com/user-attachments/assets/d8b86ebc-4364-48c9-9781-de854bf3ef7d
-
-> ⚠️ **First-Time Project Open:** UE may prompt *"Would you like to rebuild them now?"* — click **Yes**. If instead you see *"Missing Modules — NebulaForgeBridge. Engine modules cannot be compiled at runtime. Please build through your IDE."* — open your project in **Visual Studio** (Win) or **Xcode** (Mac) and build from there. After that, the editor will open normally with the plugin loaded.
-
-#### Pre-built (works with any project, including Blueprint-only)
-
-Build the plugin once, then distribute the compiled binaries — no IDE or compilation needed on the target machine.
-
-**1. Build:**
-```bash
-# macOS / Linux
-./scripts/package-plugin.sh /path/to/UE_5.6
-
-# Windows
-scripts\package-plugin.bat C:\Path\To\UE_5.6
-```
-
-This produces a zip like `NebulaForgeBridge-v0.5.30-UE5.6-Mac.zip`.
-
-**2. Install:** unzip into `YourProject/Plugins/` and open the project. That's it — no compilation step.
-
-> Note: pre-built binaries are tied to a specific UE version. A build for 5.6 won't work with 5.5, 5.7, or 5.8.
-
-### Step 3: Enable Required Plugins
-
-Enable via **Edit → Plugins**, then restart the editor.
-
-<details>
-<summary><b>Core Plugins (Required)</b></summary>
-
-| Plugin | Required For |
-|--------|--------------|
-| **NebulaForge Bridge** | All automation operations |
-| **Editor Scripting Utilities** | Asset/Actor subsystem operations |
-| **Niagara** | Visual effects and particle systems |
-
-</details>
-
-<details>
-<summary><b>Optional Plugins (Auto-enabled)</b></summary>
-
-| Plugin | Required For |
-|--------|--------------|
-| **Level Sequence Editor** | `manage_sequence` operations |
-| **Control Rig** | `animation_physics` operations |
-| **GeometryScripting** | `manage_geometry` operations |
-| **Behavior Tree Editor** | `manage_ai` Behavior Tree operations |
-| **Niagara Editor** | Niagara authoring |
-| **Environment Query Editor** | AI/EQS operations |
-| **Gameplay Abilities** | `manage_gas` operations |
-| **MetaSound** | `manage_audio` MetaSound authoring |
-| **StateTree** | `manage_ai` State Tree operations |
-| **Smart Objects** | AI smart object operations |
-| **Enhanced Input** | `manage_networking` input mapping operations |
-| **Chaos Cloth** | Cloth simulation |
-| **Interchange** | Asset import/export |
-| **Data Validation** | Data validation |
-| **PCG** | `manage_pcg` graph authoring and execution |
-| **Procedural Mesh Component** | Procedural geometry |
-| **OnlineSubsystem** | Session/networking operations |
-| **OnlineSubsystemUtils** | Session/networking operations |
-
-</details>
-
-> 💡 Optional plugins are auto-enabled by the NebulaForge Bridge plugin when needed.
-
-### Step 4: Configure MCP Client
-
-#### Option A: Native MCP Transport (Direct HTTP — no bridge needed)
-
-The plugin includes a built-in MCP Streamable HTTP server. AI clients connect directly to the plugin over HTTP — no TypeScript bridge, no Node.js, no npm.
-
-**Enable in Unreal:**
-1. **Edit > Project Settings > Plugins > NebulaForge Bridge**
-2. Check **Enable Native MCP**
-3. Set port (default: `3000`)
-4. Optionally set **Native MCP Instructions** for project-specific guidance
-5. Restart the editor
-
-**Configure your MCP client** to use Streamable HTTP transport at:
-```
-http://localhost:3000/mcp
-```
-
-**Claude Code:**
-```bash
-claude mcp add unreal-engine --transport http http://localhost:3000/mcp
-```
-
-Or manually in `~/.claude/settings.json` or project `.mcp.json`:
-```json
-{
-  "mcpServers": {
-    "unreal-engine": {
-      "type": "url",
-      "url": "http://localhost:3000/mcp"
-    }
-  }
-}
-```
-
-**Cursor** (`.cursor/mcp.json`):
-```json
-{
-  "mcpServers": {
-    "unreal-engine": {
-      "url": "http://localhost:3000/mcp"
-    }
-  }
-}
-```
-
-**Verify it works:**
-- **Status bar** — look for `● MCP :3000 (2)` in the bottom-right of the editor. Green dot = server running, number in parens = active sessions. Click it to open settings.
-- **Output Log** — filter by `LogMcpNativeTransport` to see connections, tool calls, and session activity:
-  ```
-  LogMcpNativeTransport: Native MCP server started on http://localhost:3000/mcp
-  LogMcpNativeTransport: MCP session initialized: ... (client: claude-code 2.1.92, active sessions: 1)
-  LogMcpNativeTransport: tools/call: inspect (RequestId=...)
-  LogMcpNativeTransport: tools/call completed: ... (tool=inspect, success=true)
-  ```
-
-Features:
-- SSE streaming for real-time progress during long operations
-- Multiple concurrent sessions (Cursor + Claude Code + others simultaneously)
-- Dynamic tool management — core tools load by default, enable more via `manage_tools`
-- Python execution via `execute_python` action (inline code or .py files)
-- Capability token authentication — enable in project settings for network security
-
-#### Option B: TypeScript Bridge (stdio — classic setup)
-
-Add to your Claude Desktop / Cursor config file:
-
-**Using Clone/Build:**
-```json
+~~~json
 {
   "mcpServers": {
     "unreal-engine": {
       "command": "node",
-      "args": ["path/to/NebulaForge/dist/cli.js"],
+      "args": ["C:/Path/To/NebulaForge/dist/cli.js"],
       "env": {
         "UE_PROJECT_PATH": "C:/Path/To/YourProject",
+        "MCP_AUTOMATION_HOST": "127.0.0.1",
         "MCP_AUTOMATION_PORT": "8091"
       }
     }
   }
 }
-```
+~~~
 
-**Using NPX:**
-```json
-{
-  "mcpServers": {
-    "unreal-engine": {
-      "command": "npx",
-      "args": ["unreal-nebula-forge-mcp-server"],
-      "env": {
-        "UE_PROJECT_PATH": "C:/Path/To/YourProject"
-      }
-    }
-  }
-}
-```
+</details>
+
+<details>
+<summary><strong>📦 Install the Unreal plugin</strong></summary>
+
+For a source build, copy the plugin into your project:
+
+~~~text
+NebulaForge/plugins/NebulaForgeBridge/
+  → YourProject/Plugins/NebulaForgeBridge/
+~~~
+
+A project with a C++ code target is required for source compilation. Blueprint-only projects can use a pre-built package:
+
+~~~bash
+# macOS / Linux
+./scripts/package-plugin.sh /path/to/UE_5.6
+
+# Windows
+scripts\package-plugin.bat C:\Path\To\UE_5.6
+~~~
+
+Unzip the result into <code>YourProject/Plugins/</code>. Plugin binaries are tied to the Unreal Engine version used to build them.
+
+</details>
 
 ---
 
-## Configuration
+## ◈ What you can build
 
-### Environment Variables
+NebulaForge is organized around outcomes, not isolated engine APIs.
 
-```env
-# Required
-UE_PROJECT_PATH="C:/Path/To/YourProject"
+<table>
+<tr>
+<td width="50%" valign="top">
 
-# Automation Bridge
-MCP_AUTOMATION_HOST=127.0.0.1
-MCP_AUTOMATION_PORT=8091
+### 🌌 Worlds and content
 
-# LAN Access (optional)
-# SECURITY: Set to true to allow binding to non-loopback addresses (e.g., 0.0.0.0)
-# Only enable if you understand the security implications.
-MCP_AUTOMATION_ALLOW_NON_LOOPBACK=false
+- Landscapes, erosion, foliage, water, sky, clouds, weather, wind, time of day
+- Levels, sublevels, World Partition, data layers, HLOD, streaming, volumes
+- PCG graphs, subgraphs, nodes, pin connections, settings, execution
+- Procedural meshes, splines, roads, rivers, fences, navigation bounds
+- Materials, functions, instances, render targets, textures, physical materials
+- Data Assets, Primary Assets, DataTables, CurveTables, media, imports, metadata
 
-# Logging
-LOG_LEVEL=info  # debug | info | warn | error
+</td>
+<td width="50%" valign="top">
 
-# Optional
-MCP_CONNECTION_TIMEOUT_MS=5000
-MCP_REQUEST_TIMEOUT_MS=120000
-ASSET_LIST_TTL_MS=10000
+### 🧬 Gameplay and AI
 
-# Optional Prometheus metrics endpoint
-# Loopback-only by default. Non-loopback metrics requires both explicit opt-in and a token.
-# MCP_METRICS_PORT=9100
-# MCP_METRICS_HOST=127.0.0.1
-# MCP_METRICS_ALLOW_NON_LOOPBACK=false
-# MCP_METRICS_TOKEN=change-me
+- Blueprints, CDOs, SCS templates, graphs, pins, variables, widgets, bindings
+- Actors, components, transforms, cameras, view targets, physics, collision, tags
+- GAS abilities/effects/attributes, combat, weapons, projectiles, damage
+- Character movement, locomotion, inventory, equipment, loot, crafting, interaction
+- Behavior Trees, decorators, services, blackboards, EQS, State Trees
+- Smart Objects, perception, navigation, Gameplay Debugger, online sessions
 
-# Custom content mount points (comma-separated)
-# Plugins with CanContainContent register mount points beyond /Game/.
-# MCP_ADDITIONAL_PATH_PREFIXES=/ProjectObject/,/ProjectAnimation/
-```
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-### LAN Access Configuration
+### 🎥 Simulation and presentation
 
-By default, the automation bridge only binds to loopback addresses (127.0.0.1) for security. To enable access from other machines on your network:
+- PIE sessions, packaged launches, runtime inspection, simulated input
+- Niagara systems, emitters, GPU effects, debug shapes, VFX budget validation
+- Animation Blueprints, skeletons, montages, physics assets, cloth, vehicles
+- Control Rig, IK Rig, Sequencer, camera cuts, tracks, keyframes, metadata
+- Movie Render Queue jobs with bounded resolution, frame ranges, polling, cancellation
+- Sound Cues, MetaSounds, source effects, attenuation, media, Take Recorder, replays
 
-**TypeScript (MCP Server):**
-```env
-MCP_AUTOMATION_ALLOW_NON_LOOPBACK=true
-MCP_AUTOMATION_HOST=0.0.0.0
-```
+</td>
+<td width="50%" valign="top">
 
-**Unreal Engine Plugin:**
-1. Go to **Edit → Project Settings → Plugins → NebulaForge Bridge**
-2. Under **Security**, enable **"Allow Non Loopback"**
-3. Under **Connection**, set **"Listen Host"** to `0.0.0.0`
-4. Restart the editor
+### 🚦 Test, profile, and ship
 
-⚠️ **Security Warning:** Enabling LAN access exposes the automation bridge to your local network. Only use on trusted networks with appropriate firewall rules. **Enable capability token authentication** (`Require Capability Token` in project settings) to prevent unauthorized access when using LAN mode.
+- Automation and functional tests with managed results and completion events
+- Blueprint, map, project, asset, animation, Niagara, and plugin validation
+- Unreal Insights, memory reports, stat commands, network profiler, Visual Logger
+- UAT BuildCookRun, compression, encrypted INI/PAK options, signing controls
+- Win64, Linux, Mac staging; Android ADB and iOS/tvOS simulator deployment
+- Release gates, required files, project manifests, plugin checks, SHA-256 archives
+
+</td>
+</tr>
+</table>
+
+<details>
+<summary><strong>✨ Recent capability additions</strong></summary>
+
+- Transactional DataTable row modification and deletion with reflected-property validation and optional safe saves.
+- Managed asynchronous PCG generation with timeout, cancellation, completion events, and polling.
+- Local desktop staging plus Android ADB and iOS/tvOS simulator deployment when prerequisites exist.
+- Release gates combining project/plugin checks, archive manifests, hashes, and optional Unreal tests.
+- Trace, memory, network-profiler, stat, and Visual Logger capture workflows.
+- Media playback, Take Recorder lifecycle, replay controls, online identity/presence, and network-condition testing.
+
+</details>
 
 ---
 
-## Available Tools
+## ◎ See the system
 
-**23 exposed MCP tools** in broad all-tools mode. Related actions live directly on their parent tools so clients load less context without losing capabilities.
+~~~mermaid
+flowchart LR
+    User[AI assistant] --> Choice{MCP transport}
+    Choice -->|Native| HTTP[HTTP + SSE]
+    Choice -->|TypeScript| STDIO[stdio + WebSocket]
+    HTTP --> Bridge[NebulaForge Bridge]
+    STDIO --> Bridge
+    Bridge --> Editor[Unreal Editor]
+    Editor --> Author[Assets and worlds]
+    Editor --> Play[PIE and runtime verification]
+    Editor --> Ship[Tests, profiling, packaging]
+~~~
 
-<details>
-<summary><b>Core Tools</b></summary>
+### Safety and reliability, built in
 
-| Tool | Description |
-|------|-------------|
-| `manage_asset` | Assets, Materials, Render Targets, Behavior Trees |
-| `manage_blueprint` | Blueprints, SCS components, graph editing, UMG widgets, layout, bindings, animations |
-| `control_actor` | Spawn, delete, transform, physics, tags |
-| `control_editor` | PIE, Camera, viewport, screenshots |
-| `manage_level` | Load/save, streaming, lighting |
-| `system_control` | UBT, Tests, Logs, Project Settings, CVars, Python Execution |
-| `inspect` | Object Introspection |
-| `manage_tools` | Dynamic tool management (enable/disable at runtime) |
+| Boundary | Protection |
+|---|---|
+| Network | Loopback-first binding; non-loopback access requires explicit opt-in |
+| Authentication | Optional capability token for native HTTP and WebSocket handshakes |
+| Paths | Confined Unreal roots and normalized project-relative paths |
+| Commands | Dangerous console commands rejected by validation rules |
+| Long work | Bounded timeouts, progress, cancellation, managed IDs, and terminal results |
+| Responses | Structured schemas, explicit errors, redacted logs, and output limits |
+| Editor safety | Game-thread dispatch and project save/load safety wrappers |
 
-</details>
-
-<details>
-<summary><b>World Building</b></summary>
-
-| Tool | Description |
-|------|-------------|
-| `build_environment` | Landscapes, foliage, procedural terrain, lighting, spline roads/rivers/fences |
-| `manage_level_structure` | Levels, sublevels, World Partition, streaming, data layers, HLOD, volumes |
-| `manage_geometry` | Procedural mesh creation and editing with Geometry Script |
-| `manage_pcg` | PCG graph assets, subgraphs, input/sampler/filter/spawner nodes, pin connections, execution, partition grid size, and node settings |
-
-</details>
-
-<details>
-<summary><b>Gameplay Systems</b></summary>
-
-| Tool | Description |
-|------|-------------|
-| `animation_physics` | Animation BPs, skeletons, sockets, physics assets, cloth, vehicles, ragdolls, Control Rig, IK |
-| `manage_effect` | Niagara, particles, debug shapes, GPU simulations |
-| `manage_gas` | Gameplay Ability System: abilities, effects, attributes |
-| `manage_character` | Character creation, movement, advanced locomotion |
-| `manage_combat` | Weapons, projectiles, damage, melee combat |
-| `manage_ai` | AI controllers, Behavior Trees, EQS, perception, State Trees, Smart Objects, NavMesh/pathfinding |
-| `manage_inventory` | Items, equipment, loot tables, crafting |
-| `manage_interaction` | Interactables, destructibles, triggers |
-
-</details>
-
-<details>
-<summary><b>Utility</b></summary>
-
-| Tool | Description |
-|------|-------------|
-| `manage_audio` | Audio Assets, Components, Sound Cues, MetaSounds, Attenuation |
-| `manage_sequence` | Sequencer, cinematics, bindings, tracks, playback, keyframes |
-| `manage_networking` | Replication, RPCs, network prediction, sessions, split-screen, LAN/voice, game framework, input mappings |
-
-</details>
-### Supported Asset Types
-
-The asset workflow also covers Materials, Material Functions, Material Instances, Data Assets, Primary Assets, DataTables, CurveTables, Render Targets, Media Players, Media Sources, Media Textures, Media Playlists, Sound Cues, MetaSounds, Niagara systems and emitters, State Trees, PCG Graphs, Physics Assets, Animation Sequences, Montages, Control Rigs, IK Rigs, and Level Sequences. Availability varies with the Unreal version and enabled project plugins.
-
-Blueprints • Materials • Textures • Static Meshes • Skeletal Meshes • Levels • Sounds • Particles • Niagara Systems • Behavior Trees
+The TypeScript host owns MCP registration, schemas, validation, connection policy, request tracking, logs, and host workflows. The C++ plugin owns Unreal operations, native transport, game-thread execution, and engine compatibility.
 
 ---
 
-## Production Workflows
+## ⌘ The tool surface
 
-NebulaForge is designed for iterative AI-assisted development, not only one-off editor commands. Common end-to-end workflows include:
+23 canonical parent tools keep the MCP context compact while exposing hundreds of focused actions.
+
+<table>
+<tr>
+<td width="25%" valign="top">
+
+<strong>CORE</strong>
+
+<code>manage_asset</code><br>
+<code>manage_blueprint</code><br>
+<code>control_actor</code><br>
+<code>control_editor</code><br>
+<code>manage_level</code><br>
+<code>system_control</code><br>
+<code>inspect</code><br>
+<code>manage_tools</code>
+
+</td>
+<td width="25%" valign="top">
+
+<strong>WORLD</strong>
+
+<code>build_environment</code><br>
+<code>manage_level_structure</code><br>
+<code>manage_geometry</code><br>
+<code>manage_pcg</code>
+
+</td>
+<td width="25%" valign="top">
+
+<strong>GAMEPLAY</strong>
+
+<code>animation_physics</code><br>
+<code>manage_effect</code><br>
+<code>manage_gas</code><br>
+<code>manage_character</code><br>
+<code>manage_combat</code><br>
+<code>manage_ai</code><br>
+<code>manage_inventory</code><br>
+<code>manage_interaction</code>
+
+</td>
+<td width="25%" valign="top">
+
+<strong>UTILITY</strong>
+
+<code>manage_audio</code><br>
+<code>manage_sequence</code><br>
+<code>manage_networking</code>
+</td>
+</tr>
+</table>
+
+<details>
+<summary><strong>Example action families</strong></summary>
+
+| Parent tool | Example actions |
+|---|---|
+| <code>manage_asset</code> | create_data_table, modify_data_table_row, delete_data_table_row, create_material, create_media_player, import_curve_table_csv |
+| <code>manage_blueprint</code> | create, add_node, connect_pins, add_component, compile, inspect_cdo |
+| <code>system_control</code> | run_uat, release_gate, run_tests, execute_python, capture_insights_trace |
+| <code>manage_pcg</code> | create_graph, add_node, connect_pins, configure_node, execute |
+| <code>manage_networking</code> | get_online_identity_status, configure_network_conditions, run_network_soak |
+
+</details>
+
+Use <code>inspect → production_capabilities</code> to discover what is available for the current engine, project, and plugin set.
+
+---
+
+## ⟳ Production loop
 
 ~~~mermaid
 flowchart TD
-    A[Describe a change] --> B[Inspect capabilities and project state]
-    B --> C[Author or mutate Unreal content]
+    A[Describe intent] --> B[Inspect capabilities]
+    B --> C[Author content]
     C --> D[Validate and save]
     D --> E{Verify}
-    E -->|PIE| F[Run gameplay checks]
-    E -->|Tests| G[Run automation tests]
-    E -->|Profile| H[Capture Insights data]
+    E -->|PIE| F[Gameplay checks]
+    E -->|Tests| G[Automation results]
+    E -->|Profile| H[Insights capture]
     F --> I[Package or stage]
     G --> I
     H --> I
     I --> J[Release gate]
 ~~~
 
-1. **Build a world:** create a level, configure World Partition or streaming, author landscape/foliage/water, generate PCG content, then inspect and save the result.
-2. **Author gameplay:** create Blueprints and components, wire graph nodes and pins, configure input, add GAS/combat/inventory/interaction systems, compile, and validate.
-3. **Test a change:** launch PIE or a packaged build, simulate input, capture screenshots, run automation tests, inspect logs, and poll managed jobs to completion.
-4. **Profile a build:** start an Unreal trace, capture Insights/network/memory/Visual Logger data, run bounded analysis, and retain the structured terminal result.
-5. **Prepare a release:** validate project plugins and manifests, run UAT with controlled packaging options, stage or deploy locally, then use release_gate to combine artifact, project, and test checks.
-6. **Operate online features:** inspect provider capabilities and identity, manage sessions, and apply bounded network conditions for reconnect/soak scenarios.
-
-For the exact support boundary—including engine/plugin prerequisites and known gaps—see the [production capability audit](docs/production-capability-audit.md).
-
----
-
-## Docker
-
-```bash
-docker build -t unreal-mcp .
-docker run -it --rm -e UE_PROJECT_PATH=/project unreal-mcp
-```
+| Workflow | Typical sequence |
+|---|---|
+| World building | Level → landscape/foliage/water → PCG → navigation → inspect → save |
+| Gameplay authoring | Blueprint → components/graphs → input/GAS → compile → PIE → validate |
+| Content validation | Asset/project checks → Data Validation → map check → automation tests |
+| Performance | Trace session → Insights/memory/network capture → bounded analysis |
+| Release | Plugin/project manifest → UAT package → stage/deploy → release gate |
+| Online testing | Provider capabilities → session lifecycle → network conditions → soak result |
 
 ---
 
-## Documentation
+## ⚙ Configuration
 
-| Document | Description |
-|----------|-------------|
-| [Handler Mappings](docs/handler-mapping.md) | TypeScript to C++ routing |
-| [Plugin Extension](docs/editor-plugin-extension.md) | C++ plugin architecture |
-| [Testing Guide](docs/testing-guide.md) | How to run and write tests |
-| [Roadmap](docs/Roadmap.md) | Development phases |
-| [Production Capability Audit](docs/production-capability-audit.md) | Implemented features, prerequisites, and known gaps |
-| [UE 5.8 Compatibility Matrix](docs/ue5.8-compatibility-matrix.md) | Engine-version compatibility notes |
-| [Native Automation Progress](docs/native-automation-progress.md) | Native MCP transport and tool parity status |
-| [Changelog](CHANGELOG.md) | Release history |
+### TypeScript bridge
 
+~~~env
+UE_PROJECT_PATH=C:/Path/To/YourProject
+MCP_AUTOMATION_HOST=127.0.0.1
+MCP_AUTOMATION_PORT=8091
+MCP_AUTOMATION_ALLOW_NON_LOOPBACK=false
+LOG_LEVEL=info
+MCP_CONNECTION_TIMEOUT_MS=5000
+MCP_REQUEST_TIMEOUT_MS=120000
+ASSET_LIST_TTL_MS=10000
+~~~
+
+Optional metrics:
+
+~~~env
+MCP_METRICS_PORT=9100
+MCP_METRICS_HOST=127.0.0.1
+MCP_METRICS_ALLOW_NON_LOOPBACK=false
+MCP_METRICS_TOKEN=change-me
+~~~
+
+LAN mode must be explicitly enabled and protected with a capability token. Treat non-loopback access as privileged network access.
+
+### Unreal plugin prerequisites
+
+Enable core dependencies in <strong>Edit → Plugins</strong>. Optional capabilities activate when their Unreal modules are available:
+
+| Area | Relevant plugins |
+|---|---|
+| Effects and media | Niagara, Niagara Editor, Media Framework |
+| World building | PCG, Water, Geometry Script, Procedural Mesh Component |
+| Animation | Control Rig, IK Rig, RigVM, Chaos Cloth |
+| AI | Behavior Tree Editor, Environment Query Editor, StateTree, Smart Objects |
+| Gameplay | Gameplay Abilities, Enhanced Input, Gameplay Debugger |
+| Audio and capture | MetaSound, Synthesis, Take Recorder |
+| Validation and content | Data Validation, Interchange |
+| Online | OnlineSubsystem, OnlineSubsystemUtils |
+
+Unavailable optional plugins return explicit capability or action errors.
 
 ---
 
-## Development
+## 🐳 Docker
 
-```bash
+Use Docker for the TypeScript host when the Unreal bridge is reachable from the container:
+
+~~~bash
+docker build -t unreal-nebula-forge .
+docker run --rm -it -e UE_PROJECT_PATH=/project unreal-nebula-forge
+~~~
+
+Native MCP does not need Docker or Node.js; it runs inside the Unreal Editor plugin.
+
+---
+
+## 🧭 Documentation map
+
+| Need | Open |
+|---|---|
+| Know what is truly production-ready | [Production capability audit](docs/production-capability-audit.md) |
+| Understand planned work | [Roadmap](docs/Roadmap.md) |
+| Trace TypeScript to native handlers | [Handler mappings](docs/handler-mapping.md) |
+| Extend the C++ plugin | [Plugin extension guide](docs/editor-plugin-extension.md) |
+| Run tests and audits | [Testing guide](docs/testing-guide.md) |
+| Check UE 5.8 support | [Compatibility matrix](docs/ue5.8-compatibility-matrix.md) |
+| Follow native MCP progress | [Native automation progress](docs/native-automation-progress.md) |
+| Review releases | [Changelog](CHANGELOG.md) |
+
+---
+
+## 🧪 Development
+
+~~~bash
 npm install
-npm run build:core       # Compile TypeScript
-npm run type-check       # Type-check without emitting
-npm run lint             # Run ESLint
-npm run test:unit        # Vitest unit tests
-npm run test:smoke       # Mock-mode stdio smoke test
+npm run build:core
+npm run type-check
+npm run lint
+npm run test:unit
+npm run test:smoke
 npm run test:native-parity
-npm run test:params      # Static parameter-combination audit
-npm test                 # Unreal-dependent integration suite
-```
+npm run test:params
+npm test
+~~~
+
+Useful project commands:
+
+- <code>npm run automation:sync</code> — synchronize the bridge plugin into a target project
+- <code>npm run clean:tmp</code> — safely clean repository temporary artifacts
+- <code>npm run build:watch</code> — watch TypeScript changes
 
 ---
 
-## Community
+## 🩺 Troubleshooting
 
-| Resource | Description |
-|----------|-------------|
-| [Project Roadmap](https://github.com/users/ADH36/projects/3) | Track development progress across 48 phases |
-| [Discussions](https://github.com/ADH36/NebulaForge/discussions) | Ask questions, share ideas, get help |
-| [Issues](https://github.com/ADH36/NebulaForge/issues) | Report bugs and request features |
+<details>
+<summary><strong>The client cannot connect</strong></summary>
+
+Confirm the plugin is enabled, the editor is running, and the port matches the transport: <code>3000</code> for Native MCP or <code>8091</code> for the WebSocket bridge.
+
+</details>
+
+<details>
+<summary><strong>Unreal reports Missing Modules</strong></summary>
+
+Build the project target through Visual Studio or Xcode, then reopen the editor. Runtime compilation is not available for every project configuration.
+
+</details>
+
+<details>
+<summary><strong>An action is unavailable</strong></summary>
+
+Check optional plugin availability and inspect <code>production_capabilities</code>. Native MCP may load only core tools until another category is enabled through <code>manage_tools</code>.
+
+</details>
+
+<details>
+<summary><strong>An asset is not found immediately after creation</strong></summary>
+
+Unreal asset discovery can depend on editor rescan timing. Retry after the operation completes or use the returned package/object path.
+
+</details>
 
 ---
 
-## Contributing
+<div align="center">
 
-Contributions welcome! Please:
-- Include reproduction steps for bugs
-- Keep PRs focused and small
-- Follow existing code style
+### Build worlds at the speed of conversation.
 
----
+[![Roadmap](https://img.shields.io/badge/Explore%20the%20Roadmap-blueviolet?style=for-the-badge&logo=github)](https://github.com/users/ADH36/projects/3)
+[![Discuss](https://img.shields.io/badge/Join%20Discussions-22C55E?style=for-the-badge&logo=github)](https://github.com/ADH36/NebulaForge/discussions)
+[![Issues](https://img.shields.io/badge/Report%20an%20Issue-EF4444?style=for-the-badge&logo=github)](https://github.com/ADH36/NebulaForge/issues)
 
-## License
+MIT — see [LICENSE](LICENSE).
 
-MIT — See [LICENSE](LICENSE)
+</div>

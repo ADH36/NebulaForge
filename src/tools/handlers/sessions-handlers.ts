@@ -94,6 +94,10 @@ export async function handleSessionsTools(
 
     case 'get_online_capabilities':
       return sendRequest('get_online_capabilities');
+    case 'get_online_session_status':
+      return sendRequest('get_online_session_status');
+    case 'configure_network_conditions':
+      return sendRequest('configure_network_conditions');
     case 'create_online_session':
       return sendRequest('create_online_session');
     case 'find_online_sessions':

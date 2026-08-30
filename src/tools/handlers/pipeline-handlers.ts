@@ -7,6 +7,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import util from 'node:util';
 import { jobManager } from '../../services/job-manager.js';
+import { createHash } from 'node:crypto';
 
 /** Promisified child_process.exec for async shell commands. */
 const execAsync = util.promisify(exec);
@@ -189,6 +190,42 @@ async function validateReleaseArtifact(args: PipelineArgs): Promise<Record<strin
   const errors: string[] = [];
   if (missingFiles.length > 0) errors.push(`Missing required files: ${missingFiles.join(', ')}`);
   if (requirePak && pakFiles.length === 0) errors.push('No .pak file was found in the release archive.');
+  let manifestResult: Record<string, unknown> | undefined;
+  if (args.manifestPath !== undefined) {
+    const manifestInput = typeof args.manifestPath === 'string' ? args.manifestPath.trim() : '';
+    const manifestAbsolute = path.resolve(archiveDirectory, manifestInput);
+    if (!manifestInput || path.isAbsolute(manifestInput) || !isPathInside(archiveDirectory, manifestAbsolute)) {
+      return { success: false, error: 'INVALID_ARGUMENT', message: 'manifestPath must be a safe relative path inside archiveDirectory' };
+    }
+    try {
+      const parsed = JSON.parse(await fs.promises.readFile(manifestAbsolute, 'utf8')) as unknown;
+      const entries = parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'files' in parsed
+        ? (parsed as { files?: unknown }).files
+        : parsed;
+      if (!entries || typeof entries !== 'object' || Array.isArray(entries)) {
+        return { success: false, error: 'INVALID_MANIFEST', message: 'manifest must be a JSON object mapping relative file paths to SHA-256 hashes' };
+      }
+      const mismatches: string[] = [];
+      const manifestMissing: string[] = [];
+      for (const [relativeFile, expectedHash] of Object.entries(entries)) {
+        if (!/^[a-f0-9]{64}$/i.test(String(expectedHash)) || path.isAbsolute(relativeFile) || !isPathInside(archiveDirectory, path.resolve(archiveDirectory, relativeFile))) {
+          return { success: false, error: 'INVALID_MANIFEST', message: `Invalid manifest entry: ${relativeFile}` };
+        }
+        const target = path.resolve(archiveDirectory, relativeFile);
+        try {
+          const digest = createHash('sha256').update(await fs.promises.readFile(target)).digest('hex');
+          if (digest.toLowerCase() !== String(expectedHash).toLowerCase()) mismatches.push(relativeFile);
+        } catch {
+          manifestMissing.push(relativeFile);
+        }
+      }
+      if (mismatches.length > 0) errors.push(`Manifest hash mismatch: ${mismatches.join(', ')}`);
+      if (manifestMissing.length > 0) errors.push(`Manifest files missing: ${manifestMissing.join(', ')}`);
+      manifestResult = { path: manifestInput.replace(/\\/g, '/'), entries: Object.keys(entries).length, mismatches, missingFiles: manifestMissing, valid: mismatches.length === 0 && manifestMissing.length === 0 };
+    } catch (error) {
+      return { success: false, error: 'INVALID_MANIFEST', message: `Unable to read release manifest: ${String(error)}` };
+    }
+  }
   return cleanObject({
     success: errors.length === 0,
     error: errors.length === 0 ? undefined : 'RELEASE_VALIDATION_FAILED',
@@ -198,7 +235,8 @@ async function validateReleaseArtifact(args: PipelineArgs): Promise<Record<strin
     pakFiles,
     missingFiles,
     requiredFiles,
-    checks: { archiveDirectory: true, requiredFiles: missingFiles.length === 0, pak: !requirePak || pakFiles.length > 0 }
+    ...(manifestResult ? { manifest: manifestResult } : {}),
+    checks: { archiveDirectory: true, requiredFiles: missingFiles.length === 0, pak: !requirePak || pakFiles.length > 0, manifest: manifestResult ? manifestResult.valid === true : true }
   });
 }
 

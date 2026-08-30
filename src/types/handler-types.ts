@@ -987,6 +987,8 @@ export interface SystemArgs extends HandlerArgs {
     validationArguments?: string[];
     enginePath?: string;
     timeoutMs?: number;
+    reportPath?: string;
+    testName?: string;
 }
 
 // ============================================================================
@@ -1021,6 +1023,7 @@ export interface PipelineArgs extends HandlerArgs {
     archiveDirectory?: string;
     requiredFiles?: string[];
     requirePak?: boolean;
+    manifestPath?: string;
     server?: boolean;
     serverConfiguration?: string;
     artifactPath?: string;
@@ -1348,6 +1351,11 @@ export interface VoiceSettings {
 export interface SessionsArgs extends HandlerArgs {
     // Session identification
     sessionName?: string;
+    packetLagMs?: number;
+    packetLossPercent?: number;
+    packetDupPercent?: number;
+    packetOrder?: number;
+    reset?: boolean;
 
     // Local session settings
     maxPlayers?: number;

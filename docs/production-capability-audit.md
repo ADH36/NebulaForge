@@ -14,6 +14,24 @@ Platform update: `system_control.inspect_platform_capabilities` now reports host
 
 Profiling update: native `system_control` now exposes `start_session`, `get_session_status`, and `stop_session` for Unreal trace sessions. Status and stop operations use guarded `FTraceAuxiliary` APIs where supported by the engine version; trace-file export, analysis, and persisted report generation remain follow-up work.
 
+Automation update: `system_control.run_tests` can now persist a bounded terminal JSON report under `Saved/AutomationReports`, including job state, exit code, command, stdout, stderr, and truncation metadata.
+
+Release update: `system_control.validate_release` can optionally verify an in-archive SHA-256 manifest, in addition to required files and `.pak` presence, so build output can be integrity-gated before signing or distribution.
+
+Map validation update: editor `system_control.check_map_errors` executes Unreal's Map Check against the loaded editor world and returns structured error/warning counts from the MapCheck log; it intentionally reports an unavailable-world error when no map is loaded.
+
+Functional-test update: editor `system_control.create_functional_test` creates a FunctionalTesting actor when the plugin is enabled, returns its object path, and leaves assertion/configuration policy to subsequent authoring actions.
+
+Capability-report update: `inspect.production_capabilities` now advertises the automation-report, SHA-256 release-manifest, Map Check, and Functional Testing additions so AI clients do not have to infer them from documentation.
+
+Online update: `manage_networking.get_online_session_status` reports the provider, session existence, and native Online Subsystem lifecycle state for a named session, allowing automation to verify asynchronous create/join/destroy progress.
+
+Network-test update: editor `manage_networking.configure_network_conditions` safely applies bounded packet lag, loss, duplication, and ordering conditions through Unreal's network test console controls, with an explicit reset operation for soak/reconnect scenarios.
+
+The provider-specific session stack still requires a configured Online Subsystem and live multiplayer project; this action provides controlled fault injection, not a claim that a universal backend-independent soak harness exists.
+
+Plugin update: `system_control.manage_project_plugin` now supports a read-only `validate` operation that checks declared project plugins against local `.uplugin` descriptors and reports unresolved local dependencies before build/cook.
+
 Legend: ✅ available or substantially covered · ❌ missing, incomplete, or production-blocking · ⚠️ conditional
 
 ## Summary

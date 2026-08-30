@@ -132,7 +132,8 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
           enginePath: typeof record.enginePath === 'string' ? record.enginePath : undefined,
           filter: typeof record.filter === 'string' ? record.filter : undefined,
           test: typeof record.test === 'string' ? record.test : undefined,
-          timeoutMs: typeof record.timeoutMs === 'number' ? record.timeoutMs : undefined
+          timeoutMs: typeof record.timeoutMs === 'number' ? record.timeoutMs : undefined,
+          reportPath: typeof record.reportPath === 'string' ? record.reportPath : undefined
         });
       }
       return cleanObject(await executeAutomationRequest(tools, 'system_control', args, 'Automation bridge not available for system control operations')) as Record<string, unknown>;

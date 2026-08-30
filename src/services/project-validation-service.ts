@@ -20,6 +20,7 @@ export interface UnrealAutomationTestOptions {
   filter?: string;
   test?: string;
   timeoutMs?: number;
+  reportPath?: string;
 }
 
 export interface ProjectValidationCheck {
@@ -147,6 +148,15 @@ function safeAutomationFilter(value: unknown): string {
   return filter;
 }
 
+function resolveAutomationReport(root: string, reportPath: unknown): { absolute: string; relative: string } | undefined {
+  if (typeof reportPath !== 'string' || reportPath.trim() === '') return undefined;
+  const relative = path.normalize(reportPath.trim());
+  if (path.isAbsolute(relative) || relative === '..' || relative.startsWith(`..${path.sep}`) || relative.includes(':')) return undefined;
+  const filename = path.basename(relative);
+  if (!/^[A-Za-z0-9._-]{1,128}\.json$/i.test(filename)) return undefined;
+  return { absolute: path.join(root, 'Saved', 'AutomationReports', filename), relative: path.join('Saved', 'AutomationReports', filename) };
+}
+
 export async function runUnrealAutomationTests(options: UnrealAutomationTestOptions = {}): Promise<Record<string, unknown>> {
   const root = resolveRoot(options.projectPath);
   if (!root) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'projectPath or UE_PROJECT_PATH is required' };
@@ -158,6 +168,11 @@ export async function runUnrealAutomationTests(options: UnrealAutomationTestOpti
   } catch (error) {
     return { success: false, error: 'INVALID_ARGUMENT', message: String(error) };
   }
+  const automationCommand = filter ? `Automation RunTests ${filter}` : 'Automation RunAll';
+  const report = resolveAutomationReport(root, options.reportPath);
+  if (options.reportPath !== undefined && !report) {
+    return { success: false, error: 'INVALID_REPORT_PATH', message: 'reportPath must be a relative JSON filename stored under Saved/AutomationReports' };
+  }
   const executable = await findEditorCommandlet(options.enginePath);
   if (!executable) {
     return {
@@ -166,7 +181,6 @@ export async function runUnrealAutomationTests(options: UnrealAutomationTestOpti
       message: 'UnrealEditor-Cmd was not found. Set enginePath or UE_ENGINE_PATH to a valid Unreal Engine root.'
     };
   }
-  const automationCommand = filter ? `Automation RunTests ${filter}` : 'Automation RunAll';
   const commandletArgs = [
     projectFile,
     '-unattended',
@@ -181,7 +195,26 @@ export async function runUnrealAutomationTests(options: UnrealAutomationTestOpti
   const job = jobManager.startProcess({
     label: `run_tests:${filter || 'all'}/${path.basename(projectFile)}`,
     process: child,
-    timeoutMs: options.timeoutMs
+    timeoutMs: options.timeoutMs,
+    onComplete: report ? async (completedJob) => {
+      await fs.mkdir(path.dirname(report.absolute), { recursive: true });
+      await fs.writeFile(report.absolute, `${JSON.stringify({
+        schemaVersion: 1,
+        jobId: completedJob.jobId,
+        label: completedJob.label,
+        status: completedJob.status,
+        startedAt: completedJob.startedAt,
+        finishedAt: completedJob.finishedAt,
+        exitCode: completedJob.exitCode,
+        signal: completedJob.signal,
+        projectFile,
+        filter,
+        command: automationCommand,
+        output: completedJob.output,
+        errorOutput: completedJob.errorOutput,
+        outputTruncated: completedJob.outputTruncated
+      }, null, 2)}\n`, 'utf8');
+    } : undefined
   });
   return {
     success: true,
@@ -191,6 +224,7 @@ export async function runUnrealAutomationTests(options: UnrealAutomationTestOpti
     projectFile,
     filter,
     command: automationCommand,
+    ...(report ? { reportPath: report.relative } : {}),
     message: 'Unreal automation test job started; poll system_control.get_job_status for terminal exit and output.'
   };
 }

@@ -29,6 +29,21 @@ describe('JobManager', () => {
     });
   });
 
+  it('invokes completion callbacks with terminal output', async () => {
+    const child = spawn(process.execPath, ['-e', "process.stdout.write('report-ready')"], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let callbackJob: ReturnType<typeof jobManager.get>;
+    const started = jobManager.startProcess({
+      label: 'test-callback',
+      process: child,
+      onComplete: (job) => { callbackJob = job; }
+    });
+    await waitForTerminal(started.jobId);
+
+    expect(callbackJob).toMatchObject({ status: 'completed', output: 'report-ready' });
+  });
+
   it('cancels a running process and retains its terminal status', async () => {
     const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], {
       stdio: ['ignore', 'pipe', 'pipe']

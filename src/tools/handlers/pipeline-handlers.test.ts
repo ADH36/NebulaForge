@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import type { ITools } from '../../types/tool-interfaces.js';
 import type { PipelineArgs } from '../../types/handler-types.js';
 import { handlePipelineTools } from './pipeline-handlers.js';
@@ -146,6 +147,25 @@ describe('handlePipelineTools validate_release', () => {
         requirePak: true
       } as PipelineArgs, tools);
       expect(invalid).toMatchObject({ success: false, error: 'RELEASE_VALIDATION_FAILED', missingFiles: ['missing.exe'] });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('validates release manifest SHA-256 hashes', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-release-manifest-'));
+    try {
+      const artifact = 'Game-Win64-Shipping.pak';
+      const content = 'pak-content';
+      await fs.writeFile(path.join(tempRoot, artifact), content);
+      const digest = createHash('sha256').update(content).digest('hex');
+      await fs.writeFile(path.join(tempRoot, 'release-manifest.json'), JSON.stringify({ files: { [artifact]: digest } }));
+      const valid = await handlePipelineTools('validate_release', { archiveDirectory: tempRoot, manifestPath: 'release-manifest.json' } as PipelineArgs, tools);
+      expect(valid).toMatchObject({ success: true, checks: { manifest: true }, manifest: { valid: true, entries: 1 } });
+
+      await fs.writeFile(path.join(tempRoot, artifact), 'tampered');
+      const invalid = await handlePipelineTools('validate_release', { archiveDirectory: tempRoot, manifestPath: 'release-manifest.json' } as PipelineArgs, tools);
+      expect(invalid).toMatchObject({ success: false, error: 'RELEASE_VALIDATION_FAILED', manifest: { valid: false, mismatches: [artifact] } });
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }

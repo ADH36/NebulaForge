@@ -514,7 +514,7 @@ inline const TArray<FString>& SystemControlCore()
       TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("delete_save_game_slot"),
       TEXT("check_save_game_slot"), TEXT("list_save_game_slots"),
       TEXT("subscribe"), TEXT("unsubscribe"),
-		TEXT("spawn_category"), TEXT("start_session"), TEXT("stop_session"), TEXT("get_session_status"),
+		TEXT("spawn_category"), TEXT("start_session"), TEXT("stop_session"), TEXT("get_session_status"), TEXT("check_map_errors"), TEXT("create_functional_test"),
 		TEXT("lumen_update_scene"), TEXT("play_sound"), TEXT("create_widget"),
 		TEXT("show_widget"), TEXT("add_widget_child"), TEXT("set_cvar"),
 		TEXT("get_project_settings"), TEXT("validate_assets"),
@@ -638,8 +638,9 @@ inline const TArray<FString>& Sessions()
 		TEXT("set_voice_channel"), TEXT("mute_player"),
 		TEXT("set_voice_attenuation"), TEXT("configure_push_to_talk"),
 		TEXT("get_sessions_info"), TEXT("get_online_capabilities"),
-		TEXT("create_online_session"), TEXT("find_online_sessions"),
-		TEXT("join_online_session"), TEXT("destroy_online_session")
+		TEXT("get_online_session_status"), TEXT("create_online_session"), TEXT("find_online_sessions"),
+		TEXT("join_online_session"), TEXT("destroy_online_session"),
+		TEXT("configure_network_conditions")
 	};
 	return Actions;
 }

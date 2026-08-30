@@ -84,4 +84,15 @@ describe('validateProject', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('INVALID_ARGUMENT');
   });
+
+  it('rejects automation report traversal and non-JSON paths', async () => {
+    const root = await fixture();
+    const result = await runUnrealAutomationTests({
+      projectPath: root,
+      enginePath: path.join(root, 'MissingEngine'),
+      reportPath: '../outside.txt'
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('INVALID_REPORT_PATH');
+  });
 });

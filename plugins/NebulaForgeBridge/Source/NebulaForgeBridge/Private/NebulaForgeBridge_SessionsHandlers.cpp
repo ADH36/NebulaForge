@@ -172,6 +172,50 @@ namespace SessionsHelpers
 // Online Subsystem session lifecycle
 // ============================================================================
 
+#if WITH_EDITOR
+static bool HandleNetworkConditions(
+    UNebulaForgeBridgeSubsystem* Subsystem,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+    if (!GEngine)
+    {
+        Subsystem->SendAutomationError(Socket, RequestId, TEXT("Engine is not available."), TEXT("ENGINE_UNAVAILABLE"));
+        return true;
+    }
+    const bool bReset = GetBoolFieldSess(Payload, TEXT("reset"), false);
+    const double PacketLagMs = FMath::Clamp(GetNumberFieldSess(Payload, TEXT("packetLagMs"), 0.0), 0.0, 5000.0);
+    const double PacketLossPercent = FMath::Clamp(GetNumberFieldSess(Payload, TEXT("packetLossPercent"), 0.0), 0.0, 100.0);
+    const double PacketDupPercent = FMath::Clamp(GetNumberFieldSess(Payload, TEXT("packetDupPercent"), 0.0), 0.0, 100.0);
+    const int32 PacketOrder = FMath::Clamp(static_cast<int32>(GetNumberFieldSess(Payload, TEXT("packetOrder"), 0.0)), 0, 1);
+    const FString Commands = bReset
+        ? TEXT("Net PktLag=0|Net PktLoss=0|Net PktDup=0|Net PktOrder=0")
+        : FString::Printf(TEXT("Net PktLag=%d|Net PktLoss=%d|Net PktDup=%d|Net PktOrder=%d"),
+            FMath::RoundToInt(PacketLagMs), FMath::RoundToInt(PacketLossPercent),
+            FMath::RoundToInt(PacketDupPercent), PacketOrder);
+    TArray<FString> CommandList;
+    Commands.ParseIntoArray(CommandList, TEXT("|"), true);
+    int32 Applied = 0;
+    for (const FString& Command : CommandList)
+    {
+        if (GEngine->Exec(nullptr, *Command)) ++Applied;
+    }
+    const bool bSuccess = Applied == CommandList.Num();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("reset"), bReset);
+    Result->SetNumberField(TEXT("packetLagMs"), bReset ? 0.0 : PacketLagMs);
+    Result->SetNumberField(TEXT("packetLossPercent"), bReset ? 0.0 : PacketLossPercent);
+    Result->SetNumberField(TEXT("packetDupPercent"), bReset ? 0.0 : PacketDupPercent);
+    Result->SetNumberField(TEXT("packetOrder"), bReset ? 0 : PacketOrder);
+    Result->SetNumberField(TEXT("commandsApplied"), Applied);
+    Subsystem->SendAutomationResponse(Socket, RequestId, bSuccess,
+        bSuccess ? TEXT("Network test conditions configured.") : TEXT("One or more network test commands were rejected."),
+        Result, bSuccess ? FString() : TEXT("NETWORK_CONDITION_COMMAND_FAILED"));
+    return true;
+}
+#endif
+
 #if WITH_EDITOR && MCP_HAS_ONLINE_SUBSYSTEM
 static bool HandleOnlineSessionLifecycle(
     UNebulaForgeBridgeSubsystem* Subsystem,
@@ -218,6 +262,31 @@ static bool HandleOnlineSessionLifecycle(
         Result->SetBoolField(TEXT("presenceInterface"), OnlineSubsystem->GetPresenceInterface().IsValid());
         Subsystem->SendAutomationResponse(Socket, RequestId, true,
             TEXT("Online Subsystem capabilities retrieved"), Result);
+        return true;
+    }
+
+    if (SubAction == TEXT("get_online_session_status"))
+    {
+        const EOnlineSessionState::Type SessionState = Sessions->GetSessionState(SessionName);
+        const TCHAR* StateName = TEXT("unknown");
+        switch (SessionState)
+        {
+        case EOnlineSessionState::NoSession: StateName = TEXT("no_session"); break;
+        case EOnlineSessionState::Creating: StateName = TEXT("creating"); break;
+        case EOnlineSessionState::Pending: StateName = TEXT("pending"); break;
+        case EOnlineSessionState::Starting: StateName = TEXT("starting"); break;
+        case EOnlineSessionState::InProgress: StateName = TEXT("in_progress"); break;
+        case EOnlineSessionState::Ending: StateName = TEXT("ending"); break;
+        case EOnlineSessionState::Ended: StateName = TEXT("ended"); break;
+        case EOnlineSessionState::Destroying: StateName = TEXT("destroying"); break;
+        default: break;
+        }
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetStringField(TEXT("sessionName"), SessionNameString);
+        Result->SetStringField(TEXT("subsystem"), OnlineSubsystem->GetSubsystemName().ToString());
+        Result->SetStringField(TEXT("state"), StateName);
+        Result->SetBoolField(TEXT("exists"), Sessions->GetNamedSession(SessionName) != nullptr);
+        Subsystem->SendAutomationResponse(Socket, RequestId, true, TEXT("Online session status retrieved"), Result);
         return true;
     }
 
@@ -1443,6 +1512,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSessionsAction(
         bHandled = HandleGetSessionsInfo(this, RequestId, Payload, Socket);
     }
     else if (SubAction == TEXT("get_online_capabilities") ||
+             SubAction == TEXT("get_online_session_status") ||
              SubAction == TEXT("create_online_session") ||
              SubAction == TEXT("find_online_sessions") ||
              SubAction == TEXT("join_online_session") ||
@@ -1457,6 +1527,12 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSessionsAction(
         bHandled = true;
 #endif
     }
+#if WITH_EDITOR
+    else if (SubAction == TEXT("configure_network_conditions"))
+    {
+        bHandled = HandleNetworkConditions(this, RequestId, Payload, Socket);
+    }
+#endif
     else
     {
         SendAutomationResponse(Socket, RequestId, false,

@@ -167,7 +167,7 @@ public class NebulaForgeBridge : ModuleRules
                 "AudioEditor", "AudioMixer", "PythonScriptPlugin",
                 // AI chat feature: provider HTTP transport (FHttpModule) and
                 // dockable tab/menu integration (WorkspaceMenuStructure for nomad tabs).
-                "HTTP", "WorkspaceMenuStructure", "DesktopPlatform",
+                "HTTP", "WorkspaceMenuStructure", "DesktopPlatform", "MessageLog",
                 // Native MCP uses raw sockets (Sockets/Networking already listed above)
                 // Optional plugins are handled by AddOptionalDynamicModule() below with delay-load
             });

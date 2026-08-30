@@ -21,11 +21,13 @@
 #include "Misc/Paths.h"
 #include "Misc/App.h"
 #include "Misc/MonitoredProcess.h"
+#include "Logging/MessageLog.h"
 #include "EditorAssetLibrary.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
+#include "GameFramework/Actor.h"
 #include "AssetToolsModule.h"
 #include "IAssetTools.h"
 #include "Engine/StaticMesh.h"
@@ -1223,6 +1225,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("start_session") &&
       Lower != TEXT("stop_session") &&
       Lower != TEXT("get_session_status") &&
+      Lower != TEXT("check_map_errors") &&
+      Lower != TEXT("create_functional_test") &&
       Lower != TEXT("validate_assets") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction &&
@@ -1441,6 +1445,83 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("stop_session") ||
       Lower == TEXT("get_session_status")) {
     return HandleInsightsAction(RequestId, TEXT("manage_insights"), Payload, RequestingSocket);
+  }
+
+  if (Lower == TEXT("check_map_errors")) {
+    if (!GEditor) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Editor is not available."), TEXT("EDITOR_UNAVAILABLE"));
+      return true;
+    }
+    UWorld *EditorWorld = GEditor->GetEditorWorldContext().World();
+    if (!EditorWorld) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("No editor world is loaded."), TEXT("WORLD_UNAVAILABLE"));
+      return true;
+    }
+
+    FMessageLog MapCheckLog(FName(TEXT("MapCheck")));
+    MapCheckLog.NewPage(FText::FromString(RequestId));
+    const bool bHandled = GEditor->Exec(EditorWorld, TEXT("MAP CHECK"));
+    const int32 ErrorCount = MapCheckLog.NumMessages(EMessageSeverity::Error);
+    const int32 WarningCount = MapCheckLog.NumMessages(EMessageSeverity::Warning);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("action"), TEXT("check_map_errors"));
+    Result->SetBoolField(TEXT("commandHandled"), bHandled);
+    Result->SetStringField(TEXT("map"), EditorWorld->GetMapName());
+    Result->SetNumberField(TEXT("errorCount"), ErrorCount);
+    Result->SetNumberField(TEXT("warningCount"), WarningCount);
+    Result->SetBoolField(TEXT("valid"), bHandled && ErrorCount == 0);
+    SendAutomationResponse(RequestingSocket, RequestId, bHandled && ErrorCount == 0,
+                            bHandled && ErrorCount == 0 ? TEXT("Map check passed.") : TEXT("Map check found errors or could not be executed."), Result,
+                            bHandled && ErrorCount == 0 ? FString() : TEXT("MAP_CHECK_FAILED"));
+    return true;
+  }
+
+  if (Lower == TEXT("create_functional_test")) {
+    if (!GEditor) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Editor is not available."), TEXT("EDITOR_UNAVAILABLE"));
+      return true;
+    }
+    UWorld *EditorWorld = GEditor->GetEditorWorldContext().World();
+    if (!EditorWorld) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("No editor world is loaded."), TEXT("WORLD_UNAVAILABLE"));
+      return true;
+    }
+    FString TestName;
+    Payload->TryGetStringField(TEXT("testName"), TestName);
+    TestName.TrimStartAndEndInline();
+    if (TestName.IsEmpty() || TestName.Len() > 128 || !FChar::IsAlpha(TestName[0])) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("testName must start with a letter and be at most 128 characters."), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    for (const TCHAR Character : TestName) {
+      if (!FChar::IsAlnum(Character) && Character != TEXT('_')) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("testName may contain only letters, numbers, and underscores."), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+    }
+    UClass *FunctionalTestClass = FindObject<UClass>(nullptr, TEXT("/Script/FunctionalTesting.FunctionalTest"));
+    if (!FunctionalTestClass || !FunctionalTestClass->IsChildOf(AActor::StaticClass())) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("FunctionalTesting plugin is unavailable or not loaded."), TEXT("FUNCTIONAL_TESTING_UNAVAILABLE"));
+      return true;
+    }
+    FActorSpawnParameters SpawnParameters;
+    SpawnParameters.Name = MakeUniqueObjectName(EditorWorld, FunctionalTestClass, FName(*TestName));
+    SpawnParameters.NameMode = FActorSpawnParameters::ESpawnActorNameMode::Requested;
+    AActor *TestActor = EditorWorld->SpawnActor<AActor>(FunctionalTestClass, FTransform::Identity, SpawnParameters);
+    if (!TestActor) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to spawn the functional test actor."), TEXT("SPAWN_FAILED"));
+      return true;
+    }
+    TestActor->SetActorLabel(TestName, true);
+    TestActor->Modify();
+    TestActor->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("action"), TEXT("create_functional_test"));
+    Result->SetStringField(TEXT("testName"), TestName);
+    Result->SetStringField(TEXT("objectPath"), TestActor->GetPathName());
+    Result->SetStringField(TEXT("classPath"), FunctionalTestClass->GetPathName());
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Functional test actor created; configure assertions and run it with run_tests."), Result);
+    return true;
   }
 
   if (Lower == TEXT("validate_assets")) {

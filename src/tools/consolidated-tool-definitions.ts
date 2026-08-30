@@ -198,7 +198,7 @@ export const SESSION_ACTIONS = [
   'host_lan_server', 'join_lan_server', 'enable_voice_chat', 'configure_voice_settings',
   'set_voice_channel', 'mute_player', 'set_voice_attenuation', 'configure_push_to_talk',
   'get_sessions_info', 'get_online_capabilities', 'create_online_session',
-  'find_online_sessions', 'join_online_session', 'destroy_online_session'
+  'get_online_session_status', 'find_online_sessions', 'join_online_session', 'destroy_online_session', 'configure_network_conditions'
 ] as const;
 
 export const GAME_FRAMEWORK_ACTIONS = [
@@ -1779,7 +1779,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
           type: 'string',
           enum: [
             'profile', 'show_fps', 'set_quality', 'screenshot', 'set_resolution', 'set_fullscreen', 'execute_command', 'console_command',
-            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'inspect_platform_capabilities', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'stop_session', 'get_session_status', 'lumen_update_scene',
+            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'inspect_platform_capabilities', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'save_game_to_slot', 'load_game_from_slot', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'lumen_update_scene',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python'
@@ -1809,9 +1809,12 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         validationMode: { type: 'string', enum: ['static', 'data_validation'], description: 'Validation depth. data_validation launches UnrealEditor-Cmd with the DataValidation commandlet and returns a managed job.' },
         validationArguments: commonSchemas.arrayOfStrings,
         timeoutMs: commonSchemas.numberProp,
+        reportPath: { type: 'string', description: 'Optional JSON report filename written under Saved/AutomationReports after run_tests completes.' },
+        testName: commonSchemas.name,
         pluginAction: { type: 'string', enum: ['list', 'validate', 'enable', 'disable'] },
         pluginName: commonSchemas.name,
         requirePak: commonSchemas.booleanProp,
+        manifestPath: { type: 'string', description: 'Optional release JSON manifest inside archiveDirectory mapping files to SHA-256 hashes.' },
         filePath: commonSchemas.stringProp,
         projectPath: commonSchemas.stringProp,
         enginePath: commonSchemas.stringProp,
@@ -3801,7 +3804,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'configure_net_driver',
             'set_net_role',
             'configure_replicated_movement',
-            'get_networking_info'
+            'get_networking_info', 'configure_network_conditions'
           ,
             ...SESSION_ACTIONS, ...GAME_FRAMEWORK_ACTIONS, ...INPUT_ACTIONS],
           description: 'Networking action to perform'
@@ -3893,6 +3896,11 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         customSerialization: { type: 'boolean', description: 'Use custom serialization.' },
         predictionThreshold: { type: 'number', description: 'Prediction threshold for client prediction.' },
         sessionName: commonSchemas.sessionName,
+        packetLagMs: { type: 'number', minimum: 0, maximum: 5000 },
+        packetLossPercent: { type: 'number', minimum: 0, maximum: 100 },
+        packetDupPercent: { type: 'number', minimum: 0, maximum: 100 },
+        packetOrder: { type: 'number', minimum: 0, maximum: 1 },
+        reset: commonSchemas.booleanProp,
         localUserNum: commonSchemas.numberProp,
         searchId: commonSchemas.stringProp,
         resultIndex: commonSchemas.numberProp,

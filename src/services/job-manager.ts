@@ -36,6 +36,7 @@ class JobManager {
     label: string;
     process: ChildProcessWithoutNullStreams;
     timeoutMs?: number;
+    onComplete?: (job: JobSnapshot) => void | Promise<void>;
   }): JobSnapshot {
     this.pruneFinishedJobs();
     const job: ManagedJob = {
@@ -83,6 +84,9 @@ class JobManager {
       }
       job.finishedAt ??= new Date().toISOString();
       job.process = undefined;
+      if (options.onComplete) {
+        Promise.resolve(options.onComplete(this.snapshot(job))).catch(() => undefined);
+      }
     });
 
     return this.snapshot(job);

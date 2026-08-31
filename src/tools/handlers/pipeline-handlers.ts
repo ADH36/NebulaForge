@@ -323,6 +323,22 @@ async function runReleaseGate(args: PipelineArgs): Promise<Record<string, unknow
     valid = valid && terminalTests.success === true;
   }
 
+  if (args.runPackagedSmoke === true) {
+    if (!args.packagedArtifactPath) {
+      const smoke = { success: false, error: 'PACKAGED_ARTIFACT_REQUIRED', message: 'packagedArtifactPath is required when runPackagedSmoke is enabled' };
+      checks.packagedSmoke = smoke;
+      valid = false;
+    } else {
+      const started = await runPackaged({ ...args, artifactPath: args.packagedArtifactPath, async: true });
+      let terminalSmoke = started;
+      if (started.success === true && typeof started.jobId === 'string') {
+        terminalSmoke = await waitForTerminalHostJob(started.jobId, getProcessTimeoutMs(args) ?? 5 * 60 * 1000);
+      }
+      checks.packagedSmoke = terminalSmoke;
+      valid = valid && terminalSmoke.success === true;
+    }
+  }
+
   return cleanObject({
     success: valid,
     error: valid ? undefined : 'RELEASE_GATE_FAILED',

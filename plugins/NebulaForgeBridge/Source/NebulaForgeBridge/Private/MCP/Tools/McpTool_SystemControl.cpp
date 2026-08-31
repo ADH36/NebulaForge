@@ -64,6 +64,8 @@ public:
 			.Bool(TEXT("encryptPakIndex"), TEXT("Encrypt the PAK index."))
 			.Bool(TEXT("includePrerequisites"), TEXT("Include platform prerequisites in packaged output."))
 			.Bool(TEXT("runProjectValidation"), TEXT("Run static project validation as part of release_gate."))
+			.Bool(TEXT("runPackagedSmoke"), TEXT("Launch packagedArtifactPath through the host-managed release smoke gate."))
+			.String(TEXT("packagedArtifactPath"), TEXT("Packaged executable used by the release smoke gate."))
 			.Bool(TEXT("runAutomationTests"), TEXT("Run Unreal automation tests as part of release_gate."))
 			.Bool(TEXT("validatePlugins"), TEXT("Validate declared project plugin dependencies as part of release_gate."))
 			.String(TEXT("filePath"), TEXT("Relative path inside the Unreal project."))

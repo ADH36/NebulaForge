@@ -231,6 +231,33 @@ describe('handlePipelineTools release_gate', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it('runs an opt-in packaged smoke gate through the managed process lifecycle', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-packaged-smoke-'));
+    try {
+      await fs.writeFile(path.join(tempRoot, 'Game.pak'), 'pak');
+      const packagedArtifactPath = path.join(tempRoot, 'Game.exe');
+      await fs.copyFile(process.execPath, packagedArtifactPath);
+      const result = await handlePipelineTools('release_gate', {
+        archiveDirectory: tempRoot,
+        requiredFiles: ['Game.pak'],
+        requirePak: true,
+        runProjectValidation: false,
+        validatePlugins: false,
+        runPackagedSmoke: true,
+        packagedArtifactPath,
+        arguments: '--version',
+        timeoutMs: 5000
+      } as PipelineArgs, tools);
+      expect(result).toMatchObject({
+        success: true,
+        passedChecks: ['artifact', 'packagedSmoke'],
+        checks: { packagedSmoke: { success: true, status: 'completed', exitCode: 0 } }
+      });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('handlePipelineTools deploy_package', () => {

@@ -1045,6 +1045,8 @@ export interface PipelineArgs extends HandlerArgs {
     validateArchitecture?: boolean;
     runProjectValidation?: boolean;
     runAutomationTests?: boolean;
+    runPackagedSmoke?: boolean;
+    packagedArtifactPath?: string;
     testName?: string;
     reportPath?: string;
     validatePlugins?: boolean;

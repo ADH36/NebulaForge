@@ -639,6 +639,8 @@ export const coreToolDefinitions: ToolDefinition[] = [
         encryptPakIndex: commonSchemas.booleanProp,
         includePrerequisites: commonSchemas.booleanProp,
         runProjectValidation: commonSchemas.booleanProp,
+        runPackagedSmoke: commonSchemas.booleanProp,
+        packagedArtifactPath: commonSchemas.stringProp,
         runAutomationTests: { type: 'boolean', description: 'When used with release_gate, run Unreal automation tests and fail the gate on test failure.' },
         validatePlugins: commonSchemas.booleanProp,
         filePath: commonSchemas.stringProp,

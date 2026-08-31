@@ -1321,7 +1321,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
 Response->SetBoolField(TEXT("success"), true);
@@ -1391,7 +1391,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
 Response->SetBoolField(TEXT("success"), true);
@@ -1447,7 +1447,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
 Response->SetBoolField(TEXT("success"), true);
@@ -1505,7 +1505,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -1564,7 +1564,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -1885,7 +1885,7 @@ Response->SetBoolField(TEXT("success"), true);
         if (bSave)
         {
             FAssetRegistryModule::AssetCreated(NewTexture);
-            McpSafeAssetSave(NewTexture);
+            if (!McpSafeAssetSave(NewTexture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture created but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -2008,7 +2008,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(TargetTexture);
+            if (!McpSafeAssetSave(TargetTexture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -2128,7 +2128,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(TargetTexture);
+            if (!McpSafeAssetSave(TargetTexture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -2220,7 +2220,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -2340,7 +2340,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -2434,7 +2434,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -2607,7 +2607,7 @@ Response->SetBoolField(TEXT("success"), true);
         if (bSave)
         {
             FAssetRegistryModule::AssetCreated(OutputTexture);
-            McpSafeAssetSave(OutputTexture);
+            if (!McpSafeAssetSave(OutputTexture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture created but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -2738,7 +2738,7 @@ Response->SetBoolField(TEXT("success"), true);
         if (bSave)
         {
             FAssetRegistryModule::AssetCreated(OutputTexture);
-            McpSafeAssetSave(OutputTexture);
+            if (!McpSafeAssetSave(OutputTexture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture created but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -2924,7 +2924,7 @@ Response->SetBoolField(TEXT("success"), true);
             {
                 FAssetRegistryModule::AssetCreated(TargetTexture);
             }
-            McpSafeAssetSave(TargetTexture);
+            if (!McpSafeAssetSave(TargetTexture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -3058,7 +3058,7 @@ Response->SetBoolField(TEXT("success"), true);
         if (bSave)
         {
             FAssetRegistryModule::AssetCreated(NewTexture);
-            McpSafeAssetSave(NewTexture);
+            if (!McpSafeAssetSave(NewTexture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture created but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -3137,7 +3137,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -3178,7 +3178,7 @@ Response->SetBoolField(TEXT("success"), true);
 
         if (bSave)
         {
-            McpSafeAssetSave(Texture);
+            if (!McpSafeAssetSave(Texture)) { TEXTURE_ERROR_RESPONSE(TEXT("Texture changed but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);
@@ -3633,7 +3633,7 @@ Response->SetBoolField(TEXT("success"), true);
         if (bSave)
         {
             FAssetRegistryModule::AssetCreated(AOTexture);
-            McpSafeAssetSave(AOTexture);
+            if (!McpSafeAssetSave(AOTexture)) { TEXTURE_ERROR_RESPONSE(TEXT("AO texture created but save failed")); }
         }
 
         Response->SetBoolField(TEXT("success"), true);

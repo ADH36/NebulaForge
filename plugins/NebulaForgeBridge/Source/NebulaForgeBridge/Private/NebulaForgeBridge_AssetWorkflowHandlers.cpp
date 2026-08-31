@@ -5649,6 +5649,7 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateLODs(
   int32 SuccessCount = 0;
   TArray<FString> NotFoundPaths;
   TArray<FString> NotMeshPaths;
+  TArray<FString> SaveFailedPaths;
 
   for (const FString &Path : Paths) {
     SendProgressUpdate(RequestId, -1.0f,
@@ -5690,7 +5691,10 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateLODs(
         // Build the mesh with new LOD settings
         Mesh->Build();
         Mesh->PostEditChange();
-        McpSafeAssetSave(Mesh);
+        if (!McpSafeAssetSave(Mesh)) {
+          SaveFailedPaths.Add(Path);
+          continue;
+        }
 
         SuccessCount++;
       } else {
@@ -5728,11 +5732,20 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateLODs(
       Resp->SetNumberField(TEXT("notMeshCount"), NotMeshPaths.Num());
     }
 
+    if (SaveFailedPaths.Num() > 0) {
+      TArray<TSharedPtr<FJsonValue>> SaveFailedArray;
+      for (const FString &P : SaveFailedPaths) {
+        SaveFailedArray.Add(MakeShared<FJsonValueString>(P));
+      }
+      Resp->SetArrayField(TEXT("saveFailedPaths"), SaveFailedArray);
+      Resp->SetNumberField(TEXT("saveFailedCount"), SaveFailedPaths.Num());
+    }
+
     FString Message;
     FString ErrorCode;
 
     if (bSuccess) {
-      Message = FString::Printf(TEXT("Generated LODs for %d mesh(es)"), SuccessCount);
+      Message = FString::Printf(TEXT("Generated and saved LODs for %d mesh(es)"), SuccessCount);
     } else if (NotFoundPaths.Num() > 0 && NotMeshPaths.Num() == 0) {
       Message = FString::Printf(TEXT("No assets found. %d path(s) not found."), NotFoundPaths.Num());
       ErrorCode = TEXT("ASSET_NOT_FOUND");

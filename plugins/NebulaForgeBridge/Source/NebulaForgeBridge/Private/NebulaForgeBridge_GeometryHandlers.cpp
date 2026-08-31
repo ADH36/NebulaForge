@@ -7149,7 +7149,11 @@ static bool HandleGenerateLODsGeometry(UNebulaForgeBridgeSubsystem* Self, const 
     // Build the mesh with new LOD settings
     StaticMesh->Build();
     StaticMesh->PostEditChange();
-    McpSafeAssetSave(StaticMesh);
+    if (!McpSafeAssetSave(StaticMesh))
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("Failed to save generated LOD asset"), TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("assetPath"), TargetPath);
@@ -7221,7 +7225,11 @@ static bool HandleSetLODSettings(UNebulaForgeBridgeSubsystem* Self, const FStrin
     // Rebuild
     StaticMesh->Build();
     StaticMesh->PostEditChange();
-    McpSafeAssetSave(StaticMesh);
+    if (!McpSafeAssetSave(StaticMesh))
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("Failed to save updated LOD asset"), TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("assetPath"), SafePath);

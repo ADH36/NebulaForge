@@ -147,8 +147,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInventoryAction(
       ItemAsset->MarkPackageDirty();
       FAssetRegistryModule::AssetCreated(ItemAsset);
 
-      if (GetPayloadBool(Payload, TEXT("save"), true)) {
-        McpSafeAssetSave(ItemAsset);
+      if (GetPayloadBool(Payload, TEXT("save"), true) && !McpSafeAssetSave(ItemAsset)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("Item data asset created but save failed"), TEXT("SAVE_FAILED"));
+        return true;
       }
 
 TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -214,8 +216,10 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
 
     ItemAsset->MarkPackageDirty();
 
-    if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(ItemAsset);
+    if (GetPayloadBool(Payload, TEXT("save"), false) && !McpSafeAssetSave(ItemAsset)) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Item data asset updated but save failed"), TEXT("SAVE_FAILED"));
+      return true;
     }
 
 TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -270,8 +274,10 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       CategoryAsset->MarkPackageDirty();
       FAssetRegistryModule::AssetCreated(CategoryAsset);
 
-      if (GetPayloadBool(Payload, TEXT("save"), true)) {
-        McpSafeAssetSave(CategoryAsset);
+      if (GetPayloadBool(Payload, TEXT("save"), true) && !McpSafeAssetSave(CategoryAsset)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("Item category created but save failed"), TEXT("SAVE_FAILED"));
+        return true;
       }
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -341,8 +347,10 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
 
     ItemObj->MarkPackageDirty();
 
-    if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(ItemObj);
+    if (GetPayloadBool(Payload, TEXT("save"), false) && !McpSafeAssetSave(ItemObj)) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Item object updated but save failed"), TEXT("SAVE_FAILED"));
+      return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

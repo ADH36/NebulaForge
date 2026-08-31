@@ -3037,7 +3037,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         RootState.Name = FName(TEXT("Root"));
 
         // Save the asset
-        McpSafeAssetSave(StateTree);
+        if (!McpSafeAssetSave(StateTree)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("State Tree created but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("stateTreePath"), FullPath);
         Result->SetStringField(TEXT("rootStateName"), TEXT("Root"));
@@ -3145,7 +3148,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         UStateTreeState& NewState = ParentState->AddChildState(FName(*StateName), Type);
 
         // Save
-        McpSafeAssetSave(StateTree);
+        if (!McpSafeAssetSave(StateTree)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("State Tree state added but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("stateName"), StateName);
         Result->SetStringField(TEXT("parentState"), ParentStateName);
@@ -3260,7 +3266,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         FStateTreeTransition& Transition = SourceState->AddTransition(Trigger, EStateTreeTransitionType::GotoState, TargetState);
 
         // Save
-        McpSafeAssetSave(StateTree);
+        if (!McpSafeAssetSave(StateTree)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("State Tree transition added but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("fromState"), FromState);
         Result->SetStringField(TEXT("toState"), ToState);
@@ -3389,7 +3398,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
 }
 
         // Save
-        McpSafeAssetSave(StateTree);
+        if (!McpSafeAssetSave(StateTree)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("State Tree task configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("stateName"), StateName);
         Result->SetNumberField(TEXT("taskCount"), FoundState->Tasks.Num());
@@ -3453,7 +3465,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         // Save the asset
-        McpSafeAssetSave(Definition);
+        if (!McpSafeAssetSave(Definition)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Smart Object Definition created but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("definitionPath"), FullPath);
         Result->SetNumberField(TEXT("slotCount"), 0);
@@ -3527,7 +3542,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         // Save
-        McpSafeAssetSave(Definition);
+        if (!McpSafeAssetSave(Definition)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Smart Object slot added but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetNumberField(TEXT("slotIndex"), SlotIndex);
         Result->SetStringField(TEXT("definitionPath"), DefinitionPath);
@@ -3605,7 +3623,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         // Save
-        McpSafeAssetSave(Definition);
+        if (!McpSafeAssetSave(Definition)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Smart Object behavior changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetNumberField(TEXT("slotIndex"), SlotIndex);
         Result->SetNumberField(TEXT("behaviorCount"), Slot.BehaviorDefinitions.Num());

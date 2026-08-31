@@ -364,6 +364,7 @@ private:
     std::atomic<bool> bCancelled{false};
     std::atomic<bool> bCompleted{false};
     std::atomic<bool> bSucceeded{false};
+    std::atomic<bool> bTimedOut{false};
   };
 
   struct FMcpAsyncRecord {

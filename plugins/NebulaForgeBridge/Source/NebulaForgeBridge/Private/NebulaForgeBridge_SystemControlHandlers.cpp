@@ -2,6 +2,8 @@
 #include "Dom/JsonObject.h"
 #include "Async/Async.h"
 #include "Async/TaskGraphInterfaces.h"
+#include "Containers/Ticker.h"
+#include "HAL/PlatformTime.h"
 #include "NebulaForgeBridgeHelpers.h"
 #include "NebulaForgeBridgeSubsystem.h"
 #include "McpHandlerUtils.h"
@@ -196,6 +198,46 @@ void SendManagedLifecycleEvent(UNebulaForgeBridgeSubsystem *Owner,
   FJsonSerializer::Serialize(Event, Writer);
   Owner->SendRawMessage(Serialized);
 }
+
+void CompleteRuntimeSaveGame(
+    const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> &WeakOwner,
+    const FString &AsyncId, const TSharedPtr<FMcpAsyncState> &State,
+    const FString &EventName, bool bSucceeded,
+    const TSharedPtr<FJsonObject> &Result,
+    const TSharedRef<FTSTicker::FDelegateHandle> &TickerHandle,
+    bool bTimedOut = false) {
+  if (!State.IsValid() || State->bCompleted.exchange(true)) return;
+  const bool bCancelled = State->bCancelled.load();
+  State->bTimedOut.store(bTimedOut);
+  State->bSucceeded.store(bSucceeded && !bCancelled && !bTimedOut);
+  FTSTicker::GetCoreTicker().RemoveTicker(*TickerHandle);
+  if (UNebulaForgeBridgeSubsystem *Owner = WeakOwner.Get()) {
+    TSharedPtr<FJsonObject> EventResult = Result.IsValid() ? Result : McpHandlerUtils::CreateResultObject();
+    EventResult->SetStringField(TEXT("asyncId"), AsyncId);
+    EventResult->SetBoolField(TEXT("succeeded"), bSucceeded && !bCancelled && !bTimedOut);
+    EventResult->SetBoolField(TEXT("cancelled"), bCancelled);
+    EventResult->SetBoolField(TEXT("timedOut"), bTimedOut);
+    EventResult->SetStringField(TEXT("state"), bCancelled ? TEXT("cancelled") : (bTimedOut ? TEXT("timed_out") : (bSucceeded ? TEXT("completed") : TEXT("failed"))));
+    SendManagedLifecycleEvent(Owner, EventName, AsyncId, EventResult);
+  }
+}
+
+void StartRuntimeSaveGameTimeout(
+    const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> &WeakOwner,
+    const FString &AsyncId, const TSharedPtr<FMcpAsyncState> &State,
+    const FString &EventName, double TimeoutSeconds,
+    const TSharedRef<FTSTicker::FDelegateHandle> &TickerHandle) {
+  const double StartedAt = FPlatformTime::Seconds();
+  *TickerHandle = FTSTicker::GetCoreTicker().AddTicker(
+      FTickerDelegate::CreateLambda([WeakOwner, AsyncId, State, EventName, TimeoutSeconds, StartedAt, TickerHandle](float) {
+        if (!State.IsValid() || State->bCompleted.load()) return false;
+        if (FPlatformTime::Seconds() - StartedAt >= TimeoutSeconds) {
+          CompleteRuntimeSaveGame(WeakOwner, AsyncId, State, EventName, false, nullptr, TickerHandle, true);
+          return false;
+        }
+        return true;
+      }), 0.1f);
+}
 }
 #endif
 
@@ -284,6 +326,8 @@ bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
       }
       const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
       const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
+      const double TimeoutSeconds = FMath::Clamp(GetJsonNumberField(Payload, TEXT("timeoutMs"), 30000.0) / 1000.0, 1.0, 600.0);
+      const TSharedRef<FTSTicker::FDelegateHandle> TickerHandle = MakeShared<FTSTicker::FDelegateHandle>();
       FMcpAsyncRecord Record;
       Record.AsyncId = AsyncId;
       Record.Execution = TEXT("save_game");
@@ -291,18 +335,10 @@ bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
       Record.State = State;
       ManagedAsyncActions.Add(AsyncId, Record);
       const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+      StartRuntimeSaveGameTimeout(WeakThis, AsyncId, State, TEXT("save_game_completed"), TimeoutSeconds, TickerHandle);
       UGameplayStatics::AsyncSaveGameToSlot(SaveGame, SlotName, UserIndex,
-        FAsyncSaveGameToSlotDelegate::CreateLambda([WeakThis, AsyncId, State](const FString&, const int32, bool bSuccess) {
-          State->bSucceeded.store(bSuccess);
-          State->bCompleted.store(true);
-          if (UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get()) {
-            TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
-            EventResult->SetStringField(TEXT("asyncId"), AsyncId);
-            EventResult->SetBoolField(TEXT("succeeded"), bSuccess);
-            EventResult->SetBoolField(TEXT("cancelled"), State->bCancelled.load());
-            EventResult->SetStringField(TEXT("state"), State->bCancelled.load() ? TEXT("cancelled") : (bSuccess ? TEXT("completed") : TEXT("failed")));
-            SendManagedLifecycleEvent(Owner, TEXT("save_game_completed"), AsyncId, EventResult);
-          }
+        FAsyncSaveGameToSlotDelegate::CreateLambda([WeakThis, AsyncId, State, TickerHandle](const FString&, const int32, bool bSuccess) {
+          CompleteRuntimeSaveGame(WeakThis, AsyncId, State, TEXT("save_game_completed"), bSuccess, nullptr, TickerHandle);
         }));
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("asyncId"), AsyncId);
@@ -330,6 +366,8 @@ bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
       }
       const FString AsyncId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
       const TSharedPtr<FMcpAsyncState> State = MakeShared<FMcpAsyncState>();
+      const double TimeoutSeconds = FMath::Clamp(GetJsonNumberField(Payload, TEXT("timeoutMs"), 30000.0) / 1000.0, 1.0, 600.0);
+      const TSharedRef<FTSTicker::FDelegateHandle> TickerHandle = MakeShared<FTSTicker::FDelegateHandle>();
       FMcpAsyncRecord Record;
       Record.AsyncId = AsyncId;
       Record.Execution = TEXT("load_game");
@@ -337,20 +375,13 @@ bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
       Record.State = State;
       ManagedAsyncActions.Add(AsyncId, Record);
       const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+      StartRuntimeSaveGameTimeout(WeakThis, AsyncId, State, TEXT("load_game_completed"), TimeoutSeconds, TickerHandle);
       UGameplayStatics::AsyncLoadGameFromSlot(SlotName, UserIndex,
-        FAsyncLoadGameFromSlotDelegate::CreateLambda([WeakThis, AsyncId, State](const FString&, const int32, USaveGame *LoadedGame) {
+        FAsyncLoadGameFromSlotDelegate::CreateLambda([WeakThis, AsyncId, State, TickerHandle](const FString&, const int32, USaveGame *LoadedGame) {
           const bool bSuccess = LoadedGame != nullptr;
-          State->bSucceeded.store(bSuccess);
-          State->bCompleted.store(true);
-          if (UNebulaForgeBridgeSubsystem *Owner = WeakThis.Get()) {
-            TSharedPtr<FJsonObject> EventResult = McpHandlerUtils::CreateResultObject();
-            EventResult->SetStringField(TEXT("asyncId"), AsyncId);
-            EventResult->SetBoolField(TEXT("succeeded"), bSuccess);
-            EventResult->SetBoolField(TEXT("cancelled"), State->bCancelled.load());
-            EventResult->SetStringField(TEXT("state"), State->bCancelled.load() ? TEXT("cancelled") : (bSuccess ? TEXT("completed") : TEXT("failed")));
-            if (LoadedGame) EventResult->SetStringField(TEXT("classPath"), LoadedGame->GetClass()->GetPathName());
-            SendManagedLifecycleEvent(Owner, TEXT("load_game_completed"), AsyncId, EventResult);
-          }
+          TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+          if (LoadedGame) Result->SetStringField(TEXT("classPath"), LoadedGame->GetClass()->GetPathName());
+          CompleteRuntimeSaveGame(WeakThis, AsyncId, State, TEXT("load_game_completed"), bSuccess, Result, TickerHandle);
         }));
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("asyncId"), AsyncId);
@@ -1110,13 +1141,15 @@ bool UNebulaForgeBridgeSubsystem::HandleAsyncTimerAction(
                             TSharedPtr<FJsonObject> &Result) {
       const bool bComplete = Record.State.IsValid() && Record.State->bCompleted.load();
       const bool bCancelled = Record.State.IsValid() && Record.State->bCancelled.load();
+      const bool bTimedOut = Record.State.IsValid() && Record.State->bTimedOut.load();
       Result->SetStringField(TEXT("asyncId"), Record.AsyncId);
       Result->SetStringField(TEXT("execution"), Record.Execution);
       Result->SetStringField(TEXT("label"), Record.Label);
       Result->SetNumberField(TEXT("duration"), Record.Duration);
-      Result->SetStringField(TEXT("state"), bComplete ? (bCancelled ? TEXT("cancelled") : TEXT("completed")) : TEXT("running"));
+      Result->SetStringField(TEXT("state"), bComplete ? (bCancelled ? TEXT("cancelled") : (bTimedOut ? TEXT("timed_out") : TEXT("completed"))) : TEXT("running"));
       Result->SetBoolField(TEXT("completed"), bComplete);
       Result->SetBoolField(TEXT("cancelled"), bCancelled);
+      Result->SetBoolField(TEXT("timedOut"), bTimedOut);
       Result->SetBoolField(TEXT("succeeded"), Record.State.IsValid() && Record.State->bSucceeded.load());
     };
     if (Action == TEXT("list_async_actions")) {

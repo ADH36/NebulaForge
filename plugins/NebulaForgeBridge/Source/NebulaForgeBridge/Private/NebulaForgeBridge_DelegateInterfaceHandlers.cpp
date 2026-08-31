@@ -243,7 +243,11 @@ bool AddBlueprintDelegateVariable(UBlueprint* Blueprint, const FString& Name,
   DelegateType.PinCategory = PinCategory;
   FBlueprintEditorUtils::AddMemberVariable(Blueprint, FName(*Name), DelegateType);
   FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-  if (bSave) McpSafeAssetSave(Blueprint);
+  if (bSave && !McpSafeAssetSave(Blueprint))
+  {
+    OutError = TEXT("Delegate variable created but save failed");
+    return false;
+  }
 
   Result->SetBoolField(TEXT("created"), true);
   Result->SetBoolField(TEXT("alreadyExisted"), false);
@@ -373,7 +377,12 @@ bool UNebulaForgeBridgeSubsystem::HandleDelegateInterfaceAction(
     }
     InterfaceBlueprint->BlueprintType = BPTYPE_Interface;
     FAssetRegistryModule::AssetCreated(InterfaceBlueprint);
-    McpSafeAssetSave(InterfaceBlueprint);
+    if (!McpSafeAssetSave(InterfaceBlueprint))
+    {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Blueprint interface created but save failed"),
+                           TEXT("SAVE_FAILED"));
+      return true;
+    }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("interfacePath"), InterfaceBlueprint->GetPathName());
@@ -418,7 +427,12 @@ bool UNebulaForgeBridgeSubsystem::HandleDelegateInterfaceAction(
     FBlueprintEditorUtils::AddFunctionGraph<UFunction>(Blueprint, Graph, false,
                                                        static_cast<UFunction*>(nullptr));
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    if (ShouldSave()) McpSafeAssetSave(Blueprint);
+    if (ShouldSave() && !McpSafeAssetSave(Blueprint))
+    {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Interface function added but save failed"),
+                           TEXT("SAVE_FAILED"));
+      return true;
+    }
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetBoolField(TEXT("created"), true);
     Result->SetStringField(TEXT("functionName"), FunctionName);
@@ -457,7 +471,12 @@ bool UNebulaForgeBridgeSubsystem::HandleDelegateInterfaceAction(
       return true;
     }
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    if (ShouldSave()) McpSafeAssetSave(Blueprint);
+    if (ShouldSave() && !McpSafeAssetSave(Blueprint))
+    {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Blueprint interface implementation changed but save failed"),
+                           TEXT("SAVE_FAILED"));
+      return true;
+    }
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetBoolField(TEXT("implemented"), true);
     Result->SetBoolField(TEXT("alreadyImplemented"), false);

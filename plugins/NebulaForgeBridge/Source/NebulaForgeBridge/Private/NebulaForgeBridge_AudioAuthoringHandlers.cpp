@@ -1389,7 +1389,17 @@ if (SubAction == TEXT("create_metasound"))
 
         if (bSuccess)
         {
-            McpSafeAssetSave(MetaSound);
+            if (!McpSafeAssetSave(MetaSound))
+            {
+                Response->SetBoolField(TEXT("success"), false);
+                Response->SetStringField(TEXT("error"), TEXT("MetaSound default changed but save failed"));
+                Response->SetStringField(TEXT("errorCode"), TEXT("SAVE_FAILED"));
+                Response->SetStringField(TEXT("code"), TEXT("SAVE_FAILED"));
+                #if MCP_HAS_METASOUND_FRONTEND_V2
+                Builder.FinishBuilding();
+                #endif
+                return Response;
+            }
             Response->SetBoolField(TEXT("success"), true);
             Response->SetStringField(TEXT("message"), FString::Printf(TEXT("MetaSound default for '%s' set"), *InputName));
             McpHandlerUtils::AddVerification(Response, MetaSound);

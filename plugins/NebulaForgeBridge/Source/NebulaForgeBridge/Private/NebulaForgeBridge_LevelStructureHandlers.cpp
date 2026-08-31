@@ -2324,7 +2324,12 @@ static bool HandleConfigureHlodLayer(
     }
     if (HLODWorld && HLODWorld->PersistentLevel)
     {
-        McpSafeLevelSave(HLODWorld->PersistentLevel, HLODWorld->GetOutermost()->GetName());
+        if (!McpSafeLevelSave(HLODWorld->PersistentLevel, HLODWorld->GetOutermost()->GetName()))
+        {
+            Subsystem->SendAutomationResponse(Socket, RequestId, false,
+                TEXT("HLOD layer created but level save failed."), nullptr, TEXT("LEVEL_SAVE_FAILED"));
+            return true;
+        }
     }
 
     TSharedPtr<FJsonObject> ResponseJson = McpHandlerUtils::CreateResultObject();

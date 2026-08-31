@@ -1368,15 +1368,44 @@ static bool HandleEnableVoiceChat(
                 bSuccess = VoiceChat->Initialize();
                 if (bSuccess)
                 {
-                    StatusMessage = TEXT("Voice chat initialized");
-                    // Connect asynchronously - we report success on initialize
-                    VoiceChat->Connect(FOnVoiceChatConnectCompleteDelegate::CreateLambda(
-                        [](const FVoiceChatResult& Result)
+                    const double TimeoutSeconds = FMath::Clamp(
+                        GetNumberFieldSess(Payload, TEXT("timeoutMs"), 30000.0) / 1000.0,
+                        1.0, 300.0);
+                    const double StartedAt = FPlatformTime::Seconds();
+                    const TSharedRef<bool> bCompleted = MakeShared<bool>(false);
+                    const TSharedRef<FTSTicker::FDelegateHandle> TickerHandle = MakeShared<FTSTicker::FDelegateHandle>();
+                    *TickerHandle = FTSTicker::GetCoreTicker().AddTicker(
+                        FTickerDelegate::CreateLambda([Subsystem, RequestId, Socket, bCompleted, TickerHandle, StartedAt, TimeoutSeconds](float)
                         {
-                            // ErrorDesc is a public member in both UE 5.6 and 5.7
-                            UE_LOG(LogMcpSessionsHandlers, Log, TEXT("VoiceChat Connect Result: %s"),
-                                Result.IsSuccess() ? TEXT("Success") : *Result.ErrorDesc);
+                            if (*bCompleted) return false;
+                            if (FPlatformTime::Seconds() - StartedAt >= TimeoutSeconds)
+                            {
+                                *bCompleted = true;
+                                Subsystem->SendAutomationResponse(Socket, RequestId, false,
+                                    TEXT("Voice chat connection timed out."), nullptr,
+                                    TEXT("VOICE_CONNECT_TIMEOUT"));
+                                return false;
+                            }
+                            return true;
+                        }), 0.1f);
+                    VoiceChat->Connect(FOnVoiceChatConnectCompleteDelegate::CreateLambda(
+                        [Subsystem, RequestId, Socket, bCompleted, TickerHandle](const FVoiceChatResult& Result)
+                        {
+                            if (*bCompleted) return;
+                            *bCompleted = true;
+                            FTSTicker::GetCoreTicker().RemoveTicker(*TickerHandle);
+                            TSharedPtr<FJsonObject> ResponseJson = McpHandlerUtils::CreateResultObject();
+                            ResponseJson->SetBoolField(TEXT("voiceEnabled"), true);
+                            ResponseJson->SetBoolField(TEXT("voiceChatAvailable"), true);
+                            ResponseJson->SetBoolField(TEXT("connected"), Result.IsSuccess());
+                            const FString Status = Result.IsSuccess()
+                                ? TEXT("Voice chat connected")
+                                : (Result.ErrorDesc.IsEmpty() ? TEXT("Voice chat connection failed") : Result.ErrorDesc);
+                            ResponseJson->SetStringField(TEXT("status"), Status);
+                            Subsystem->SendAutomationResponse(Socket, RequestId, Result.IsSuccess(), Status,
+                                ResponseJson, Result.IsSuccess() ? FString() : TEXT("VOICE_CONNECT_FAILED"));
                         }));
+                    return true;
                 }
                 else
                 {

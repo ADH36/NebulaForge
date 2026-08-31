@@ -976,8 +976,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `join_lan_server`
 
 ### 22.4 Voice Chat
-- [x] `enable_voice_chat`
-- [x] `configure_voice_settings`
+- [x] `enable_voice_chat` (conditional; waits for connection completion and requires a VoiceChat implementation)
+- [x] `configure_voice_settings` (conditional; reports unavailable when no supported VoiceChat settings API is loaded)
 - [x] `set_voice_channel`
 - [x] `mute_player`
 - [x] `set_voice_attenuation`

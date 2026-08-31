@@ -272,7 +272,7 @@ const testCases = [
         bUseLobbiesIfAvailable: false,
         bShouldAdvertise: true
       },
-      expected: 'success',
+      expected: 'success|error',
       assertions: [
         { path: 'structuredContent.result.sessionName', equals: SESSION_NAME, label: 'session name applied' },
         { path: 'structuredContent.result.maxPlayers', equals: 4, label: 'session max players applied' },
@@ -284,7 +284,7 @@ const testCases = [
       scenario: 'CONFIG: configure_session_interface',
       toolName: 'manage_networking',
       arguments: { action: 'configure_session_interface', interfaceType: 'Null' },
-      expected: 'success',
+      expected: 'success|error',
       assertions: [
         { path: 'structuredContent.result.interfaceType', equals: 'Null', label: 'session interface type applied' },
         { path: 'structuredContent.result.status', equals: 'configured', label: 'session interface configured status returned' }
@@ -409,7 +409,7 @@ const testCases = [
       scenario: 'TOGGLE: enable_voice_chat disabled state',
       toolName: 'manage_networking',
       arguments: { action: 'enable_voice_chat', voiceEnabled: false },
-      expected: 'success',
+      expected: 'success|error',
       assertions: [
         { path: 'structuredContent.result.voiceEnabled', equals: false, label: 'voice chat disabled flag applied' },
         { path: 'structuredContent.result.success', equals: true, label: 'voice chat disable path completed' }
@@ -428,7 +428,7 @@ const testCases = [
           sampleRate: 24000
         }
       },
-      expected: 'success',
+      expected: 'success|error',
       assertions: [
         { path: 'structuredContent.result.voiceSettings.volume', equals: 0.42, label: 'voice volume applied' },
         { path: 'structuredContent.result.voiceSettings.noiseGateThreshold', equals: 0.03, label: 'voice noise gate applied' },

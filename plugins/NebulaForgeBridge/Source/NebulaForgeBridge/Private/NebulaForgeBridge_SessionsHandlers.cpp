@@ -1455,7 +1455,7 @@ static bool HandleEnableVoiceChat(
 #else
     // VoiceChat module not available at compile time
     StatusMessage = TEXT("Voice chat module not available in this build");
-    bSuccess = true; // Return success but note the limitation
+    bSuccess = !bEnabled;
 #endif
 
     TSharedPtr<FJsonObject> ResponseJson = McpHandlerUtils::CreateResultObject();
@@ -1520,6 +1520,21 @@ static bool HandleConfigureVoiceSettings(
     ConfiguredSettings->SetBoolField(TEXT("echoCancellation"), bEchoCancellation);
     ConfiguredSettings->SetNumberField(TEXT("sampleRate"), SampleRate);
     ResponseJson->SetObjectField(TEXT("voiceSettings"), ConfiguredSettings);
+
+#if !MCP_HAS_VOICECHAT
+    Subsystem->SendAutomationResponse(Socket, RequestId, false,
+        TEXT("Voice settings cannot be applied because the VoiceChat module is not available in this build."),
+        ResponseJson, TEXT("VOICE_SETTINGS_UNAVAILABLE"));
+    return true;
+#else
+    if (!IVoiceChat::Get())
+    {
+        Subsystem->SendAutomationResponse(Socket, RequestId, false,
+            TEXT("Voice settings cannot be applied because no VoiceChat implementation is loaded."),
+            ResponseJson, TEXT("VOICE_SETTINGS_UNAVAILABLE"));
+        return true;
+    }
+#endif
 
     FString Message = TEXT("Voice chat settings configured successfully");
     Subsystem->SendAutomationResponse(Socket, RequestId, true, Message, ResponseJson);

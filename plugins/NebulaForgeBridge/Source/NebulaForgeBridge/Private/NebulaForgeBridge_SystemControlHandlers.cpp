@@ -77,6 +77,7 @@ bool BuildSaveGameSchemaInspection(
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
+#include "UObject/UnrealType.h"
 #include "GameFramework/Actor.h"
 #include "AssetToolsModule.h"
 #include "IAssetTools.h"
@@ -1720,12 +1721,44 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     }
     TestActor->SetActorLabel(TestName, true);
     TestActor->Modify();
+    bool bEnabled = true;
+    const bool bHasEnabled = Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+    double TimeLimit = 0.0;
+    const bool bHasTimeLimit = Payload->TryGetNumberField(TEXT("timeLimit"), TimeLimit);
+    if (bHasTimeLimit && (!FMath::IsFinite(TimeLimit) || TimeLimit < 0.0 || TimeLimit > 3600.0)) {
+      TestActor->Destroy();
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("timeLimit must be a finite value between 0 and 3600 seconds."),
+                          TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    bool bEnabledApplied = false;
+    bool bTimeLimitApplied = false;
+    if (bHasEnabled) {
+      if (FBoolProperty *EnabledProperty = FindFProperty<FBoolProperty>(FunctionalTestClass, TEXT("bIsEnabled"))) {
+        EnabledProperty->SetPropertyValue_InContainer(TestActor, bEnabled);
+        bEnabledApplied = true;
+      }
+    }
+    if (bHasTimeLimit) {
+      if (FNumericProperty *TimeLimitProperty = FindFProperty<FNumericProperty>(FunctionalTestClass, TEXT("TimeLimit"))) {
+        TimeLimitProperty->SetFloatingPointPropertyValue(
+            TimeLimitProperty->ContainerPtrToValuePtr<void>(TestActor), TimeLimit);
+        bTimeLimitApplied = true;
+      }
+    }
     TestActor->MarkPackageDirty();
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("action"), TEXT("create_functional_test"));
     Result->SetStringField(TEXT("testName"), TestName);
     Result->SetStringField(TEXT("objectPath"), TestActor->GetPathName());
     Result->SetStringField(TEXT("classPath"), FunctionalTestClass->GetPathName());
+    Result->SetBoolField(TEXT("enabled"), bEnabled);
+    Result->SetBoolField(TEXT("enabledApplied"), bEnabledApplied);
+    if (bHasTimeLimit) {
+      Result->SetNumberField(TEXT("timeLimit"), TimeLimit);
+      Result->SetBoolField(TEXT("timeLimitApplied"), bTimeLimitApplied);
+    }
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Functional test actor created; configure assertions and run it with run_tests."), Result);
     return true;
   }

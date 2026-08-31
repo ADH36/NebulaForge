@@ -133,6 +133,8 @@ public:
 			.String(TEXT("channels"), TEXT(""))
 			.String(TEXT("subAction"), TEXT("Insights session operation: start_session, stop_session, or get_session_status."))
 			.String(TEXT("testName"), TEXT("Functional Test actor name."))
+			.Bool(TEXT("enabled"), TEXT("Whether the Functional Test is enabled."))
+			.Number(TEXT("timeLimit"), TEXT("Functional Test time limit in seconds (0-3600)."))
 			.String(TEXT("widgetPath"), TEXT("Widget blueprint path."))
 			.String(TEXT("childClass"), TEXT(""))
 			.String(TEXT("parentName"), TEXT(""))

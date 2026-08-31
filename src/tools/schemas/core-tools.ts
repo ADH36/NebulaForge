@@ -634,6 +634,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
         timeoutMs: commonSchemas.numberProp,
         reportPath: { type: 'string', description: 'Optional JSON report filename written under Saved/AutomationReports after run_tests completes.' },
         testName: commonSchemas.name,
+        timeLimit: { type: 'number', minimum: 0, maximum: 3600, description: 'Optional Functional Test time limit in seconds.' },
         pluginAction: { type: 'string', enum: ['list', 'validate', 'enable', 'disable'] },
         pluginName: commonSchemas.name,
         requirePak: commonSchemas.booleanProp,

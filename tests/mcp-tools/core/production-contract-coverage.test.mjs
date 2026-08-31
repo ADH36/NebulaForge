@@ -68,6 +68,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'stop_session' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'check_map_errors' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'create_functional_test', testName: 'ContractFunctionalTest' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'create_functional_test', testName: 'ContractConfiguredFunctionalTest', enabled: false, timeLimit: 120 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'enable_gameplay_debugger', category: 'AI', enabled: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'create_automation_test', projectPath: 'ContractProject', className: 'FContractAutomationTest', testName: 'Project.Contract.Automation', headerPath: 'Source/ContractAutomationTest.h', sourcePath: 'Source/ContractAutomationTest.cpp', dryRun: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'validate_blueprints', paths: ['/Game'], recursive: true, maxAssets: 25, saveAfterCompile: false }, expected: 'success|error' },

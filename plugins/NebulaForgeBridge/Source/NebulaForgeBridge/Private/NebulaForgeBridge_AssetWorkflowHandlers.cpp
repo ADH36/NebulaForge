@@ -617,6 +617,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
       Lower == TEXT("get_data_table_rows"))
     return HandleDataTableAction(RequestId, Lower, Payload, RequestingSocket);
   if (Lower == TEXT("create_curve_table") ||
+      Lower == TEXT("replace_curve_keys") ||
       Lower == TEXT("add_curve_table_row") ||
       Lower == TEXT("get_curve_table_rows") ||
       Lower == TEXT("import_curve_table_csv") ||
@@ -4382,6 +4383,95 @@ bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
 
   FString AssetPath;
   Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+  if (Action == TEXT("replace_curve_keys")) {
+    FString CurvePath;
+    Payload->TryGetStringField(TEXT("assetPath"), CurvePath);
+    UObject *CurveObject = LoadObject<UObject>(nullptr, *CurvePath);
+    UCurveFloat *FloatCurve = Cast<UCurveFloat>(CurveObject);
+    UCurveLinearColor *ColorCurve = Cast<UCurveLinearColor>(CurveObject);
+    if (!FloatCurve && !ColorCurve) {
+      SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a UCurveFloat or UCurveLinearColor asset"), TEXT("CURVE_NOT_FOUND"));
+      return true;
+    }
+    const TSharedPtr<FJsonValue> KeysValue = Payload->TryGetField(TEXT("keys"));
+    const TArray<TSharedPtr<FJsonValue>> *Keys = nullptr;
+    if (!KeysValue.IsValid() || !KeysValue->TryGetArray(Keys) || !Keys) {
+      SendAutomationError(Socket, RequestId, TEXT("keys must be an array"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TArray<FRichCurveKey> FloatKeys;
+    TArray<FRichCurveKey> ColorKeys[4];
+    for (const TSharedPtr<FJsonValue> &KeyValue : *Keys) {
+      const TSharedPtr<FJsonObject> KeyObject = KeyValue.IsValid() ? KeyValue->AsObject() : nullptr;
+      double Time = 0.0;
+      if (!KeyObject.IsValid() || !KeyObject->TryGetNumberField(TEXT("time"), Time) || !FMath::IsFinite(Time)) {
+        SendAutomationError(Socket, RequestId, TEXT("each key requires a finite numeric time"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (FloatCurve) {
+        double Value = 0.0;
+        if (!KeyObject->TryGetNumberField(TEXT("value"), Value) || !FMath::IsFinite(Value)) {
+          SendAutomationError(Socket, RequestId, TEXT("float curve keys require a finite numeric value"), TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        FRichCurveKey NewKey(static_cast<float>(Time), static_cast<float>(Value));
+        FString Error;
+        if (!ApplyCurveKeyOptionsAW(KeyObject, NewKey, Error)) {
+          SendAutomationError(Socket, RequestId, Error, TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        FloatKeys.Add(NewKey);
+      } else {
+        const TSharedPtr<FJsonObject> *ColorObject = nullptr;
+        if (!KeyObject->TryGetObjectField(TEXT("value"), ColorObject) || !ColorObject || !ColorObject->IsValid()) {
+          SendAutomationError(Socket, RequestId, TEXT("linear color curve keys require value {r,g,b,a}"), TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        const TCHAR *Channels[] = { TEXT("r"), TEXT("g"), TEXT("b"), TEXT("a") };
+        double Values[4] = { 0.0, 0.0, 0.0, 1.0 };
+        for (int32 Channel = 0; Channel < 4; ++Channel) {
+          if (Channel == 3 && !(*ColorObject)->HasField(Channels[Channel])) continue;
+          if (!(*ColorObject)->TryGetNumberField(Channels[Channel], Values[Channel]) || !FMath::IsFinite(Values[Channel])) {
+            SendAutomationError(Socket, RequestId, TEXT("linear color curve channels must be finite numeric r,g,b,a values"), TEXT("INVALID_ARGUMENT"));
+            return true;
+          }
+        }
+        for (int32 Channel = 0; Channel < 4; ++Channel) {
+          FRichCurveKey NewKey(static_cast<float>(Time), static_cast<float>(Values[Channel]));
+          FString Error;
+          if (!ApplyCurveKeyOptionsAW(KeyObject, NewKey, Error)) {
+            SendAutomationError(Socket, RequestId, Error, TEXT("INVALID_ARGUMENT"));
+            return true;
+          }
+          ColorKeys[Channel].Add(NewKey);
+        }
+      }
+    }
+    if (FloatCurve) {
+      FloatCurve->FloatCurve.Keys = FloatKeys;
+      FloatCurve->Modify();
+      FloatCurve->MarkPackageDirty();
+      if (!McpSafeAssetSave(FloatCurve)) {
+        SendAutomationError(Socket, RequestId, TEXT("Curve keys replaced but save failed"), TEXT("SAVE_FAILED"));
+        return true;
+      }
+    } else {
+      for (int32 Channel = 0; Channel < 4; ++Channel) ColorCurve->FloatCurves[Channel].Keys = ColorKeys[Channel];
+      ColorCurve->Modify();
+      ColorCurve->MarkPackageDirty();
+      if (!McpSafeAssetSave(ColorCurve)) {
+        SendAutomationError(Socket, RequestId, TEXT("Curve keys replaced but save failed"), TEXT("SAVE_FAILED"));
+        return true;
+      }
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), CurveObject->GetPathName());
+    Result->SetStringField(TEXT("curveType"), FloatCurve ? TEXT("float") : TEXT("linear_color"));
+    Result->SetNumberField(TEXT("keyCount"), FloatCurve ? FloatKeys.Num() : ColorKeys[0].Num());
+    Result->SetBoolField(TEXT("saved"), true);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Curve keys replaced"), Result, FString());
+    return true;
+  }
   if (Action == TEXT("create_curve_float") || Action == TEXT("create_curve_linear_color")) {
     FString Name;
     FString Path;

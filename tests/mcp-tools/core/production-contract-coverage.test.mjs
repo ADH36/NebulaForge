@@ -116,6 +116,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'reload_config', configName: 'DefaultGame.ini' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'flush_config', configName: 'DefaultGame.ini' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_config_hierarchy' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'replace_curve_keys', assetPath: '/Game/Contract/Curve', keys: [{ time: 0, value: 0 }, { time: 1, value: 1, interpMode: 'linear' }], save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'list_primary_assets', primaryAssetType: 'Map', limit: 20, offset: 0 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'get_primary_asset', primaryAssetId: 'Map:Contract', assetPath: '/Game/Contract/Contract' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'save_game_to_slot', saveGameObject: '/Game/Contract/SG.SG', slotName: 'ContractSlot', userIndex: 0, async: true }, expected: 'success|error' },

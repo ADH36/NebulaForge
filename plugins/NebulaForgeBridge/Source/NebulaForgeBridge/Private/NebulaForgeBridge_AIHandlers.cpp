@@ -452,7 +452,11 @@ static UBlueprint* CreateAIControllerBlueprint(const FString& Path, const FStrin
     }
 
     FAssetRegistryModule::AssetCreated(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!McpSafeAssetSave(Blueprint))
+    {
+        OutError = FString::Printf(TEXT("Failed to save AI controller blueprint: %s"), *Blueprint->GetPathName());
+        return nullptr;
+    }
 
     return Blueprint;
 }
@@ -498,7 +502,11 @@ static UBlackboardData* CreateBlackboardAsset(const FString& Path, const FString
     }
 
     FAssetRegistryModule::AssetCreated(Blackboard);
-    McpSafeAssetSave(Blackboard);
+    if (!McpSafeAssetSave(Blackboard))
+    {
+        OutError = FString::Printf(TEXT("Failed to save blackboard asset: %s"), *Blackboard->GetPathName());
+        return nullptr;
+    }
 
     return Blackboard;
 }
@@ -544,7 +552,11 @@ static UBehaviorTree* CreateBehaviorTreeAsset(const FString& Path, const FString
     }
 
     FAssetRegistryModule::AssetCreated(BehaviorTree);
-    McpSafeAssetSave(BehaviorTree);
+    if (!McpSafeAssetSave(BehaviorTree))
+    {
+        OutError = FString::Printf(TEXT("Failed to save behavior tree asset: %s"), *BehaviorTree->GetPathName());
+        return nullptr;
+    }
 
     return BehaviorTree;
 }
@@ -590,7 +602,11 @@ static UEnvQuery* CreateEQSQueryAsset(const FString& Path, const FString& Name, 
     }
 
     FAssetRegistryModule::AssetCreated(Query);
-    McpSafeAssetSave(Query);
+    if (!McpSafeAssetSave(Query))
+    {
+        OutError = FString::Printf(TEXT("Failed to save EQS query asset: %s"), *Query->GetPathName());
+        return nullptr;
+    }
 
     return Query;
 }

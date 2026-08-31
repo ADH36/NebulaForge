@@ -223,9 +223,11 @@ void UNebulaForgeBridgeSubsystem::CompleteManagedAsyncAction(
     const TSharedPtr<FJsonObject> &Result) {
   FMcpAsyncRecord *Record = ManagedAsyncActions.Find(AsyncId);
   if (!Record || !Record->State.IsValid()) return;
+  // Completion can race a cancellation/timeout callback or a late engine
+  // delegate. Only the first terminal transition may publish an event.
+  if (Record->State->bCompleted.exchange(true)) return;
   const bool bCancelled = Record->State->bCancelled.load();
   Record->State->bSucceeded.store(bSucceeded && !bCancelled);
-  Record->State->bCompleted.store(true);
   TSharedPtr<FJsonObject> EventResult = Result.IsValid() ? Result : McpHandlerUtils::CreateResultObject();
   EventResult->SetStringField(TEXT("asyncId"), AsyncId);
   EventResult->SetBoolField(TEXT("succeeded"), bSucceeded && !bCancelled);

@@ -17,6 +17,12 @@
   "SupportsUEBuildSystem": true,
   "Modules": [
     {
+      "Name": "NebulaForgeBridgeRuntime",
+      "Type": "Runtime",
+      "LoadingPhase": "Default",
+      "PlatformAllowList": ["Win64", "Mac", "Linux"]
+    },
+    {
       "Name": "NebulaForgeBridge",
       "Type": "Editor",
       "LoadingPhase": "Default",
@@ -161,10 +167,10 @@
 		"Enabled": true,
 		"Optional": true
 	},
-	{
-		"Name": "PCG",
-		"Enabled": true,
-		"Optional": true
-	}
+    {
+      "Name": "PCG",
+      "Enabled": true,
+      "Optional": true
+    }
   ]
 }

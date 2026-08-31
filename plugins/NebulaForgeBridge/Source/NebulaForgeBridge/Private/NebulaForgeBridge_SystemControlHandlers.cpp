@@ -14,6 +14,53 @@
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "UObject/UObjectGlobals.h"
+#include "UObject/UnrealType.h"
+
+namespace {
+
+bool BuildSaveGameSchemaInspection(
+    const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FJsonObject> &OutResult,
+    FString &OutError,
+    FString &OutErrorCode) {
+  FString ObjectPath;
+  if (!Payload.IsValid() || !Payload->TryGetStringField(TEXT("saveGameObject"), ObjectPath) || ObjectPath.TrimStartAndEnd().IsEmpty()) {
+    OutError = TEXT("saveGameObject is required");
+    OutErrorCode = TEXT("INVALID_ARGUMENT");
+    return false;
+  }
+  USaveGame *SaveGame = LoadObject<USaveGame>(nullptr, *ObjectPath);
+  if (!SaveGame) {
+    OutError = TEXT("saveGameObject must resolve to a loaded USaveGame object");
+    OutErrorCode = TEXT("OBJECT_NOT_FOUND");
+    return false;
+  }
+
+  UClass *SaveClass = SaveGame->GetClass();
+  TArray<TSharedPtr<FJsonValue>> Properties;
+  for (TFieldIterator<FProperty> It(SaveClass); It; ++It) {
+    FProperty *Property = *It;
+    if (!Property || Property->HasAnyPropertyFlags(CPF_Transient | CPF_Deprecated)) continue;
+    TSharedPtr<FJsonObject> Entry = McpHandlerUtils::CreateResultObject();
+    Entry->SetStringField(TEXT("name"), Property->GetName());
+    Entry->SetStringField(TEXT("cppType"), Property->GetCPPType());
+    Entry->SetBoolField(TEXT("serialized"), Property->HasAnyPropertyFlags(CPF_SaveGame));
+    Properties.Add(MakeShared<FJsonValueObject>(Entry));
+  }
+
+  OutResult = McpHandlerUtils::CreateResultObject();
+  OutResult->SetStringField(TEXT("classPath"), SaveClass->GetPathName());
+  OutResult->SetArrayField(TEXT("saveGameProperties"), Properties);
+  if (FIntProperty *SchemaProperty = FindFProperty<FIntProperty>(SaveClass, TEXT("SaveSchemaVersion"))) {
+    OutResult->SetBoolField(TEXT("hasSchemaVersion"), true);
+    OutResult->SetNumberField(TEXT("schemaVersion"), SchemaProperty->GetPropertyValue_InContainer(SaveGame));
+  } else {
+    OutResult->SetBoolField(TEXT("hasSchemaVersion"), false);
+  }
+  return true;
+}
+
+} // namespace
 
 #if WITH_EDITOR
 #include "Editor/UnrealEd/Public/Editor.h"
@@ -1317,7 +1364,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("call_interface_function");
   const bool bSaveGameAction =
       Lower == TEXT("save_game_to_slot") || Lower == TEXT("load_game_from_slot") ||
-      Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
+      Lower == TEXT("inspect_save_game_schema") || Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
       Lower == TEXT("list_save_game_slots");
   const bool bHostWorkflowAction =
       Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("release_gate") || Lower == TEXT("validate_project") || Lower == TEXT("create_game_architecture_manifest") || Lower == TEXT("add_architecture_requirement") || Lower == TEXT("validate_game_architecture") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("deploy_package") || Lower == TEXT("run_network_soak") || Lower == TEXT("analyze_trace") || Lower == TEXT("manage_project_plugin") ||
@@ -1361,6 +1408,17 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
 
 #if !WITH_EDITOR
   if (bSaveGameAction) {
+    if (Lower == TEXT("inspect_save_game_schema")) {
+      TSharedPtr<FJsonObject> Result;
+      FString Error;
+      FString ErrorCode;
+      if (!BuildSaveGameSchemaInspection(Payload, Result, Error, ErrorCode)) {
+        SendAutomationError(RequestingSocket, RequestId, Error, ErrorCode);
+      } else {
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame schema inspected"), Result, FString());
+      }
+      return true;
+    }
     return HandleRuntimeSaveGameAction(RequestId, Lower, Payload, RequestingSocket);
   }
 #endif
@@ -1397,6 +1455,17 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   }
 
   if (bSaveGameAction) {
+    if (Lower == TEXT("inspect_save_game_schema")) {
+      TSharedPtr<FJsonObject> Result;
+      FString Error;
+      FString ErrorCode;
+      if (!BuildSaveGameSchemaInspection(Payload, Result, Error, ErrorCode)) {
+        SendAutomationError(RequestingSocket, RequestId, Error, ErrorCode);
+      } else {
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame schema inspected"), Result, FString());
+      }
+      return true;
+    }
     FString SlotName;
     Payload->TryGetStringField(TEXT("slotName"), SlotName);
     SlotName.TrimStartAndEndInline();

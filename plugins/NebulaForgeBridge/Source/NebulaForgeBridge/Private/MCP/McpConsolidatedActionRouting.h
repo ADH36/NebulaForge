@@ -512,7 +512,7 @@ inline const TArray<FString>& SystemControlCore()
       TEXT("generate_save_game_class"),
       TEXT("list_gameplay_tags"), TEXT("get_runtime_gameplay_tag"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
       TEXT("list_config_layers"), TEXT("get_config_value"), TEXT("set_config_value"), TEXT("reload_config"), TEXT("flush_config"), TEXT("get_config_hierarchy"),
-      TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("delete_save_game_slot"),
+      TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("inspect_save_game_schema"), TEXT("delete_save_game_slot"),
       TEXT("check_save_game_slot"), TEXT("list_save_game_slots"),
       TEXT("subscribe"), TEXT("unsubscribe"),
 		TEXT("spawn_category"), TEXT("enable_gameplay_debugger"), TEXT("start_session"), TEXT("stop_session"), TEXT("get_session_status"), TEXT("capture_insights_trace"), TEXT("check_map_errors"), TEXT("create_functional_test"), TEXT("create_automation_test"), TEXT("get_test_results"),

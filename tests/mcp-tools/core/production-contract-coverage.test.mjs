@@ -120,6 +120,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'get_primary_asset', primaryAssetId: 'Map:Contract', assetPath: '/Game/Contract/Contract' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'save_game_to_slot', saveGameObject: '/Game/Contract/SG.SG', slotName: 'ContractSlot', userIndex: 0, async: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'load_game_from_slot', slotName: 'ContractSlot', userIndex: 0, async: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'inspect_save_game_schema', saveGameObject: '/Game/Contract/SG.SG' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'delete_save_game_slot', slotName: 'ContractSlot', userIndex: 0 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'check_save_game_slot', slotName: 'ContractSlot', userIndex: 0 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'list_save_game_slots', userIndex: 0 }, expected: 'success|error' },

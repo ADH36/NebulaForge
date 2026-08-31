@@ -4527,17 +4527,29 @@ bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
     }
     FRichCurveKey NewKey(static_cast<float>(Time), static_cast<float>(Value));
     FString Mode;
-    if (KeyObject->TryGetStringField(TEXT("interpMode"), Mode) && !ParseCurveInterpModeAW(Mode, NewKey.InterpMode)) {
-      SendAutomationError(Socket, RequestId, TEXT("interpMode must be linear, constant, cubic, or none"), TEXT("INVALID_ARGUMENT"));
-      return true;
+    if (KeyObject->TryGetStringField(TEXT("interpMode"), Mode)) {
+      ERichCurveInterpMode ParsedMode;
+      if (!ParseCurveInterpModeAW(Mode, ParsedMode)) {
+        SendAutomationError(Socket, RequestId, TEXT("interpMode must be linear, constant, cubic, or none"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      NewKey.InterpMode = ParsedMode;
     }
-    if (KeyObject->TryGetStringField(TEXT("tangentMode"), Mode) && !ParseCurveTangentModeAW(Mode, NewKey.TangentMode)) {
-      SendAutomationError(Socket, RequestId, TEXT("tangentMode must be auto, user, break, smart_auto, or none"), TEXT("INVALID_ARGUMENT"));
-      return true;
+    if (KeyObject->TryGetStringField(TEXT("tangentMode"), Mode)) {
+      ERichCurveTangentMode ParsedMode;
+      if (!ParseCurveTangentModeAW(Mode, ParsedMode)) {
+        SendAutomationError(Socket, RequestId, TEXT("tangentMode must be auto, user, break, smart_auto, or none"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      NewKey.TangentMode = ParsedMode;
     }
-    if (KeyObject->TryGetStringField(TEXT("tangentWeightMode"), Mode) && !ParseCurveTangentWeightModeAW(Mode, NewKey.TangentWeightMode)) {
-      SendAutomationError(Socket, RequestId, TEXT("tangentWeightMode must be none, arrive, leave, or both"), TEXT("INVALID_ARGUMENT"));
-      return true;
+    if (KeyObject->TryGetStringField(TEXT("tangentWeightMode"), Mode)) {
+      ERichCurveTangentWeightMode ParsedMode;
+      if (!ParseCurveTangentWeightModeAW(Mode, ParsedMode)) {
+        SendAutomationError(Socket, RequestId, TEXT("tangentWeightMode must be none, arrive, leave, or both"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      NewKey.TangentWeightMode = ParsedMode;
     }
     const TCHAR *NumericFields[] = { TEXT("arriveTangent"), TEXT("leaveTangent"), TEXT("arriveTangentWeight"), TEXT("leaveTangentWeight") };
     float *NumericTargets[] = { &NewKey.ArriveTangent, &NewKey.LeaveTangent, &NewKey.ArriveTangentWeight, &NewKey.LeaveTangentWeight };

@@ -164,6 +164,21 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
     SubAction = SubAction.ToLower();
     SubAction.ReplaceInline(TEXT("-"), TEXT("_"));
     SubAction.ReplaceInline(TEXT(" "), TEXT("_"));
+    const bool bResetAlias = SubAction == TEXT("reset");
+    if (SubAction == TEXT("activate") || SubAction == TEXT("activate_effect") || bResetAlias)
+    {
+      SubAction = TEXT("activate_niagara");
+      LocalPayload->SetStringField(TEXT("action"), SubAction);
+      if (bResetAlias)
+      {
+        LocalPayload->SetBoolField(TEXT("reset"), true);
+      }
+    }
+    else if (SubAction == TEXT("deactivate"))
+    {
+      SubAction = TEXT("deactivate_niagara");
+      LocalPayload->SetStringField(TEXT("action"), SubAction);
+    }
     if (!SubAction.IsEmpty()) {
       LocalPayload->SetStringField(TEXT("subAction"), SubAction);
     }
@@ -1178,6 +1193,12 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
       LocalPayload->TryGetNumberField(TEXT("deltaTime"), DeltaTime);
       int32 Steps = 1;
       LocalPayload->TryGetNumberField(TEXT("steps"), Steps);
+      if (!FMath::IsFinite(DeltaTime) || DeltaTime <= 0.0 || DeltaTime > 10.0 || Steps < 1 || Steps > 1000) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("deltaTime must be finite and between 0 and 10, and steps must be between 1 and 1000"),
+                               nullptr, TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
 
 #if WITH_EDITOR
       UEditorActorSubsystem *ActorSS =
@@ -1197,9 +1218,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
         if (!NiComp)
           continue;
 
-        for (int i = 0; i < Steps; i++) {
-          NiComp->AdvanceSimulation(Steps, DeltaTime);
-        }
+        NiComp->AdvanceSimulation(Steps, DeltaTime);
         bFound = true;
         break;
       }

@@ -105,7 +105,7 @@ All `blueprint_*` authoring commands now require editor support and execute nati
 | `spawn_niagara` | Spawns Niagara actors. | Support attachment targets, optional lifespan, undo stack. |
 | `set_niagara_parameter` | Supports float/vector/color/bool/int params. | ✅ Done |
 | `create_niagara_ribbon` | Implemented (spawns actor, sets user params). | ✅ Done |
-| `manage_effect` (legacy actions) | Stubbed (`NOT_IMPLEMENTED`). | Define expected presets and implement spawn routines + cleanup. |
+| `manage_effect` (legacy actions) | Lifecycle aliases (`activate`, `activate_effect`, `deactivate`, `reset`, `set_lifespan`, `destroy_effect`) route to native Niagara/actor operations; simulation stepping is bounded. | Define higher-level effect presets and add transactional rollback/undo coverage. |
 | `create_dynamic_light` | Spawns lights, sets intensity/color; no undo/pulse logic. | Add transactions, pulse animation, optional mobility + cleanup helpers. |
 
 ## UI Handlers

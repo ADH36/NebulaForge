@@ -1379,6 +1379,12 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
             BT->MarkPackageDirty();
             bool bSaved = McpSafeAssetSave(BT);
 
+            if (!bSaved)
+            {
+                SendAutomationError(RequestingSocket, RequestId, TEXT("Blackboard assignment changed but save failed"), TEXT("SAVE_FAILED"));
+                return true;
+            }
+
             Result->SetStringField(TEXT("behaviorTreePath"), BehaviorTreePath);
             Result->SetStringField(TEXT("blackboardPath"), BlackboardPath);
             Result->SetBoolField(TEXT("saved"), bSaved);
@@ -1748,7 +1754,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
                 BT->RootNode = NewNode;
             }
             BT->MarkPackageDirty();
-            McpSafeAssetSave(BT);
+            if (!McpSafeAssetSave(BT))
+            {
+                SendAutomationError(RequestingSocket, RequestId, TEXT("Behavior Tree composite node changed but save failed"), TEXT("SAVE_FAILED"));
+                return true;
+            }
 
             Result->SetStringField(TEXT("compositeType"), CompositeType);
             Result->SetStringField(TEXT("message"), FString::Printf(TEXT("Added %s node"), *CompositeType));
@@ -2957,7 +2967,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
 
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
         Blueprint->MarkPackageDirty();
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Team ID changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
         Result->SetNumberField(TEXT("teamId"), TeamId);
         Result->SetBoolField(TEXT("appliedToGenericTeamAgent"), bAppliedToGenericTeamAgent);
         Result->SetBoolField(TEXT("storedBlueprintVariable"), bStoredBlueprintVariable);
@@ -3710,7 +3724,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
 
         // Mark for compile and save
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("AI component added but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("componentName"), ComponentName);
         Result->SetStringField(TEXT("blueprintPath"), NormalizedPath);
@@ -3777,7 +3795,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         // Save the asset
-        McpSafeAssetSave(ConfigAsset);
+        if (!McpSafeAssetSave(ConfigAsset))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("AI configuration asset created but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("configPath"), FullPath);
         Result->SetNumberField(TEXT("traitCount"), 0);
@@ -3862,7 +3884,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         // Save
-        McpSafeAssetSave(ConfigAsset);
+        if (!McpSafeAssetSave(ConfigAsset))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("AI configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("configPath"), ConfigPath);
         Result->SetNumberField(TEXT("traitCount"), Config.GetTraits().Num());
@@ -3911,7 +3937,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
 
         // Mark blueprint as modified
         Blueprint->MarkPackageDirty();
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("AI component configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("componentName"), ComponentName);
         Result->SetStringField(TEXT("blueprintPath"), NormalizedPath);
@@ -4297,7 +4327,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(ControllerBP);
-        McpSafeAssetSave(ControllerBP);
+        if (!McpSafeAssetSave(ControllerBP))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("AI perception configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> PerceptionResult = McpHandlerUtils::CreateResultObject();
         PerceptionResult->SetStringField(TEXT("controllerPath"), ControllerPath);
@@ -4400,7 +4434,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Navigation modifier configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> NavModResult = McpHandlerUtils::CreateResultObject();
         NavModResult->SetStringField(TEXT("blueprintPath"), BlueprintPath);
@@ -4556,7 +4594,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("AI movement configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> MovementResult = McpHandlerUtils::CreateResultObject();
         MovementResult->SetStringField(TEXT("blueprintPath"), BlueprintPath);
@@ -4627,7 +4669,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
             return true;
         }
 
-        McpSafeAssetSave(NewBB);
+        if (!McpSafeAssetSave(NewBB))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Blackboard created but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> BBResult = McpHandlerUtils::CreateResultObject();
         BBResult->SetStringField(TEXT("blackboardPath"), SanitizedPath);
@@ -4772,7 +4818,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(ControllerBP);
-        McpSafeAssetSave(ControllerBP);
+        if (!McpSafeAssetSave(ControllerBP))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("AI perception setup changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> PerceptionResult = McpHandlerUtils::CreateResultObject();
         PerceptionResult->SetStringField(TEXT("controllerPath"), ControllerPath);
@@ -4851,7 +4901,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(NavLinkBP);
-        McpSafeAssetSave(NavLinkBP);
+        if (!McpSafeAssetSave(NavLinkBP))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("NavLinkProxy blueprint created but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> NavResult = McpHandlerUtils::CreateResultObject();
         NavResult->SetStringField(TEXT("blueprintPath"), SanitizedPath);
@@ -4892,7 +4946,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         FBlueprintEditorUtils::AddMemberVariable(ControllerBP, TEXT("FocusActor"), PinType);
 
         FBlueprintEditorUtils::MarkBlueprintAsModified(ControllerBP);
-        McpSafeAssetSave(ControllerBP);
+        if (!McpSafeAssetSave(ControllerBP))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Focus changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> FocusResult = McpHandlerUtils::CreateResultObject();
         FocusResult->SetStringField(TEXT("controllerPath"), ControllerPath);
@@ -4924,7 +4982,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         FBlueprintEditorUtils::RemoveMemberVariable(ControllerBP, TEXT("FocusActor"));
 
         FBlueprintEditorUtils::MarkBlueprintAsModified(ControllerBP);
-        McpSafeAssetSave(ControllerBP);
+        if (!McpSafeAssetSave(ControllerBP))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Focus clear changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> ClearResult = McpHandlerUtils::CreateResultObject();
         ClearResult->SetStringField(TEXT("controllerPath"), ControllerPath);
@@ -5033,7 +5095,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
             return true;
         }
 
-        McpSafeAssetSave(BBData);
+        if (!McpSafeAssetSave(BBData))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Blackboard value changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> SetResult = McpHandlerUtils::CreateResultObject();
         SetResult->SetStringField(TEXT("blackboardPath"), BBPath);
@@ -5152,7 +5218,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         FBlueprintEditorUtils::AddMemberVariable(ControllerBP, TEXT("AssignedBehaviorTree"), PinType);
 
         FBlueprintEditorUtils::MarkBlueprintAsModified(ControllerBP);
-        McpSafeAssetSave(ControllerBP);
+        if (!McpSafeAssetSave(ControllerBP))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Behavior tree assignment changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> RunResult = McpHandlerUtils::CreateResultObject();
         RunResult->SetStringField(TEXT("controllerPath"), ControllerPath);
@@ -5186,7 +5256,11 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         FBlueprintEditorUtils::RemoveMemberVariable(ControllerBP, TEXT("AssignedBehaviorTree"));
 
         FBlueprintEditorUtils::MarkBlueprintAsModified(ControllerBP);
-        McpSafeAssetSave(ControllerBP);
+        if (!McpSafeAssetSave(ControllerBP))
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Behavior tree stop changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         TSharedPtr<FJsonObject> StopResult = McpHandlerUtils::CreateResultObject();
         StopResult->SetStringField(TEXT("controllerPath"), ControllerPath);

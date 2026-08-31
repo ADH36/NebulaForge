@@ -108,6 +108,10 @@ export async function handleSessionsTools(
       return sendRequest('send_online_friend_invite');
     case 'accept_online_friend_invite':
       return sendRequest('accept_online_friend_invite');
+    case 'reject_online_friend_invite':
+      return sendRequest('reject_online_friend_invite');
+    case 'delete_online_friend':
+      return sendRequest('delete_online_friend');
     case 'configure_network_conditions':
       return sendRequest('configure_network_conditions');
     case 'create_online_session':

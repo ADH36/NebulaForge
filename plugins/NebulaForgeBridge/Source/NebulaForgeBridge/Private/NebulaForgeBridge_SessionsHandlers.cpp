@@ -482,7 +482,8 @@ static bool HandleOnlineSessionLifecycle(
         return true;
     }
 
-    if (SubAction == TEXT("send_online_friend_invite") || SubAction == TEXT("accept_online_friend_invite"))
+    if (SubAction == TEXT("send_online_friend_invite") || SubAction == TEXT("accept_online_friend_invite") ||
+        SubAction == TEXT("reject_online_friend_invite") || SubAction == TEXT("delete_online_friend"))
     {
         IOnlineFriendsPtr Friends = OnlineSubsystem->GetFriendsInterface();
         if (!Friends.IsValid())
@@ -525,6 +526,25 @@ static bool HandleOnlineSessionLifecycle(
             return true;
         }
         const bool bAccept = SubAction == TEXT("accept_online_friend_invite");
+        const bool bReject = SubAction == TEXT("reject_online_friend_invite");
+        const bool bDelete = SubAction == TEXT("delete_online_friend");
+        if (bReject || bDelete)
+        {
+            const bool bUpdated = bReject
+                ? Friends->RejectInvite(LocalUserNum, *FriendId, ListName)
+                : Friends->DeleteFriend(LocalUserNum, *FriendId, ListName);
+            TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+            Result->SetNumberField(TEXT("localUserNum"), LocalUserNum);
+            Result->SetStringField(TEXT("friendId"), FriendIdString);
+            Result->SetStringField(TEXT("friendsListName"), ListName);
+            Result->SetStringField(TEXT("operation"), bReject ? TEXT("reject") : TEXT("delete"));
+            Result->SetBoolField(TEXT("updated"), bUpdated);
+            Subsystem->SendAutomationResponse(Socket, RequestId, bUpdated,
+                bUpdated ? (bReject ? TEXT("Online friend invite rejected") : TEXT("Online friend deleted"))
+                    : (bReject ? TEXT("The Online Subsystem rejected the friend invite rejection request.") : TEXT("The Online Subsystem rejected the friend deletion request.")),
+                Result, bUpdated ? FString() : TEXT("FRIEND_UPDATE_FAILED"));
+            return true;
+        }
         const double OnlineTimeoutSeconds = FMath::Clamp(GetNumberFieldSess(Payload, TEXT("timeoutMs"), 30000.0) / 1000.0, 1.0, 300.0);
         const TSharedRef<FOnlineRequestGuard> Guard = MakeShared<FOnlineRequestGuard>();
         StartOnlineRequestGuard(Guard, OnlineTimeoutSeconds, [Subsystem, RequestId, Socket, Guard, bAccept]()

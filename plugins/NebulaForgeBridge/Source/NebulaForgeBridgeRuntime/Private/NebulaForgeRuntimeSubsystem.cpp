@@ -23,6 +23,9 @@
 namespace
 {
 constexpr uint32 MaxMessageBytes = 1024 * 1024;
+constexpr int32 MaxClients = 8;
+constexpr double HandshakeTimeoutSeconds = 5.0;
+constexpr double AuthenticatedIdleTimeoutSeconds = 300.0;
 constexpr TCHAR WebSocketGuid[] = TEXT("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
 
 FString BytesToString(const TArray<uint8>& Bytes)
@@ -162,13 +165,25 @@ void UNebulaForgeRuntimeSubsystem::StopServer()
 bool UNebulaForgeRuntimeSubsystem::Tick(float DeltaSeconds)
 {
     AcceptClients();
+    const double NowSeconds = FPlatformTime::Seconds();
     for (int32 Index = Clients.Num() - 1; Index >= 0; --Index)
     {
-        if (Clients[Index].Socket)
+        FNebulaForgeRuntimeClient& Client = Clients[Index];
+        if (Client.Socket)
         {
-            ServiceClient(Clients[Index]);
+            const double ConnectionAge = NowSeconds - Client.ConnectedAtSeconds;
+            const double IdleAge = NowSeconds - Client.LastActivitySeconds;
+            if ((!Client.bHandshakeComplete && ConnectionAge >= HandshakeTimeoutSeconds) ||
+                (Client.bHandshakeComplete && IdleAge >= AuthenticatedIdleTimeoutSeconds))
+            {
+                CloseClient(Client);
+            }
+            else
+            {
+                ServiceClient(Client);
+            }
         }
-        if (!Clients[Index].Socket)
+        if (!Client.Socket)
         {
             Clients.RemoveAtSwap(Index);
         }
@@ -195,9 +210,17 @@ void UNebulaForgeRuntimeSubsystem::AcceptClients()
         {
             break;
         }
+        if (Clients.Num() >= MaxClients)
+        {
+            ClientSocket->Close();
+            Sockets->DestroySocket(ClientSocket);
+            continue;
+        }
         ClientSocket->SetNonBlocking(true);
         FNebulaForgeRuntimeClient& Client = Clients.AddDefaulted_GetRef();
         Client.Socket = ClientSocket;
+        Client.ConnectedAtSeconds = FPlatformTime::Seconds();
+        Client.LastActivitySeconds = Client.ConnectedAtSeconds;
     }
 }
 
@@ -217,6 +240,7 @@ void UNebulaForgeRuntimeSubsystem::ServiceClient(FNebulaForgeRuntimeClient& Clie
             return;
         }
         Client.ReceiveBuffer.SetNum(OldNum + BytesRead);
+        Client.LastActivitySeconds = FPlatformTime::Seconds();
         if (Client.ReceiveBuffer.Num() > static_cast<int32>(MaxMessageBytes * 2))
         {
             CloseClient(Client);
@@ -277,6 +301,7 @@ bool UNebulaForgeRuntimeSubsystem::CompleteWebSocketHandshake(FNebulaForgeRuntim
     const FTCHARToUTF8 HeaderUtf8(*FString::Printf(TEXT("%s"), *Request.Left(HeaderEnd + 4)));
     Client.ReceiveBuffer.RemoveAt(0, HeaderUtf8.Length(), EAllowShrinking::No);
     Client.bHandshakeComplete = true;
+    Client.LastActivitySeconds = FPlatformTime::Seconds();
     return true;
 }
 

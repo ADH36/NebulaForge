@@ -12,6 +12,8 @@ struct FNebulaForgeRuntimeClient
     TArray<uint8> ReceiveBuffer;
     bool bHandshakeComplete = false;
     bool bAuthenticated = false;
+    double ConnectedAtSeconds = 0.0;
+    double LastActivitySeconds = 0.0;
 };
 
 /**

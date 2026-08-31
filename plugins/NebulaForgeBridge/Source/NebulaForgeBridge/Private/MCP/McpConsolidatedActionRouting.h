@@ -511,7 +511,7 @@ inline const TArray<FString>& SystemControlCore()
       TEXT("read_project_file"), TEXT("write_project_file"), TEXT("validate_blueprints"), TEXT("start_memory_report"), TEXT("configure_stat_commands"), TEXT("check_for_errors"), TEXT("start_network_profiler"), TEXT("enable_visual_logger"), TEXT("add_visual_log_entry"),
       TEXT("generate_save_game_class"),
       TEXT("list_gameplay_tags"), TEXT("get_runtime_gameplay_tag"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
-      TEXT("list_config_layers"), TEXT("get_config_value"), TEXT("set_config_value"),
+      TEXT("list_config_layers"), TEXT("get_config_value"), TEXT("set_config_value"), TEXT("reload_config"), TEXT("flush_config"), TEXT("get_config_hierarchy"),
       TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("delete_save_game_slot"),
       TEXT("check_save_game_slot"), TEXT("list_save_game_slots"),
       TEXT("subscribe"), TEXT("unsubscribe"),

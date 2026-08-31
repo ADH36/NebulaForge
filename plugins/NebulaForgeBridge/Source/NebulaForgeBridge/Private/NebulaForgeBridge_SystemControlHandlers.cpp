@@ -1328,7 +1328,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("get_test_results") ||
       Lower == TEXT("list_gameplay_tags") || Lower == TEXT("get_runtime_gameplay_tag") || Lower == TEXT("add_gameplay_tag") ||
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
-      Lower == TEXT("get_config_value") || Lower == TEXT("set_config_value");
+      Lower == TEXT("get_config_value") || Lower == TEXT("set_config_value") ||
+      Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&

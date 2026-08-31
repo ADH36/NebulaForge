@@ -1383,8 +1383,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 31.4 Config System
 - [ ] `read_config_value`, `write_config_value`
 - [ ] `get_section`, `create_config_section`
-- [ ] `flush_config`, `reload_config`
-- [ ] `get_config_hierarchy`
+- [x] `flush_config`, `reload_config`
+- [x] `get_config_hierarchy`
 
 ---
 

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { readProjectFile, writeProjectFile } from './project-file-service.js';
 
@@ -6,6 +7,8 @@ const CONFIG_NAME = /^[A-Za-z][A-Za-z0-9_-]*\.ini$/;
 const SECTION_NAME = /^[^\x5b\x5d\r\n]{1,256}$/;
 const KEY_NAME = /^[^=\r\n]{1,256}$/;
 const MAX_VALUE_LENGTH = 64 * 1024;
+type ConfigLocation = { root: string; target: string; relativePath: string };
+type ConfigLocationError = { success: false; error: string; message: string };
 
 function projectRoot(projectPath?: string): string | undefined {
   const configured = projectPath || process.env.UE_PROJECT_PATH;
@@ -45,6 +48,41 @@ function parseIni(content: string, wantedSection?: string, wantedKey?: string): 
     if (candidateKey === wantedKey) return line.slice(separator + 1).trim();
   }
   return undefined;
+}
+
+function summarizeIni(content: string): { sections: Array<{ name: string; keys: string[] }>; keyCount: number } {
+  const sections: Array<{ name: string; keys: string[] }> = [];
+  let current: { name: string; keys: string[] } | undefined;
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith(';') || line.startsWith('#')) continue;
+    const section = /^\[([^\]]+)\]$/.exec(line);
+    if (section) {
+      current = { name: section[1].trim(), keys: [] };
+      sections.push(current);
+      continue;
+    }
+    const separator = line.indexOf('=');
+    if (current && separator > 0) current.keys.push(line.slice(0, separator).trim());
+  }
+  return { sections, keyCount: sections.reduce((count, section) => count + section.keys.length, 0) };
+}
+
+async function configFilePath(projectPath: string | undefined, configName: string, allowMissing: boolean): Promise<ConfigLocation | ConfigLocationError> {
+  const validName = validateConfigName(configName);
+  const root = projectRoot(projectPath);
+  if (!root || !validName) return { success: false, error: 'INVALID_ARGUMENT', message: 'projectPath and a safe configName are required' };
+  const resolvedRoot = await fs.realpath(root).catch(() => undefined);
+  if (!resolvedRoot) return { success: false, error: 'PROJECT_NOT_FOUND', message: `Project root not found: ${root}` };
+  const relativePath = configRelativePath(validName);
+  const target = path.resolve(resolvedRoot, relativePath);
+  const relative = path.relative(resolvedRoot, target);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return { success: false, error: 'SECURITY_VIOLATION', message: 'Config path escapes the project root' };
+  if (!allowMissing) {
+    const stat = await fs.stat(target).catch(() => undefined);
+    if (!stat?.isFile()) return { success: false, error: 'CONFIG_NOT_FOUND', message: `Config file not found: ${relativePath}` };
+  }
+  return { root: resolvedRoot, target, relativePath };
 }
 
 function setIniValue(content: string, section: string, key: string, value: string): { content: string; changed: boolean } {
@@ -120,4 +158,59 @@ export async function setConfigValue(projectPath: string | undefined, configName
   if (!updated.changed) return { success: true, changed: false, configName: validName, section: validSectionKey.section, key: validSectionKey.key, value };
   const written = await writeProjectFile(projectPath, configRelativePath(validName), updated.content, backup);
   return { ...written, configName: validName, section: validSectionKey.section, key: validSectionKey.key, value, changed: true };
+}
+
+export async function reloadConfig(projectPath: string | undefined, configName: string): Promise<Record<string, unknown>> {
+  const location = await configFilePath(projectPath, configName, false);
+  if ('success' in location) return location;
+  const content = await fs.readFile(location.target, 'utf8');
+  const summary = summarizeIni(content);
+  return {
+    success: true,
+    configName,
+    filePath: location.relativePath,
+    bytes: Buffer.byteLength(content),
+    contentHash: crypto.createHash('sha256').update(content, 'utf8').digest('hex'),
+    sections: summary.sections,
+    sectionCount: summary.sections.length,
+    keyCount: summary.keyCount,
+    reloaded: true
+  };
+}
+
+export async function flushConfig(projectPath: string | undefined, configName: string): Promise<Record<string, unknown>> {
+  const location = await configFilePath(projectPath, configName, false);
+  if ('success' in location) return location;
+  const handle = await fs.open(location.target, 'r+');
+  try {
+    await handle.sync();
+    const stat = await handle.stat();
+    return { success: true, configName, filePath: location.relativePath, bytes: stat.size, flushed: true };
+  } finally {
+    await handle.close();
+  }
+}
+
+export async function getConfigHierarchy(projectPath?: string): Promise<Record<string, unknown>> {
+  const root = projectRoot(projectPath);
+  if (!root) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'projectPath or UE_PROJECT_PATH is required' };
+  const configDir = path.join(root, 'Config');
+  const layers: Array<{ name: string; relativePath: string; scope: string; priority: number }> = [];
+  const entries = await fs.readdir(configDir, { withFileTypes: true }).catch(() => undefined);
+  if (!entries) return { success: false, error: 'CONFIG_DIRECTORY_NOT_FOUND', message: `Config directory not found: ${configDir}` };
+  for (const entry of entries) {
+    if (entry.isFile() && /^Default[A-Za-z0-9_-]*\.ini$/i.test(entry.name)) {
+      layers.push({ name: entry.name, relativePath: configRelativePath(entry.name), scope: 'project_default', priority: 0 });
+      continue;
+    }
+    if (!entry.isDirectory() || !/^[A-Za-z][A-Za-z0-9_-]*$/.test(entry.name)) continue;
+    const platformEntries = await fs.readdir(path.join(configDir, entry.name), { withFileTypes: true }).catch(() => []);
+    for (const platformEntry of platformEntries) {
+      if (platformEntry.isFile() && /^[A-Za-z][A-Za-z0-9_-]*\.ini$/i.test(platformEntry.name)) {
+        layers.push({ name: platformEntry.name, relativePath: path.posix.join('Config', entry.name, platformEntry.name), scope: `platform:${entry.name}`, priority: 1 });
+      }
+    }
+  }
+  layers.sort((left, right) => left.priority - right.priority || left.relativePath.localeCompare(right.relativePath));
+  return { success: true, configDirectory: configDir, layers, count: layers.length, mergeSemantics: 'project layer inventory; Unreal runtime merge precedence requires live engine verification' };
 }

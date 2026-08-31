@@ -8,7 +8,7 @@ import { readProjectFile, writeProjectFile } from '../../services/project-file-s
 import { generateSaveGameClass } from '../../services/save-game-generator.js';
 import { generateAutomationTest } from '../../services/automation-test-generator.js';
 import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../services/gameplay-tags-service.js';
-import { getConfigValue, listConfigLayers, setConfigValue } from '../../services/config-service.js';
+import { flushConfig, getConfigHierarchy, getConfigValue, listConfigLayers, reloadConfig, setConfigValue } from '../../services/config-service.js';
 import { getAutomationTestResults, runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
@@ -293,6 +293,18 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       }
       return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
     }
+    case 'reload_config': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string') return { success: false, error: 'INVALID_ARGUMENT', message: 'configName is required' };
+      return reloadConfig(argsTyped.projectPath, record.configName);
+    }
+    case 'flush_config': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string') return { success: false, error: 'INVALID_ARGUMENT', message: 'configName is required' };
+      return flushConfig(argsTyped.projectPath, record.configName);
+    }
+    case 'get_config_hierarchy':
+      return getConfigHierarchy(argsTyped.projectPath);
     case 'show_fps':
       await executeAutomationRequest(tools, 'console_command', { command: argsTyped.enabled !== false ? 'stat fps' : 'stat fps 0' });
       return { success: true, message: `FPS display ${argsTyped.enabled !== false ? 'enabled' : 'disabled'}`, action: 'show_fps' };

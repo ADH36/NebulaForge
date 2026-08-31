@@ -1319,7 +1319,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(ControllerBP);
-        McpSafeAssetSave(ControllerBP);
+        if (!McpSafeAssetSave(ControllerBP)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Behavior Tree reference changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
         Result->SetStringField(TEXT("controllerPath"), ControllerPath);
         Result->SetStringField(TEXT("behaviorTreePath"), BehaviorTreePath);
         McpHandlerUtils::AddVerification(Result, ControllerBP);
@@ -1456,6 +1459,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(ControllerBP);
         bool bSaved = McpSafeAssetSave(ControllerBP);
+        if (!bSaved) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Blackboard reference changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
         Result->SetBoolField(TEXT("saved"), bSaved);
         Result->SetStringField(TEXT("controllerPath"), ControllerPath);
         Result->SetStringField(TEXT("blackboardPath"), BlackboardPath);
@@ -1615,7 +1622,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         Blackboard->Modify();
         Blackboard->Keys.Add(NewEntry);
         Blackboard->MarkPackageDirty();
-        McpSafeAssetSave(Blackboard);
+        if (!McpSafeAssetSave(Blackboard)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Blackboard key added but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetNumberField(TEXT("keyIndex"), Blackboard->Keys.Num() - 1);
         Result->SetStringField(TEXT("keyName"), KeyName);
@@ -1660,7 +1670,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         Blackboard->MarkPackageDirty();
-        McpSafeAssetSave(Blackboard);
+        if (!McpSafeAssetSave(Blackboard)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Blackboard key updated but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
 
         Result->SetStringField(TEXT("keyName"), KeyName);
         Result->SetBoolField(TEXT("isInstanceSynced"), bInstanceSynced);
@@ -2289,7 +2302,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
             NewOption->Generator = NewGenerator;
             const int32 OptionIndex = Query->GetOptionsMutable().Add(NewOption);
             Query->MarkPackageDirty();
-            McpSafeAssetSave(Query);
+            if (!McpSafeAssetSave(Query)) {
+                SendAutomationError(RequestingSocket, RequestId, TEXT("EQS generator added but save failed"), TEXT("SAVE_FAILED"));
+                return true;
+            }
             Result->SetNumberField(TEXT("optionIndex"), OptionIndex);
             Result->SetStringField(TEXT("generatorType"), GeneratorType);
             Result->SetStringField(TEXT("message"), FString::Printf(TEXT("Added %s generator"), *GeneratorType));
@@ -2393,7 +2409,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
             NewTest->TestOrder = Options[0]->Tests.Num();
             Options[0]->Tests.Add(NewTest);
             Query->MarkPackageDirty();
-            McpSafeAssetSave(Query);
+            if (!McpSafeAssetSave(Query)) {
+                SendAutomationError(RequestingSocket, RequestId, TEXT("EQS test added but save failed"), TEXT("SAVE_FAILED"));
+                return true;
+            }
             Result->SetNumberField(TEXT("testIndex"), NewTest->TestOrder);
             Result->SetStringField(TEXT("testType"), TestType);
             Result->SetStringField(TEXT("message"), FString::Printf(TEXT("Added %s test"), *TestType));
@@ -2537,7 +2556,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         }
 
         Query->MarkPackageDirty();
-        McpSafeAssetSave(Query);
+        if (!McpSafeAssetSave(Query)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("EQS test scoring changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
         Result->SetNumberField(TEXT("optionIndex"), ResolvedOptionIndex);
         Result->SetNumberField(TEXT("optionTestIndex"), ResolvedTestIndex);
         Result->SetNumberField(TEXT("testIndex"), TestIndex);
@@ -2690,7 +2712,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         PerceptionComp->ConfigureSense(*SightConfig);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Sight sense configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
         Result->SetNumberField(TEXT("sightRadius"), SightRadius);
         Result->SetNumberField(TEXT("loseSightRadius"), LoseSightRadius);
         Result->SetNumberField(TEXT("peripheralVisionAngle"), PeripheralAngle);
@@ -2776,7 +2801,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         PerceptionComp->ConfigureSense(*HearingConfig);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Hearing sense configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
         Result->SetNumberField(TEXT("hearingRange"), HearingRange);
         Result->SetStringField(TEXT("message"), TEXT("Hearing sense configured"));
         McpHandlerUtils::AddVerification(Result, Blueprint);
@@ -2856,7 +2884,10 @@ bool UNebulaForgeBridgeSubsystem::HandleManageAIAction(
         PerceptionComp->ConfigureSense(*DamageConfig);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint)) {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Damage sense configuration changed but save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
         Result->SetNumberField(TEXT("maxAge"), MaxAge);
         Result->SetStringField(TEXT("message"), TEXT("Damage sense configured"));
         McpHandlerUtils::AddVerification(Result, Blueprint);

@@ -87,6 +87,7 @@ describe('JobManager', () => {
     expect(finished).toMatchObject({
       jobId: started.jobId,
       status: 'failed',
+      timedOut: true,
       error: 'Job exceeded timeout of 25ms'
     });
   });

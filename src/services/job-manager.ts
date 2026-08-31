@@ -15,6 +15,7 @@ export interface JobSnapshot {
   errorOutput: string;
   outputTruncated: boolean;
   error?: string;
+  timedOut?: boolean;
   completionPending?: boolean;
   completionError?: string;
 }
@@ -59,6 +60,7 @@ class JobManager {
       job.deadlineTimer = setTimeout(() => {
         if (job.status !== 'running' && job.status !== 'queued') return;
         job.status = 'failed';
+        job.timedOut = true;
         job.error = `Job exceeded timeout of ${options.timeoutMs}ms`;
         job.finishedAt = new Date().toISOString();
         job.process?.kill();
@@ -73,6 +75,7 @@ class JobManager {
     });
     options.process.once('error', (error: Error) => {
       if (job.deadlineTimer) clearTimeout(job.deadlineTimer);
+      if (job.status !== 'running' && job.status !== 'queued') return;
       job.status = 'failed';
       job.error = error.message;
       job.finishedAt = new Date().toISOString();
@@ -152,6 +155,7 @@ class JobManager {
       job.deadlineTimer = setTimeout(() => {
         if (job.status !== 'running' && job.status !== 'queued') return;
         job.abortController?.abort();
+        job.timedOut = true;
         finish('failed', `Job exceeded timeout of ${options.timeoutMs}ms`);
       }, options.timeoutMs);
     }

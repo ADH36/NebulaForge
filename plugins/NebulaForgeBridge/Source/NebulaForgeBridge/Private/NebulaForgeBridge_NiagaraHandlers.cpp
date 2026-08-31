@@ -220,8 +220,15 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateNiagaraSystem(
   }
 
   FAssetRegistryModule::AssetCreated(NiagaraSystem);
+  bool bSaved = false;
   if (bSave) {
-    McpSafeAssetSave(NiagaraSystem);
+    bSaved = McpSafeAssetSave(NiagaraSystem);
+    if (!bSaved) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Niagara system was created but could not be persisted"),
+                          TEXT("SAVE_FAILED"));
+      return true;
+    }
   }
 
   if (!NiagaraSystem) {
@@ -234,6 +241,7 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateNiagaraSystem(
 
   TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
   Resp->SetBoolField(TEXT("success"), true);
+  Resp->SetBoolField(TEXT("saved"), bSaved);
   Resp->SetStringField(TEXT("systemPath"), NiagaraSystem->GetPathName());
   Resp->SetStringField(TEXT("systemName"), SystemName);
   McpHandlerUtils::AddVerification(Resp, NiagaraSystem);
@@ -387,8 +395,15 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateNiagaraEmitter(
   }
 
   FAssetRegistryModule::AssetCreated(NiagaraEmitter);
+  bool bSaved = false;
   if (bSave) {
-    McpSafeAssetSave(NiagaraEmitter);
+    bSaved = McpSafeAssetSave(NiagaraEmitter);
+    if (!bSaved) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Niagara emitter was created but could not be persisted"),
+                          TEXT("SAVE_FAILED"));
+      return true;
+    }
   }
 
   if (!NiagaraEmitter) {
@@ -401,6 +416,7 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateNiagaraEmitter(
 
   TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
   Resp->SetBoolField(TEXT("success"), true);
+  Resp->SetBoolField(TEXT("saved"), bSaved);
   Resp->SetStringField(TEXT("emitterPath"), NiagaraEmitter->GetPathName());
   Resp->SetStringField(TEXT("emitterName"), EmitterName);
   McpHandlerUtils::AddVerification(Resp, NiagaraEmitter);

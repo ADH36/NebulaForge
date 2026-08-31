@@ -173,8 +173,11 @@ bool UNebulaForgeRuntimeSubsystem::Tick(float DeltaSeconds)
         {
             const double ConnectionAge = NowSeconds - Client.ConnectedAtSeconds;
             const double IdleAge = NowSeconds - Client.LastActivitySeconds;
-            if ((!Client.bHandshakeComplete && ConnectionAge >= HandshakeTimeoutSeconds) ||
-                (Client.bHandshakeComplete && IdleAge >= AuthenticatedIdleTimeoutSeconds))
+            const bool bHandshakeExpired =
+                ((!Client.bHandshakeComplete || !Client.bAuthenticated) && ConnectionAge >= HandshakeTimeoutSeconds);
+            const bool bAuthenticatedIdle =
+                (Client.bHandshakeComplete && Client.bAuthenticated && IdleAge >= AuthenticatedIdleTimeoutSeconds);
+            if (bHandshakeExpired || bAuthenticatedIdle)
             {
                 CloseClient(Client);
             }

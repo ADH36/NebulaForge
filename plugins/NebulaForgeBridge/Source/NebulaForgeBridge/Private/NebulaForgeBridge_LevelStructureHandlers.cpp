@@ -2357,6 +2357,7 @@ struct FMcpHlodBuildProcess
     FString MapPath;
     FString LogPath;
     FString Mode;
+    FString AsyncId;
     double StartTimeSeconds = 0.0;
     double TimeoutSeconds = 900.0;
     int32 ExitCode = INDEX_NONE;
@@ -3127,6 +3128,21 @@ static bool StartHlodCommandlet(UNebulaForgeBridgeSubsystem* Subsystem, const FS
     GMcpHlodBuildProcess.Mode = bDelete ? TEXT("delete") : TEXT("build");
     GMcpHlodBuildProcess.StartTimeSeconds = FPlatformTime::Seconds();
     GMcpHlodBuildProcess.TimeoutSeconds = FMath::Clamp(GetJsonNumberField(Payload, TEXT("timeoutSeconds"), 900.0), 10.0, 3600.0);
+    if (GetJsonBoolField(Payload, TEXT("async"), false))
+    {
+        GMcpHlodBuildProcess.AsyncId = Subsystem->BeginManagedAsyncAction(
+            TEXT("hlod_commandlet"), FString::Printf(TEXT("HLOD:%s"), *GMcpHlodBuildProcess.MapPath));
+        if (GMcpHlodBuildProcess.AsyncId.IsEmpty())
+        {
+            FPlatformProcess::TerminateProc(GMcpHlodBuildProcess.Process, false);
+            FPlatformProcess::CloseProc(GMcpHlodBuildProcess.Process);
+            GMcpHlodBuildProcess.Process = FProcHandle();
+            Subsystem->SendAutomationResponse(Socket, RequestId, false,
+                TEXT("Too many active or recently completed async actions."), nullptr,
+                TEXT("ASYNC_ACTION_CAPACITY"));
+            return true;
+        }
+    }
     Subsystem->SendProgressUpdate(RequestId, 0.0f, TEXT("HLOD commandlet launched; poll get_hlod_build_status for streamed log progress."), true);
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetBoolField(TEXT("started"), true);
@@ -3135,6 +3151,10 @@ static bool StartHlodCommandlet(UNebulaForgeBridgeSubsystem* Subsystem, const FS
     Result->SetStringField(TEXT("arguments"), Arguments);
     Result->SetStringField(TEXT("logPath"), HlodLogPath);
     Result->SetNumberField(TEXT("timeoutSeconds"), GMcpHlodBuildProcess.TimeoutSeconds);
+    if (!GMcpHlodBuildProcess.AsyncId.IsEmpty())
+    {
+        Result->SetStringField(TEXT("asyncId"), GMcpHlodBuildProcess.AsyncId);
+    }
     Result->SetArrayField(TEXT("savedExternalActorPackages"), SavedPackages);
     Subsystem->SendAutomationResponse(Socket, RequestId, true, TEXT("HLOD commandlet started without blocking the active editor."), Result);
     return true;
@@ -3151,7 +3171,13 @@ static bool HandleHlodBuildStatus(UNebulaForgeBridgeSubsystem* Subsystem, const 
         Subsystem->SendAutomationResponse(Socket, RequestId, true, TEXT("No HLOD commandlet is active."), Result);
         return true;
     }
-    if (bCancel && FPlatformProcess::IsProcRunning(GMcpHlodBuildProcess.Process))
+    const bool bManagedCancellationRequested = !GMcpHlodBuildProcess.AsyncId.IsEmpty() &&
+        Subsystem->IsManagedAsyncActionCancelled(GMcpHlodBuildProcess.AsyncId);
+    if (bManagedCancellationRequested)
+    {
+        GMcpHlodBuildProcess.bCancellationRequested = true;
+    }
+    if ((bCancel || bManagedCancellationRequested) && FPlatformProcess::IsProcRunning(GMcpHlodBuildProcess.Process))
     {
         GMcpHlodBuildProcess.bCancellationRequested = true;
         FPlatformProcess::TerminateProc(GMcpHlodBuildProcess.Process, false);
@@ -3201,6 +3227,13 @@ static bool HandleHlodBuildStatus(UNebulaForgeBridgeSubsystem* Subsystem, const 
     {
         Result->SetStringField(TEXT("nextStep"), TEXT("reload map then validate_hlods"));
         Result->SetStringField(TEXT("warning"), TEXT("Generated HLOD output exists only on disk; the loaded editor world is not reloaded, so validate_hlods requires a map reload first."));
+    }
+    if (!GMcpHlodBuildProcess.AsyncId.IsEmpty())
+    {
+        const FString CompletedAsyncId = GMcpHlodBuildProcess.AsyncId;
+        GMcpHlodBuildProcess.AsyncId.Empty();
+        Subsystem->CompleteManagedAsyncAction(CompletedAsyncId, bSuccess,
+            TEXT("hlod_commandlet_completed"), Result);
     }
     Subsystem->SendProgressUpdate(RequestId, 100.0f, bSuccess ? TEXT("HLOD commandlet completed; reload the map before validation.") : (bTimedOut ? TEXT("HLOD commandlet timed out.") : TEXT("HLOD commandlet ended; inspect exit code and structured log records.")), false);
     Subsystem->SendAutomationResponse(Socket, RequestId, bSuccess, bSuccess ? TEXT("HLOD commandlet completed. Reload the map, then call validate_hlods.") : (bTimedOut ? TEXT("HLOD commandlet timed out.") : FString::Printf(TEXT("HLOD commandlet exited with code %d."), ExitCode)), Result,

@@ -103,6 +103,7 @@ public:
 			.String(TEXT("hlodLayerPath"), TEXT("Path to HLOD layer."))
 			.String(TEXT("generatedHlodActor"), TEXT("Generated HLOD actor label for a focused rebuild."))
 			.Bool(TEXT("confirm"), TEXT("Required true before deleting generated HLOD output."))
+			.Bool(TEXT("async"), TEXT("Return a managed asyncId for HLOD completion polling."))
 			.Array(TEXT("dataLayerNames"), TEXT("Requested Data Layer scope; UE 5.8 commandlets do not support this scope."), TEXT("string"))
 			.Array(TEXT("cellIds"), TEXT("Requested cell scope; UE 5.8 commandlets do not support this scope."), TEXT("string"))
 			.Array(TEXT("origin"), TEXT("World Partition load-region origin [x, y, z]."), TEXT("number"))

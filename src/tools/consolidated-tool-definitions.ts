@@ -4312,6 +4312,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         hlodLayerPath: commonSchemas.hlodLayerPath,
         generatedHlodActor: { type: 'string', description: 'Generated HLOD actor label for a focused rebuild.' },
         confirm: { type: 'boolean', description: 'Required true for destructive HLOD output deletion.' },
+        async: { type: 'boolean', description: 'Return a managed asyncId for HLOD completion polling through system_control.get_async_action.' },
         dataLayerNames: { type: 'array', items: commonSchemas.stringProp, description: 'Requested Data Layer rebuild scope; UE 5.8 commandlets do not support this scope.' },
         cellIds: { type: 'array', items: commonSchemas.stringProp, description: 'Requested World Partition cell rebuild scope; UE 5.8 commandlets do not support this scope.' },
         bIsSpatiallyLoaded: { type: 'boolean', description: 'HLOD is spatially loaded.' },

@@ -28,7 +28,7 @@ const VALID_ASSET_ACTIONS = new Set([
   'create_data_asset', 'get_data_asset_properties', 'set_data_asset_properties',
   'list_primary_assets', 'get_primary_asset',
   'create_data_table', 'add_data_table_row', 'modify_data_table_row', 'delete_data_table_row', 'get_data_table_rows',
-  'create_curve_table', 'add_curve_table_row', 'get_curve_table_rows',
+  'create_curve_table', 'create_curve_float', 'create_curve_linear_color', 'add_curve_table_row', 'get_curve_table_rows',
   'import_curve_table_csv', 'export_curve_table_csv',
   'create_media_player', 'create_media_source', 'create_media_texture', 'create_media_playlist',
   'generate_lods', 'add_material_parameter', 'list_instances',

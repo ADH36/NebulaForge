@@ -71,7 +71,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("list_primary_assets"), TEXT("get_primary_asset"),
 		TEXT("create_media_player"), TEXT("create_media_source"), TEXT("create_media_texture"), TEXT("create_media_playlist"),
 		TEXT("create_data_table"), TEXT("add_data_table_row"), TEXT("modify_data_table_row"), TEXT("delete_data_table_row"), TEXT("get_data_table_rows"),
-		TEXT("create_curve_table"), TEXT("add_curve_table_row"), TEXT("get_curve_table_rows"),
+		TEXT("create_curve_table"), TEXT("create_curve_float"), TEXT("create_curve_linear_color"), TEXT("add_curve_table_row"), TEXT("get_curve_table_rows"),
 		TEXT("import_curve_table_csv"), TEXT("export_curve_table_csv"), TEXT("generate_lods"),
 		TEXT("add_material_parameter"), TEXT("list_instances"),
 		TEXT("reset_instance_parameters"), TEXT("exists"),

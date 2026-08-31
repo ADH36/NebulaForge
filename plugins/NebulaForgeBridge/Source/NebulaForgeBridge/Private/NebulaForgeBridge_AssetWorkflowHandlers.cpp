@@ -146,6 +146,7 @@
 #include "Factories/MaterialFactoryNew.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "Factories/PhysicalMaterialFactoryNew.h"
+#include "Factories/CurveFactory.h"
 #include "FileHelpers.h"
 #include "PackageTools.h"
 #include "IAssetTools.h"
@@ -197,6 +198,8 @@
 #include "Engine/AssetManagerTypes.h"
 #include "Engine/DataTable.h"
 #include "Engine/CurveTable.h"
+#include "Curves/CurveFloat.h"
+#include "Curves/CurveLinearColor.h"
 #include "Curves/RichCurve.h"
 #include "UObject/StructOnScope.h"
 #include "UObject/SoftObjectPath.h"
@@ -253,6 +256,36 @@ static FString CurveTangentModeToStringAW(ERichCurveTangentMode Mode)
 static FString CurveTangentWeightModeToStringAW(ERichCurveTangentWeightMode Mode)
 {
   switch (Mode) { case RCTWM_WeightedArrive: return TEXT("arrive"); case RCTWM_WeightedLeave: return TEXT("leave"); case RCTWM_WeightedBoth: return TEXT("both"); default: return TEXT("none"); }
+}
+
+static bool ApplyCurveKeyOptionsAW(const TSharedPtr<FJsonObject>& KeyObject, FRichCurveKey& Key, FString& OutError)
+{
+  FString Mode;
+  if (KeyObject->TryGetStringField(TEXT("interpMode"), Mode)) {
+    ERichCurveInterpMode ParsedMode;
+    if (!ParseCurveInterpModeAW(Mode, ParsedMode)) { OutError = TEXT("interpMode must be linear, constant, cubic, or none"); return false; }
+    Key.InterpMode = ParsedMode;
+  }
+  if (KeyObject->TryGetStringField(TEXT("tangentMode"), Mode)) {
+    ERichCurveTangentMode ParsedMode;
+    if (!ParseCurveTangentModeAW(Mode, ParsedMode)) { OutError = TEXT("tangentMode must be auto, user, break, smart_auto, or none"); return false; }
+    Key.TangentMode = ParsedMode;
+  }
+  if (KeyObject->TryGetStringField(TEXT("tangentWeightMode"), Mode)) {
+    ERichCurveTangentWeightMode ParsedMode;
+    if (!ParseCurveTangentWeightModeAW(Mode, ParsedMode)) { OutError = TEXT("tangentWeightMode must be none, arrive, leave, or both"); return false; }
+    Key.TangentWeightMode = ParsedMode;
+  }
+  const TCHAR *NumericFields[] = { TEXT("arriveTangent"), TEXT("leaveTangent"), TEXT("arriveTangentWeight"), TEXT("leaveTangentWeight") };
+  float *NumericTargets[] = { &Key.ArriveTangent, &Key.LeaveTangent, &Key.ArriveTangentWeight, &Key.LeaveTangentWeight };
+  for (int32 NumericIndex = 0; NumericIndex < UE_ARRAY_COUNT(NumericFields); ++NumericIndex) {
+    double NumericValue = 0.0;
+    if (KeyObject->TryGetNumberField(NumericFields[NumericIndex], NumericValue)) {
+      if (!FMath::IsFinite(NumericValue)) { OutError = TEXT("curve tangent values must be finite"); return false; }
+      *NumericTargets[NumericIndex] = static_cast<float>(NumericValue);
+    }
+  }
+  return true;
 }
 #endif
 
@@ -4349,6 +4382,107 @@ bool UNebulaForgeBridgeSubsystem::HandleCurveTableAction(
 
   FString AssetPath;
   Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+  if (Action == TEXT("create_curve_float") || Action == TEXT("create_curve_linear_color")) {
+    FString Name;
+    FString Path;
+    Payload->TryGetStringField(TEXT("name"), Name);
+    Payload->TryGetStringField(TEXT("path"), Path);
+    Name = SanitizeAssetName(Name);
+    Path = SanitizeProjectRelativePath(Path);
+    if (Name.IsEmpty() || Path.IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("name and path are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const FString PackageName = Path + TEXT("/") + Name;
+    if (UEditorAssetLibrary::DoesAssetExist(PackageName)) {
+      SendAutomationError(Socket, RequestId, TEXT("Curve asset already exists"), TEXT("ASSET_EXISTS"));
+      return true;
+    }
+    const TSharedPtr<FJsonValue> KeysValue = Payload->TryGetField(TEXT("keys"));
+    const TArray<TSharedPtr<FJsonValue>> *Keys = nullptr;
+    if (KeysValue.IsValid() && KeysValue->Type != EJson::Null && (!KeysValue->TryGetArray(Keys) || !Keys)) {
+      SendAutomationError(Socket, RequestId, TEXT("keys must be an array"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TArray<FRichCurveKey> FloatKeys;
+    TArray<FRichCurveKey> ColorKeys[4];
+    if (Keys) {
+      for (const TSharedPtr<FJsonValue> &KeyValue : *Keys) {
+        const TSharedPtr<FJsonObject> KeyObject = KeyValue.IsValid() ? KeyValue->AsObject() : nullptr;
+        double Time = 0.0;
+        if (!KeyObject.IsValid() || !KeyObject->TryGetNumberField(TEXT("time"), Time) || !FMath::IsFinite(Time)) {
+          SendAutomationError(Socket, RequestId, TEXT("each key requires a finite numeric time"), TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        if (Action == TEXT("create_curve_float")) {
+          double Value = 0.0;
+          if (!KeyObject->TryGetNumberField(TEXT("value"), Value) || !FMath::IsFinite(Value)) {
+            SendAutomationError(Socket, RequestId, TEXT("float curve keys require a finite numeric value"), TEXT("INVALID_ARGUMENT"));
+            return true;
+          }
+          FRichCurveKey NewKey(static_cast<float>(Time), static_cast<float>(Value));
+          FString Error;
+          if (!ApplyCurveKeyOptionsAW(KeyObject, NewKey, Error)) {
+            SendAutomationError(Socket, RequestId, Error, TEXT("INVALID_ARGUMENT"));
+            return true;
+          }
+          FloatKeys.Add(NewKey);
+        } else {
+          const TSharedPtr<FJsonObject> *ColorObject = nullptr;
+          if (!KeyObject->TryGetObjectField(TEXT("value"), ColorObject) || !ColorObject || !ColorObject->IsValid()) {
+            SendAutomationError(Socket, RequestId, TEXT("linear color curve keys require value {r,g,b,a}"), TEXT("INVALID_ARGUMENT"));
+            return true;
+          }
+          double Channels[4] = { 0.0, 0.0, 0.0, 1.0 };
+          const TCHAR *ChannelNames[] = { TEXT("r"), TEXT("g"), TEXT("b"), TEXT("a") };
+          for (int32 Channel = 0; Channel < 4; ++Channel) {
+            if (Channel == 3 && !(*ColorObject)->HasField(ChannelNames[Channel])) continue;
+            if (!(*ColorObject)->TryGetNumberField(ChannelNames[Channel], Channels[Channel]) || !FMath::IsFinite(Channels[Channel])) {
+              SendAutomationError(Socket, RequestId, TEXT("linear color curve channels must be finite numeric r,g,b,a values"), TEXT("INVALID_ARGUMENT"));
+              return true;
+            }
+          }
+          for (int32 Channel = 0; Channel < 4; ++Channel) {
+            FRichCurveKey NewKey(static_cast<float>(Time), static_cast<float>(Channels[Channel]));
+            FString Error;
+            if (!ApplyCurveKeyOptionsAW(KeyObject, NewKey, Error)) {
+              SendAutomationError(Socket, RequestId, Error, TEXT("INVALID_ARGUMENT"));
+              return true;
+            }
+            ColorKeys[Channel].Add(NewKey);
+          }
+        }
+      }
+    }
+    UPackage *Package = CreatePackage(*PackageName);
+    UObject *CurveObject = nullptr;
+    if (Action == TEXT("create_curve_float")) {
+      UCurveFloat *Curve = Package ? NewObject<UCurveFloat>(Package, *Name, RF_Public | RF_Standalone) : nullptr;
+      if (Curve) { Curve->FloatCurve.Keys = FloatKeys; CurveObject = Curve; }
+    } else {
+      UCurveLinearColor *Curve = Package ? NewObject<UCurveLinearColor>(Package, *Name, RF_Public | RF_Standalone) : nullptr;
+      if (Curve) { for (int32 Channel = 0; Channel < 4; ++Channel) Curve->FloatCurves[Channel].Keys = ColorKeys[Channel]; CurveObject = Curve; }
+    }
+    if (!CurveObject) {
+      SendAutomationError(Socket, RequestId, TEXT("Failed to create curve asset"), TEXT("CREATE_FAILED"));
+      return true;
+    }
+    FAssetRegistryModule::AssetCreated(CurveObject);
+    Package->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(CurveObject)) {
+      SendAutomationError(Socket, RequestId, TEXT("Curve asset created but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), CurveObject->GetPathName());
+    Result->SetStringField(TEXT("curveType"), Action == TEXT("create_curve_float") ? TEXT("float") : TEXT("linear_color"));
+    Result->SetNumberField(TEXT("keyCount"), Keys ? (Action == TEXT("create_curve_float") ? FloatKeys.Num() : ColorKeys[0].Num()) : 0);
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Curve asset created"), Result, FString());
+    return true;
+  }
   if (Action == TEXT("create_curve_table")) {
     FString Name;
     FString Path;

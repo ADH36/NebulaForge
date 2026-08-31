@@ -1362,7 +1362,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_data_asset`, `create_primary_data_asset`
 - [ ] `create_data_table`, `add_data_table_row`, `modify_data_table_row`, `delete_data_table_row`
 - [ ] `import_data_table_csv`, `export_data_table_csv`
-- [ ] `create_curve_table`, `create_curve_float`, `create_curve_linear_color`
+- [x] `create_curve_table`, `create_curve_float`, `create_curve_linear_color`
 
 ### 31.2 Save System
 - [ ] `create_save_game_class`

@@ -25,6 +25,8 @@ public:
 			.StringEnum(TEXT("action"), McpConsolidatedActions::ManageAsset(),
 				TEXT("Action to perform"))
 			.String(TEXT("assetPath"), TEXT("Asset path (e.g., /Game/Path/Asset)."))
+			.String(TEXT("name"), TEXT("Asset name."))
+			.String(TEXT("path"), TEXT("Asset package path."))
 			.String(TEXT("rowStructPath"), TEXT("FTableRowBase-derived struct path for DataTables."))
 			.String(TEXT("rowName"), TEXT("DataTable or CurveTable row name."))
 			.FreeformObject(TEXT("properties"), TEXT("Reflected DataTable row properties."))

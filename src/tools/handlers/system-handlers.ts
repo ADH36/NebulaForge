@@ -246,6 +246,9 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         headerPath: record.headerPath,
         sourcePath: record.sourcePath,
         variables: record.variables as Array<{ name: string; type: string; defaultValue?: string | number | boolean }>,
+        schemaVersion: typeof record.schemaVersion === 'number' ? record.schemaVersion : undefined,
+        migrationManifestPath: typeof record.migrationManifestPath === 'string' ? record.migrationManifestPath : undefined,
+        migrations: Array.isArray(record.migrations) ? record.migrations as Array<{ fromVersion: number; toVersion: number; description: string }> : undefined,
         backup: record.backup !== false
       });
     }

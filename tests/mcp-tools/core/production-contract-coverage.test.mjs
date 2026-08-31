@@ -102,7 +102,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'cancel_job', jobId: 'contract-job' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'read_project_file', filePath: 'Config/DefaultGame.ini' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'write_project_file', filePath: 'Config/Contract.ini', content: '[Contract]\nEnabled=True', backup: true }, expected: 'success|error' },
-  { toolName: 'system_control', arguments: { action: 'generate_save_game_class', className: 'UContractSaveGame', headerPath: 'Source/Contract/ContractSaveGame.h', sourcePath: 'Source/Contract/ContractSaveGame.cpp', variables: [{ name: 'Score', type: 'int32', defaultValue: 0 }], backup: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'generate_save_game_class', className: 'UContractSaveGame', headerPath: 'Source/Contract/ContractSaveGame.h', sourcePath: 'Source/Contract/ContractSaveGame.cpp', variables: [{ name: 'Score', type: 'int32', defaultValue: 0 }], schemaVersion: 2, migrationManifestPath: 'Config/SaveGame/ContractSaveGame.schema.json', migrations: [{ fromVersion: 1, toVersion: 2, description: 'Add score field' }], backup: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'list_gameplay_tags' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'add_gameplay_tag', tag: 'Contract.Test', comment: 'contract', backup: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'remove_gameplay_tag', tag: 'Contract.Test', backup: true }, expected: 'success|error' },

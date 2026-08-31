@@ -935,6 +935,9 @@ export interface SystemArgs extends HandlerArgs {
     headerPath?: string;
     sourcePath?: string;
     variables?: Array<Record<string, unknown>>;
+    schemaVersion?: number;
+    migrationManifestPath?: string;
+    migrations?: Array<Record<string, unknown>>;
     tag?: string;
     comment?: string;
     saveGameObject?: string;

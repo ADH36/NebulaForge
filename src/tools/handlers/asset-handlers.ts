@@ -813,7 +813,11 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
         const assetPath = extractString(params, 'assetPath');
         const res = await executeAutomationRequest(tools, 'manage_render', {
           subAction: 'nanite_rebuild_mesh',
-          assetPath
+          meshPath: assetPath,
+          enableNanite: extractOptionalBoolean(params, 'enableNanite'),
+          preserveArea: extractOptionalBoolean(params, 'preserveArea'),
+          trianglePercent: extractOptionalNumber(params, 'trianglePercent'),
+          fallbackPercent: extractOptionalNumber(params, 'fallbackPercent')
         });
         return ResponseFactory.success(res, 'Nanite mesh rebuilt successfully');
       }

@@ -52,7 +52,7 @@ This document tracks ongoing work to replace stubbed or registry-based fallbacks
 
 | Action | Current State | Needed Work |
 | --- | --- | --- |
-| `manage_asset` (render target) | Implemented (`create_render_target`). | Implement `nanite_rebuild_mesh`. |
+| `manage_asset` (render target) | Implemented (`create_render_target`). | `nanite_rebuild_mesh` now applies settings, rebuilds render/Nanite data, and confirms safe persistence. |
 | `system_control` (lumen) | Implemented (`lumen_update_scene`). | |
 | `system_control` (pipeline) | Implemented (`run_ubt`). | ✅ Done (Streamed via Node) |
 | `system_control` (tests) | Implemented (`run_tests`). | Add result streaming. |

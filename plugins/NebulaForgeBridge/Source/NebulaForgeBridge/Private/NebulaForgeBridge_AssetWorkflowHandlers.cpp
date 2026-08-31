@@ -5954,8 +5954,18 @@ bool UNebulaForgeBridgeSubsystem::HandleNaniteRebuildMesh(
   StaticMesh->NaniteSettings.FallbackPercentTriangles = static_cast<float>(FallbackPercent / 100.0);
 #endif
 
-  // Mark mesh as modified
-  StaticMesh->MarkPackageDirty();
+  // Rebuild the render data after changing Nanite settings.  Mutating the
+  // settings alone only changes the asset's properties; it does not produce
+  // new Nanite data for the renderer or persist a usable rebuilt asset.
+  StaticMesh->Modify();
+  StaticMesh->Build();
+  StaticMesh->PostEditChange();
+  if (!McpSafeAssetSave(StaticMesh)) {
+    SendAutomationError(Socket, RequestId,
+                        FString::Printf(TEXT("Failed to save rebuilt Nanite mesh: %s"), *MeshPath),
+                        TEXT("SAVE_FAILED"));
+    return true;
+  }
 
   // Build response
   TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
@@ -5965,9 +5975,11 @@ bool UNebulaForgeBridgeSubsystem::HandleNaniteRebuildMesh(
   Resp->SetBoolField(TEXT("preserveArea"), bPreserveArea);
   Resp->SetNumberField(TEXT("trianglePercent"), TrianglePercent);
   Resp->SetNumberField(TEXT("fallbackPercent"), FallbackPercent);
+  Resp->SetBoolField(TEXT("buildCompleted"), true);
+  Resp->SetBoolField(TEXT("saved"), true);
 
   SendAutomationResponse(Socket, RequestId, true,
-                         FString::Printf(TEXT("Nanite settings updated for %s"), *StaticMesh->GetName()),
+                         FString::Printf(TEXT("Nanite mesh rebuilt and saved for %s"), *StaticMesh->GetName()),
                          Resp, FString());
   return true;
 #else

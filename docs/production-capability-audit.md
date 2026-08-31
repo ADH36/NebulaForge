@@ -34,7 +34,7 @@ Packaging update: host `system_control.run_uat` now exposes explicit BuildCookRu
 
 Map validation update: editor `system_control.check_map_errors` executes Unreal's Map Check against the loaded editor world and returns structured error/warning counts from the MapCheck log; it intentionally reports an unavailable-world error when no map is loaded.
 
-Functional-test update: editor `system_control.create_functional_test` creates a FunctionalTesting actor when the plugin is enabled, returns its object path, and leaves assertion/configuration policy to subsequent authoring actions.
+Functional-test update: editor `system_control.create_functional_test` creates a FunctionalTesting actor when the plugin is enabled, supports enabled/time-limit configuration, and can verify persistence by saving the loaded level with the standard safe level-save wrapper; assertion policy remains project-authored.
 
 Capability-report update: `inspect.production_capabilities` now advertises the automation-report, SHA-256 release-manifest, release-gate, Map Check, Functional Testing, animation validation, VFX budget, and online identity additions so AI clients do not have to infer them from documentation.
 
@@ -81,7 +81,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-32-build--deployment)
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Functional test authoring | ⚠️ | `create_functional_test` creates a FunctionalTesting actor when the plugin is available; test-specific steps and assertions remain project-authored. |
+| Functional test authoring | ⚠️ | `create_functional_test` creates and optionally persists a configured FunctionalTesting actor when the plugin is available; test-specific steps and assertions remain project-authored. |
 | Automation test authoring | ⚠️ | `create_automation_test` generates a safe compile-ready C++ automation-test skeleton; project assertions and module/build wiring remain project-authored. |
 | Automation test execution/results | ⚠️ | Stdio `run_tests` launches filtered or full Unreal automation tests through UnrealEditor-Cmd as a managed job; native `/mcp` launches in-editor tests through a managed `asyncId`, captures test-end failures, emits completion, and supports `get_async_action` polling. `release_gate` waits for host completion and fails on timeout/nonzero exit; project assertion quality remains project-authored. |
 | Data Validation integration | ⚠️ | `validate_project` can launch UnrealEditor-Cmd's DataValidation commandlet as a bounded managed job; the engine/project must provide UnrealEditor-Cmd and the result must be polled to terminal state. |

@@ -1706,6 +1706,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
         return true;
       }
     }
+    bool bSaveLevel = false;
+    const bool bHasSaveLevel = Payload->TryGetBoolField(TEXT("saveLevel"), bSaveLevel);
     UClass *FunctionalTestClass = FindObject<UClass>(nullptr, TEXT("/Script/FunctionalTesting.FunctionalTest"));
     if (!FunctionalTestClass || !FunctionalTestClass->IsChildOf(AActor::StaticClass())) {
       SendAutomationError(RequestingSocket, RequestId, TEXT("FunctionalTesting plugin is unavailable or not loaded."), TEXT("FUNCTIONAL_TESTING_UNAVAILABLE"));
@@ -1748,6 +1750,14 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       }
     }
     TestActor->MarkPackageDirty();
+    bool bLevelSaved = false;
+    if (bHasSaveLevel && bSaveLevel) {
+      bLevelSaved = McpSafeLevelSave(EditorWorld->PersistentLevel, EditorWorld->GetOutermost()->GetName());
+      if (!bLevelSaved) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Functional test actor was created but the level could not be saved."), TEXT("SAVE_FAILED"));
+        return true;
+      }
+    }
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("action"), TEXT("create_functional_test"));
     Result->SetStringField(TEXT("testName"), TestName);
@@ -1755,6 +1765,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     Result->SetStringField(TEXT("classPath"), FunctionalTestClass->GetPathName());
     Result->SetBoolField(TEXT("enabled"), bEnabled);
     Result->SetBoolField(TEXT("enabledApplied"), bEnabledApplied);
+    Result->SetBoolField(TEXT("saveLevel"), bSaveLevel);
+    Result->SetBoolField(TEXT("levelSaved"), bLevelSaved);
     if (bHasTimeLimit) {
       Result->SetNumberField(TEXT("timeLimit"), TimeLimit);
       Result->SetBoolField(TEXT("timeLimitApplied"), bTimeLimitApplied);

@@ -135,6 +135,7 @@ public:
 			.String(TEXT("testName"), TEXT("Functional Test actor name."))
 			.Bool(TEXT("enabled"), TEXT("Whether the Functional Test is enabled."))
 			.Number(TEXT("timeLimit"), TEXT("Functional Test time limit in seconds (0-3600)."))
+			.Bool(TEXT("saveLevel"), TEXT("Persist the newly created Functional Test actor to the loaded level."))
 			.String(TEXT("widgetPath"), TEXT("Widget blueprint path."))
 			.String(TEXT("childClass"), TEXT(""))
 			.String(TEXT("parentName"), TEXT(""))

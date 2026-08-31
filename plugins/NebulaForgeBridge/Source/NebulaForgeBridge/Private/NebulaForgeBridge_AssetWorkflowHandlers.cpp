@@ -3960,8 +3960,29 @@ bool UNebulaForgeBridgeSubsystem::HandlePhysicalMaterialAction(
       Components.Add(Primitive);
     } else Actor->GetComponents<UPrimitiveComponent>(Components);
     if (Components.Num() == 0) { SendInvalid(TEXT("Actor has no primitive components.")); return true; }
-    for (UPrimitiveComponent *Component : Components) Component->SetPhysMaterialOverride(Material);
-    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); Result->SetStringField(TEXT("actorName"), ActorName); Result->SetNumberField(TEXT("componentCount"), Components.Num()); Result->SetStringField(TEXT("physicalMaterialPath"), Material ? Material->GetPathName() : TEXT(""));
+    for (UPrimitiveComponent *Component : Components) {
+      if (!Component) continue;
+      Component->Modify();
+      Component->SetPhysMaterialOverride(Material);
+      Component->MarkPackageDirty();
+      Component->MarkRenderStateDirty();
+    }
+    Actor->Modify();
+    Actor->MarkPackageDirty();
+    bool bSaved = false; bool bSave = false; Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave) {
+      UWorld *World = Actor->GetWorld();
+      if (!World || !World->PersistentLevel || !World->GetOutermost() || !World->GetOutermost()->GetName().StartsWith(TEXT("/Game/"))) {
+        SendAutomationError(Socket, RequestId, TEXT("Physical material override changed but owning level is not a saved /Game map"), TEXT("SAVE_FAILED"));
+        return true;
+      }
+      bSaved = McpSafeAssetSave(Actor) && McpSafeLevelSave(World->PersistentLevel, World->GetOutermost()->GetName());
+      if (!bSaved) {
+        SendAutomationError(Socket, RequestId, TEXT("Physical material override changed but save failed"), TEXT("SAVE_FAILED"));
+        return true;
+      }
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); Result->SetStringField(TEXT("actorName"), ActorName); Result->SetNumberField(TEXT("componentCount"), Components.Num()); Result->SetStringField(TEXT("physicalMaterialPath"), Material ? Material->GetPathName() : TEXT("")); Result->SetBoolField(TEXT("saved"), bSaved);
     SendAutomationResponse(Socket, RequestId, true, Action == TEXT("assign_physical_material") ? TEXT("Physical material assigned") : TEXT("Physical material override cleared"), Result, FString()); return true;
   }
 

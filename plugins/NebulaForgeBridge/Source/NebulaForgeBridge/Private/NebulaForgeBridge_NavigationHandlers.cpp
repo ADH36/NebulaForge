@@ -1007,7 +1007,12 @@ static bool HandleCreateNavModifierComponent(
     // Save if requested
     if (GetJsonBoolFieldNav(Payload, TEXT("save"), false))
     {
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            Self->SendAutomationError(Socket, RequestId,
+                TEXT("NavModifierComponent added but Blueprint save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
     }
 
     // -------------------------------------------------------------------------

@@ -1523,7 +1523,12 @@ static bool HandleCreateSplineMeshComponent(
 
     if (GetJsonBoolFieldSpline(Payload, TEXT("save"), false))
     {
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            Self->SendAutomationError(Socket, RequestId,
+                TEXT("Spline mesh component added but Blueprint save failed"), TEXT("SAVE_FAILED"));
+            return true;
+        }
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

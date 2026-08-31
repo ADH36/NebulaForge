@@ -316,6 +316,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         newName: commonSchemas.newName,
         overwrite: commonSchemas.overwrite,
         save: commonSchemas.save,
+        async: { type: 'boolean', description: 'Return a managed asyncId for material/shader compilation completion.' },
+        timeoutMs: commonSchemas.numberProp,
         requireClean: commonSchemas.booleanProp,
         verifyReload: commonSchemas.booleanProp,
         fixupRedirectors: commonSchemas.booleanProp,

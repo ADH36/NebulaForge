@@ -52,6 +52,8 @@ public:
 			.String(TEXT("newName"), TEXT("New name for renaming."))
 			.Bool(TEXT("overwrite"), TEXT("Overwrite if the asset/file already exists."))
 			.Bool(TEXT("save"), TEXT("Save the asset(s) after the operation."))
+			.Bool(TEXT("async"), TEXT("Return a managed asyncId for material/shader compilation completion."))
+			.Number(TEXT("timeoutMs"), TEXT("Maximum wait time for asynchronous material compilation."))
 			.Bool(TEXT("requireClean"), TEXT("Require the loaded package to be clean after persistence verification."))
 			.Bool(TEXT("verifyReload"), TEXT("Unload and reload the asset to verify persistence across an editor reload cycle."))
 			.Bool(TEXT("fixupRedirectors"), TEXT(""))

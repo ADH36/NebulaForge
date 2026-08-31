@@ -920,6 +920,8 @@ export async function handleMaterialAuthoringTools(
           subAction: 'compile_material',
           assetPath,
           save,
+          async: (args as Record<string, unknown>).async as boolean | undefined,
+          timeoutMs: (args as Record<string, unknown>).timeoutMs as number | undefined,
         })) as AutomationResponse;
 
         if (res.success === false) {

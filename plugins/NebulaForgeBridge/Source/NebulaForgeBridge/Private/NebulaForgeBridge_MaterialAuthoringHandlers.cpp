@@ -72,6 +72,8 @@
 #include "Materials/MaterialInstanceConstant.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Engine/Texture.h"
+#include "ShaderCompiler.h"
+#include "Containers/Ticker.h"
 
 // UE 5.1+ MaterialDomain
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
@@ -2942,6 +2944,23 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
     // Force recompile / update
     UObject *Host = Material ? static_cast<UObject*>(Material) : static_cast<UObject*>(Function);
+    bool bAsync = false;
+    Payload->TryGetBoolField(TEXT("async"), bAsync);
+    double TimeoutMs = 300000.0;
+    Payload->TryGetNumberField(TEXT("timeoutMs"), TimeoutMs);
+    TimeoutMs = FMath::Clamp(TimeoutMs, 1000.0, 3600000.0);
+    FString AsyncId;
+    if (bAsync)
+    {
+      AsyncId = BeginManagedAsyncAction(TEXT("material_compile"), FString::Printf(TEXT("Material:%s"), *AssetPath));
+      if (AsyncId.IsEmpty())
+      {
+        SendAutomationError(Socket, RequestId,
+                            TEXT("Too many active or recently completed async actions"),
+                            TEXT("ASYNC_ACTION_CAPACITY"));
+        return true;
+      }
+    }
     Host->PreEditChange(nullptr);
     Host->PostEditChange();
     Host->MarkPackageDirty();
@@ -2962,6 +2981,47 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
                            Material ? TEXT("Material") : TEXT("MaterialFunction"));
     Result->SetBoolField(TEXT("compiled"), true);
     Result->SetBoolField(TEXT("saved"), bSave);
+    Result->SetBoolField(TEXT("commandAccepted"), true);
+    Result->SetBoolField(TEXT("compiling"), GShaderCompilingManager && GShaderCompilingManager->IsCompiling());
+    if (!AsyncId.IsEmpty())
+    {
+      Result->SetStringField(TEXT("asyncId"), AsyncId);
+      Result->SetStringField(TEXT("state"), TEXT("running"));
+      Result->SetNumberField(TEXT("timeoutMs"), TimeoutMs);
+      const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+      const double StartTime = FPlatformTime::Seconds();
+      FTSTicker::GetCoreTicker().AddTicker(
+          FTickerDelegate::CreateLambda([WeakThis, AsyncId, AssetPath, TimeoutMs, StartTime](float)
+          {
+            UNebulaForgeBridgeSubsystem* Owner = WeakThis.Get();
+            if (!Owner) return false;
+            TSharedPtr<FJsonObject> Completion = McpHandlerUtils::CreateResultObject();
+            Completion->SetStringField(TEXT("assetPath"), AssetPath);
+            Completion->SetNumberField(TEXT("elapsedMs"), (FPlatformTime::Seconds() - StartTime) * 1000.0);
+            if (Owner->IsManagedAsyncActionCancelled(AsyncId))
+            {
+              Completion->SetBoolField(TEXT("compiling"), GShaderCompilingManager && GShaderCompilingManager->IsCompiling());
+              Completion->SetBoolField(TEXT("cancelled"), true);
+              Owner->CompleteManagedAsyncAction(AsyncId, false, TEXT("material_compile_completed"), Completion);
+              return false;
+            }
+            if (!GShaderCompilingManager || !GShaderCompilingManager->IsCompiling())
+            {
+              Completion->SetBoolField(TEXT("compiling"), false);
+              Completion->SetBoolField(TEXT("timedOut"), false);
+              Owner->CompleteManagedAsyncAction(AsyncId, true, TEXT("material_compile_completed"), Completion);
+              return false;
+            }
+            if ((FPlatformTime::Seconds() - StartTime) * 1000.0 >= TimeoutMs)
+            {
+              Completion->SetBoolField(TEXT("compiling"), true);
+              Completion->SetBoolField(TEXT("timedOut"), true);
+              Owner->CompleteManagedAsyncAction(AsyncId, false, TEXT("material_compile_completed"), Completion);
+              return false;
+            }
+            return true;
+          }));
+    }
     SendAutomationResponse(Socket, RequestId, true,
                            Material ? TEXT("Material compiled.") : TEXT("Material function updated."),
                            Result);

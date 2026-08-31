@@ -102,6 +102,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_networking', arguments: { action: 'delete_online_friend', localUserNum: 0, friendId: 'ContractFriendId', friendsListName: 'default' }, expected: 'success|error' },
   { toolName: 'manage_level_structure', arguments: { action: 'build_hlods', async: true, timeoutSeconds: 10 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'optimize_shaders', mode: 'changed', async: true, timeoutMs: 5000 }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'compile_material', assetPath: '/Game/ContractMaterial', async: true, timeoutMs: 5000, save: false }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_job_status', jobId: 'contract-job' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'wait_for_job', jobId: 'contract-job', timeoutMs: 1000 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'wait_for_async_action', asyncId: 'contract-async', timeoutMs: 1000, pollIntervalMs: 50 }, expected: 'success|error' },

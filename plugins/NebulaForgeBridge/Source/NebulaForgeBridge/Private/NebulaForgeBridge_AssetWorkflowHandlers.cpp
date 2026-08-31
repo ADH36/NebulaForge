@@ -3929,7 +3929,13 @@ bool UNebulaForgeBridgeSubsystem::HandlePhysicalMaterialAction(
     Material->PostEditChange();
     Material->MarkPackageDirty();
     bool bSaved = false; bool bSave = false; Payload->TryGetBoolField(TEXT("save"), bSave);
-    if (bSave) bSaved = McpSafeAssetSave(Material);
+    if (bSave) {
+      bSaved = McpSafeAssetSave(Material);
+      if (!bSaved) {
+        SendAutomationError(Socket, RequestId, TEXT("Physical material created but save failed"), TEXT("SAVE_FAILED"));
+        return true;
+      }
+    }
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); AddMaterialData(Material, Result); Result->SetBoolField(TEXT("saved"), bSaved);
     SendAutomationResponse(Socket, RequestId, true, TEXT("Physical material created"), Result, FString()); return true;
   }
@@ -3975,7 +3981,14 @@ bool UNebulaForgeBridgeSubsystem::HandlePhysicalMaterialAction(
   if (Action == TEXT("set_density")) { if (!Payload->HasField(TEXT("density"))) { SendInvalid(TEXT("density is required.")); return true; } }
   if (!ApplyValues(Material, Error)) { SendInvalid(Error); return true; }
   Material->PostEditChange();
-  Material->MarkPackageDirty(); bool bSaved = false; bool bSave = false; Payload->TryGetBoolField(TEXT("save"), bSave); if (bSave) bSaved = McpSafeAssetSave(Material);
+  Material->MarkPackageDirty(); bool bSaved = false; bool bSave = false; Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave) {
+    bSaved = McpSafeAssetSave(Material);
+    if (!bSaved) {
+      SendAutomationError(Socket, RequestId, TEXT("Physical material updated but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+  }
   TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject(); AddMaterialData(Material, Result); Result->SetBoolField(TEXT("saved"), bSaved);
   SendAutomationResponse(Socket, RequestId, true, TEXT("Physical material updated"), Result, FString()); return true;
 #else

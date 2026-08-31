@@ -178,7 +178,9 @@ export async function handlePerformanceTools(action: string, args: HandlerArgs, 
     case 'optimize_shaders': {
       const res = await executeAutomationRequest(tools, 'optimize_shaders', {
         mode: typeof argsRecord.mode === 'string' ? argsRecord.mode : undefined,
-        forceRecompile: argsRecord.forceRecompile as boolean | undefined
+        forceRecompile: argsRecord.forceRecompile as boolean | undefined,
+        async: argsRecord.async as boolean | undefined,
+        timeoutMs: argsRecord.timeoutMs as number | undefined
       }) as Record<string, unknown>;
       return cleanObject(res);
     }

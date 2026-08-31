@@ -68,6 +68,7 @@
 #include "IMeshMergeUtilities.h"
 #include "Misc/PackageName.h"
 #include "StaticMeshCompiler.h"
+#include "ShaderCompiler.h"
 #include "Containers/Ticker.h"
 
 // =============================================================================
@@ -1010,6 +1011,11 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
 
     bool bForceRecompile = false;
     Payload->TryGetBoolField(TEXT("forceRecompile"), bForceRecompile);
+    bool bAsync = false;
+    Payload->TryGetBoolField(TEXT("async"), bAsync);
+    double TimeoutMs = 300000.0;
+    Payload->TryGetNumberField(TEXT("timeoutMs"), TimeoutMs);
+    TimeoutMs = FMath::Clamp(TimeoutMs, 1000.0, 3600000.0);
 
     FString Cmd;
     if (bForceRecompile) {
@@ -1028,16 +1034,84 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
         return true;
     }
 
-    GEngine->Exec(GEditor->GetEditorWorldContext().World(), *Cmd);
+    FString AsyncId;
+    if (bAsync)
+    {
+      AsyncId = BeginManagedAsyncAction(TEXT("shader_compile"), TEXT("Shader compilation"));
+      if (AsyncId.IsEmpty())
+      {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("Too many active or recently completed async actions"),
+                            TEXT("ASYNC_ACTION_CAPACITY"));
+        return true;
+      }
+    }
+
+    const bool bCommandAccepted = GEngine->Exec(GEditor->GetEditorWorldContext().World(), *Cmd);
+    if (!bCommandAccepted)
+    {
+      if (!AsyncId.IsEmpty())
+      {
+        TSharedPtr<FJsonObject> Failure = McpHandlerUtils::CreateResultObject();
+        Failure->SetStringField(TEXT("command"), Cmd);
+        CompleteManagedAsyncAction(AsyncId, false, TEXT("shader_compile_completed"), Failure);
+      }
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("The editor rejected the shader recompilation command."),
+                          TEXT("SHADER_RECOMPILE_REJECTED"));
+      return true;
+    }
 
     TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
     Resp->SetStringField(TEXT("mode"), Mode);
     Resp->SetBoolField(TEXT("forceRecompile"), bForceRecompile);
     Resp->SetStringField(TEXT("command"), Cmd);
+    Resp->SetBoolField(TEXT("commandAccepted"), true);
+    Resp->SetBoolField(TEXT("compiling"), GShaderCompilingManager && GShaderCompilingManager->IsCompiling());
+    if (!AsyncId.IsEmpty())
+    {
+      Resp->SetStringField(TEXT("asyncId"), AsyncId);
+      Resp->SetStringField(TEXT("state"), TEXT("running"));
+      Resp->SetNumberField(TEXT("timeoutMs"), TimeoutMs);
+      const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+      const double StartTime = FPlatformTime::Seconds();
+      FTSTicker::GetCoreTicker().AddTicker(
+          FTickerDelegate::CreateLambda([WeakThis, AsyncId, Cmd, TimeoutMs, StartTime](float)
+          {
+            UNebulaForgeBridgeSubsystem* Owner = WeakThis.Get();
+            if (!Owner) return false;
+            TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+            Result->SetStringField(TEXT("command"), Cmd);
+            Result->SetNumberField(TEXT("elapsedMs"), (FPlatformTime::Seconds() - StartTime) * 1000.0);
+            if (Owner->IsManagedAsyncActionCancelled(AsyncId))
+            {
+              Result->SetBoolField(TEXT("compiling"), GShaderCompilingManager && GShaderCompilingManager->IsCompiling());
+              Result->SetBoolField(TEXT("cancelled"), true);
+              Owner->CompleteManagedAsyncAction(AsyncId, false, TEXT("shader_compile_completed"), Result);
+              return false;
+            }
+            if (!GShaderCompilingManager || !GShaderCompilingManager->IsCompiling())
+            {
+              Result->SetBoolField(TEXT("compiling"), false);
+              Result->SetBoolField(TEXT("timedOut"), false);
+              Owner->CompleteManagedAsyncAction(AsyncId, true, TEXT("shader_compile_completed"), Result);
+              return false;
+            }
+            if ((FPlatformTime::Seconds() - StartTime) * 1000.0 >= TimeoutMs)
+            {
+              Result->SetBoolField(TEXT("compiling"), true);
+              Result->SetBoolField(TEXT("timedOut"), true);
+              Owner->CompleteManagedAsyncAction(AsyncId, false, TEXT("shader_compile_completed"), Result);
+              return false;
+            }
+            return true;
+          }));
+    }
 
     SendAutomationResponse(
         RequestingSocket, RequestId, true,
-        FString::Printf(TEXT("Shader optimization initiated: %s"), *Cmd),
+        bAsync ? FString::Printf(TEXT("Shader optimization started: %s"), *Cmd)
+               : FString::Printf(TEXT("Shader optimization initiated: %s"), *Cmd),
         Resp);
     return true;
   }

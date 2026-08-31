@@ -75,6 +75,8 @@ public:
 			.Bool(TEXT("freezeRendering"), TEXT(""))
 			.Bool(TEXT("compileOnDemand"), TEXT(""))
 			.Bool(TEXT("cacheShaders"), TEXT(""))
+			.Bool(TEXT("async"), TEXT("Return a managed asyncId and completion event for shader compilation."))
+			.Number(TEXT("timeoutMs"), TEXT("Maximum shader compilation wait time when async is enabled."))
 			.Bool(TEXT("reducePermutations"), TEXT(""))
 			.Number(TEXT("maxPixelsPerEdge"), TEXT(""))
 			.Number(TEXT("streamingPoolSize"), TEXT(""))

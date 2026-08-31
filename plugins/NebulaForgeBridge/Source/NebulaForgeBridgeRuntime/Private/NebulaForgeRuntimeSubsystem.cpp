@@ -4,6 +4,8 @@
 #include "Containers/StringConv.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
+#include "EngineUtils.h"
+#include "GameFramework/Actor.h"
 #include "HAL/PlatformMisc.h"
 #include "HAL/PlatformProcess.h"
 #include "HAL/PlatformTime.h"
@@ -373,6 +375,8 @@ void UNebulaForgeRuntimeSubsystem::HandleMessage(FNebulaForgeRuntimeClient& Clie
         Capabilities.Add(MakeShared<FJsonValueString>(TEXT("runtime_health")));
         Capabilities.Add(MakeShared<FJsonValueString>(TEXT("get_runtime_capabilities")));
         Capabilities.Add(MakeShared<FJsonValueString>(TEXT("get_runtime_world")));
+        Capabilities.Add(MakeShared<FJsonValueString>(TEXT("get_runtime_actors")));
+        Capabilities.Add(MakeShared<FJsonValueString>(TEXT("get_runtime_actor")));
         Ack->SetArrayField(TEXT("capabilities"), Capabilities);
         SendTextFrame(Client, JsonString(Ack));
         return;
@@ -406,6 +410,8 @@ void UNebulaForgeRuntimeSubsystem::HandleMessage(FNebulaForgeRuntimeClient& Clie
         Actions.Add(MakeShared<FJsonValueString>(TEXT("runtime_health")));
         Actions.Add(MakeShared<FJsonValueString>(TEXT("get_runtime_capabilities")));
         Actions.Add(MakeShared<FJsonValueString>(TEXT("get_runtime_world")));
+        Actions.Add(MakeShared<FJsonValueString>(TEXT("get_runtime_actors")));
+        Actions.Add(MakeShared<FJsonValueString>(TEXT("get_runtime_actor")));
         Result->SetArrayField(TEXT("actions"), Actions);
         Result->SetBoolField(TEXT("packagedRuntimeAuthoring"), false);
     }
@@ -422,6 +428,107 @@ void UNebulaForgeRuntimeSubsystem::HandleMessage(FNebulaForgeRuntimeClient& Clie
             Result->SetStringField(TEXT("worldName"), World->GetName());
             Result->SetNumberField(TEXT("netMode"), static_cast<int32>(World->GetNetMode()));
             Result->SetBoolField(TEXT("isGameWorld"), World->IsGameWorld());
+        }
+    }
+    else if (Action.Equals(TEXT("get_runtime_actors"), ESearchCase::IgnoreCase))
+    {
+        UWorld* World = GetWorld();
+        if (!World)
+        {
+            bSuccess = false;
+            Error = TEXT("WORLD_UNAVAILABLE");
+        }
+        else
+        {
+            const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
+            Root->TryGetObjectField(TEXT("payload"), PayloadObject);
+            int32 Limit = 100;
+            FString ClassFilter;
+            if (PayloadObject && PayloadObject->IsValid())
+            {
+                (*PayloadObject)->TryGetNumberField(TEXT("limit"), Limit);
+                (*PayloadObject)->TryGetStringField(TEXT("classFilter"), ClassFilter);
+            }
+            Limit = FMath::Clamp(Limit, 1, 500);
+            ClassFilter = ClassFilter.TrimStartAndEnd();
+
+            TArray<TSharedPtr<FJsonValue>> Actors;
+            for (TActorIterator<AActor> Iterator(World); Iterator && Actors.Num() < Limit; ++Iterator)
+            {
+                AActor* Actor = *Iterator;
+                if (!IsValid(Actor) || (!ClassFilter.IsEmpty() && !Actor->GetClass()->GetName().Contains(ClassFilter)))
+                {
+                    continue;
+                }
+
+                TSharedRef<FJsonObject> ActorResult = MakeShared<FJsonObject>();
+                ActorResult->SetStringField(TEXT("name"), Actor->GetName());
+                ActorResult->SetStringField(TEXT("class"), Actor->GetClass()->GetPathName());
+                ActorResult->SetBoolField(TEXT("hidden"), Actor->IsHidden());
+                ActorResult->SetBoolField(TEXT("pendingKill"), Actor->IsPendingKillPending());
+                const FVector Location = Actor->GetActorLocation();
+                ActorResult->SetNumberField(TEXT("x"), Location.X);
+                ActorResult->SetNumberField(TEXT("y"), Location.Y);
+                ActorResult->SetNumberField(TEXT("z"), Location.Z);
+                Actors.Add(MakeShared<FJsonValueObject>(ActorResult));
+            }
+            Result->SetArrayField(TEXT("actors"), Actors);
+            Result->SetNumberField(TEXT("count"), Actors.Num());
+            Result->SetNumberField(TEXT("limit"), Limit);
+            Result->SetStringField(TEXT("classFilter"), ClassFilter);
+        }
+    }
+    else if (Action.Equals(TEXT("get_runtime_actor"), ESearchCase::IgnoreCase))
+    {
+        UWorld* World = GetWorld();
+        FString ActorName;
+        const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
+        Root->TryGetObjectField(TEXT("payload"), PayloadObject);
+        if (PayloadObject && PayloadObject->IsValid())
+        {
+            (*PayloadObject)->TryGetStringField(TEXT("actorName"), ActorName);
+        }
+        ActorName = ActorName.TrimStartAndEnd();
+        if (!World)
+        {
+            bSuccess = false;
+            Error = TEXT("WORLD_UNAVAILABLE");
+        }
+        else if (ActorName.IsEmpty())
+        {
+            bSuccess = false;
+            Error = TEXT("ACTOR_NAME_REQUIRED");
+        }
+        else
+        {
+            AActor* FoundActor = nullptr;
+            for (TActorIterator<AActor> Iterator(World); Iterator; ++Iterator)
+            {
+                if (*Iterator && (*Iterator)->GetName().Equals(ActorName, ESearchCase::CaseSensitive))
+                {
+                    FoundActor = *Iterator;
+                    break;
+                }
+            }
+            if (!FoundActor)
+            {
+                bSuccess = false;
+                Error = TEXT("ACTOR_NOT_FOUND");
+            }
+            else
+            {
+                Result->SetStringField(TEXT("name"), FoundActor->GetName());
+                Result->SetStringField(TEXT("class"), FoundActor->GetClass()->GetPathName());
+                Result->SetBoolField(TEXT("hidden"), FoundActor->IsHidden());
+                const FVector Location = FoundActor->GetActorLocation();
+                const FRotator Rotation = FoundActor->GetActorRotation();
+                Result->SetNumberField(TEXT("locationX"), Location.X);
+                Result->SetNumberField(TEXT("locationY"), Location.Y);
+                Result->SetNumberField(TEXT("locationZ"), Location.Z);
+                Result->SetNumberField(TEXT("rotationPitch"), Rotation.Pitch);
+                Result->SetNumberField(TEXT("rotationYaw"), Rotation.Yaw);
+                Result->SetNumberField(TEXT("rotationRoll"), Rotation.Roll);
+            }
         }
     }
     else

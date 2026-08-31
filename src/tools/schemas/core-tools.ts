@@ -587,7 +587,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
           type: 'string',
           enum: [
             'profile', 'show_fps', 'set_quality', 'screenshot', 'set_resolution', 'set_fullscreen', 'execute_command', 'console_command',
-            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'check_for_errors', 'capture_insights_trace', 'analyze_trace', 'start_network_profiler', 'enable_visual_logger', 'add_visual_log_entry', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'create_automation_test', 'get_test_results', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'reload_config', 'flush_config', 'get_config_hierarchy', 'save_game_to_slot', 'load_game_from_slot', 'inspect_save_game_schema', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'enable_gameplay_debugger', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'runtime_health', 'get_runtime_capabilities', 'get_runtime_world', 'lumen_update_scene',
+            'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'check_for_errors', 'capture_insights_trace', 'analyze_trace', 'start_network_profiler', 'enable_visual_logger', 'add_visual_log_entry', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'create_automation_test', 'get_test_results', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'list_config_layers', 'get_config_value', 'set_config_value', 'reload_config', 'flush_config', 'get_config_hierarchy', 'save_game_to_slot', 'load_game_from_slot', 'inspect_save_game_schema', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'enable_gameplay_debugger', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'runtime_health', 'get_runtime_capabilities', 'get_runtime_world', 'get_runtime_actors', 'get_runtime_actor', 'lumen_update_scene',
             'wait_for_job',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
@@ -635,6 +635,9 @@ export const coreToolDefinitions: ToolDefinition[] = [
         reportPath: { type: 'string', description: 'Optional JSON report filename written under Saved/AutomationReports after run_tests completes.' },
         testName: commonSchemas.name,
         timeLimit: { type: 'number', minimum: 0, maximum: 3600, description: 'Optional Functional Test time limit in seconds.' },
+        actorName: commonSchemas.actorName,
+        classFilter: commonSchemas.stringProp,
+        limit: commonSchemas.integerProp,
         saveLevel: { type: 'boolean', description: 'Persist the newly created Functional Test actor to the loaded level.' },
         pluginAction: { type: 'string', enum: ['list', 'validate', 'enable', 'disable'] },
         pluginName: commonSchemas.name,

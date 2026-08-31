@@ -8,6 +8,7 @@
 #include "HAL/PlatformProcess.h"
 #include "HAL/PlatformTime.h"
 #include "IPAddress.h"
+#include "Misc/App.h"
 #include "Misc/Base64.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/SecureHash.h"

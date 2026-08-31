@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Containers/Ticker.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Sockets.h"
 #include "NebulaForgeRuntimeSubsystem.generated.h"
@@ -17,7 +18,8 @@ struct FNebulaForgeRuntimeClient
  * Packaged-game MCP bridge. This subsystem intentionally exposes only runtime-safe
  * inspection actions; editor asset authoring remains in NebulaForgeBridge.
  *
- * The bridge is opt-in. Enable it with [NebulaForgeBridgeRuntime] bEnabled=true
+ * The bridge is opt-in. Enable it with
+ * [/Script/NebulaForgeBridgeRuntime.NebulaForgeRuntimeSettings] bEnabled=true
  * in the project game ini or NEBULAFORGE_RUNTIME_BRIDGE_ENABLED=true.
  */
 UCLASS()

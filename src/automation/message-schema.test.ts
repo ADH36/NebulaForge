@@ -27,6 +27,20 @@ describe('automationMessageSchema', () => {
         expect(automationMessageSchema.parse(message)).toEqual(message);
     });
 
+    it('accepts the opt-in packaged runtime capability contract', () => {
+        const message = {
+            type: 'bridge_ack',
+            serverName: 'NebulaForgeRuntime',
+            executionMode: 'runtime',
+            editorAutomation: false,
+            pieRuntimeWorld: true,
+            packagedRuntimeAuthoring: false,
+            capabilities: ['runtime_health', 'get_runtime_capabilities', 'get_runtime_world']
+        };
+
+        expect(automationMessageSchema.parse(message)).toEqual(message);
+    });
+
     it('rejects negative bridge heartbeat intervals', () => {
         expect(() => automationMessageSchema.parse({
             type: 'bridge_ack',

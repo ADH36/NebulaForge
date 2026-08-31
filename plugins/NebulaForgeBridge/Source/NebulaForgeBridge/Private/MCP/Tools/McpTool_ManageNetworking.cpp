@@ -113,6 +113,7 @@ public:
 			.String(TEXT("presenceState"), TEXT("Presence state: online, away, extended_away, do_not_disturb, chat, or offline."))
 			.String(TEXT("statusText"), TEXT("Provider-visible presence status text."))
 			.String(TEXT("friendsListName"), TEXT("Provider friend-list name; defaults to default."))
+			.String(TEXT("friendId"), TEXT("Provider-native unique ID of the friend."))
 			.String(TEXT("searchId"), TEXT("Search token returned by find_online_sessions."))
 			.Number(TEXT("resultIndex"), TEXT("Search result index to join."))
 			.Number(TEXT("maxSearchResults"), TEXT("Maximum online session results to return."))

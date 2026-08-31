@@ -482,6 +482,95 @@ static bool HandleOnlineSessionLifecycle(
         return true;
     }
 
+    if (SubAction == TEXT("send_online_friend_invite") || SubAction == TEXT("accept_online_friend_invite"))
+    {
+        IOnlineFriendsPtr Friends = OnlineSubsystem->GetFriendsInterface();
+        if (!Friends.IsValid())
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("The selected Online Subsystem does not expose a friends interface."),
+                TEXT("FRIENDS_INTERFACE_UNAVAILABLE"));
+            return true;
+        }
+        const int32 LocalUserNum = FMath::Clamp(static_cast<int32>(GetJsonNumberField(Payload, TEXT("localUserNum"), 0.0)), 0, 7);
+        IOnlineIdentityPtr Identity = OnlineSubsystem->GetIdentityInterface();
+        if (!Identity.IsValid() || !Identity->GetUniquePlayerId(LocalUserNum).IsValid())
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("A logged-in local user is required for friend invites."),
+                TEXT("IDENTITY_NOT_AVAILABLE"));
+            return true;
+        }
+        FString FriendIdString = GetJsonStringField(Payload, TEXT("friendId"), TEXT(""));
+        FriendIdString.TrimStartAndEndInline();
+        if (FriendIdString.IsEmpty() || FriendIdString.Len() > 256)
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("friendId is required and must be between 1 and 256 characters."), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        const FUniqueNetIdPtr FriendId = Identity->CreateUniquePlayerId(FriendIdString);
+        if (!FriendId.IsValid())
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("friendId is not valid for the selected Online Subsystem."), TEXT("INVALID_FRIEND_ID"));
+            return true;
+        }
+        FString ListName = GetJsonStringField(Payload, TEXT("friendsListName"), TEXT("default"));
+        ListName.TrimStartAndEndInline();
+        if (ListName.IsEmpty() || ListName.Len() > 64)
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("friendsListName must be between 1 and 64 characters."), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        const bool bAccept = SubAction == TEXT("accept_online_friend_invite");
+        const double OnlineTimeoutSeconds = FMath::Clamp(GetNumberFieldSess(Payload, TEXT("timeoutMs"), 30000.0) / 1000.0, 1.0, 300.0);
+        const TSharedRef<FOnlineRequestGuard> Guard = MakeShared<FOnlineRequestGuard>();
+        StartOnlineRequestGuard(Guard, OnlineTimeoutSeconds, [Subsystem, RequestId, Socket, Guard, bAccept]()
+        {
+            if (Guard->bCompleted) return;
+            Guard->bCompleted = true;
+            Subsystem->SendAutomationError(Socket, RequestId,
+                bAccept ? TEXT("Online friend invite acceptance timed out.") : TEXT("Online friend invite request timed out."),
+                TEXT("ONLINE_REQUEST_TIMEOUT"));
+        });
+        const auto Complete = [Subsystem, RequestId, Socket, Guard, LocalUserNum, FriendIdString, ListName, bAccept](int32 CompletedUserNum, bool bWasSuccessful, const FUniqueNetId&, const FString&, const FString& ErrorStr)
+        {
+            if (Guard->bCompleted) return;
+            FinishOnlineRequestGuard(Guard);
+            TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+            Result->SetNumberField(TEXT("localUserNum"), CompletedUserNum);
+            Result->SetStringField(TEXT("friendId"), FriendIdString);
+            Result->SetStringField(TEXT("friendsListName"), ListName);
+            Result->SetBoolField(bAccept ? TEXT("accepted") : TEXT("inviteSent"), bWasSuccessful);
+            Result->SetStringField(TEXT("operation"), bAccept ? TEXT("accept") : TEXT("send"));
+            Subsystem->SendAutomationResponse(Socket, RequestId, bWasSuccessful,
+                bWasSuccessful ? (bAccept ? TEXT("Online friend invite accepted") : TEXT("Online friend invite sent"))
+                    : (ErrorStr.IsEmpty() ? (bAccept ? TEXT("Online friend invite acceptance failed") : TEXT("Online friend invite failed")) : *ErrorStr),
+                Result, bWasSuccessful ? FString() : TEXT("FRIEND_INVITE_FAILED"));
+        };
+        bool bStarted = false;
+        if (bAccept)
+        {
+            bStarted = Friends->AcceptInvite(LocalUserNum, *FriendId, ListName,
+                FOnAcceptInviteComplete::CreateLambda(Complete));
+        }
+        else
+        {
+            bStarted = Friends->SendInvite(LocalUserNum, *FriendId, ListName,
+                FOnSendInviteComplete::CreateLambda(Complete));
+        }
+        if (!bStarted)
+        {
+            FinishOnlineRequestGuard(Guard);
+            Subsystem->SendAutomationError(Socket, RequestId,
+                bAccept ? TEXT("The Online Subsystem rejected the friend invite acceptance request.") : TEXT("The Online Subsystem rejected the friend invite request."),
+                TEXT("FRIEND_INVITE_START_FAILED"));
+        }
+        return true;
+    }
+
     IOnlineSessionPtr Sessions = OnlineSubsystem->GetSessionInterface();
     if (!Sessions.IsValid())
     {

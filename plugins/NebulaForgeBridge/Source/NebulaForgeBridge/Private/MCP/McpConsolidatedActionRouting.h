@@ -639,7 +639,7 @@ inline const TArray<FString>& Sessions()
 		TEXT("set_voice_channel"), TEXT("mute_player"),
 		TEXT("set_voice_attenuation"), TEXT("configure_push_to_talk"),
 		TEXT("get_sessions_info"), TEXT("get_online_capabilities"),
-		TEXT("get_online_session_status"), TEXT("get_online_identity_status"), TEXT("get_online_presence"), TEXT("set_online_presence"), TEXT("get_online_friends"), TEXT("create_online_session"), TEXT("find_online_sessions"),
+		TEXT("get_online_session_status"), TEXT("get_online_identity_status"), TEXT("get_online_presence"), TEXT("set_online_presence"), TEXT("get_online_friends"), TEXT("send_online_friend_invite"), TEXT("accept_online_friend_invite"), TEXT("create_online_session"), TEXT("find_online_sessions"),
 		TEXT("join_online_session"), TEXT("destroy_online_session"),
 		TEXT("configure_network_conditions")
 	};

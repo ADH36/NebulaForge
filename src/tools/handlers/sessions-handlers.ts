@@ -104,6 +104,10 @@ export async function handleSessionsTools(
       return sendRequest('set_online_presence');
     case 'get_online_friends':
       return sendRequest('get_online_friends');
+    case 'send_online_friend_invite':
+      return sendRequest('send_online_friend_invite');
+    case 'accept_online_friend_invite':
+      return sendRequest('accept_online_friend_invite');
     case 'configure_network_conditions':
       return sendRequest('configure_network_conditions');
     case 'create_online_session':

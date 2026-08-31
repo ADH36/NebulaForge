@@ -198,7 +198,7 @@ export const SESSION_ACTIONS = [
   'host_lan_server', 'join_lan_server', 'enable_voice_chat', 'configure_voice_settings',
   'set_voice_channel', 'mute_player', 'set_voice_attenuation', 'configure_push_to_talk',
   'get_sessions_info', 'get_online_capabilities', 'create_online_session',
-  'get_online_session_status', 'get_online_identity_status', 'get_online_presence', 'set_online_presence', 'find_online_sessions', 'join_online_session', 'destroy_online_session', 'configure_network_conditions'
+  'get_online_session_status', 'get_online_identity_status', 'get_online_presence', 'set_online_presence', 'get_online_friends', 'find_online_sessions', 'join_online_session', 'destroy_online_session', 'configure_network_conditions'
 ] as const;
 
 export const GAME_FRAMEWORK_ACTIONS = [
@@ -4024,6 +4024,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         localUserNum: commonSchemas.numberProp,
         presenceState: { type: 'string', enum: ['online', 'away', 'extended_away', 'do_not_disturb', 'chat', 'offline'] },
         statusText: commonSchemas.stringProp,
+        friendsListName: { type: 'string', description: 'Provider friend-list name; defaults to default.' },
         searchId: commonSchemas.stringProp,
         resultIndex: commonSchemas.numberProp,
         maxSearchResults: commonSchemas.numberProp,
@@ -4222,7 +4223,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
           },
           description: 'Networking info (for get_networking_info).'
         },
-        error: commonSchemas.stringProp
+        error: commonSchemas.stringProp,
+        friends: { type: 'array', items: { type: 'object' }, description: 'Provider friend records returned by get_online_friends.' }
       }
     }
   },

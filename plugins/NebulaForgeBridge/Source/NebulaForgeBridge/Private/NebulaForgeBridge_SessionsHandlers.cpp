@@ -90,6 +90,7 @@
 #include "Interfaces/VoiceInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlinePresenceInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
 #include "Online/OnlineSessionNames.h"
@@ -393,6 +394,91 @@ static bool HandleOnlineSessionLifecycle(
                         bWasSuccessful ? TEXT("Online presence updated") : TEXT("Online presence update failed"),
                         Result, bWasSuccessful ? FString() : TEXT("PRESENCE_UPDATE_FAILED"));
                 }));
+        return true;
+    }
+
+    if (SubAction == TEXT("get_online_friends"))
+    {
+        IOnlineFriendsPtr Friends = OnlineSubsystem->GetFriendsInterface();
+        if (!Friends.IsValid())
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("The selected Online Subsystem does not expose a friends interface."),
+                TEXT("FRIENDS_INTERFACE_UNAVAILABLE"));
+            return true;
+        }
+        const int32 LocalUserNum = FMath::Clamp(static_cast<int32>(GetJsonNumberField(Payload, TEXT("localUserNum"), 0.0)), 0, 7);
+        IOnlineIdentityPtr Identity = OnlineSubsystem->GetIdentityInterface();
+        if (!Identity.IsValid() || !Identity->GetUniquePlayerId(LocalUserNum).IsValid())
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("A logged-in local user is required to read friends."),
+                TEXT("IDENTITY_NOT_AVAILABLE"));
+            return true;
+        }
+        FString ListName = GetJsonStringField(Payload, TEXT("friendsListName"), TEXT("default"));
+        ListName.TrimStartAndEndInline();
+        if (ListName.IsEmpty() || ListName.Len() > 64)
+        {
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("friendsListName must be between 1 and 64 characters."), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        const double OnlineTimeoutSeconds = FMath::Clamp(GetNumberFieldSess(Payload, TEXT("timeoutMs"), 30000.0) / 1000.0, 1.0, 300.0);
+        const TSharedRef<FOnlineRequestGuard> Guard = MakeShared<FOnlineRequestGuard>();
+        StartOnlineRequestGuard(Guard, OnlineTimeoutSeconds, [Subsystem, RequestId, Socket, Guard]()
+        {
+            if (Guard->bCompleted) return;
+            Guard->bCompleted = true;
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("Online friends request timed out."), TEXT("ONLINE_REQUEST_TIMEOUT"));
+        });
+        const bool bStarted = Friends->ReadFriendsList(LocalUserNum, ListName,
+            FOnReadFriendsListComplete::CreateLambda(
+                [Subsystem, RequestId, Socket, Friends, OnlineSubsystem, ListName, Guard](int32 CompletedUserNum, bool bWasSuccessful, const FString&, const FString& ErrorStr)
+                {
+                    if (Guard->bCompleted) return;
+                    FinishOnlineRequestGuard(Guard);
+                    if (!bWasSuccessful)
+                    {
+                        Subsystem->SendAutomationError(Socket, RequestId,
+                            ErrorStr.IsEmpty() ? TEXT("Online friends request failed.") : ErrorStr,
+                            TEXT("FRIENDS_READ_FAILED"));
+                        return;
+                    }
+                    TArray<TSharedRef<FOnlineFriend>> FriendList;
+                    if (!Friends->GetFriendsList(CompletedUserNum, ListName, FriendList))
+                    {
+                        Subsystem->SendAutomationError(Socket, RequestId,
+                            TEXT("The Online Subsystem completed the friends request but returned no readable list."),
+                            TEXT("FRIENDS_LIST_UNAVAILABLE"));
+                        return;
+                    }
+                    TArray<TSharedPtr<FJsonValue>> FriendsJson;
+                    for (const TSharedRef<FOnlineFriend>& Friend : FriendList)
+                    {
+                        TSharedPtr<FJsonObject> FriendObject = McpHandlerUtils::CreateResultObject();
+                        FriendObject->SetStringField(TEXT("uniqueNetId"), Friend->GetUserId()->ToString());
+                        FriendObject->SetStringField(TEXT("displayName"), Friend->GetDisplayName());
+                        FriendObject->SetStringField(TEXT("realName"), Friend->GetRealName());
+                        FriendObject->SetStringField(TEXT("inviteStatus"), EInviteStatus::ToString(Friend->GetInviteStatus()));
+                        FriendsJson.Add(MakeShared<FJsonValueObject>(FriendObject));
+                    }
+                    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+                    Result->SetStringField(TEXT("subsystem"), OnlineSubsystem->GetSubsystemName().ToString());
+                    Result->SetNumberField(TEXT("localUserNum"), CompletedUserNum);
+                    Result->SetStringField(TEXT("friendsListName"), ListName);
+                    Result->SetArrayField(TEXT("friends"), FriendsJson);
+                    Result->SetNumberField(TEXT("count"), FriendsJson.Num());
+                    Subsystem->SendAutomationResponse(Socket, RequestId, true,
+                        TEXT("Online friends retrieved"), Result);
+                }));
+        if (!bStarted)
+        {
+            FinishOnlineRequestGuard(Guard);
+            Subsystem->SendAutomationError(Socket, RequestId,
+                TEXT("The Online Subsystem rejected the friends request."), TEXT("FRIENDS_READ_START_FAILED"));
+        }
         return true;
     }
 

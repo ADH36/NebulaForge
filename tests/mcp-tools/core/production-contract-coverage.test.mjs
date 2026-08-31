@@ -95,6 +95,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_networking', arguments: { action: 'get_online_identity_status', localUserNum: 0 }, expected: 'success|error' },
   { toolName: 'manage_networking', arguments: { action: 'get_online_presence', localUserNum: 0 }, expected: 'success|error' },
   { toolName: 'manage_networking', arguments: { action: 'set_online_presence', localUserNum: 0, presenceState: 'online', statusText: 'In game' }, expected: 'success|error' },
+  { toolName: 'manage_networking', arguments: { action: 'get_online_friends', localUserNum: 0, friendsListName: 'default', timeoutMs: 5000 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_job_status', jobId: 'contract-job' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'wait_for_job', jobId: 'contract-job', timeoutMs: 1000 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'wait_for_async_action', asyncId: 'contract-async', timeoutMs: 1000, pollIntervalMs: 50 }, expected: 'success|error' },

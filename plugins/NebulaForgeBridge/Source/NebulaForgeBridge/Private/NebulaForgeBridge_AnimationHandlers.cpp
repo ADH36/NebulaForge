@@ -3326,7 +3326,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
           Resp->SetNumberField(TEXT("startTime"), StartTime);
 
           Montage->MarkPackageDirty();
-          McpSafeAssetSave(Montage);
+          if (!McpSafeAssetSave(Montage)) {
+            bSuccess = false;
+            Message = TEXT("Montage section added but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          }
         } else {
           Message = FString::Printf(TEXT("Failed to add section '%s' - name may already exist"), *SectionName);
           ErrorCode = TEXT("SECTION_EXISTS");
@@ -3370,7 +3375,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
         Resp->SetStringField(TEXT("slotName"), SlotName);
 
         Montage->MarkPackageDirty();
-        McpSafeAssetSave(Montage);
+        if (!McpSafeAssetSave(Montage)) {
+          bSuccess = false;
+          Message = TEXT("Montage slot added but save failed");
+          ErrorCode = TEXT("SAVE_FAILED");
+          Resp->SetStringField(TEXT("error"), Message);
+        }
       }
     }
   } else if (LowerSub == TEXT("set_section_timing")) {
@@ -3414,7 +3424,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
             // Would need to use AnimDataController or modify the underlying sequence
             OutStartTime = static_cast<float>(StartTime);
             Montage->MarkPackageDirty();
-            McpSafeAssetSave(Montage);
+            if (!McpSafeAssetSave(Montage)) {
+              bSuccess = false;
+              Message = TEXT("Montage section timing changed but save failed");
+              ErrorCode = TEXT("SAVE_FAILED");
+              Resp->SetStringField(TEXT("error"), Message);
+            }
           }
 
           bSuccess = true;
@@ -3458,7 +3473,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 
         Montage->Notifies.Add(NewEvent);
         Montage->MarkPackageDirty();
-        McpSafeAssetSave(Montage);
+        if (!McpSafeAssetSave(Montage)) {
+          bSuccess = false;
+          Message = TEXT("Montage notify added but save failed");
+          ErrorCode = TEXT("SAVE_FAILED");
+          Resp->SetStringField(TEXT("error"), Message);
+        }
 
         bSuccess = true;
         Message = FString::Printf(TEXT("Notify '%s' added at %.2fs"), *NotifyName, Time);
@@ -3489,7 +3509,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
         Montage->Modify();
         Montage->BlendIn.SetBlendTime(static_cast<float>(BlendTime));
         Montage->MarkPackageDirty();
-        McpSafeAssetSave(Montage);
+        if (!McpSafeAssetSave(Montage)) {
+          bSuccess = false;
+          Message = TEXT("Montage blend-in changed but save failed");
+          ErrorCode = TEXT("SAVE_FAILED");
+          Resp->SetStringField(TEXT("error"), Message);
+        }
 
         bSuccess = true;
         Message = FString::Printf(TEXT("Blend in time set to %.2fs"), BlendTime);
@@ -3519,7 +3544,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
         Montage->Modify();
         Montage->BlendOut.SetBlendTime(static_cast<float>(BlendTime));
         Montage->MarkPackageDirty();
-        McpSafeAssetSave(Montage);
+        if (!McpSafeAssetSave(Montage)) {
+          bSuccess = false;
+          Message = TEXT("Montage blend-out changed but save failed");
+          ErrorCode = TEXT("SAVE_FAILED");
+          Resp->SetStringField(TEXT("error"), Message);
+        }
 
         bSuccess = true;
         Message = FString::Printf(TEXT("Blend out time set to %.2fs"), BlendTime);

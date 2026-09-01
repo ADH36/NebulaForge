@@ -255,6 +255,16 @@ export async function handleSequenceTools(action: string, args: Record<string, u
         subAction: 'add_custom_primitive_data_track'
       }) as SequenceActionResponse);
     }
+    case 'add_niagara_system_track': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const actorName = requireNonEmptyString(args.actorName, 'actorName', 'Missing required parameter: actorName');
+      const startFrame = Number(args.startFrame ?? 0);
+      const endFrame = Number(args.endFrame ?? startFrame + 1);
+      if (!Number.isInteger(startFrame) || !Number.isInteger(endFrame) || endFrame <= startFrame) throw new Error('endFrame must be an integer greater than startFrame');
+      return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args, path, actorName, startFrame, endFrame, subAction: 'add_niagara_system_track'
+      }) as SequenceActionResponse);
+    }
     case 'add_shot_track':
     case 'configure_shot_settings':
     case 'add_camera_cut_track':

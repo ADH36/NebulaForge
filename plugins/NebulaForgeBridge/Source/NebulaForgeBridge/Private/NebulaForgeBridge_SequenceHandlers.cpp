@@ -234,6 +234,13 @@ TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedS
 #include "Sections/MovieSceneAudioSection.h"
 #include "Tracks/MovieSceneMaterialTrack.h"
 #include "Tracks/MovieSceneCustomPrimitiveDataTrack.h"
+#if __has_include("MovieScene/MovieSceneNiagaraSystemTrack.h") && __has_include("MovieScene/MovieSceneNiagaraSystemSpawnSection.h")
+#include "MovieScene/MovieSceneNiagaraSystemTrack.h"
+#include "MovieScene/MovieSceneNiagaraSystemSpawnSection.h"
+#define MCP_HAS_NIAGARA_SEQUENCE_TRACK 1
+#else
+#define MCP_HAS_NIAGARA_SEQUENCE_TRACK 0
+#endif
 #include "Tracks/MovieSceneEventTrack.h"
 #include "Sound/SoundBase.h"
 
@@ -2921,6 +2928,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
                EffectiveAction == TEXT("add_material_parameter_track") ||
                EffectiveAction == TEXT("add_material_color_track") ||
                EffectiveAction == TEXT("add_custom_primitive_data_track") ||
+               EffectiveAction == TEXT("add_niagara_system_track") ||
                EffectiveAction == TEXT("add_camera_cut_track") ||
                EffectiveAction == TEXT("add_camera_shake_track") ||
                EffectiveAction == TEXT("add_fade_track") ||
@@ -2936,6 +2944,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         else if (EffectiveAction == TEXT("add_material_parameter_track")) TrackType = TEXT("Material");
         else if (EffectiveAction == TEXT("add_material_color_track")) TrackType = TEXT("Material");
         else if (EffectiveAction == TEXT("add_custom_primitive_data_track")) TrackType = TEXT("CustomPrimitiveData");
+        else if (EffectiveAction == TEXT("add_niagara_system_track")) TrackType = TEXT("NiagaraSystem");
         else if (EffectiveAction == TEXT("add_camera_cut_track")) TrackType = TEXT("CameraCut");
         else if (EffectiveAction == TEXT("add_camera_shake_track")) TrackType = TEXT("CameraShake");
         else if (EffectiveAction == TEXT("add_fade_track")) TrackType = TEXT("Fade");
@@ -2955,6 +2964,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
           EffectiveAction = TEXT("sequence_add_material_color_track");
         else if (EffectiveAction == TEXT("add_custom_primitive_data_track"))
           EffectiveAction = TEXT("sequence_add_custom_primitive_data_track");
+        else if (EffectiveAction == TEXT("add_niagara_system_track"))
+          EffectiveAction = TEXT("sequence_add_niagara_system_track");
         else
           EffectiveAction = TEXT("sequence_add_track");
       }
@@ -3284,6 +3295,64 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     Result->SetBoolField(TEXT("playUntilFinished"), bPlayUntilFinished);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Audio track section added"), Result);
     return true;
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_niagara_system_track")) {
+#if MCP_HAS_NIAGARA_SEQUENCE_TRACK
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    FString ActorName;
+    int32 StartFrame = 0;
+    int32 EndFrame = 1;
+    if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("actorName"), ActorName) || ActorName.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("path and actorName are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    LocalPayload->TryGetNumberField(TEXT("startFrame"), StartFrame);
+    LocalPayload->TryGetNumberField(TEXT("endFrame"), EndFrame);
+    if (EndFrame <= StartFrame) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("endFrame must be greater than startFrame"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    ULevelSequence* Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    FGuid BindingGuid;
+    for (const FMovieSceneBinding& Binding : Sequence->GetMovieScene()->GetBindings()) {
+      FString BindingName;
+      if (const FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(Binding.GetObjectGuid())) BindingName = Possessable->GetName();
+      else if (const FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(Binding.GetObjectGuid())) BindingName = Spawnable->GetName();
+      if (BindingName.Equals(ActorName, ESearchCase::IgnoreCase) || BindingName.Contains(ActorName)) { BindingGuid = Binding.GetObjectGuid(); break; }
+    }
+    if (!BindingGuid.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Binding not found for actor"), TEXT("BINDING_NOT_FOUND"));
+      return true;
+    }
+    UMovieSceneNiagaraSystemTrack* NiagaraTrack = Cast<UMovieSceneNiagaraSystemTrack>(Sequence->GetMovieScene()->AddTrack(UMovieSceneNiagaraSystemTrack::StaticClass(), BindingGuid));
+    if (!NiagaraTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara system track"), TEXT("TRACK_CREATION_FAILED"));
+      return true;
+    }
+    UMovieSceneNiagaraSystemSpawnSection* Section = Cast<UMovieSceneNiagaraSystemSpawnSection>(NiagaraTrack->CreateNewSection());
+    if (!Section) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara spawn section"), TEXT("SECTION_CREATION_FAILED"));
+      return true;
+    }
+    Section->SetRange(TRange<FFrameNumber>(FFrameNumber(StartFrame), FFrameNumber(EndFrame)));
+    NiagaraTrack->AddSection(*Section);
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), SeqPath);
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetNumberField(TEXT("startFrame"), StartFrame);
+    Result->SetNumberField(TEXT("endFrame"), EndFrame);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Niagara system track added"), Result);
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara Sequencer API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
+    return true;
+#endif
   }
 
   if (EffectiveAction == TEXT("sequence_add_custom_primitive_data_track")) {

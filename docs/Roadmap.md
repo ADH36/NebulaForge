@@ -2122,6 +2122,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Actors: `spawn_paper_tile_map_actor` (official `APaperTileMapActor::GetRenderComponent` and `UPaperTileMapComponent::SetTileMap`; requires the optional Paper2D plugin and a pre-existing tile-map asset)
 - [x] Actors: `set_paper_tile_map_color` (official `UPaperTileMapComponent::SetTileMapColor`; requires the optional Paper2D plugin)
 - [x] Actors: `set_paper_tile_map_layer_color` (official `UPaperTileMapComponent::SetLayerColor`; requires the optional Paper2D plugin)
+- [x] Actors: `get_paper_tile_map_layer_color` (official `UPaperTileMapComponent::GetLayerColor`; bounded layer readback)
 - [x] Actors: `get_paper_tile_map_info` (official `UPaperTileMapComponent::GetMapSize` and `GetRenderingStats`; requires the optional Paper2D plugin)
 - [x] Actors: `get_paper_tile` (official `UPaperTileMapComponent::GetTile`, `GetTileCenterPosition`, and `GetTileCornerPosition`; bounded cell readback with local/world-space positions)
 - [x] Actors: `resize_paper_tile_map` (official `UPaperTileMapComponent::ResizeMap`; bounded resize of owned tile maps with resulting dimensions read back)

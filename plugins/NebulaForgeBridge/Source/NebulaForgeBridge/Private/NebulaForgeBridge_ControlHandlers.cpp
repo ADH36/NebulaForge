@@ -4705,6 +4705,43 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map color updated"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_paper_tile_map_layer_color")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    int32 Layer = 0;
+    int32 MapWidth = 0;
+    int32 MapHeight = 0;
+    int32 NumLayers = 0;
+    if (!TileMapComponent || !Payload->TryGetNumberField(TEXT("layer"), Layer)) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperTileMapComponent, and integer layer are required"), nullptr);
+      return true;
+    }
+    TileMapComponent->GetMapSize(MapWidth, MapHeight, NumLayers);
+    if (Layer < 0 || Layer >= NumLayers) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("OUT_OF_BOUNDS"),
+                                TEXT("layer must address an existing tile-map layer"), nullptr);
+      return true;
+    }
+    const FLinearColor Color = TileMapComponent->GetLayerColor(Layer);
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetNumberField(TEXT("layer"), Layer);
+    Data->SetObjectField(TEXT("color"), McpHandlerUtils::LinearColorToJson(Color));
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map layer color read"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("set_paper_tile_map_layer_color")) {
     FString TargetName;
     FString ComponentName;

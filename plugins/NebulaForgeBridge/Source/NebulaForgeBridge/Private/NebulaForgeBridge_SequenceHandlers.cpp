@@ -241,6 +241,14 @@ TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedS
 #else
 #define MCP_HAS_NIAGARA_SEQUENCE_TRACK 0
 #endif
+#if __has_include("MovieScene/Parameters/MovieSceneNiagaraFloatParameterTrack.h") && __has_include("NiagaraVariable.h") && __has_include("NiagaraTypes.h")
+#include "MovieScene/Parameters/MovieSceneNiagaraFloatParameterTrack.h"
+#include "NiagaraVariable.h"
+#include "NiagaraTypes.h"
+#define MCP_HAS_NIAGARA_FLOAT_PARAMETER_TRACK 1
+#else
+#define MCP_HAS_NIAGARA_FLOAT_PARAMETER_TRACK 0
+#endif
 #include "Tracks/MovieSceneEventTrack.h"
 #include "Sound/SoundBase.h"
 
@@ -2929,6 +2937,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
                EffectiveAction == TEXT("add_material_color_track") ||
                EffectiveAction == TEXT("add_custom_primitive_data_track") ||
                EffectiveAction == TEXT("add_niagara_system_track") ||
+               EffectiveAction == TEXT("create_niagara_float_parameter_track") ||
                EffectiveAction == TEXT("add_camera_cut_track") ||
                EffectiveAction == TEXT("add_camera_shake_track") ||
                EffectiveAction == TEXT("add_fade_track") ||
@@ -2945,6 +2954,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         else if (EffectiveAction == TEXT("add_material_color_track")) TrackType = TEXT("Material");
         else if (EffectiveAction == TEXT("add_custom_primitive_data_track")) TrackType = TEXT("CustomPrimitiveData");
         else if (EffectiveAction == TEXT("add_niagara_system_track")) TrackType = TEXT("NiagaraSystem");
+        else if (EffectiveAction == TEXT("create_niagara_float_parameter_track")) TrackType = TEXT("NiagaraFloatParameter");
         else if (EffectiveAction == TEXT("add_camera_cut_track")) TrackType = TEXT("CameraCut");
         else if (EffectiveAction == TEXT("add_camera_shake_track")) TrackType = TEXT("CameraShake");
         else if (EffectiveAction == TEXT("add_fade_track")) TrackType = TEXT("Fade");
@@ -2966,6 +2976,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
           EffectiveAction = TEXT("sequence_add_custom_primitive_data_track");
         else if (EffectiveAction == TEXT("add_niagara_system_track"))
           EffectiveAction = TEXT("sequence_add_niagara_system_track");
+        else if (EffectiveAction == TEXT("create_niagara_float_parameter_track"))
+          EffectiveAction = TEXT("sequence_create_niagara_float_parameter_track");
         else
           EffectiveAction = TEXT("sequence_add_track");
       }
@@ -3295,6 +3307,55 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     Result->SetBoolField(TEXT("playUntilFinished"), bPlayUntilFinished);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Audio track section added"), Result);
     return true;
+  }
+
+  if (EffectiveAction == TEXT("sequence_create_niagara_float_parameter_track")) {
+#if MCP_HAS_NIAGARA_FLOAT_PARAMETER_TRACK
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    FString ActorName;
+    FString ParameterName;
+    if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("actorName"), ActorName) || ActorName.IsEmpty() ||
+        !LocalPayload->TryGetStringField(TEXT("parameterName"), ParameterName) || ParameterName.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("path, actorName, and parameterName are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    ULevelSequence* Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    FGuid BindingGuid;
+    for (const FMovieSceneBinding& Binding : Sequence->GetMovieScene()->GetBindings()) {
+      FString BindingName;
+      if (const FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(Binding.GetObjectGuid())) BindingName = Possessable->GetName();
+      else if (const FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(Binding.GetObjectGuid())) BindingName = Spawnable->GetName();
+      if (BindingName.Equals(ActorName, ESearchCase::IgnoreCase) || BindingName.Contains(ActorName)) { BindingGuid = Binding.GetObjectGuid(); break; }
+    }
+    if (!BindingGuid.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Binding not found for actor"), TEXT("BINDING_NOT_FOUND"));
+      return true;
+    }
+    UMovieSceneNiagaraFloatParameterTrack* ParameterTrack = Cast<UMovieSceneNiagaraFloatParameterTrack>(
+        Sequence->GetMovieScene()->AddTrack(UMovieSceneNiagaraFloatParameterTrack::StaticClass(), BindingGuid));
+    if (!ParameterTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara float parameter track"), TEXT("TRACK_CREATION_FAILED"));
+      return true;
+    }
+    ParameterTrack->SetParameter(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), FName(*ParameterName)));
+    UMovieSceneSection* Section = ParameterTrack->CreateNewSection();
+    if (Section) ParameterTrack->AddSection(*Section);
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), SeqPath);
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetStringField(TEXT("parameterName"), ParameterName);
+    Result->SetStringField(TEXT("parameterType"), TEXT("float"));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Niagara float parameter track created"), Result);
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara float parameter track API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
+    return true;
+#endif
   }
 
   if (EffectiveAction == TEXT("sequence_add_niagara_system_track")) {

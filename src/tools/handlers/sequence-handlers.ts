@@ -265,6 +265,14 @@ export async function handleSequenceTools(action: string, args: Record<string, u
         ...args, path, actorName, startFrame, endFrame, subAction: 'add_niagara_system_track'
       }) as SequenceActionResponse);
     }
+    case 'create_niagara_float_parameter_track': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const actorName = requireNonEmptyString(args.actorName, 'actorName', 'Missing required parameter: actorName');
+      const parameterName = requireNonEmptyString(args.parameterName, 'parameterName', 'Missing required parameter: parameterName');
+      return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args, path, actorName, parameterName, subAction: 'create_niagara_float_parameter_track'
+      }) as SequenceActionResponse);
+    }
     case 'add_shot_track':
     case 'configure_shot_settings':
     case 'add_camera_cut_track':

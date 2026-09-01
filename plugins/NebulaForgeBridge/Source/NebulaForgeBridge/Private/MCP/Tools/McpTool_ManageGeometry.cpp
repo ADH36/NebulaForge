@@ -124,6 +124,7 @@ public:
 				TEXT("deactivate_modeling_tool"),
 				TEXT("inspect_modeling_mode"),
 				TEXT("get_uv_set_bounds"),
+				TEXT("get_num_uv_islands"),
 				TEXT("get_mesh_info")
 			}, TEXT("Geometry action to perform"))
 			.String(TEXT("outputPath"), TEXT("Output file or directory path."))

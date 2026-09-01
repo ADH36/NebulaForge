@@ -401,10 +401,6 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         rowName: commonSchemas.name,
         width: commonSchemas.numberProp,
         height: commonSchemas.numberProp,
-        uvArea: commonSchemas.numberProp,
-        validUVTriangleCount: commonSchemas.numberProp,
-        surfaceArea: commonSchemas.numberProp,
-        volume: commonSchemas.numberProp,
         depth: commonSchemas.numberProp,
         format: commonSchemas.stringProp,
         mediaUrl: commonSchemas.stringProp,
@@ -2501,7 +2497,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'recalculate_normals', 'flip_normals', 'recompute_tangents',
             'generate_collision', 'generate_complex_collision', 'simplify_collision',
             'generate_lods', 'set_lod_settings', 'set_lod_screen_sizes', 'convert_to_nanite',
-            'convert_to_static_mesh', 'activate_modeling_tool', 'deactivate_modeling_tool', 'inspect_modeling_mode', 'get_uv_set_bounds',
+            'convert_to_static_mesh', 'activate_modeling_tool', 'deactivate_modeling_tool', 'inspect_modeling_mode', 'get_uv_set_bounds', 'get_num_uv_islands',
             'get_mesh_info'
           ],
           description: 'Geometry action to perform'
@@ -2609,6 +2605,11 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         max: commonSchemas.objectProp,
         width: commonSchemas.numberProp,
         height: commonSchemas.numberProp,
+        uvArea: commonSchemas.numberProp,
+        validUVTriangleCount: commonSchemas.numberProp,
+        surfaceArea: commonSchemas.numberProp,
+        volume: commonSchemas.numberProp,
+        uvIslandCount: commonSchemas.numberProp,
         meshInfo: {
           type: 'object',
           properties: {

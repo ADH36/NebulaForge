@@ -1196,6 +1196,71 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     return true;
 }
 
+static bool HandleGetNumUVIslands(UNebulaForgeBridgeSubsystem* Self, const FString& RequestId,
+                                  const TSharedPtr<FJsonObject>& Payload, TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5
+    const FString ActorName = GetStringFieldGeom(Payload, TEXT("actorName"));
+    const int32 UVChannel = GetIntFieldGeom(Payload, TEXT("uvChannel"), 0);
+    if (ActorName.IsEmpty())
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("actorName required"), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
+    if (UVChannel < 0)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("uvChannel must be non-negative"), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
+
+    UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+    if (!World)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("No world available"), TEXT("NO_WORLD"));
+        return true;
+    }
+
+    ADynamicMeshActor* TargetActor = nullptr;
+    for (TActorIterator<ADynamicMeshActor> It(World); It; ++It)
+    {
+        if (It->GetActorLabel() == ActorName)
+        {
+            TargetActor = *It;
+            break;
+        }
+    }
+    if (!TargetActor)
+    {
+        Self->SendAutomationError(Socket, RequestId, FString::Printf(TEXT("Actor not found: %s"), *ActorName), TEXT("ACTOR_NOT_FOUND"));
+        return true;
+    }
+
+    UDynamicMeshComponent* DMC = TargetActor->GetDynamicMeshComponent();
+    UDynamicMesh* Mesh = DMC ? DMC->GetDynamicMesh() : nullptr;
+    if (!Mesh)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("DynamicMesh not available"), TEXT("MESH_NOT_FOUND"));
+        return true;
+    }
+
+    bool bValidUVChannel = false;
+    const int32 UVIslandCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumUVIslands(
+        Mesh, UVChannel, bValidUVChannel);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetNumberField(TEXT("uvChannel"), UVChannel);
+    Result->SetBoolField(TEXT("isValidUVChannel"), bValidUVChannel);
+    Result->SetNumberField(TEXT("uvIslandCount"), UVIslandCount);
+    Self->SendAutomationResponse(Socket, RequestId, true, TEXT("UV island count retrieved"), Result);
+    return true;
+#else
+    Self->SendAutomationError(Socket, RequestId,
+                              TEXT("get_num_uv_islands requires Unreal Engine 5.5 or newer"),
+                              TEXT("NOT_SUPPORTED"));
+    return true;
+#endif
+}
+
 static bool HandleGetUVSetBounds(UNebulaForgeBridgeSubsystem* Self, const FString& RequestId,
                                  const TSharedPtr<FJsonObject>& Payload, TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
@@ -8077,6 +8142,7 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     }
     if (SubAction == TEXT("get_mesh_info")) return HandleGetMeshInfo(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("get_uv_set_bounds")) return HandleGetUVSetBounds(this, RequestId, Payload, RequestingSocket);
+    if (SubAction == TEXT("get_num_uv_islands")) return HandleGetNumUVIslands(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("recalculate_normals")) return HandleRecalculateNormals(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("flip_normals")) return HandleFlipNormals(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("simplify_mesh")) return HandleSimplifyMesh(this, RequestId, Payload, RequestingSocket);

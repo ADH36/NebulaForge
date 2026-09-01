@@ -124,6 +124,7 @@ const testCases = [
   { scenario: 'ACTION: project_uv', toolName: 'manage_geometry', arguments: {"action": "project_uv", "actorName": EDIT_ACTOR, "uvChannel": 0}, expected: 'success' },
   { scenario: 'ACTION: transform_uvs', toolName: 'manage_geometry', arguments: {"action": "transform_uvs", "actorName": EDIT_ACTOR, "uvChannel": 0, "uvOffset": {"u": 0.1, "v": 0.2}, "uvScale": {"u": 1.1, "v": 0.9}, "rotation": 15}, expected: 'success' },
   { scenario: 'ACTION: get_uv_set_bounds', toolName: 'manage_geometry', arguments: {"action": "get_uv_set_bounds", "actorName": EDIT_ACTOR, "uvChannel": 0}, expected: 'success' },
+  { scenario: 'ACTION: get_num_uv_islands', toolName: 'manage_geometry', arguments: {"action": "get_num_uv_islands", "actorName": EDIT_ACTOR, "uvChannel": 0}, expected: 'success|error' },
   { scenario: 'Reset: cleanup geometry actors', toolName: 'control_actor', arguments: { action: 'delete_by_tag', tag: 'GeoTest' }, expected: 'success|not found' },
   { scenario: 'ACTION: unwrap_uv', toolName: 'manage_geometry', arguments: {"action": "unwrap_uv", "actorName": EDIT_ACTOR, "uvChannel": 0}, expected: 'success' },
   { scenario: 'ACTION: unwrap_uvs alias', toolName: 'manage_geometry', arguments: {"action": "unwrap_uvs", "actorName": EDIT_ACTOR, "uvChannel": 0}, expected: 'success' },

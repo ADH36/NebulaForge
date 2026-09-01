@@ -113,6 +113,16 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInventoryAction(
 
   FString SubAction = GetPayloadString(Payload, TEXT("subAction"));
 
+  auto SaveInventoryAsset = [&](UObject* Asset) -> bool {
+    if (McpSafeAssetSave(Asset)) {
+      return true;
+    }
+    SendAutomationError(RequestingSocket, RequestId,
+                        TEXT("Inventory asset mutation applied but save failed"),
+                        TEXT("SAVE_FAILED"));
+    return false;
+  };
+
   // ===========================================================================
   // 17.1 Data Assets (4 actions)
   // ===========================================================================
@@ -432,7 +442,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
         if (GetPayloadBool(Payload, TEXT("save"), true)) {
-          McpSafeAssetSave(Blueprint);
+          if (!SaveInventoryAsset(Blueprint)) return true;
         }
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -510,7 +520,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -623,7 +633,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -693,7 +703,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -781,7 +791,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -857,7 +867,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       FAssetRegistryModule::AssetCreated(NewBlueprint);
 
       if (GetPayloadBool(Payload, TEXT("save"), true)) {
-        McpSafeAssetSave(NewBlueprint);
+        if (!SaveInventoryAsset(NewBlueprint)) return true;
       }
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -952,7 +962,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1043,7 +1053,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1146,7 +1156,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1241,7 +1251,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
         if (GetPayloadBool(Payload, TEXT("save"), true)) {
-          McpSafeAssetSave(Blueprint);
+          if (!SaveInventoryAsset(Blueprint)) return true;
         }
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1345,7 +1355,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1457,7 +1467,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1573,7 +1583,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1679,7 +1689,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1726,7 +1736,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       FAssetRegistryModule::AssetCreated(LootTableAsset);
 
       if (GetPayloadBool(Payload, TEXT("save"), true)) {
-        McpSafeAssetSave(LootTableAsset);
+        if (!SaveInventoryAsset(LootTableAsset)) return true;
       }
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1805,7 +1815,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     LootTable->MarkPackageDirty();
 
     if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(LootTable);
+      if (!SaveInventoryAsset(LootTable)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -1943,7 +1953,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2022,7 +2032,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     LootTable->MarkPackageDirty();
 
     if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(LootTable);
+      if (!SaveInventoryAsset(LootTable)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2082,7 +2092,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       FAssetRegistryModule::AssetCreated(RecipeAsset);
 
       if (GetPayloadBool(Payload, TEXT("save"), true)) {
-        McpSafeAssetSave(RecipeAsset);
+        if (!SaveInventoryAsset(RecipeAsset)) return true;
       }
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2130,7 +2140,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     GenericRecipe->MarkPackageDirty();
 
     if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(GenericRecipe);
+      if (!SaveInventoryAsset(GenericRecipe)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2192,7 +2202,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       FAssetRegistryModule::AssetCreated(StationBlueprint);
 
         if (GetPayloadBool(Payload, TEXT("save"), true)) {
-          McpSafeAssetSave(StationBlueprint);
+          if (!SaveInventoryAsset(StationBlueprint)) return true;
         }
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2306,7 +2316,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
         if (GetPayloadBool(Payload, TEXT("save"), true)) {
-          McpSafeAssetSave(Blueprint);
+          if (!SaveInventoryAsset(Blueprint)) return true;
         }
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2404,7 +2414,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     ItemAsset->MarkPackageDirty();
 
     if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(ItemAsset);
+      if (!SaveInventoryAsset(ItemAsset)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2486,7 +2496,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     ItemAsset->MarkPackageDirty();
 
     if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(ItemAsset);
+      if (!SaveInventoryAsset(ItemAsset)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2568,7 +2578,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     RecipeAsset->MarkPackageDirty();
 
     if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(RecipeAsset);
+      if (!SaveInventoryAsset(RecipeAsset)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2642,7 +2652,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     LootTable->MarkPackageDirty();
 
     if (GetPayloadBool(Payload, TEXT("save"), false)) {
-      McpSafeAssetSave(LootTable);
+      if (!SaveInventoryAsset(LootTable)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2770,7 +2780,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2888,7 +2898,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
     if (GetPayloadBool(Payload, TEXT("save"), true)) {
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInventoryAsset(Blueprint)) return true;
     }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

@@ -54,6 +54,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'get_tile_set_tile_xy', assetPath: '/Game/Contract/TileSet', textureU: 32, textureV: 32, roundUp: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'get_tile_set_uv_from_xy', assetPath: '/Game/Contract/TileSet', tileX: 1, tileY: 1 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_tile_map', name: 'ContractTileMap', path: '/Game/Contract', tileSetPath: '/Game/Contract/TileSet', save: true }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'inspect_tile_map', assetPath: '/Game/Contract/TileMap' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'resize_tile_map', assetPath: '/Game/Contract/TileMap', width: 64, height: 32, forceResize: true, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_sprite_pivot', assetPath: '/Game/Contract/Sprite', pivotMode: 'center_center', rebuildData: true, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'inspect_sprite', assetPath: '/Game/Contract/Sprite' }, expected: 'success|error' },

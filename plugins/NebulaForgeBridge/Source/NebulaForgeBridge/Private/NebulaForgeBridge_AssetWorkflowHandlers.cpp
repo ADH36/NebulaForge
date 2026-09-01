@@ -827,6 +827,36 @@ static bool HandlePaperTileSetAssetAction(
   return true;
 }
 
+static bool HandlePaperTileMapInspectAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  if (!TileMap) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileMap"), TEXT("TILEMAP_NOT_FOUND"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetNumberField(TEXT("mapWidth"), TileMap->MapWidth);
+  Result->SetNumberField(TEXT("mapHeight"), TileMap->MapHeight);
+  Result->SetNumberField(TEXT("tileWidth"), TileMap->TileWidth);
+  Result->SetNumberField(TEXT("tileHeight"), TileMap->TileHeight);
+  Result->SetNumberField(TEXT("layerCount"), TileMap->TileLayers.Num());
+  Result->SetNumberField(TEXT("pixelsPerUnrealUnit"), TileMap->GetPixelsPerUnrealUnit());
+  Result->SetNumberField(TEXT("collisionDomain"), static_cast<int32>(TileMap->GetSpriteCollisionDomain()));
+  Result->SetNumberField(TEXT("collisionThickness"), TileMap->GetCollisionThickness());
+  Result->SetObjectField(TEXT("backgroundColor"), McpHandlerUtils::LinearColorToJson(TileMap->BackgroundColor));
+  Result->SetObjectField(TEXT("layerGridColor"), McpHandlerUtils::LinearColorToJson(TileMap->LayerGridColor));
+  Result->SetObjectField(TEXT("tileGridColor"), McpHandlerUtils::LinearColorToJson(TileMap->TileGridColor));
+  Result->SetObjectField(TEXT("multiTileGridColor"), McpHandlerUtils::LinearColorToJson(TileMap->MultiTileGridColor));
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile map inspected"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileMapResizeAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1514,6 +1544,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("create_tile_map")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileMapAssetAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("inspect_tile_map")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapInspectAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

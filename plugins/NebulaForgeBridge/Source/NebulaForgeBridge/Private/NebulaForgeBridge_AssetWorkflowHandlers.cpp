@@ -49,6 +49,7 @@
 #include "Dom/JsonObject.h"
 #include "HAL/PlatformFileManager.h"
 #include "Misc/CommandLine.h"
+#include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "NebulaForgeBridgeGlobals.h"
 #include "NebulaForgeBridgeHelpers.h"
@@ -3760,8 +3761,10 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateReport(
     TArray<FAssetData> AssetList;
     AssetRegistryModule.Get().GetAssets(Filter, AssetList);
     const bool bAudit = ReportType.Equals(TEXT("audit"), ESearchCase::IgnoreCase);
+    const bool bSizeMap = ReportType.Equals(TEXT("size_map"), ESearchCase::IgnoreCase);
     int32 TotalDependencies = 0;
     int32 TotalReferencers = 0;
+    int64 TotalSizeBytes = 0;
 
     TArray<TSharedPtr<FJsonValue>> AssetsArray;
     for (const FAssetData &Asset : AssetList) {
@@ -3784,6 +3787,20 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateReport(
         AssetObj->SetNumberField(TEXT("referencerCount"), Referencers.Num());
         TotalDependencies += Dependencies.Num();
         TotalReferencers += Referencers.Num();
+      }
+      if (bSizeMap) {
+        FString PackageFilename;
+        int64 SizeBytes = 0;
+        const FString PackageName = Asset.PackageName.ToString();
+        if (FPackageName::TryConvertLongPackageNameToFilename(PackageName, PackageFilename, FPackageName::GetAssetPackageExtension()) ||
+            FPackageName::TryConvertLongPackageNameToFilename(PackageName, PackageFilename, FPackageName::GetMapPackageExtension())) {
+          IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+          if (PlatformFile.FileExists(*PackageFilename)) {
+            SizeBytes = PlatformFile.FileSize(*PackageFilename);
+          }
+        }
+        AssetObj->SetNumberField(TEXT("sizeBytes"), SizeBytes);
+        TotalSizeBytes += FMath::Max<int64>(SizeBytes, 0);
       }
       AssetsArray.Add(MakeShared<FJsonValueObject>(AssetObj));
     }
@@ -3837,6 +3854,11 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateReport(
       Resp->SetBoolField(TEXT("audit"), true);
       Resp->SetNumberField(TEXT("totalDependencies"), TotalDependencies);
       Resp->SetNumberField(TEXT("totalReferencers"), TotalReferencers);
+    }
+    if (bSizeMap) {
+      Resp->SetBoolField(TEXT("sizeMap"), true);
+      Resp->SetNumberField(TEXT("totalSizeBytes"), TotalSizeBytes);
+      Resp->SetStringField(TEXT("sizeBasis"), TEXT("package file on disk (.uasset or .umap); external bulk payloads may be separate"));
     }
     if (!OutputPath.IsEmpty()) {
       Resp->SetStringField(TEXT("outputPath"), OutputPath);

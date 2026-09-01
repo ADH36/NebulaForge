@@ -1436,7 +1436,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 32.3 Asset Management
 - [x] `validate_assets`
 - [x] `audit_assets` (Asset Registry inventory with dependency/referencer counts)
-- [ ] `size_map_analysis`
+- [x] `size_map_analysis` (Asset Registry inventory with on-disk package sizes)
 - [x] `reference_viewer` (bidirectional Asset Registry graph with configurable traversal depth)
 - [x] `configure_chunking` (ProjectPackagingSettings chunk policy authoring)
 - [x] `create_pak_file` (RunUAT package/PAK alias)

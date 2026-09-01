@@ -6,6 +6,7 @@ import { runToolTests } from '../../test-runner.mjs';
 await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'reference_viewer', assetPath: '/Game/MCPTest/ContractAsset', maxDepth: 2 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'audit_assets', directory: '/Game/MCPTest', outputPath: 'Saved/contract-asset-audit.json' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'size_map_analysis', directory: '/Game/MCPTest', outputPath: 'Saved/contract-asset-size-map.json' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'configure_chunking', projectPath: 'ContractProject', generateChunks: true, chunkHardReferencesOnly: true, maxChunkSize: 104857600 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_instanced_static_mesh_component', actorName: 'ContractActor', componentName: 'ContractISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_hierarchical_instanced_static_mesh', actorName: 'ContractActor', componentName: 'ContractHISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },

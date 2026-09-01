@@ -2945,6 +2945,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         parameterName: commonSchemas.parameterName,
         parameterType: commonSchemas.stringProp,
         targetActorName: commonSchemas.actorName,
+        objectPath: commonSchemas.assetPath,
         parameterValue: commonSchemas.value,
         value: commonSchemas.value,
         sourceBinding: commonSchemas.stringProp,

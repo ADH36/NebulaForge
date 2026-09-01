@@ -142,6 +142,7 @@ public:
 			.String(TEXT("nodeId"), TEXT("ID of the node."))
 			.String(TEXT("parameterName"), TEXT("Name of the parameter."))
 			.String(TEXT("parameterType"), TEXT(""))
+			.String(TEXT("objectPath"), TEXT("Unreal object asset path for generic Niagara object parameters."))
 			.FreeformObject(TEXT("parameterValue"), TEXT("Generic parameter value (any type)."))
 			.FreeformObject(TEXT("value"), TEXT("Generic value (any type)."))
 			.String(TEXT("sourceBinding"), TEXT("Niagara source binding, e.g. Emitter.Age."))

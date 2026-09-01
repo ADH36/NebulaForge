@@ -1325,6 +1325,16 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             NiComp->SetVariableStaticMesh(ParamName, Mesh);
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Object"), ESearchCase::IgnoreCase)) {
+          FString ObjectPath;
+          LocalPayload->TryGetStringField(TEXT("objectPath"), ObjectPath);
+          if (ObjectPath.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) ObjectPath = ValueField->AsString();
+          ObjectPath = SanitizeProjectRelativePath(ObjectPath);
+          UObject *Object = IsValidAssetPath(ObjectPath) ? LoadObject<UObject>(nullptr, *ObjectPath) : nullptr;
+          if (Object) {
+            NiComp->SetVariableObject(ParamName, Object);
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) ||
                    ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase)) {
           const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
@@ -1397,6 +1407,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Texture"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("StaticMesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Mesh"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Object"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase) &&

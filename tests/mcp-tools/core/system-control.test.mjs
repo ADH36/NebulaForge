@@ -15,6 +15,7 @@ const WIDGET_NAME = 'WBP_SystemControl_Test';
 const WIDGET_PATH = `${TEST_FOLDER}/${WIDGET_NAME}`;
 const VALIDATION_MATERIAL = `${TEST_FOLDER}/M_SystemControlValidation`;
 const PYTHON_TEST_ID = Date.now();
+const PYTHON_COMMAND_NAME = `McpPythonCommand_${PYTHON_TEST_ID}`;
 const PYTHON_FILE_RELATIVE = `Saved/MCPTests/system-control-${PYTHON_TEST_ID}.py`;
 const PYTHON_HELPER_RELATIVE = `Saved/MCPTests/system-control-${PYTHON_TEST_ID}-helper.txt`;
 const PYTHON_FILE_LITERAL = JSON.stringify(PYTHON_FILE_RELATIVE);
@@ -175,6 +176,9 @@ const testCases = [
   { scenario: 'ACTION: create_editor_utility_widget', toolName: 'system_control', arguments: { action: 'create_editor_utility_widget', assetPath: `${TEST_FOLDER}/EUW_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
   { scenario: 'ACTION: inspect_editor_utility widget', toolName: 'system_control', arguments: { action: 'inspect_editor_utility', assetPath: `${TEST_FOLDER}/EUW_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
   { scenario: 'ACTION: create_editor_utility_blueprint', toolName: 'system_control', arguments: { action: 'create_editor_utility_blueprint', assetPath: `${TEST_FOLDER}/EUB_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
+  { scenario: 'ACTION: create_python_editor_utility alias', toolName: 'system_control', arguments: { action: 'create_python_editor_utility', assetPath: `${TEST_FOLDER}/EUPython_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
+  { scenario: 'ACTION: register_python_command', toolName: 'system_control', arguments: { action: 'register_python_command', commandName: PYTHON_COMMAND_NAME, commandSet: 'NebulaForgeMCPTests', commandContext: 'LevelEditor', commandLabel: 'NebulaForge MCP Test', commandDescription: 'Temporary integration-test command', code: 'print("nebula-forge-python-command-ok")' }, expected: 'success' },
+  { scenario: 'ACTION: unregister_python_command', toolName: 'system_control', arguments: { action: 'unregister_python_command', commandName: PYTHON_COMMAND_NAME, commandSet: 'NebulaForgeMCPTests', commandContext: 'LevelEditor' }, expected: 'success' },
   { scenario: 'ACTION: inspect_editor_utility blueprint', toolName: 'system_control', arguments: { action: 'inspect_editor_utility', assetPath: `${TEST_FOLDER}/EUB_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
   { scenario: 'ACTION: run_editor_utility', toolName: 'system_control', arguments: { action: 'run_editor_utility', assetPath: `${TEST_FOLDER}/EUB_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
   { scenario: 'Setup: create execute_python file', toolName: 'system_control', arguments: { action: 'execute_python', code: CREATE_PYTHON_FILE_CODE }, expected: 'success' },

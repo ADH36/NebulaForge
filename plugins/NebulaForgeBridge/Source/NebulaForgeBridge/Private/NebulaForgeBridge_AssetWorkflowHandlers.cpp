@@ -740,6 +740,67 @@ static bool HandlePaperSpritePivotAction(
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite pivot updated"), Result, FString());
   return true;
 }
+
+#endif
+
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+static bool HandlePaperTileMapCollisionAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString TileMapPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(TileMapPath));
+  if (!TileMap) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileMap"), TEXT("TILEMAP_NOT_FOUND"));
+    return true;
+  }
+  FString CollisionDomain;
+  Payload->TryGetStringField(TEXT("collisionDomain"), CollisionDomain);
+  CollisionDomain = CollisionDomain.ToLower().Replace(TEXT("-"), TEXT(""));
+  bool bChanged = false;
+  if (!CollisionDomain.IsEmpty()) {
+    int32 DomainValue = INDEX_NONE;
+    if (CollisionDomain == TEXT("none")) DomainValue = 0;
+    else if (CollisionDomain == TEXT("2d") || CollisionDomain == TEXT("use2dphysics")) DomainValue = 1;
+    else if (CollisionDomain == TEXT("3d") || CollisionDomain == TEXT("use3dphysics")) DomainValue = 2;
+    if (DomainValue == INDEX_NONE) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("collisionDomain must be none, 2d, or 3d"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TileMap->SetCollisionDomain(static_cast<ESpriteCollisionMode::Type>(DomainValue));
+    bChanged = true;
+  }
+  if (Payload->HasField(TEXT("collisionThickness"))) {
+    double Thickness = 0.0;
+    if (!Payload->TryGetNumberField(TEXT("collisionThickness"), Thickness) || !FMath::IsFinite(Thickness) || Thickness < 0.0 || Thickness > 1000000.0) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("collisionThickness must be finite and between 0 and 1000000"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TileMap->SetCollisionThickness(static_cast<float>(Thickness));
+    bChanged = true;
+  }
+  if (!bChanged) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("collisionDomain or collisionThickness is required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  TileMap->Modify();
+  TileMap->RebuildCollision();
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(TileMap)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile-map collision updated but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetStringField(TEXT("collisionDomain"), CollisionDomain.IsEmpty() ? TEXT("unchanged") : CollisionDomain);
+  Result->SetNumberField(TEXT("collisionThickness"), TileMap->GetCollisionThickness());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map collision configured"), Result, FString());
+  return true;
+}
 #endif
 
 #if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS
@@ -1025,6 +1086,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("configure_sprite_source")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperSpriteSourceAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("configure_tile_map_collision")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapCollisionAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

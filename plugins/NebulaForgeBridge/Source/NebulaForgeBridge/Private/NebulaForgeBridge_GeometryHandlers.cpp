@@ -110,6 +110,13 @@ DEFINE_LOG_CATEGORY_STATIC(LogMcpGeometryHandlers, Log, All);
 #include "UDynamicMesh.h"
 #include "Components/SplineComponent.h"
 
+#if __has_include("ProceduralMeshComponent.h")
+#include "ProceduralMeshComponent.h"
+#define MCP_HAS_PROCEDURAL_MESH_COMPONENT 1
+#else
+#define MCP_HAS_PROCEDURAL_MESH_COMPONENT 0
+#endif
+
 // GeometryScript is only fully supported in UE 5.1+
 // UE 5.0 had experimental GeometryScript with limited API
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
@@ -5455,6 +5462,197 @@ static bool HandleCreateProceduralMesh(UNebulaForgeBridgeSubsystem* Self, const 
     return true;
 }
 
+#if MCP_HAS_PROCEDURAL_MESH_COMPONENT
+static bool ReadProcMeshVectorArray(const TSharedPtr<FJsonObject>& Payload, const TCHAR* FieldName,
+                                    TArray<FVector>& OutValues)
+{
+    const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
+    if (!Payload.IsValid() || !Payload->TryGetArrayField(FieldName, Values) || !Values)
+    {
+        return false;
+    }
+
+    OutValues.Reset();
+    OutValues.Reserve(Values->Num());
+    for (const TSharedPtr<FJsonValue>& Value : *Values)
+    {
+        if (!Value.IsValid() || Value->Type != EJson::Array)
+        {
+            return false;
+        }
+        const TArray<TSharedPtr<FJsonValue>>& Components = Value->AsArray();
+        if (Components.Num() < 3)
+        {
+            return false;
+        }
+        OutValues.Add(FVector(Components[0]->AsNumber(), Components[1]->AsNumber(), Components[2]->AsNumber()));
+    }
+    return true;
+}
+
+static bool ReadProcMeshUVArray(const TSharedPtr<FJsonObject>& Payload, const TCHAR* FieldName,
+                                TArray<FVector2D>& OutValues)
+{
+    const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
+    if (!Payload.IsValid() || !Payload->TryGetArrayField(FieldName, Values) || !Values)
+    {
+        return false;
+    }
+
+    OutValues.Reset();
+    OutValues.Reserve(Values->Num());
+    for (const TSharedPtr<FJsonValue>& Value : *Values)
+    {
+        if (!Value.IsValid() || Value->Type != EJson::Array)
+        {
+            return false;
+        }
+        const TArray<TSharedPtr<FJsonValue>>& Components = Value->AsArray();
+        if (Components.Num() < 2)
+        {
+            return false;
+        }
+        OutValues.Add(FVector2D(Components[0]->AsNumber(), Components[1]->AsNumber()));
+    }
+    return true;
+}
+
+static bool ReadProcMeshIndexArray(const TSharedPtr<FJsonObject>& Payload, const TCHAR* FieldName,
+                                   TArray<int32>& OutValues)
+{
+    const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
+    if (!Payload.IsValid() || !Payload->TryGetArrayField(FieldName, Values) || !Values)
+    {
+        return false;
+    }
+
+    OutValues.Reset();
+    OutValues.Reserve(Values->Num());
+    for (const TSharedPtr<FJsonValue>& Value : *Values)
+    {
+        if (!Value.IsValid() || Value->Type != EJson::Number)
+        {
+            return false;
+        }
+        OutValues.Add(static_cast<int32>(Value->AsNumber()));
+    }
+    return true;
+}
+
+static UProceduralMeshComponent* FindProceduralMeshComponent(const FString& ActorName, const FString& ComponentName)
+{
+    UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+    if (!World || ActorName.IsEmpty())
+    {
+        return nullptr;
+    }
+
+    for (TActorIterator<AActor> It(World); It; ++It)
+    {
+        AActor* Actor = *It;
+        if (!Actor || (Actor->GetActorLabel() != ActorName && Actor->GetName() != ActorName))
+        {
+            continue;
+        }
+
+        if (!ComponentName.IsEmpty())
+        {
+            for (UActorComponent* Component : Actor->GetComponents())
+            {
+                if (UProceduralMeshComponent* ProcMesh = Cast<UProceduralMeshComponent>(Component))
+                {
+                    if (ProcMesh->GetName() == ComponentName || ProcMesh->GetFName() == FName(*ComponentName))
+                    {
+                        return ProcMesh;
+                    }
+                }
+            }
+            return nullptr;
+        }
+        return Actor->FindComponentByClass<UProceduralMeshComponent>();
+    }
+    return nullptr;
+}
+
+static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const FString& RequestId,
+                                        const FString& SubAction, const TSharedPtr<FJsonObject>& Payload,
+                                        TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+    const FString ActorName = GetStringFieldGeom(Payload, TEXT("actorName"));
+    const FString ComponentName = GetStringFieldGeom(Payload, TEXT("componentName"));
+    const int32 SectionIndex = FMath::Clamp(GetIntFieldGeom(Payload, TEXT("sectionIndex"), 0), 0, 4096);
+    UProceduralMeshComponent* ProcMesh = FindProceduralMeshComponent(ActorName, ComponentName);
+    if (!ProcMesh)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("ProceduralMeshComponent not found"), TEXT("COMPONENT_NOT_FOUND"));
+        return true;
+    }
+
+    if (SubAction == TEXT("clear_mesh_section"))
+    {
+        ProcMesh->ClearMeshSection(SectionIndex);
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section cleared"), Result);
+        return true;
+    }
+    if (SubAction == TEXT("clear_all_mesh_sections"))
+    {
+        ProcMesh->ClearAllMeshSections();
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("All procedural mesh sections cleared"), McpHandlerUtils::CreateResultObject());
+        return true;
+    }
+
+    TArray<FVector> Vertices;
+    TArray<int32> Triangles;
+    if (!ReadProcMeshVectorArray(Payload, TEXT("vertices"), Vertices) || Vertices.Num() == 0 ||
+        !ReadProcMeshIndexArray(Payload, TEXT("triangles"), Triangles) || Triangles.Num() == 0 || Triangles.Num() % 3 != 0)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("vertices and triangles arrays are required; triangles count must be divisible by three"), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
+    for (const int32 Index : Triangles)
+    {
+        if (Index < 0 || Index >= Vertices.Num())
+        {
+            Self->SendAutomationError(Socket, RequestId, TEXT("Triangle index is outside the vertices array"), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+    }
+
+    TArray<FVector> Normals;
+    TArray<FVector2D> UV0;
+    TArray<FColor> Colors;
+    TArray<FProcMeshTangent> Tangents;
+    const bool bHasNormals = ReadProcMeshVectorArray(Payload, TEXT("normals"), Normals);
+    const bool bHasUV0 = ReadProcMeshUVArray(Payload, TEXT("uv0"), UV0);
+    const bool bCreateCollision = GetBoolFieldGeom(Payload, TEXT("createCollision"), false);
+    if ((bHasNormals && Normals.Num() != Vertices.Num()) || (bHasUV0 && UV0.Num() != Vertices.Num()))
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("normals and uv0, when supplied, must match vertices length"), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
+    if (!bHasNormals) Normals.SetNumZeroed(Vertices.Num());
+    if (!bHasUV0) UV0.SetNumZeroed(Vertices.Num());
+
+    if (SubAction == TEXT("create_mesh_section"))
+    {
+        ProcMesh->CreateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, Colors, Tangents, bCreateCollision);
+    }
+    else
+    {
+        ProcMesh->UpdateMeshSection(SectionIndex, Vertices, Normals, UV0, Colors, Tangents);
+    }
+
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+    Result->SetNumberField(TEXT("vertexCount"), Vertices.Num());
+    Result->SetNumberField(TEXT("triangleCount"), Triangles.Num() / 3);
+    Self->SendAutomationResponse(Socket, RequestId, true, SubAction == TEXT("create_mesh_section") ? TEXT("Procedural mesh section created") : TEXT("Procedural mesh section updated"), Result);
+    return true;
+}
+#endif
+
 // -------------------------------------------------------------------------
 // append_triangle - Add single triangle to mesh
 // -------------------------------------------------------------------------
@@ -7386,6 +7584,13 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     if (SubAction == TEXT("revolve")) return HandleRevolve(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("create_procedural_mesh")) return HandleCreateProceduralMesh(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("append_triangle")) return HandleAppendTriangle(this, RequestId, Payload, RequestingSocket);
+#if MCP_HAS_PROCEDURAL_MESH_COMPONENT
+    if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
+        SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections"))
+    {
+        return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
+    }
+#endif
 
     // Booleans
     if (SubAction == TEXT("boolean_union")) return HandleBooleanUnion(this, RequestId, Payload, RequestingSocket);

@@ -36,6 +36,10 @@ public:
 				TEXT("create_arch"),
 				TEXT("create_pipe"),
 				TEXT("create_ramp"),
+				TEXT("create_mesh_section"),
+				TEXT("update_mesh_section"),
+				TEXT("clear_mesh_section"),
+				TEXT("clear_all_mesh_sections"),
 				TEXT("boolean_union"),
 				TEXT("boolean_subtract"),
 				TEXT("boolean_intersection"),
@@ -101,6 +105,13 @@ public:
 			}, TEXT("Geometry action to perform"))
 			.String(TEXT("outputPath"), TEXT("Output file or directory path."))
 			.String(TEXT("actorName"), TEXT("Name of the actor."))
+			.String(TEXT("componentName"), TEXT("Optional ProceduralMeshComponent name on the actor."))
+			.Number(TEXT("sectionIndex"), TEXT("Procedural mesh section index."))
+			.Array(TEXT("vertices"), TEXT("Vertex positions as [x, y, z] arrays."), TEXT("array"))
+			.Array(TEXT("triangles"), TEXT("Triangle vertex indices, in groups of three."), TEXT("integer"))
+			.Array(TEXT("normals"), TEXT("Optional per-vertex normals as [x, y, z] arrays."), TEXT("array"))
+			.Array(TEXT("uv0"), TEXT("Optional primary UV coordinates as [u, v] arrays."), TEXT("array"))
+			.Bool(TEXT("createCollision"), TEXT("Whether to create collision for a new mesh section."))
 			.Number(TEXT("width"), TEXT("Width value."))
 			.Number(TEXT("height"), TEXT("Height value."))
 			.Number(TEXT("depth"), TEXT("Depth value."))

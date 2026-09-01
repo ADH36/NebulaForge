@@ -18,6 +18,8 @@ const GEOMETRY_ACTIONS = [
   // Primitives (additional)
   'create_stairs', 'create_spiral_stairs', 'create_ring',
   'create_arch', 'create_pipe', 'create_ramp',
+  // ProceduralMeshComponent section authoring (optional UE plugin)
+  'create_mesh_section', 'update_mesh_section', 'clear_mesh_section', 'clear_all_mesh_sections',
   // Booleans
   'boolean_union', 'boolean_subtract', 'boolean_intersection',
   'boolean_trim', 'self_union',

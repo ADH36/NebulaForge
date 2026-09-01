@@ -1415,10 +1415,12 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `run_ubt` (expanded)
 - [ ] `generate_project_files`
 - [ ] `compile_shaders`
-- [ ] `cook_content` (platform)
-- [ ] `package_project` (platform)
+- [x] `cook_content` (platform)
+- [x] `package_project` (platform)
 - [ ] `configure_build_settings`
 - [ ] `create_build_target`
+
+**Implementation note:** `cook_content` and `package_project` are dedicated aliases over the validated RunUAT `BuildCookRun` pipeline, selecting the corresponding operation while preserving platform, configuration, async job, and packaging option handling.
 
 ### 32.2 Platform Builds
 - [ ] `configure_windows_build`

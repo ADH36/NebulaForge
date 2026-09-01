@@ -265,8 +265,13 @@ function registerDefaultHandlers() {
     if (
       action === 'run_ubt' || action === 'run_uat' || action === 'validate_release' ||
       action === 'sign_release' || action === 'run_packaged' || action === 'deploy_package' ||
-      action === 'run_network_soak' || action === 'analyze_trace' || action === 'release_gate'
-    ) return await handlePipelineTools(action, args, tools);
+      action === 'run_network_soak' || action === 'analyze_trace' || action === 'release_gate' ||
+      action === 'cook_content' || action === 'package_project'
+    ) {
+      const pipelineAction = action === 'cook_content' || action === 'package_project' ? 'run_uat' : action;
+      const pipelineArgs = action === 'cook_content' ? { ...args, uatOperation: 'cook' } : action === 'package_project' ? { ...args, uatOperation: 'package' } : args;
+      return await handlePipelineTools(pipelineAction, pipelineArgs, tools);
+    }
     if (performanceActionSet.has(action)) return await handlePerformanceTools(action, args, tools);
     if (action === 'run_tests') return cleanObject(await executeAutomationRequest(tools, 'manage_tests', { ...args, subAction: action }, 'Bridge unavailable'));
     if (action === 'subscribe' || action === 'unsubscribe') {

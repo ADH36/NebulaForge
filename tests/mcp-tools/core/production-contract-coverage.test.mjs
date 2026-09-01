@@ -54,6 +54,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'build_environment', arguments: { action: 'verify_landscape_edit_layers', editLayerNames: ['ContractLayer'], reloadForVerification: false, verifyPersistence: false }, expected: 'success|error' },
 
   { toolName: 'system_control', arguments: { action: 'run_uat', uatOperation: 'build_server', projectPath: 'Contract.uproject', async: true, server: true, serverConfiguration: 'Development', compressed: true, encryptIniFiles: true, encryptPakIndex: true, includePrerequisites: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'cook_content', projectPath: 'Contract.uproject', platform: 'Win64', async: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'package_project', projectPath: 'Contract.uproject', platform: 'Win64', async: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'validate_release', archiveDirectory: 'ContractArchive', requiredFiles: ['Contract.uproject'], requirePak: false, manifestPath: 'release-manifest.json' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'validate_project', requiredFiles: ['Config/DefaultGame.ini'], requiredDirectories: ['Content', 'Config'], includeInventory: true, validationMode: 'data_validation', validationArguments: ['-AllowCommandletRendering'], enginePath: 'C:/UnrealEngine', timeoutMs: 120000 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'run_data_validation', enginePath: 'C:/UnrealEngine', validationArguments: ['-AllowCommandletRendering'], timeoutMs: 120000 }, expected: 'success|error' },

@@ -1422,6 +1422,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy");
   const bool bDataValidationAction = Lower == TEXT("run_data_validation") || Lower == TEXT("create_asset_validator");
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
+  const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -1448,7 +1449,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias) {
     return false; // Not handled by this function
   }
 
@@ -1576,7 +1577,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   // These operations require the TypeScript host process: it owns the
   // external-process job registry and project-file safety boundary. Keep the
   // native endpoint contract explicit rather than falling through as unknown.
-  if (bHostWorkflowAction || bDataValidationAction || bGameplayTagConfigAction) {
+  if (bHostWorkflowAction || bDataValidationAction || bGameplayTagConfigAction || bBuildPipelineAlias) {
     SendAutomationError(
         RequestingSocket, RequestId,
         TEXT("This action is available through the stdio MCP host; the native /mcp endpoint does not own the host job or project-file registry"),

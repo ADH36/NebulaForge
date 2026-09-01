@@ -174,6 +174,7 @@ const testCases = [
   { scenario: 'ACTION: list_python_packages', toolName: 'system_control', arguments: { action: 'list_python_packages' }, expected: 'success' },
   { scenario: 'ACTION: create_editor_utility_widget', toolName: 'system_control', arguments: { action: 'create_editor_utility_widget', assetPath: `${TEST_FOLDER}/EUW_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
   { scenario: 'ACTION: create_editor_utility_blueprint', toolName: 'system_control', arguments: { action: 'create_editor_utility_blueprint', assetPath: `${TEST_FOLDER}/EUB_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
+  { scenario: 'ACTION: run_editor_utility', toolName: 'system_control', arguments: { action: 'run_editor_utility', assetPath: `${TEST_FOLDER}/EUB_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
   { scenario: 'Setup: create execute_python file', toolName: 'system_control', arguments: { action: 'execute_python', code: CREATE_PYTHON_FILE_CODE }, expected: 'success' },
   // This result is asserted on the returned MCP response, so it also catches
   // temp wrapper cleanup racing file execution before output/status are written.

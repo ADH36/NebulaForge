@@ -1464,6 +1464,9 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("list_python_packages") &&
       Lower != TEXT("create_editor_utility_widget") &&
       Lower != TEXT("create_editor_utility_blueprint") &&
+      Lower != TEXT("create_python_editor_utility") &&
+      Lower != TEXT("register_python_command") &&
+      Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
@@ -3078,6 +3081,8 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("execute_python_string") || Lower == TEXT("execute_python_file") ||
              Lower == TEXT("configure_python_paths") || Lower == TEXT("list_python_packages") ||
              Lower == TEXT("create_editor_utility_widget") || Lower == TEXT("create_editor_utility_blueprint") ||
+             Lower == TEXT("create_python_editor_utility") || Lower == TEXT("register_python_command") ||
+             Lower == TEXT("unregister_python_command") ||
              Lower == TEXT("run_editor_utility") || Lower == TEXT("inspect_editor_utility")) {
     // Execute Python code with stdout/stderr capture via temp file wrapper
     FString Code;
@@ -3126,7 +3131,7 @@ FMessageLog LogListing{FName(*Category)};
           *AssetName, *PythonPackagePath);
     }
 
-    if (Lower == TEXT("create_editor_utility_blueprint")) {
+    if (Lower == TEXT("create_editor_utility_blueprint") || Lower == TEXT("create_python_editor_utility")) {
       FString AssetPath;
       FString AssetName;
       Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
@@ -3159,6 +3164,112 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_asset.get_path_name())\n"
           "print(_asset.get_path_name())\n"),
           *AssetName, *PythonPackagePath);
+    }
+
+    if (Lower == TEXT("register_python_command")) {
+      FString CommandName;
+      FString CommandSet;
+      FString CommandContext;
+      FString CommandLabel;
+      FString CommandDescription;
+      bool bOverrideExisting = false;
+      Payload->TryGetStringField(TEXT("commandName"), CommandName);
+      Payload->TryGetStringField(TEXT("commandSet"), CommandSet);
+      Payload->TryGetStringField(TEXT("commandContext"), CommandContext);
+      Payload->TryGetStringField(TEXT("commandLabel"), CommandLabel);
+      Payload->TryGetStringField(TEXT("commandDescription"), CommandDescription);
+      Payload->TryGetBoolField(TEXT("overrideExisting"), bOverrideExisting);
+      if (CommandName.TrimStartAndEnd().IsEmpty() || CommandSet.TrimStartAndEnd().IsEmpty() ||
+          CommandContext.TrimStartAndEnd().IsEmpty() || Code.TrimStartAndEnd().IsEmpty()) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("register_python_command requires commandName, commandSet, commandContext, and code"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (CommandName.Len() > 128 || CommandSet.Len() > 128 || CommandContext.Len() > 128 ||
+          CommandLabel.Len() > 256 || CommandDescription.Len() > 1024) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("Python command metadata exceeds the supported length limits"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      auto EscapePythonString = [](FString& Value) {
+        Value.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+        Value.ReplaceInline(TEXT("'"), TEXT("\\'"));
+        Value.ReplaceInline(TEXT("\r"), TEXT("\\r"));
+        Value.ReplaceInline(TEXT("\n"), TEXT("\\n"));
+      };
+      CommandName.TrimStartAndEndInline();
+      CommandSet.TrimStartAndEndInline();
+      CommandContext.TrimStartAndEndInline();
+      CommandLabel.TrimStartAndEndInline();
+      CommandDescription.TrimStartAndEndInline();
+      EscapePythonString(CommandName);
+      EscapePythonString(CommandSet);
+      EscapePythonString(CommandContext);
+      EscapePythonString(CommandLabel);
+      EscapePythonString(CommandDescription);
+      EscapePythonString(Code);
+      Code = FString::Printf(TEXT(
+          "import json\n"
+          "import unreal\n"
+          "_mcp_subsystem = unreal.get_engine_subsystem(unreal.UICommandsScriptingSubsystem)\n"
+          "_mcp_set = unreal.Name('%s')\n"
+          "if not _mcp_subsystem.is_command_set_registered(_mcp_set):\n"
+          "    _mcp_subsystem.register_command_set(_mcp_set)\n"
+          "_mcp_info = unreal.ScriptingCommandInfo(context_name=unreal.Name('%s'), set=_mcp_set, name=unreal.Name('%s'), label='%s', description='%s')\n"
+          "_mcp_code = '%s'\n"
+          "def _mcp_execute(_command_info):\n"
+          "    exec(_mcp_code, globals(), globals())\n"
+          "_mcp_delegate = unreal.ExecuteCommand(_mcp_execute)\n"
+          "_mcp_registered = globals().setdefault('_mcp_registered_commands', {})\n"
+          "_mcp_key = '%s::%s::%s'\n"
+          "if not _mcp_subsystem.register_command(_mcp_info, _mcp_delegate, %s):\n"
+          "    raise RuntimeError('Python command registration failed')\n"
+          "_mcp_registered[_mcp_key] = (_mcp_info, _mcp_delegate)\n"
+          "print(json.dumps({'commandName': '%s', 'commandSet': '%s', 'commandContext': '%s'}))\n"),
+          *CommandSet, *CommandContext, *CommandName, *CommandLabel, *CommandDescription, *Code,
+          *CommandContext, *CommandSet, *CommandName, bOverrideExisting ? TEXT("True") : TEXT("False"),
+          *CommandName, *CommandSet, *CommandContext);
+    }
+
+    if (Lower == TEXT("unregister_python_command")) {
+      FString CommandName;
+      FString CommandSet;
+      FString CommandContext;
+      Payload->TryGetStringField(TEXT("commandName"), CommandName);
+      Payload->TryGetStringField(TEXT("commandSet"), CommandSet);
+      Payload->TryGetStringField(TEXT("commandContext"), CommandContext);
+      if (CommandName.TrimStartAndEnd().IsEmpty() || CommandSet.TrimStartAndEnd().IsEmpty() || CommandContext.TrimStartAndEnd().IsEmpty()) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("unregister_python_command requires commandName, commandSet, and commandContext"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      auto EscapePythonString = [](FString& Value) {
+        Value.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+        Value.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      };
+      CommandName.TrimStartAndEndInline();
+      CommandSet.TrimStartAndEndInline();
+      CommandContext.TrimStartAndEndInline();
+      EscapePythonString(CommandName);
+      EscapePythonString(CommandSet);
+      EscapePythonString(CommandContext);
+      Code = FString::Printf(TEXT(
+          "import json\n"
+          "import unreal\n"
+          "_mcp_subsystem = unreal.get_engine_subsystem(unreal.UICommandsScriptingSubsystem)\n"
+          "_mcp_key = '%s::%s::%s'\n"
+          "_mcp_registered = globals().get('_mcp_registered_commands', {})\n"
+          "_mcp_entry = _mcp_registered.get(_mcp_key)\n"
+          "_mcp_info = _mcp_entry[0] if _mcp_entry else unreal.ScriptingCommandInfo(context_name=unreal.Name('%s'), set=unreal.Name('%s'), name=unreal.Name('%s'))\n"
+          "if not _mcp_subsystem.unregister_command(_mcp_info):\n"
+          "    raise RuntimeError('Python command was not registered or could not be removed')\n"
+          "_mcp_registered.pop(_mcp_key, None)\n"
+          "print(json.dumps({'commandName': '%s', 'commandSet': '%s', 'commandContext': '%s'}))\n"),
+          *CommandContext, *CommandSet, *CommandName, *CommandContext, *CommandSet, *CommandName,
+          *CommandName, *CommandSet, *CommandContext);
     }
 
     if (Lower == TEXT("run_editor_utility")) {

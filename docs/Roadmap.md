@@ -2089,7 +2089,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_python_paths` (adds validated paths to the live Python interpreter `sys.path`, matching Epic's documented runtime path configuration; restart-persistent Additional Paths remain project-settings controlled)
 - [ ] `install_python_package`
 - [x] `list_python_packages` (reports up to 500 installed distributions from Unreal's embedded Python interpreter)
-- [ ] `create_python_editor_utility`, `register_python_command`, `unregister_python_command`
+- [x] `create_python_editor_utility` (alias for the official `EditorUtilityBlueprintFactory` creation path)
+- [x] `register_python_command`, `unregister_python_command` (official `UICommandsScriptingSubsystem` and `ScriptingCommandInfo` APIs)
 
 ### 45.2 Editor Scripting Utilities
 - [x] `create_editor_utility_widget` (creates and saves an `EditorUtilityWidgetBlueprint` with Epic's `EditorUtilityWidgetBlueprintFactory`; requires Blutility/Python Editor Script Plugin)

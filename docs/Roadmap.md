@@ -1386,14 +1386,14 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Implementation note:** `system_control` maps the roadmap names to `save_game_to_slot`, `load_game_from_slot`, `delete_save_game_slot`, `check_save_game_slot`, and `list_save_game_slots`; save/load support synchronous and bounded managed async paths.
 
 ### 31.3 Gameplay Tags
-- [ ] `create_gameplay_tag`
+- [x] `create_gameplay_tag`
 - [x] `create_tag_container`
 - [x] `add_tag_to_container`, `remove_tag_from_container`
 - [x] `check_tag_match` (any/all and exact variants through UE `FGameplayTagContainer`)
 - [ ] `register_native_tag`
 - [ ] `create_tag_table`
 
-**Implementation note:** Container actions are transient request-scoped operations over registered tags; project tag dictionary authoring remains handled separately by the project config actions.
+**Implementation note:** `create_gameplay_tag` safely authors the project `DefaultGameplayTags.ini` dictionary; container actions are transient request-scoped operations over registered tags. Native tag registration and tag-table asset authoring remain separate project/module concerns.
 
 ### 31.4 Config System
 - [x] `read_config_value`, `write_config_value`

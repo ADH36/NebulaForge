@@ -307,6 +307,10 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
       return addGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.comment ?? '', argsTyped.backup !== false);
     }
+    case 'create_gameplay_tag': {
+      if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
+      return addGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.comment ?? '', argsTyped.backup !== false);
+    }
     case 'remove_gameplay_tag': {
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
       return removeGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.backup !== false);

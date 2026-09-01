@@ -22,6 +22,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_tile_map_actor', actorName: 'ContractPaperTileMap', paperAssetPath: '/Game/Contract/TileMap' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_paper_sprite_color', actorName: 'ContractPaperSprite', color: { r: 1, g: 0.5, b: 0.25, a: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_paper_tile_map_color', actorName: 'ContractPaperTileMap', color: { r: 0.5, g: 0.75, b: 1, a: 1 } }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'set_paper_tile_map_layer_color', actorName: 'ContractPaperTileMap', layer: 0, color: { r: 1, g: 0.5, b: 0.25, a: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_paper_flipbook', actorName: 'ContractPaperFlipbook', playRate: 1, looping: true, playbackAction: 'play_from_start' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_flipbook_loop', actorName: 'ContractPaperFlipbook', looping: false }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_paper_character', actorName: 'ContractPaperCharacter', paperAssetPath: '/Game/Contract/Flipbook', maxWalkSpeed: 600, gravityScale: 1, playbackAction: 'play' }, expected: 'success|error' },

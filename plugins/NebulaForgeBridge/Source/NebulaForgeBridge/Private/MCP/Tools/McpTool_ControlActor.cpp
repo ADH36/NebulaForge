@@ -55,6 +55,7 @@ public:
 				TEXT("create_media_sound_component"),
 				TEXT("set_paper_sprite_color"),
 				TEXT("set_paper_tile_map_color"),
+				TEXT("set_paper_tile_map_layer_color"),
 				TEXT("configure_paper_flipbook"),
 				TEXT("configure_flipbook_loop"),
 				TEXT("configure_paper_character"),
@@ -139,6 +140,7 @@ public:
 			}, TEXT("Optional flipbook playback command."))
 			.Number(TEXT("maxWalkSpeed"), TEXT("Paper character maximum ground speed."))
 			.Number(TEXT("gravityScale"), TEXT("Paper character gravity scale."))
+			.Integer(TEXT("layer"), TEXT("Paper tile-map layer index."))
 			.String(TEXT("materialPath"), TEXT("Material asset path."))
 			.Integer(TEXT("materialSlot"), TEXT("Material slot index."))
 			.Integer(TEXT("materialIndex"), TEXT("Material slot index alias."))

@@ -40,6 +40,9 @@ public:
 				TEXT("update_mesh_section"),
 				TEXT("clear_mesh_section"),
 				TEXT("clear_all_mesh_sections"),
+				TEXT("set_collision_from_mesh"),
+				TEXT("add_collision_convex_mesh"),
+				TEXT("clear_collision_convex_meshes"),
 				TEXT("boolean_union"),
 				TEXT("boolean_subtract"),
 				TEXT("boolean_intersection"),
@@ -106,6 +109,9 @@ public:
 			.String(TEXT("outputPath"), TEXT("Output file or directory path."))
 			.String(TEXT("actorName"), TEXT("Name of the actor."))
 			.String(TEXT("componentName"), TEXT("Optional ProceduralMeshComponent name on the actor."))
+			.Array(TEXT("convexVertices"), TEXT("Convex collision vertices as [x, y, z] arrays."), TEXT("array"))
+			.Bool(TEXT("collisionEnabled"), TEXT("Enable query and physics collision."))
+			.Bool(TEXT("useComplexAsSimple"), TEXT("Use generated triangle mesh as simple collision."))
 			.Number(TEXT("sectionIndex"), TEXT("Procedural mesh section index."))
 			.Array(TEXT("vertices"), TEXT("Vertex positions as [x, y, z] arrays."), TEXT("array"))
 			.Array(TEXT("triangles"), TEXT("Triangle vertex indices, in groups of three."), TEXT("integer"))

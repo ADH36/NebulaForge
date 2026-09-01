@@ -5656,6 +5656,51 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
     Self->SendAutomationResponse(Socket, RequestId, true, SubAction == TEXT("create_mesh_section") ? TEXT("Procedural mesh section created") : TEXT("Procedural mesh section updated"), Result);
     return true;
 }
+
+static bool HandleProceduralMeshCollision(UNebulaForgeBridgeSubsystem* Self, const FString& RequestId,
+                                          const FString& SubAction, const TSharedPtr<FJsonObject>& Payload,
+                                          TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+    const FString ActorName = GetStringFieldGeom(Payload, TEXT("actorName"));
+    const FString ComponentName = GetStringFieldGeom(Payload, TEXT("componentName"));
+    UProceduralMeshComponent* ProcMesh = FindProceduralMeshComponent(ActorName, ComponentName);
+    if (!ProcMesh)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("ProceduralMeshComponent not found"), TEXT("COMPONENT_NOT_FOUND"));
+        return true;
+    }
+
+    if (SubAction == TEXT("clear_collision_convex_meshes"))
+    {
+        ProcMesh->ClearCollisionConvexMeshes();
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh convex collision cleared"), McpHandlerUtils::CreateResultObject());
+        return true;
+    }
+    if (SubAction == TEXT("add_collision_convex_mesh"))
+    {
+        TArray<FVector> ConvexVertices;
+        if (!ReadProcMeshVectorArray(Payload, TEXT("convexVertices"), ConvexVertices) || ConvexVertices.Num() < 4)
+        {
+            Self->SendAutomationError(Socket, RequestId, TEXT("convexVertices must contain at least four [x, y, z] points"), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        ProcMesh->AddCollisionConvexMesh(ConvexVertices);
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("vertexCount"), ConvexVertices.Num());
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh convex collision added"), Result);
+        return true;
+    }
+
+    const bool bCollisionEnabled = GetBoolFieldGeom(Payload, TEXT("collisionEnabled"), true);
+    const bool bUseComplexAsSimple = GetBoolFieldGeom(Payload, TEXT("useComplexAsSimple"), false);
+    ProcMesh->SetCollisionEnabled(bCollisionEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+    ProcMesh->bUseComplexAsSimpleCollision = bUseComplexAsSimple;
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("collisionEnabled"), bCollisionEnabled);
+    Result->SetBoolField(TEXT("useComplexAsSimple"), bUseComplexAsSimple);
+    Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh collision configured"), Result);
+    return true;
+}
 #endif
 
 // -------------------------------------------------------------------------
@@ -7595,12 +7640,24 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     {
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
+    if (SubAction == TEXT("set_collision_from_mesh") || SubAction == TEXT("add_collision_convex_mesh") ||
+        SubAction == TEXT("clear_collision_convex_meshes"))
+    {
+        return HandleProceduralMeshCollision(this, RequestId, SubAction, Payload, RequestingSocket);
+    }
 #endif
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections"))
     {
         SendAutomationError(RequestingSocket, RequestId,
             TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));
+        return true;
+    }
+    if (SubAction == TEXT("set_collision_from_mesh") || SubAction == TEXT("add_collision_convex_mesh") ||
+        SubAction == TEXT("clear_collision_convex_meshes"))
+    {
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("ProceduralMeshComponent plugin is required for procedural mesh collision operations"), TEXT("NOT_SUPPORTED"));
         return true;
     }
 

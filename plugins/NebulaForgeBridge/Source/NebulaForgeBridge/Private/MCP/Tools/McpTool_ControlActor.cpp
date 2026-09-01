@@ -54,6 +54,7 @@ public:
 				TEXT("create_media_sound_component"),
 				TEXT("set_paper_sprite_color"),
 				TEXT("configure_paper_flipbook"),
+				TEXT("configure_flipbook_loop"),
 				TEXT("configure_paper_character"),
 				TEXT("configure_camera_settings"),
 				TEXT("configure_camera_rig_rail"),

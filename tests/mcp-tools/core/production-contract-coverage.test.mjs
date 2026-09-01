@@ -21,6 +21,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_flipbook_actor', actorName: 'ContractPaperFlipbook', paperAssetPath: '/Game/Contract/Flipbook' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_paper_sprite_color', actorName: 'ContractPaperSprite', color: { r: 1, g: 0.5, b: 0.25, a: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_paper_flipbook', actorName: 'ContractPaperFlipbook', playRate: 1, looping: true, playbackAction: 'play_from_start' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'configure_flipbook_loop', actorName: 'ContractPaperFlipbook', looping: false }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_paper_character', actorName: 'ContractPaperCharacter', paperAssetPath: '/Game/Contract/Flipbook', maxWalkSpeed: 600, gravityScale: 1, playbackAction: 'play' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_sprite', name: 'ContractSprite', path: '/Game/Contract', texturePath: '/Game/Contract/Texture', save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_flipbook', name: 'ContractFlipbook', path: '/Game/Contract', spritePaths: ['/Game/Contract/SpriteA', '/Game/Contract/SpriteB'], frameRuns: [1, 2], save: true }, expected: 'success|error' },

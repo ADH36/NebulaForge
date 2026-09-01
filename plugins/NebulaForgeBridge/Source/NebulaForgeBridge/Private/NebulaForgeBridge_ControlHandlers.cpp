@@ -4286,7 +4286,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper sprite color updated"), Data);
     return true;
   }
-  if (LowerSub == TEXT("configure_paper_flipbook")) {
+  if (LowerSub == TEXT("configure_paper_flipbook") || LowerSub == TEXT("configure_flipbook_loop")) {
     FString TargetName;
     FString ComponentName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);
@@ -4384,7 +4384,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return true;
   }
 #endif
-  if (LowerSub == TEXT("set_paper_sprite_color") || LowerSub == TEXT("configure_paper_flipbook") || LowerSub == TEXT("configure_paper_character")) {
+  if (LowerSub == TEXT("set_paper_sprite_color") || LowerSub == TEXT("configure_paper_flipbook") || LowerSub == TEXT("configure_flipbook_loop") || LowerSub == TEXT("configure_paper_character")) {
     SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_SUPPORTED"),
                               TEXT("Paper2D plugin is required for Paper2D component controls"), nullptr);
     return true;

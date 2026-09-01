@@ -1792,6 +1792,34 @@ static bool HandlePaperFlipbookSocketTransformAction(
   return true;
 }
 
+static bool HandlePaperFlipbookSpriteAtTimeAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString FlipbookPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperFlipbook* Flipbook = Cast<UPaperFlipbook>(UEditorAssetLibrary::LoadAsset(FlipbookPath));
+  double Time = 0.0;
+  bool bClampToEnds = false;
+  Payload->TryGetBoolField(TEXT("clampToEnds"), bClampToEnds);
+  if (!Flipbook || !Payload->TryGetNumberField(TEXT("time"), Time) || !FMath::IsFinite(Time)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath and a finite time in seconds are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const int32 KeyFrameIndex = Flipbook->GetKeyFrameIndexAtTime(static_cast<float>(Time), bClampToEnds);
+  UPaperSprite* Sprite = Flipbook->GetSpriteAtTime(static_cast<float>(Time), bClampToEnds);
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Flipbook->GetPathName());
+  Result->SetNumberField(TEXT("time"), Time);
+  Result->SetBoolField(TEXT("clampToEnds"), bClampToEnds);
+  Result->SetNumberField(TEXT("keyFrameIndex"), KeyFrameIndex);
+  Result->SetBoolField(TEXT("hasSprite"), Sprite != nullptr);
+  Result->SetStringField(TEXT("spritePath"), Sprite ? Sprite->GetPathName() : FString());
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper flipbook sprite resolved at time"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperSpriteTextureBoundsAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -2449,6 +2477,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("get_flipbook_socket_transform")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperFlipbookSocketTransformAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("get_flipbook_sprite_at_time")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperFlipbookSpriteAtTimeAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

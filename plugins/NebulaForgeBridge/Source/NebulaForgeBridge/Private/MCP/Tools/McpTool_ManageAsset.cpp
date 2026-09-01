@@ -207,6 +207,8 @@ public:
 			.FreeformObject(TEXT("position"), TEXT("PaperTileMap local-space position as {x,y,z}."))
 			.String(TEXT("socketName"), TEXT("PaperSprite socket name."))
 			.Number(TEXT("alphaThreshold"), TEXT("PaperSprite alpha threshold for tight texture bounds."))
+			.Number(TEXT("time"), TEXT("Flipbook playback time in seconds."))
+			.Bool(TEXT("clampToEnds"), TEXT("Clamp flipbook time to the first or last keyframe."))
 			.Number(TEXT("flags"), TEXT("Packed PaperTileInfo transform flags (0-7)."))
 			.String(TEXT("expressionClass"), TEXT(""))
 			.Number(TEXT("coordinateIndex"), TEXT(""))

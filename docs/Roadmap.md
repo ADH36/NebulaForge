@@ -2112,6 +2112,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Sprites: `find_sprite_texture_bounding_box` (additional official `UPaperSprite::FindTextureBoundingBox` alpha-bounds analysis)
 - [x] Flipbooks: `inspect_flipbook` (additional official `UPaperFlipbook` playback metadata and keyframe readback)
 - [x] Flipbooks: `get_flipbook_socket_transform` (additional official `UPaperFlipbook::FindSocket` frame-specific socket transform readback)
+- [x] Flipbooks: `get_flipbook_sprite_at_time` (additional official `UPaperFlipbook::GetSpriteAtTime` time-based sprite resolution)
 - [x] Sprites: `configure_sprite_source` (official `UPaperSprite::SetTrim` source-region editing with safe persistence)
 - [x] Sprites: `set_sprite_pivot` (official `UPaperSprite::SetPivotMode` with documented modes and safe persistence)
 - [x] Sprites: `inspect_sprite` (official source, UV, pivot, and collision metadata readback)

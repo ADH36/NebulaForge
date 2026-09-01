@@ -2109,7 +2109,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Flipbooks: `add_flipbook_keyframe`, `set_flipbook_framerate` (official `FScopedFlipbookMutator` edits with cache invalidation and safe persistence)
 - [x] Flipbooks: `configure_flipbook_loop` (explicit alias to the validated `UPaperFlipbookComponent::SetLooping` handler)
 - [x] Tile Maps: `create_tile_map` (official `UPaperTileMapFactory`; optional existing `UPaperTileSet` seed and safe persistence)
-- [ ] Tile Maps: `create_tile_set`, `add_tile_to_set`, `paint_tile`, `fill_tile_region`
+- [ ] Tile Maps: `create_tile_set`, `add_tile_to_set`, `fill_tile_region`
+- [x] Tile Maps: `paint_paper_tile` (official `UPaperTileMapComponent::SetTile` and `FPaperTileInfo`; owned tile-map component and existing tile set required)
 - [x] Tile Maps: `configure_paper_tile_map_layer_collision` (official `UPaperTileMapComponent::SetLayerCollision`; requires an owned/editable tile map component and the optional Paper2D plugin)
 - [x] Actors: `spawn_paper_sprite_actor`, `spawn_paper_flipbook_actor` (official Paper2D actor/component APIs; requires the optional Paper2D plugin and a pre-existing sprite/flipbook asset)
 - [x] Actors: `spawn_paper_tile_map_actor` (official `APaperTileMapActor::GetRenderComponent` and `UPaperTileMapComponent::SetTileMap`; requires the optional Paper2D plugin and a pre-existing tile-map asset)

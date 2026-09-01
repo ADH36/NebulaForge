@@ -124,10 +124,11 @@
 #else
 #define MCP_HAS_PAPER2D 0
 #endif
-#if __has_include("PaperTileMapActor.h") && __has_include("PaperTileMapComponent.h") && __has_include("PaperTileMap.h")
+#if __has_include("PaperTileMapActor.h") && __has_include("PaperTileMapComponent.h") && __has_include("PaperTileMap.h") && __has_include("PaperTileLayer.h")
 #include "PaperTileMapActor.h"
 #include "PaperTileMapComponent.h"
 #include "PaperTileMap.h"
+#include "PaperTileLayer.h"
 #define MCP_HAS_PAPER_TILEMAP 1
 #else
 #define MCP_HAS_PAPER_TILEMAP 0
@@ -4420,6 +4421,53 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
   }
 #endif
 #if MCP_HAS_PAPER_TILEMAP
+  if (LowerSub == TEXT("paint_paper_tile")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    int32 X = 0;
+    int32 Y = 0;
+    int32 Layer = 0;
+    int32 TileIndex = 0;
+    bool bRebuildCollision = false;
+    FString TileSetPath;
+    Payload->TryGetStringField(TEXT("tileSetPath"), TileSetPath);
+    TileSetPath = SanitizeProjectRelativePath(TileSetPath);
+    UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(TileSetPath));
+    if (!TileMapComponent || !Payload->TryGetNumberField(TEXT("x"), X) || !Payload->TryGetNumberField(TEXT("y"), Y) ||
+        !Payload->TryGetNumberField(TEXT("layer"), Layer) || Layer < 0 ||
+        !Payload->TryGetNumberField(TEXT("tileIndex"), TileIndex) || TileIndex < 0 || !TileSet) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperTileMapComponent, x, y, non-negative layer/tileIndex, and a valid tileSetPath are required"), nullptr);
+      return true;
+    }
+    FPaperTileInfo TileInfo;
+    TileInfo.TileSet = TileSet;
+    TileInfo.PackedTileIndex = TileIndex;
+    TileMapComponent->SetTile(X, Y, Layer, TileInfo);
+    Payload->TryGetBoolField(TEXT("rebuildCollision"), bRebuildCollision);
+    if (bRebuildCollision)
+      TileMapComponent->RebuildCollision();
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetNumberField(TEXT("x"), X);
+    Data->SetNumberField(TEXT("y"), Y);
+    Data->SetNumberField(TEXT("layer"), Layer);
+    Data->SetNumberField(TEXT("tileIndex"), TileIndex);
+    Data->SetBoolField(TEXT("rebuiltCollision"), bRebuildCollision);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile painted"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_paper_tile_map_info")) {
     FString TargetName;
     FString ComponentName;

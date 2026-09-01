@@ -39,7 +39,7 @@ This roadmap outlines the comprehensive development plan for expanding the Unrea
 ## Phase 5: Infrastructure Improvements (Current)
 
 - [x] **Real-time Streaming**: Native MCP Streamable HTTP/SSE transport delivers progress and final results; `system_control.subscribe` streams editor logs and test jobs expose lifecycle polling.
-- [ ] **Extensibility Framework**: Dynamic handler registry via JSON config and support for custom C++ handlers.
+- [x] **Extensibility Framework**: Dynamic handler registry via project-local JSON aliases and public custom C++ handler registration.
 - [x] **Remote Profiling**: Trace sessions, file-backed `.utrace` capture, status, and host-side trace analysis are available through `system_control`/`manage_insights`.
 
 ## Context Reduction Initiative (Completed Workstream)

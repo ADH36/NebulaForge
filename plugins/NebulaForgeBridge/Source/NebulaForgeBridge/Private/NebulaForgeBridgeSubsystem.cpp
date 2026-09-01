@@ -1953,6 +1953,55 @@ void UNebulaForgeBridgeSubsystem::InitializeHandlers() {
                     return true;
 #endif
                   });
+
+  // Optional project-local aliases extend the registry without changing the
+  // plugin binary. The file intentionally maps only to already-registered
+  // handlers; custom C++ modules should call the public RegisterHandler API
+  // with their own delegate instead of loading executable code from JSON.
+  const FString HandlerConfigPath = FPaths::ProjectConfigDir() / TEXT("NebulaForgeHandlers.json");
+  FString HandlerConfigText;
+  if (FFileHelper::LoadFileToString(HandlerConfigText, *HandlerConfigPath)) {
+    TSharedPtr<FJsonObject> HandlerConfig;
+    const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(HandlerConfigText);
+    if (FJsonSerializer::Deserialize(Reader, HandlerConfig) && HandlerConfig.IsValid()) {
+      const TArray<TSharedPtr<FJsonValue>> *Aliases = nullptr;
+      if (HandlerConfig->TryGetArrayField(TEXT("aliases"), Aliases) && Aliases) {
+        for (const TSharedPtr<FJsonValue> &AliasValue : *Aliases) {
+          const TSharedPtr<FJsonObject> Alias = AliasValue.IsValid() ? AliasValue->AsObject() : nullptr;
+          if (!Alias.IsValid()) continue;
+          FString Action;
+          FString Target;
+          Alias->TryGetStringField(TEXT("action"), Action);
+          Alias->TryGetStringField(TEXT("target"), Target);
+          bool bValidName = Action.Len() > 0 && Action.Len() <= 64 &&
+                            FChar::IsAlpha(Action[0]);
+          for (int32 CharacterIndex = 1; bValidName && CharacterIndex < Action.Len(); ++CharacterIndex) {
+            const TCHAR Character = Action[CharacterIndex];
+            bValidName = FChar::IsAlnum(Character) || Character == TCHAR('_');
+          }
+          if (!bValidName || !AutomationHandlers.Contains(Target) || AutomationHandlers.Contains(Action)) {
+            UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+                   TEXT("Ignoring invalid or conflicting handler alias '%s' -> '%s'"), *Action, *Target);
+            continue;
+          }
+          RegisterHandler(Action,
+                          [this, Target](const FString &R, const FString &A,
+                                         const TSharedPtr<FJsonObject> &P,
+                                         TSharedPtr<FMcpBridgeWebSocket> S) {
+                            if (const FAutomationHandler *Handler = AutomationHandlers.Find(Target)) {
+                              return (*Handler)(R, Target, P, S);
+                            }
+                            return false;
+                          });
+          UE_LOG(LogNebulaForgeBridgeSubsystem, Log,
+                 TEXT("Registered project handler alias '%s' -> '%s'"), *Action, *Target);
+        }
+      }
+    } else {
+      UE_LOG(LogNebulaForgeBridgeSubsystem, Warning,
+             TEXT("Unable to parse project handler config: %s"), *HandlerConfigPath);
+    }
+  }
 }
 
 // Drain and process any automation requests that were enqueued while the

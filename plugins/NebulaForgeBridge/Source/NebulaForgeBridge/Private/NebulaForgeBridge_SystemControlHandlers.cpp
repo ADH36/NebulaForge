@@ -8,6 +8,8 @@
 #include "NebulaForgeBridgeSubsystem.h"
 #include "McpHandlerUtils.h"
 #include "GameFramework/SaveGame.h"
+#include "GameplayTagContainer.h"
+#include "GameplayTagsManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Guid.h"
 #include "Misc/AutomationTest.h"
@@ -1403,6 +1405,9 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("save_game_to_slot") || Lower == TEXT("load_game_from_slot") ||
       Lower == TEXT("inspect_save_game_schema") || Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
       Lower == TEXT("list_save_game_slots");
+  const bool bGameplayTagContainerAction =
+      Lower == TEXT("create_tag_container") || Lower == TEXT("add_tag_to_container") ||
+      Lower == TEXT("remove_tag_from_container") || Lower == TEXT("check_tag_match");
   const bool bHostWorkflowAction =
       Lower == TEXT("run_uat") || Lower == TEXT("validate_release") || Lower == TEXT("release_gate") || Lower == TEXT("validate_project") || Lower == TEXT("create_game_architecture_manifest") || Lower == TEXT("add_architecture_requirement") || Lower == TEXT("validate_game_architecture") || Lower == TEXT("inspect_platform_capabilities") || Lower == TEXT("sign_release") || Lower == TEXT("run_packaged") || Lower == TEXT("deploy_package") || Lower == TEXT("run_network_soak") || Lower == TEXT("analyze_trace") || Lower == TEXT("manage_project_plugin") ||
       Lower == TEXT("wait_for_job") || Lower == TEXT("wait_for_async_action") || Lower == TEXT("get_job_status") || Lower == TEXT("list_jobs") ||
@@ -1439,7 +1444,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("enable_visual_logger") &&
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
-       !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction &&
+       !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction) {
     return false; // Not handled by this function
   }
@@ -1460,6 +1465,102 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     return HandleRuntimeSaveGameAction(RequestId, Lower, Payload, RequestingSocket);
   }
 #endif
+
+  if (bGameplayTagContainerAction) {
+    if (!Payload.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("System control payload missing"), TEXT("INVALID_PAYLOAD"));
+      return true;
+    }
+    auto ReadTagContainer = [](const TSharedPtr<FJsonObject>& Source, const TCHAR* FieldName, FGameplayTagContainer& OutContainer, FString& OutError) -> bool {
+      const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
+      if (!Source->TryGetArrayField(FieldName, Values) || !Values) {
+        OutError = FString::Printf(TEXT("%s must be an array of registered Gameplay Tag names"), FieldName);
+        return false;
+      }
+      for (const TSharedPtr<FJsonValue>& Value : *Values) {
+        FString TagName;
+        if (!Value.IsValid() || !Value->TryGetString(TagName)) {
+          OutError = FString::Printf(TEXT("%s must contain only Gameplay Tag names"), FieldName);
+          return false;
+        }
+        TagName.TrimStartAndEndInline();
+        const FGameplayTag Tag = UGameplayTagsManager::Get().RequestGameplayTag(FName(*TagName), false);
+        if (!Tag.IsValid()) {
+          OutError = FString::Printf(TEXT("Gameplay Tag '%s' is not registered"), *TagName);
+          return false;
+        }
+        OutContainer.AddTag(Tag);
+      }
+      return true;
+    };
+    auto WriteTagContainer = [](const FGameplayTagContainer& Container, const TSharedPtr<FJsonObject>& Result) {
+      TArray<TSharedPtr<FJsonValue>> Tags;
+      for (const FGameplayTag& Tag : Container.GetGameplayTagArray()) {
+        Tags.Add(MakeShared<FJsonValueString>(Tag.ToString()));
+      }
+      Result->SetArrayField(TEXT("tags"), Tags);
+      Result->SetNumberField(TEXT("count"), Tags.Num());
+    };
+    FGameplayTagContainer Container;
+    FString Error;
+    if (!ReadTagContainer(Payload, TEXT("tags"), Container, Error)) {
+      SendAutomationError(RequestingSocket, RequestId, Error, TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (Lower == TEXT("check_tag_match")) {
+      FGameplayTagContainer MatchContainer;
+      if (!ReadTagContainer(Payload, TEXT("matchTags"), MatchContainer, Error)) {
+        SendAutomationError(RequestingSocket, RequestId, Error, TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString MatchMode = TEXT("any");
+      Payload->TryGetStringField(TEXT("matchMode"), MatchMode);
+      MatchMode.TrimStartAndEndInline();
+      MatchMode.ToLowerInline();
+      bool bMatches = false;
+      if (MatchMode == TEXT("any")) bMatches = Container.HasAny(MatchContainer);
+      else if (MatchMode == TEXT("all")) bMatches = Container.HasAll(MatchContainer);
+      else if (MatchMode == TEXT("any_exact")) bMatches = Container.HasAnyExact(MatchContainer);
+      else if (MatchMode == TEXT("all_exact")) bMatches = Container.HasAllExact(MatchContainer);
+      else {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("matchMode must be any, all, any_exact, or all_exact"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      WriteTagContainer(Container, Result);
+      Result->SetBoolField(TEXT("matches"), bMatches);
+      Result->SetStringField(TEXT("matchMode"), MatchMode);
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Gameplay Tag match evaluated"), Result, FString());
+      return true;
+    }
+    if (Lower == TEXT("add_tag_to_container") || Lower == TEXT("remove_tag_from_container")) {
+      FString TagName;
+      Payload->TryGetStringField(TEXT("tag"), TagName);
+      TagName.TrimStartAndEndInline();
+      const FGameplayTag Tag = UGameplayTagsManager::Get().RequestGameplayTag(FName(*TagName), false);
+      if (!Tag.IsValid()) {
+        SendAutomationError(RequestingSocket, RequestId, FString::Printf(TEXT("Gameplay Tag '%s' is not registered"), *TagName), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      bool bChanged = false;
+      if (Lower == TEXT("add_tag_to_container")) {
+        bChanged = !Container.HasTagExact(Tag);
+        if (bChanged) Container.AddTag(Tag);
+      } else {
+        bChanged = Container.RemoveTag(Tag, false);
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      WriteTagContainer(Container, Result);
+      Result->SetStringField(TEXT("tag"), Tag.ToString());
+      Result->SetBoolField(TEXT("changed"), bChanged);
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Gameplay Tag container updated"), Result, FString());
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    WriteTagContainer(Container, Result);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Gameplay Tag container created"), Result, FString());
+    return true;
+  }
 
 #if WITH_EDITOR
   if (!Payload.IsValid()) {

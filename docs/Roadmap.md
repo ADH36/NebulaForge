@@ -1387,11 +1387,13 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 31.3 Gameplay Tags
 - [ ] `create_gameplay_tag`
-- [ ] `create_tag_container`
-- [ ] `add_tag_to_container`, `remove_tag_from_container`
-- [ ] `check_tag_match`
+- [x] `create_tag_container`
+- [x] `add_tag_to_container`, `remove_tag_from_container`
+- [x] `check_tag_match` (any/all and exact variants through UE `FGameplayTagContainer`)
 - [ ] `register_native_tag`
 - [ ] `create_tag_table`
+
+**Implementation note:** Container actions are transient request-scoped operations over registered tags; project tag dictionary authoring remains handled separately by the project config actions.
 
 ### 31.4 Config System
 - [ ] `read_config_value`, `write_config_value`

@@ -1681,7 +1681,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `configure_scalability_group`
 - [ ] `set_cvar_for_profile`
 - [ ] `configure_platform_settings`
-- [ ] `set_quality_level`
+- [x] `set_quality_level` (overall 0-4 scalability level via `Scalability::FQualityLevels`)
 
 ---
 

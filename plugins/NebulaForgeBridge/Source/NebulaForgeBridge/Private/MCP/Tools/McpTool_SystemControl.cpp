@@ -129,6 +129,7 @@ public:
 			.String(TEXT("sourceString"), TEXT("String table source text."))
 			.String(TEXT("devNotes"), TEXT("Optional string table developer notes."))
 			.String(TEXT("culture"), TEXT("Culture to set as an IETF language tag, for example en-US."))
+			.Number(TEXT("level"), TEXT("Scalability quality level: 0 low, 1 medium, 2 high, 3 epic, 4 cinematic."))
 			.String(TEXT("comment"), TEXT("Gameplay Tag developer comment."))
 			.String(TEXT("configName"), TEXT("Safe Unreal Config filename, for example DefaultGame.ini."))
 			.String(TEXT("section"), TEXT("INI section name."))

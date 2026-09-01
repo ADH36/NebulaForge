@@ -423,7 +423,8 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         enabled
       };
     }
-    case 'set_quality': {
+    case 'set_quality':
+    case 'set_quality_level': {
       const quality = argsTyped.level ?? 'medium';
       let qVal: number;
       if (typeof quality === 'number') {
@@ -449,7 +450,7 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       else if (category.includes('viewdistance')) cvar = 'sg.ViewDistanceQuality';
 
       await executeAutomationRequest(tools, 'console_command', { command: `${cvar} ${qVal}` });
-      return { success: true, message: `${category} quality derived from '${quality}' set to ${qVal} via ${cvar}`, action: 'set_quality' };
+      return { success: true, message: `${category} quality derived from '${quality}' set to ${qVal} via ${cvar}`, action: argsTyped.action ?? 'set_quality' };
     }
     case 'execute_command':
       return cleanObject(await executeAutomationRequest(tools, 'console_command', { command: argsTyped.command ?? '' }) as Record<string, unknown>);

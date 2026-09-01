@@ -16,6 +16,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Guid.h"
 #include "Misc/AutomationTest.h"
+#include "Scalability.h"
 #include "HAL/FileManager.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/Paths.h"
@@ -1428,6 +1429,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project");
   const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
   const bool bCultureAction = Lower == TEXT("set_culture");
+  const bool bQualityLevelAction = Lower == TEXT("set_quality_level");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -1454,7 +1456,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction) {
     return false; // Not handled by this function
   }
 
@@ -1474,6 +1476,24 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     return HandleRuntimeSaveGameAction(RequestId, Lower, Payload, RequestingSocket);
   }
 #endif
+
+  if (bQualityLevelAction) {
+    if (!Payload.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("System control payload missing"), TEXT("INVALID_PAYLOAD"));
+      return true;
+    }
+    int32 Level = 1;
+    Payload->TryGetNumberField(TEXT("level"), Level);
+    Level = FMath::Clamp(Level, 0, 4);
+    Scalability::FQualityLevels QualityLevels;
+    QualityLevels.SetFromSingleQualityLevel(Level);
+    Scalability::SetQualityLevels(QualityLevels);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("level"), Level);
+    Result->SetStringField(TEXT("quality"), Level == 0 ? TEXT("low") : Level == 1 ? TEXT("medium") : Level == 2 ? TEXT("high") : Level == 3 ? TEXT("epic") : TEXT("cinematic"));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Scalability quality level set"), Result, FString());
+    return true;
+  }
 
   if (bCultureAction) {
     if (!Payload.IsValid()) {

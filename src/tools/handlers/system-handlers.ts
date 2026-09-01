@@ -353,6 +353,21 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       if (!record.key.startsWith('demo.')) return { success: false, error: 'INVALID_ARGUMENT', message: 'Replay settings must use a documented demo.* key' };
       return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
     }
+    case 'create_build_target': {
+      const record = argsTyped as Record<string, unknown>;
+      const targetName = typeof record.targetName === 'string' ? record.targetName.trim() : '';
+      const targetType = typeof record.targetType === 'string' ? record.targetType : 'Game';
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(targetName) || !['Game', 'Client', 'Server', 'Editor', 'Program'].includes(targetType)) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'targetName must be a safe identifier and targetType must be Game, Client, Server, Editor, or Program' };
+      }
+      const filePath = typeof record.filePath === 'string' && record.filePath.trim() !== '' ? record.filePath.trim() : `Source/${targetName}.Target.cs`;
+      const content = `using UnrealBuildTool;\n\npublic class ${targetName}Target : TargetRules\n{\n    public ${targetName}Target(TargetInfo Target) : base(Target)\n    {\n        Type = TargetType.${targetType};\n        DefaultBuildSettings = BuildSettingsVersion.V5;\n        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;\n    }\n}\n`;
+      try {
+        return { ...(await writeProjectFile(argsTyped.projectPath, filePath, content, record.backup !== false)), targetName, targetType };
+      } catch (error) {
+        return { success: false, error: 'TARGET_GENERATION_FAILED', message: error instanceof Error ? error.message : String(error) };
+      }
+    }
     case 'remove_gameplay_tag': {
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
       return removeGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.backup !== false);

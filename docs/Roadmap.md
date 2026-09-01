@@ -1418,7 +1418,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `cook_content` (platform)
 - [x] `package_project` (platform)
 - [x] `configure_build_settings` (safe project INI setting authoring)
-- [ ] `create_build_target`
+- [x] `create_build_target` (safe compile-ready `.Target.cs` generator)
 
 **Implementation note:** `cook_content` and `package_project` are dedicated aliases over the validated RunUAT `BuildCookRun` pipeline, selecting the corresponding operation while preserving platform, configuration, async job, and packaging option handling.
 

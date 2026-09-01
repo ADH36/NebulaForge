@@ -47,6 +47,8 @@ public:
 			.String(TEXT("cvarValue"), TEXT("Device profile CVar value."))
 			.StringEnum(TEXT("shaderMode"), { TEXT("changed"), TEXT("all") }, TEXT("Shader recompilation scope."))
 			.String(TEXT("target"), TEXT(""))
+			.String(TEXT("targetName"), TEXT("UBT target class name."))
+			.StringEnum(TEXT("targetType"), { TEXT("Game"), TEXT("Client"), TEXT("Server"), TEXT("Editor"), TEXT("Program") }, TEXT("UBT target type."))
 			.String(TEXT("platform"), TEXT(""))
 			.String(TEXT("configuration"), TEXT(""))
 			.String(TEXT("arguments"), TEXT(""))

@@ -2106,6 +2106,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Sprites: `create_sprite` (official `UPaperSpriteFactory`; requires Paper2DEditor and an existing `UTexture2D`)
 - [ ] Sprites: `configure_sprite_source`, `configure_sprite_collision`
 - [x] Sprites: `set_sprite_pivot` (official `UPaperSprite::SetPivotMode` with documented modes and safe persistence)
+- [x] Sprites: `inspect_sprite` (official source, UV, pivot, and collision metadata readback)
 - [x] Flipbooks: `create_flipbook` (official `UPaperFlipbookFactory` keyframes from existing sprites; requires Paper2DEditor)
 - [x] Flipbooks: `add_flipbook_keyframe`, `set_flipbook_framerate` (official `FScopedFlipbookMutator` edits with cache invalidation and safe persistence)
 - [x] Flipbooks: `configure_flipbook_loop` (explicit alias to the validated `UPaperFlipbookComponent::SetLooping` handler)

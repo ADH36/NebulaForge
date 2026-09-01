@@ -931,6 +931,22 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return true;
 #endif
   }
+  if (Lower == TEXT("inspect_sprite")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperSpriteInspectAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("set_sprite_pivot")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperSpritePivotAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
   if (Lower == TEXT("add_flipbook_keyframe") || Lower == TEXT("set_flipbook_framerate")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperFlipbookEditAction(this, RequestId, Lower, Payload, RequestingSocket);

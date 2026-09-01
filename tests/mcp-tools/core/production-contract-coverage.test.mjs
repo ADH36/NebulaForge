@@ -34,6 +34,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'create_flipbook', name: 'ContractFlipbook', path: '/Game/Contract', spritePaths: ['/Game/Contract/SpriteA', '/Game/Contract/SpriteB'], frameRuns: [1, 2], save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_tile_map', name: 'ContractTileMap', path: '/Game/Contract', tileSetPath: '/Game/Contract/TileSet', save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_sprite_pivot', assetPath: '/Game/Contract/Sprite', pivotMode: 'center_center', rebuildData: true, save: true }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'inspect_sprite', assetPath: '/Game/Contract/Sprite' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'add_flipbook_keyframe', assetPath: '/Game/Contract/ContractFlipbook', spritePath: '/Game/Contract/SpriteA', frameRun: 2, keyFrameIndex: 0, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_flipbook_framerate', assetPath: '/Game/Contract/ContractFlipbook', framesPerSecond: 12, save: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'add_instance', actorName: 'ContractActor', componentName: 'ContractISM', location: { x: 0, y: 0, z: 0 }, rotation: { pitch: 0, yaw: 0, roll: 0 }, scale: { x: 1, y: 1, z: 1 }, worldSpace: true }, expected: 'success|error' },

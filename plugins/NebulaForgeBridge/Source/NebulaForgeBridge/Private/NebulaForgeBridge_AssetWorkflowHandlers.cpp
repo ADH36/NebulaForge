@@ -1129,6 +1129,38 @@ static bool HandlePaperTileMapSetCellAction(
   return true;
 }
 
+static bool HandlePaperTileMapGetCellAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  int32 LayerIndex = 0;
+  int32 X = 0;
+  int32 Y = 0;
+  if (!TileMap || !Payload->TryGetNumberField(TEXT("layerIndex"), LayerIndex) ||
+      !Payload->TryGetNumberField(TEXT("x"), X) || !Payload->TryGetNumberField(TEXT("y"), Y) ||
+      LayerIndex < 0 || LayerIndex >= TileMap->TileLayers.Num() || !TileMap->TileLayers[LayerIndex].Get() ||
+      !TileMap->TileLayers[LayerIndex]->InBounds(X, Y)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath, layerIndex, and x/y must identify an in-bounds tile-map cell"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const FPaperTileInfo TileInfo = TileMap->TileLayers[LayerIndex]->GetCell(X, Y);
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetNumberField(TEXT("layerIndex"), LayerIndex);
+  Result->SetNumberField(TEXT("x"), X);
+  Result->SetNumberField(TEXT("y"), Y);
+  Result->SetNumberField(TEXT("tileIndex"), TileInfo.PackedTileIndex);
+  Result->SetNumberField(TEXT("flags"), TileInfo.GetFlagsAsIndex());
+  Result->SetStringField(TEXT("tileSetPath"), TileInfo.TileSet ? TileInfo.TileSet->GetPathName() : FString());
+  Result->SetBoolField(TEXT("isValid"), TileInfo.IsValid());
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map cell read"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileMapFillRegionAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1914,6 +1946,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("set_tile_map_cell")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileMapSetCellAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("get_tile_map_cell")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapGetCellAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

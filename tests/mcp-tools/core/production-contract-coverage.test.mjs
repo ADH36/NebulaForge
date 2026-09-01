@@ -59,6 +59,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'configure_tile_map_layer', assetPath: '/Game/Contract/TileMap', layerIndex: 0, layerColor: { r: 1, g: 1, b: 1, a: 1 }, layerCollides: true, renderInEditor: true, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'inspect_tile_map_layer', assetPath: '/Game/Contract/TileMap', layerIndex: 0 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_tile_map_cell', assetPath: '/Game/Contract/TileMap', layerIndex: 0, x: 0, y: 0, tileIndex: 0, tileSetPath: '/Game/Contract/TileSet', save: true }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'get_tile_map_cell', assetPath: '/Game/Contract/TileMap', layerIndex: 0, x: 0, y: 0 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'fill_tile_map_region', assetPath: '/Game/Contract/TileMap', layerIndex: 0, x: 0, y: 0, width: 4, height: 3, tileIndex: 0, tileSetPath: '/Game/Contract/TileSet', rebuildCollision: true, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'resize_tile_map', assetPath: '/Game/Contract/TileMap', width: 64, height: 32, forceResize: true, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_sprite_pivot', assetPath: '/Game/Contract/Sprite', pivotMode: 'center_center', rebuildData: true, save: true }, expected: 'success|error' },

@@ -169,6 +169,7 @@ const testCases = [
   // === CONFIG ===
   { scenario: 'CONFIG: set_project_setting', toolName: 'system_control', arguments: { action: 'set_project_setting', section: PROJECT_SETTING_SECTION, key: PROJECT_SETTING_KEY, value: '1' }, expected: 'success' },
   { scenario: 'ACTION: execute_python', toolName: 'system_control', arguments: { action: 'execute_python', code: 'print("system-control-ok")' }, expected: 'success' },
+  { scenario: 'ACTION: execute_python_string alias', toolName: 'system_control', arguments: { action: 'execute_python_string', code: 'print("system-control-string-ok")' }, expected: 'success' },
   { scenario: 'Setup: create execute_python file', toolName: 'system_control', arguments: { action: 'execute_python', code: CREATE_PYTHON_FILE_CODE }, expected: 'success' },
   // This result is asserted on the returned MCP response, so it also catches
   // temp wrapper cleanup racing file execution before output/status are written.

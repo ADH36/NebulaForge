@@ -1457,6 +1457,9 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("enable_visual_logger") &&
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
+      Lower != TEXT("execute_python_script") &&
+      Lower != TEXT("execute_python_string") &&
+      Lower != TEXT("execute_python_file") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
     return false; // Not handled by this function
@@ -3065,7 +3068,8 @@ FMessageLog LogListing{FName(*Category)};
                              Result, TEXT("EXPORT_FAILED"));
     }
     return true;
-  } else if (Lower == TEXT("execute_python")) {
+  } else if (Lower == TEXT("execute_python") || Lower == TEXT("execute_python_script") ||
+             Lower == TEXT("execute_python_string") || Lower == TEXT("execute_python_file")) {
     // Execute Python code with stdout/stderr capture via temp file wrapper
     FString Code;
     Payload->TryGetStringField(TEXT("code"), Code);
@@ -3074,6 +3078,15 @@ FMessageLog LogListing{FName(*Category)};
 
     const bool bHasCode = !Code.TrimStartAndEnd().IsEmpty();
     const bool bHasFile = !File.TrimStartAndEnd().IsEmpty();
+
+    const bool bRequiresCode = Lower == TEXT("execute_python_script") || Lower == TEXT("execute_python_string");
+    const bool bRequiresFile = Lower == TEXT("execute_python_file");
+    if ((bRequiresCode && (!bHasCode || bHasFile)) || (bRequiresFile && (!bHasFile || bHasCode))) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          bRequiresFile ? TEXT("execute_python_file requires file and does not accept code") : TEXT("execute_python_script/execute_python_string require code and do not accept file"),
+                          TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
 
     if (!bHasCode && !bHasFile) {
       SendAutomationError(RequestingSocket, RequestId,

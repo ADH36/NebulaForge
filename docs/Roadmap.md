@@ -1344,8 +1344,10 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 30.4 Take Recorder
 - [ ] `create_take_recorder_panel`
 - [ ] `configure_take_sources`
-- [ ] `start_recording`, `stop_recording`
+- [x] `start_recording`, `stop_recording` (Take Recorder lifecycle via `control_editor.start_take_recording` / `stop_take_recording`)
 - [ ] `configure_recorded_tracks`
+
+**Implementation note:** The lifecycle actions use UE's optional `UTakeRecorderSubsystem`, support recording into an existing Level Sequence, and expose `get_take_recording_status`. Source/track authoring and panel creation remain plugin-specific follow-up work.
 
 ### 30.5 Demo/Replay System
 - [ ] `start_demo_recording`, `stop_demo_recording`

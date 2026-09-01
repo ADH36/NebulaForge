@@ -1428,6 +1428,10 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             }
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("ClearParameterCollectionOverrides"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("ClearCollectionOverrides"), ESearchCase::IgnoreCase)) {
+          NiComp->ClearParameterCollectionOverrides();
+          bApplied = true;
         } else if (ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) ||
                    ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase)) {
           const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
@@ -1513,6 +1517,8 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("SkeletalMeshFilteredSockets"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("SamplingRegions"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("SkeletalMeshSamplingRegions"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("ClearParameterCollectionOverrides"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("ClearCollectionOverrides"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase) &&

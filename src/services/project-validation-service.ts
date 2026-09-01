@@ -112,7 +112,7 @@ function resolveEngineRoot(enginePath?: string): string | undefined {
   return path.basename(absolute).toLowerCase() === 'engine' ? absolute : path.join(absolute, 'Engine');
 }
 
-async function findEditorCommandlet(enginePath?: string): Promise<string | undefined> {
+export async function findEditorCommandlet(enginePath?: string): Promise<string | undefined> {
   const engineRoot = resolveEngineRoot(enginePath);
   if (!engineRoot) return undefined;
   const candidates = process.platform === 'win32'
@@ -127,6 +127,31 @@ async function findEditorCommandlet(enginePath?: string): Promise<string | undef
     } catch { /* continue probing */ }
   }
   return undefined;
+}
+
+export async function runLocalizationCommandlet(options: {
+  projectPath?: string;
+  enginePath?: string;
+  configPath: string;
+  operation: 'import' | 'export';
+  timeoutMs?: number;
+}): Promise<Record<string, unknown>> {
+  const root = resolveRoot(options.projectPath);
+  if (!root) return { success: false, error: 'PROJECT_PATH_REQUIRED', message: 'projectPath or UE_PROJECT_PATH is required' };
+  const projectFile = await resolveProjectDescriptor(root, options.projectPath);
+  if (!projectFile) return { success: false, error: 'PROJECT_DESCRIPTOR_INVALID', message: 'Unable to identify a unique .uproject descriptor' };
+  const configPath = options.configPath.replace(/\\/g, '/').trim();
+  if (!/^Config\/Localization\/[A-Za-z][A-Za-z0-9_-]{0,127}\.ini$/i.test(configPath)) {
+    return { success: false, error: 'INVALID_CONFIG_PATH', message: 'configPath must be a project-relative Config/Localization/*.ini path' };
+  }
+  const configAbsolute = path.resolve(root, configPath);
+  if (!(await existsAs(root, configPath, false))) return { success: false, error: 'CONFIG_NOT_FOUND', message: `Localization config not found: ${configPath}` };
+  const executable = await findEditorCommandlet(options.enginePath);
+  if (!executable) return { success: false, error: 'UNREAL_EDITOR_CMD_NOT_FOUND', message: 'UnrealEditor-Cmd was not found. Set enginePath or UE_ENGINE_PATH to a valid Unreal Engine root.' };
+  const commandletArgs = [projectFile, '-run=GatherText', `-config=${configAbsolute}`, '-unattended', '-nop4', '-nosplash', '-nosound', '-NullRHI'];
+  const child = spawn(executable, commandletArgs, { shell: false, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+  const job = jobManager.startProcess({ label: `localization:${options.operation}/${path.basename(configPath)}`, process: child, timeoutMs: options.timeoutMs });
+  return { success: true, operation: options.operation, configPath, commandlet: 'GatherText', jobId: job.jobId, status: job.status };
 }
 
 async function resolveProjectDescriptor(root: string, projectPath?: string): Promise<string | undefined> {

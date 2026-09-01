@@ -10,7 +10,7 @@ import { generateAutomationTest } from '../../services/automation-test-generator
 import { generateAssetValidator } from '../../services/asset-validator-generator.js';
 import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../services/gameplay-tags-service.js';
 import { createConfigSection, flushConfig, getConfigHierarchy, getConfigSection, getConfigValue, listConfigLayers, reloadConfig, setConfigValue } from '../../services/config-service.js';
-import { getAutomationTestResults, runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
+import { getAutomationTestResults, runLocalizationCommandlet, runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
 import { addArchitectureRequirement, createGameArchitectureManifest, validateGameArchitecture } from '../../services/game-architecture-service.js';
@@ -380,6 +380,12 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       } catch (error) {
         return { success: false, error: 'LOCALIZATION_CONFIG_WRITE_FAILED', message: error instanceof Error ? error.message : String(error) };
       }
+    }
+    case 'import_localization':
+    case 'export_localization': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.localizationConfigPath !== 'string') return { success: false, error: 'INVALID_ARGUMENT', message: 'localizationConfigPath is required' };
+      return runLocalizationCommandlet({ projectPath: argsTyped.projectPath, enginePath: typeof record.enginePath === 'string' ? record.enginePath : undefined, configPath: record.localizationConfigPath, operation: action === 'import_localization' ? 'import' : 'export', timeoutMs: typeof record.timeoutMs === 'number' ? record.timeoutMs : undefined });
     }
     case 'remove_gameplay_tag': {
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };

@@ -1670,11 +1670,11 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_string_table`
 - [x] `add_string_entry`
 - [x] `configure_localization_target` (guarded GatherText INI authoring)
-- [ ] `import_localization`, `export_localization`
+- [x] `import_localization`, `export_localization` (managed GatherText commandlet jobs)
 - [x] `set_culture`
 - [x] `get_localized_string`
 
-**Implementation note:** These actions manage transient process-level string tables through UE's `FStringTableRegistry`; `set_culture` uses `FInternationalization::SetCurrentCulture` and returns the active IETF culture name. `configure_localization_target` writes a validated GatherText target config under `Config/Localization`; gather/import/export execution remains a separate commandlet job.
+**Implementation note:** These actions manage transient process-level string tables through UE's `FStringTableRegistry`; `set_culture` uses `FInternationalization::SetCurrentCulture` and returns the active IETF culture name. `configure_localization_target` writes a validated GatherText target config under `Config/Localization`; import/export launch managed `GatherText` commandlet jobs against a validated target config.
 
 **Additional API coverage:** `system_control.set_language_and_locale` and `set_locale` expose Epic's narrower language/locale setters for callers that must avoid changing all active culture state.
 

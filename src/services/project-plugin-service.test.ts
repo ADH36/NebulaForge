@@ -28,6 +28,12 @@ describe('manageProjectPlugins', () => {
     expect(result.error).toBe('PLUGIN_NOT_DECLARED');
   });
 
+  it('reports a declared plugin status', async () => {
+    const root = await pluginFixture();
+    const result = await manageProjectPlugins(root, 'status', 'ExamplePlugin');
+    expect(result).toMatchObject({ success: true, pluginName: 'ExamplePlugin', declared: true, enabled: false });
+  });
+
   it('validates local plugin descriptors and dependencies', async () => {
     const root = await pluginFixture();
     await fs.mkdir(path.join(root, 'Plugins', 'ExamplePlugin'), { recursive: true });

@@ -78,8 +78,14 @@ export async function manageProjectPlugins(projectPath: string | undefined, plug
   if (pluginAction === 'list') {
     return { success: true, projectFile: descriptorName, plugins };
   }
+  if (pluginAction === 'status') {
+    if (!pluginName || !PLUGIN_NAME.test(pluginName)) return { success: false, error: 'INVALID_PLUGIN_NAME', message: 'pluginName must be a valid Unreal plugin identifier' };
+    const entry = plugins.find((candidate) => candidate.Name === pluginName);
+    if (!entry) return { success: false, error: 'PLUGIN_NOT_DECLARED', message: `Plugin ${pluginName} is not declared in ${descriptorName}` };
+    return { success: true, projectFile: descriptorName, pluginName, declared: true, enabled: entry.Enabled !== false, descriptor: entry };
+  }
   if (pluginAction !== 'enable' && pluginAction !== 'disable') {
-    return { success: false, error: 'INVALID_PLUGIN_ACTION', message: 'pluginAction must be list, validate, enable, or disable' };
+    return { success: false, error: 'INVALID_PLUGIN_ACTION', message: 'pluginAction must be list, status, validate, enable, or disable' };
   }
   if (!pluginName || !PLUGIN_NAME.test(pluginName)) {
     return { success: false, error: 'INVALID_PLUGIN_NAME', message: 'pluginName must be a valid Unreal plugin identifier' };

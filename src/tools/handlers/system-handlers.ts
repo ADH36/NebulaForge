@@ -227,7 +227,7 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
     case 'list_plugins':
       return manageProjectPlugins(argsTyped.projectPath, 'list');
     case 'get_plugin_status':
-      return manageProjectPlugins(argsTyped.projectPath, 'validate', typeof (argsTyped as Record<string, unknown>).pluginName === 'string' ? String((argsTyped as Record<string, unknown>).pluginName) : undefined);
+      return manageProjectPlugins(argsTyped.projectPath, 'status', typeof (argsTyped as Record<string, unknown>).pluginName === 'string' ? String((argsTyped as Record<string, unknown>).pluginName) : undefined);
     case 'enable_plugin':
       return manageProjectPlugins(argsTyped.projectPath, 'enable', typeof (argsTyped as Record<string, unknown>).pluginName === 'string' ? String((argsTyped as Record<string, unknown>).pluginName) : undefined, (argsTyped as Record<string, unknown>).backup !== false);
     case 'disable_plugin':

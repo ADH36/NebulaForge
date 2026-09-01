@@ -43,6 +43,7 @@ public:
 				TEXT("add_component"),
 				TEXT("create_instanced_static_mesh_component"),
 				TEXT("create_hierarchical_instanced_static_mesh"),
+				TEXT("create_procedural_mesh_component"),
 				TEXT("add_instance"),
 				TEXT("remove_instance"),
 				TEXT("update_instance_transform"),

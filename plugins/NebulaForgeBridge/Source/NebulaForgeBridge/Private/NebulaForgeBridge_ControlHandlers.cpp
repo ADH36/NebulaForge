@@ -4342,11 +4342,15 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return HandleControlActorSetComponentProperties(RequestId, Forward, RequestingSocket);
   }
   if (LowerSub == TEXT("create_instanced_static_mesh_component") ||
-      LowerSub == TEXT("create_hierarchical_instanced_static_mesh")) {
+      LowerSub == TEXT("create_hierarchical_instanced_static_mesh") ||
+      LowerSub == TEXT("create_procedural_mesh_component")) {
     if (Payload.IsValid()) {
-      Payload->SetStringField(TEXT("componentType"), LowerSub == TEXT("create_hierarchical_instanced_static_mesh")
+      const TCHAR *ComponentType = LowerSub == TEXT("create_hierarchical_instanced_static_mesh")
           ? TEXT("/Script/Engine.HierarchicalInstancedStaticMeshComponent")
-          : TEXT("/Script/Engine.InstancedStaticMeshComponent"));
+          : LowerSub == TEXT("create_procedural_mesh_component")
+              ? TEXT("/Script/ProceduralMeshComponent.ProceduralMeshComponent")
+              : TEXT("/Script/Engine.InstancedStaticMeshComponent");
+      Payload->SetStringField(TEXT("componentType"), ComponentType);
     }
     return HandleControlActorAddComponent(RequestId, Payload, RequestingSocket);
   }

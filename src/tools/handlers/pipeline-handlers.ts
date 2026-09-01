@@ -1044,6 +1044,12 @@ async function findBundledDotNetRoot(ubtPath: string): Promise<string | undefine
 /** Dispatch system_control pipeline actions to local UBT or the C++ bridge. */
 export async function handlePipelineTools(action: string, args: PipelineArgs, tools: ITools) {
   switch (action) {
+    case 'generate_project_files':
+      return handlePipelineTools('run_ubt', {
+        ...args,
+        target: 'ProjectFiles',
+        arguments: [args.arguments, '-ProjectFiles'].filter(Boolean).join(' ')
+      }, tools);
     case 'sign_release':
       return signRelease(args);
     case 'run_packaged':

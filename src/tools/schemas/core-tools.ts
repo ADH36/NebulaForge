@@ -613,7 +613,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
             'create_event_dispatcher', 'bind_to_event', 'unbind_from_event', 'broadcast_event',
             'create_delegate', 'bind_delegate', 'inspect_delegate', 'list_delegate_bindings',
             'create_blueprint_interface', 'add_interface_function', 'implement_interface',
-            'get_interface_info', 'call_interface_function'
+            'get_interface_info', 'call_interface_function', 'generate_project_files'
           ],
           description: 'Action'
         },

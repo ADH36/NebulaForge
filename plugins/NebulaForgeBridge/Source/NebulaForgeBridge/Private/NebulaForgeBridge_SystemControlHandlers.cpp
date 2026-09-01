@@ -1430,6 +1430,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
   const bool bCultureAction = Lower == TEXT("set_culture");
   const bool bQualityLevelAction = Lower == TEXT("set_quality_level");
+  const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -1456,7 +1457,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
     return false; // Not handled by this function
   }
 
@@ -1476,6 +1477,11 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     return HandleRuntimeSaveGameAction(RequestId, Lower, Payload, RequestingSocket);
   }
 #endif
+
+  if (bProjectFilesAction) {
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Project-file generation is owned by the stdio host UBT job runner"), TEXT("HOST_ONLY"));
+    return true;
+  }
 
   if (bQualityLevelAction) {
     if (!Payload.IsValid()) {

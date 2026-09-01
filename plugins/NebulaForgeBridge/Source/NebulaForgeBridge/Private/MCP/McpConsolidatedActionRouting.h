@@ -506,7 +506,7 @@ inline const TArray<FString>& SystemControlCore()
 	static const TArray<FString> Actions = {
 		TEXT("profile"), TEXT("show_fps"), TEXT("set_quality"), TEXT("set_quality_level"), TEXT("configure_scalability_group"),
 		TEXT("screenshot"), TEXT("set_resolution"), TEXT("set_fullscreen"),
-		TEXT("execute_command"), TEXT("console_command"), TEXT("run_ubt"),
+      TEXT("execute_command"), TEXT("console_command"), TEXT("run_ubt"), TEXT("generate_project_files"),
       TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("release_gate"), TEXT("validate_project"), TEXT("create_game_architecture_manifest"), TEXT("add_architecture_requirement"), TEXT("validate_game_architecture"), TEXT("inspect_platform_capabilities"), TEXT("manage_project_plugin"), TEXT("list_plugins"), TEXT("enable_plugin"), TEXT("disable_plugin"), TEXT("get_plugin_status"), TEXT("create_asset_validator"), TEXT("run_data_validation"), TEXT("wait_for_job"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
       TEXT("read_project_file"), TEXT("write_project_file"), TEXT("validate_blueprints"), TEXT("start_memory_report"), TEXT("configure_stat_commands"), TEXT("configure_console_variables"), TEXT("check_for_errors"), TEXT("start_network_profiler"), TEXT("enable_visual_logger"), TEXT("add_visual_log_entry"),
       TEXT("generate_save_game_class"),

@@ -1413,7 +1413,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 32.1 Build Pipeline
 - [x] `run_ubt` (expanded)
-- [ ] `generate_project_files`
+- [x] `generate_project_files` (managed UBT `ProjectFiles` mode)
 - [ ] `compile_shaders`
 - [x] `cook_content` (platform)
 - [x] `package_project` (platform)

@@ -263,7 +263,7 @@ function registerDefaultHandlers() {
     const action = getToolAction(args);
     if (action === 'console_command') return await handleConsoleCommand(args, tools);
     if (
-      action === 'run_ubt' || action === 'run_uat' || action === 'validate_release' ||
+      action === 'run_ubt' || action === 'generate_project_files' || action === 'run_uat' || action === 'validate_release' ||
       action === 'sign_release' || action === 'run_packaged' || action === 'deploy_package' ||
       action === 'run_network_soak' || action === 'analyze_trace' || action === 'release_gate' ||
       action === 'cook_content' || action === 'package_project'

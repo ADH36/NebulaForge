@@ -114,9 +114,10 @@
 #else
 #define MCP_HAS_TAKE_RECORDER 0
 #endif
-#if __has_include("PaperSpriteActor.h") && __has_include("PaperFlipbookActor.h") && __has_include("PaperSpriteComponent.h") && __has_include("PaperFlipbookComponent.h")
+#if __has_include("PaperSpriteActor.h") && __has_include("PaperFlipbookActor.h") && __has_include("PaperCharacter.h") && __has_include("PaperSpriteComponent.h") && __has_include("PaperFlipbookComponent.h")
 #include "PaperSpriteActor.h"
 #include "PaperFlipbookActor.h"
+#include "PaperCharacter.h"
 #include "PaperSpriteComponent.h"
 #include "PaperFlipbookComponent.h"
 #define MCP_HAS_PAPER2D 1
@@ -4335,8 +4336,55 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper flipbook configured"), Data);
     return true;
   }
+  if (LowerSub == TEXT("configure_paper_character")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    APaperCharacter* Character = Cast<APaperCharacter>(FindActorByName(TargetName));
+    if (!Character || !Character->GetSprite()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ACTOR_TYPE"),
+                                TEXT("actorName must resolve to an APaperCharacter"), nullptr);
+      return true;
+    }
+    UPaperFlipbookComponent* Sprite = Character->GetSprite();
+    const FString FlipbookPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("paperAssetPath")));
+    if (!FlipbookPath.IsEmpty()) {
+      UPaperFlipbook* Flipbook = Cast<UPaperFlipbook>(UEditorAssetLibrary::LoadAsset(FlipbookPath));
+      if (!Flipbook || !Sprite->SetFlipbook(Flipbook)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ASSET_NOT_FOUND"),
+                                  TEXT("paperAssetPath must resolve to a PaperFlipbook asset"), nullptr);
+        return true;
+      }
+    }
+    double PlayRate = 0.0;
+    if (Payload->TryGetNumberField(TEXT("playRate"), PlayRate) && FMath::IsFinite(PlayRate) && PlayRate >= -100.0 && PlayRate <= 100.0)
+      Sprite->SetPlayRate(static_cast<float>(PlayRate));
+    bool bLooping = false;
+    if (Payload->TryGetBoolField(TEXT("looping"), bLooping)) Sprite->SetLooping(bLooping);
+    double MaxWalkSpeed = 0.0;
+    if (Payload->TryGetNumberField(TEXT("maxWalkSpeed"), MaxWalkSpeed) && FMath::IsFinite(MaxWalkSpeed) && MaxWalkSpeed >= 0.0 && MaxWalkSpeed <= 100000.0)
+      Character->GetCharacterMovement()->MaxWalkSpeed = static_cast<float>(MaxWalkSpeed);
+    double GravityScale = 0.0;
+    if (Payload->TryGetNumberField(TEXT("gravityScale"), GravityScale) && FMath::IsFinite(GravityScale) && GravityScale >= -100.0 && GravityScale <= 100.0)
+      Character->GetCharacterMovement()->GravityScale = static_cast<float>(GravityScale);
+    FString PlaybackAction;
+    Payload->TryGetStringField(TEXT("playbackAction"), PlaybackAction);
+    PlaybackAction = PlaybackAction.ToLower();
+    if (PlaybackAction == TEXT("play")) Sprite->Play();
+    else if (PlaybackAction == TEXT("play_from_start")) Sprite->PlayFromStart();
+    else if (PlaybackAction == TEXT("reverse")) Sprite->Reverse();
+    else if (PlaybackAction == TEXT("reverse_from_end")) Sprite->ReverseFromEnd();
+    else if (PlaybackAction == TEXT("stop")) Sprite->Stop();
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetNumberField(TEXT("playRate"), Sprite->GetPlayRate());
+    Data->SetBoolField(TEXT("looping"), Sprite->IsLooping());
+    Data->SetNumberField(TEXT("maxWalkSpeed"), Character->GetCharacterMovement()->MaxWalkSpeed);
+    Data->SetNumberField(TEXT("gravityScale"), Character->GetCharacterMovement()->GravityScale);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper character configured"), Data);
+    return true;
+  }
 #endif
-  if (LowerSub == TEXT("set_paper_sprite_color") || LowerSub == TEXT("configure_paper_flipbook")) {
+  if (LowerSub == TEXT("set_paper_sprite_color") || LowerSub == TEXT("configure_paper_flipbook") || LowerSub == TEXT("configure_paper_character")) {
     SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_SUPPORTED"),
                               TEXT("Paper2D plugin is required for Paper2D component controls"), nullptr);
     return true;

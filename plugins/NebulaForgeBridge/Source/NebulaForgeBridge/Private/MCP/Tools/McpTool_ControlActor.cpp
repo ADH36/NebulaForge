@@ -54,6 +54,7 @@ public:
 				TEXT("create_media_sound_component"),
 				TEXT("set_paper_sprite_color"),
 				TEXT("configure_paper_flipbook"),
+				TEXT("configure_paper_character"),
 				TEXT("configure_camera_settings"),
 				TEXT("configure_camera_rig_rail"),
 				TEXT("configure_camera_rig_crane"),
@@ -133,6 +134,8 @@ public:
 			.StringEnum(TEXT("playbackAction"), {
 				TEXT("play"), TEXT("play_from_start"), TEXT("reverse"), TEXT("reverse_from_end"), TEXT("stop")
 			}, TEXT("Optional flipbook playback command."))
+			.Number(TEXT("maxWalkSpeed"), TEXT("Paper character maximum ground speed."))
+			.Number(TEXT("gravityScale"), TEXT("Paper character gravity scale."))
 			.String(TEXT("materialPath"), TEXT("Material asset path."))
 			.Integer(TEXT("materialSlot"), TEXT("Material slot index."))
 			.Integer(TEXT("materialIndex"), TEXT("Material slot index alias."))

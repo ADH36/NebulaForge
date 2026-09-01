@@ -2107,7 +2107,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Tile Maps: `create_tile_map`, `create_tile_set`, `add_tile_to_set`, `paint_tile`, `fill_tile_region`, `configure_tile_collision`
 - [x] Actors: `spawn_paper_sprite_actor`, `spawn_paper_flipbook_actor` (official Paper2D actor/component APIs; requires the optional Paper2D plugin and a pre-existing sprite/flipbook asset)
 - [x] `set_paper_sprite_color`, `configure_paper_flipbook` (newly audited official Paper2D component color/playback APIs; requires the optional Paper2D plugin)
-- [ ] `configure_paper_character`
+- [x] `configure_paper_character` (official `APaperCharacter`, `UPaperFlipbookComponent`, and `UCharacterMovementComponent` configuration; requires the optional Paper2D plugin)
 
 ### 45.6 Procedural Mesh Component
 - [x] `create_procedural_mesh_component` (safe component creation; requires the optional Procedural Mesh Component plugin)

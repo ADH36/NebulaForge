@@ -1175,6 +1175,7 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     int32 TriangleCount = Mesh->GetTriangleCount();
     bool bHasNormals = UGeometryScriptLibrary_MeshQueryFunctions::GetHasTriangleNormals(Mesh);
     int32 NumUVSets = UGeometryScriptLibrary_MeshQueryFunctions::GetNumUVSets(Mesh);
+    bool bHasAttributeSet = UGeometryScriptLibrary_MeshQueryFunctions::GetMeshHasAttributeSet(Mesh);
     bool bHasVertexColors = UGeometryScriptLibrary_MeshQueryFunctions::GetHasVertexColors(Mesh);
     bool bHasMaterialIDs = UGeometryScriptLibrary_MeshQueryFunctions::GetHasMaterialIDs(Mesh);
     float SurfaceArea = 0.0f;
@@ -1194,6 +1195,7 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     Result->SetBoolField(TEXT("hasUVs"), NumUVSets > 0);
     Result->SetBoolField(TEXT("hasColors"), bHasVertexColors);
     Result->SetBoolField(TEXT("hasPolygroups"), bHasMaterialIDs);
+    Result->SetBoolField(TEXT("hasAttributeSet"), bHasAttributeSet);
     Result->SetNumberField(TEXT("surfaceArea"), SurfaceArea);
     Result->SetNumberField(TEXT("volume"), Volume);
     Result->SetStringField(TEXT("info"), UGeometryScriptLibrary_MeshQueryFunctions::GetMeshInfoString(Mesh));

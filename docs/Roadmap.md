@@ -191,6 +191,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `get_mesh_info` also reports official GeometryScript surface area and volume
 - [x] `get_mesh_info` also reports official GeometryScript center of mass
 - [x] `get_mesh_info` also reports official GeometryScript diagnostic info string
+- [x] `get_mesh_info` also reports official GeometryScript attribute-set state
 - [x] `get_uv_set_bounds` (official GeometryScript UV-channel bounds query)
 - [x] `get_uv_set_bounds` also returns `uvArea` and valid UV-triangle count (official GeometryScript UV-area query semantics)
 - [x] `get_num_uv_islands` (official GeometryScript query; requires UE 5.5+)

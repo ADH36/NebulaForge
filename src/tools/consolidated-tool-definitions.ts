@@ -2612,6 +2612,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         uvIslandCount: commonSchemas.numberProp,
         centerOfMass: commonSchemas.objectProp,
         info: commonSchemas.stringProp,
+        hasAttributeSet: commonSchemas.booleanProp,
         meshInfo: {
           type: 'object',
           properties: {

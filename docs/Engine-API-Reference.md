@@ -182,6 +182,8 @@ The mesh-info query uses Epic's [`GetMeshVolumeAreaCenter`](https://dev.epicgame
 
 The mesh-info query also includes Epic's [`GetMeshInfoString`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/GeometryScript/UGeometryScriptLibrary_MeshQuery-/GetMeshInfoString) diagnostic summary.
 
+The mesh-info response also reports attribute-set availability through Epic's [`GetMeshHasAttributeSet`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/GeometryScript/UGeometryScriptLibrary_MeshQuery-/GetMeshHasAttributeSet).
+
 ### Core Types
 ```cpp
 // Dynamic mesh container

@@ -4420,6 +4420,42 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
   }
 #endif
 #if MCP_HAS_PAPER_TILEMAP
+  if (LowerSub == TEXT("get_paper_tile_map_info")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    if (!TileMapComponent) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("COMPONENT_NOT_FOUND"),
+                                TEXT("actorName must resolve to a PaperTileMapComponent"), nullptr);
+      return true;
+    }
+    int32 MapWidth = 0;
+    int32 MapHeight = 0;
+    int32 NumLayers = 0;
+    int32 NumTriangles = 0;
+    int32 NumBatches = 0;
+    TileMapComponent->GetMapSize(MapWidth, MapHeight, NumLayers);
+    TileMapComponent->GetRenderingStats(NumTriangles, NumBatches);
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetNumberField(TEXT("mapWidth"), MapWidth);
+    Data->SetNumberField(TEXT("mapHeight"), MapHeight);
+    Data->SetNumberField(TEXT("layers"), NumLayers);
+    Data->SetNumberField(TEXT("triangles"), NumTriangles);
+    Data->SetNumberField(TEXT("batches"), NumBatches);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map info read"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("set_paper_tile_map_color")) {
     FString TargetName;
     FString ComponentName;

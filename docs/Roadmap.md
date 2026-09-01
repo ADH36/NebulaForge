@@ -1417,7 +1417,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `compile_shaders` (validated `recompileshaders changed|all` console alias)
 - [x] `cook_content` (platform)
 - [x] `package_project` (platform)
-- [ ] `configure_build_settings`
+- [x] `configure_build_settings` (safe project INI setting authoring)
 - [ ] `create_build_target`
 
 **Implementation note:** `cook_content` and `package_project` are dedicated aliases over the validated RunUAT `BuildCookRun` pipeline, selecting the corresponding operation while preserving platform, configuration, async job, and packaging option handling.
@@ -1682,7 +1682,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_device_profile` (safe `DefaultDeviceProfiles.ini` authoring)
 - [x] `configure_scalability_group` (validated group-to-scalability-CVar mapping)
 - [x] `set_cvar_for_profile` (safe profile CVar override authoring)
-- [ ] `configure_platform_settings`
+- [x] `configure_platform_settings` (safe platform INI setting authoring)
 - [x] `set_quality_level` (overall 0-4 scalability level via `Scalability::FQualityLevels`)
 
 ---

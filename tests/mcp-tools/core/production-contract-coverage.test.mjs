@@ -12,6 +12,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'compile_shaders', shaderMode: 'changed' }, expected: 'success|error|timeout' },
   { toolName: 'system_control', arguments: { action: 'create_device_profile', profileName: 'ContractWin64', profileType: 'Windows', cvars: { 'r.TextureQuality': 2 } }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'set_cvar_for_profile', profileName: 'ContractWin64', cvarName: 'r.TextureQuality', cvarValue: 3 }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'configure_build_settings', configName: 'DefaultEngine.ini', section: '/Script/Engine.Engine', key: 'bSmoothFrameRate', value: 'True' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'configure_platform_settings', configName: 'DefaultEngine.ini', section: '/Script/Engine.Engine', key: 'ConsoleClassName', value: 'GenericConsole' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_tag_table', path: '/Game/MCPTest', name: 'ContractTagTable', save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'add_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'modify_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },

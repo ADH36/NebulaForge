@@ -330,6 +330,14 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       }
       return setDeviceProfileCvar({ projectPath: argsTyped.projectPath, profileName: record.profileName, cvarName: record.cvarName, cvarValue: record.cvarValue as string | number | boolean, backup: record.backup !== false });
     }
+    case 'configure_build_settings':
+    case 'configure_platform_settings': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'configName, section, key, and string value are required' };
+      }
+      return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
+    }
     case 'remove_gameplay_tag': {
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
       return removeGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.backup !== false);

@@ -1242,6 +1242,28 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                            FLinearColor(R, G, B, Alpha));
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase)) {
+          const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
+          bool bHasMatrix = LocalPayload->TryGetArrayField(TEXT("value"), ArrValue) && ArrValue && ArrValue->Num() >= 16;
+          FMatrix Matrix = FMatrix::Identity;
+          if (bHasMatrix) {
+            float Values[16];
+            for (int32 Index = 0; Index < 16; ++Index) {
+              Values[Index] = static_cast<float>((*ArrValue)[Index]->AsNumber());
+              if (!FMath::IsFinite(Values[Index])) bHasMatrix = false;
+            }
+            if (bHasMatrix) {
+              Matrix = FMatrix(
+                  FPlane(Values[0], Values[1], Values[2], Values[3]),
+                  FPlane(Values[4], Values[5], Values[6], Values[7]),
+                  FPlane(Values[8], Values[9], Values[10], Values[11]),
+                  FPlane(Values[12], Values[13], Values[14], Values[15]));
+            }
+          }
+          if (bHasMatrix) {
+            NiComp->SetVariableMatrix(ParamName, Matrix);
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase)) {
           FString TargetActorName;
           LocalPayload->TryGetStringField(TEXT("targetActorName"), TargetActorName);
@@ -1353,6 +1375,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("StaticMesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Mesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Bool"), ESearchCase::IgnoreCase)) {
             ErrMsg = FString::Printf(TEXT("Invalid parameter type: %s"),
                                      *ParameterType);

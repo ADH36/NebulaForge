@@ -2214,6 +2214,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Damage: `apply_damage` (shared combat authoring handler)
 - [ ] Materials: `set_interior_material`, `configure_interior_uv_scale`
 - [ ] Physics: `configure_rigid_body_settings`, `set_sleeping_threshold`, `configure_collision_filter`
+- [x] Physics: `configure_geometry_collection_component` (documented component-level simulation, collision-damage, clustering, drag, and collision-profile settings)
 - [ ] Fields: `add_anchor_field`, `remove_anchor_field`, `create_field_system`, `add_radial_falloff_field`, `add_uniform_vector_field`, `add_radial_vector_field`, `add_plane_falloff_field`, `add_noise_field`, `add_kill_field`
 
 **Implementation note:** Epic exposes the Geometry Collection asset factory through Python, but the current Fracture Editor fracture tools are modal editor tools rather than a stable public factory API. This bridge therefore claims asset creation only until a version-stable Geometry Collection composition/fracture API is available.

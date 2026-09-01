@@ -1470,6 +1470,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("remove_geometry_from_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
       Lower != TEXT("inspect_geometry_collection") &&
+      Lower != TEXT("configure_geometry_collection_component") &&
       Lower != TEXT("register_python_command") &&
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
@@ -3091,6 +3092,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("inspect_geometry_collection") ||
+             Lower == TEXT("configure_geometry_collection_component") ||
              Lower == TEXT("unregister_python_command") ||
              Lower == TEXT("run_editor_utility") || Lower == TEXT("inspect_editor_utility")) {
     // Execute Python code with stdout/stderr capture via temp file wrapper
@@ -3369,6 +3371,64 @@ FMessageLog LogListing{FName(*Category)};
           "        _result[_property] = None\n"
           "print(json.dumps(_result, default=str, sort_keys=True))\n"),
           *PythonAssetPath);
+    }
+
+    if (Lower == TEXT("configure_geometry_collection_component")) {
+      FString ActorName;
+      FString CollisionProfileName;
+      bool bSimulatePhysics = false;
+      bool bEnableDamageFromCollision = false;
+      int32 ClusterGroupIndex = 0;
+      int32 MaxSimulatedLevel = 0;
+      double LinearEtherDrag = 0.0;
+      Payload->TryGetStringField(TEXT("actorName"), ActorName);
+      Payload->TryGetStringField(TEXT("collisionProfileName"), CollisionProfileName);
+      const bool bSimulatePhysicsSet = Payload->TryGetBoolField(TEXT("simulatePhysics"), bSimulatePhysics);
+      const bool bEnableDamageFromCollisionSet = Payload->TryGetBoolField(TEXT("enableDamageFromCollision"), bEnableDamageFromCollision);
+      const bool bClusterGroupIndexSet = Payload->TryGetNumberField(TEXT("clusterGroupIndex"), ClusterGroupIndex);
+      const bool bMaxSimulatedLevelSet = Payload->TryGetNumberField(TEXT("maxSimulatedLevel"), MaxSimulatedLevel);
+      const bool bLinearEtherDragSet = Payload->TryGetNumberField(TEXT("linearEtherDrag"), LinearEtherDrag);
+      const bool bCollisionProfileSet = !CollisionProfileName.TrimStartAndEnd().IsEmpty();
+      if (ActorName.TrimStartAndEnd().IsEmpty() ||
+          (!bSimulatePhysicsSet && !bEnableDamageFromCollisionSet && !bClusterGroupIndexSet &&
+           !bMaxSimulatedLevelSet && !bLinearEtherDragSet && !bCollisionProfileSet)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("configure_geometry_collection_component requires actorName and at least one supported setting"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      ActorName.TrimStartAndEndInline();
+      CollisionProfileName.TrimStartAndEndInline();
+      ActorName.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+      ActorName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      CollisionProfileName.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+      CollisionProfileName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      FString Updates;
+      if (bSimulatePhysicsSet) Updates += FString::Printf(TEXT("_updates['simulate_physics'] = %s\n"), bSimulatePhysics ? TEXT("True") : TEXT("False"));
+      if (bEnableDamageFromCollisionSet) Updates += FString::Printf(TEXT("_updates['enable_damage_from_collision'] = %s\n"), bEnableDamageFromCollision ? TEXT("True") : TEXT("False"));
+      if (bClusterGroupIndexSet) Updates += FString::Printf(TEXT("_updates['cluster_group_index'] = %s\n"), *LexToString(ClusterGroupIndex));
+      if (bMaxSimulatedLevelSet) Updates += FString::Printf(TEXT("_updates['max_simulated_level'] = %s\n"), *LexToString(MaxSimulatedLevel));
+      if (bLinearEtherDragSet) Updates += FString::Printf(TEXT("_updates['linear_ether_drag'] = %s\n"), *LexToString(LinearEtherDrag));
+      const FString CollisionProfileCode = bCollisionProfileSet
+          ? FString::Printf(TEXT("_component.set_collision_profile_name(unreal.Name('%s'))\n"), *CollisionProfileName)
+          : FString();
+      Code = FString::Printf(TEXT(
+          "import json\n"
+          "import unreal\n"
+          "_actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()\n"
+          "_actor = next((a for a in _actors if a.get_actor_label() == '%s'), None)\n"
+          "if not _actor:\n"
+          "    raise RuntimeError('Actor was not found')\n"
+          "_component = _actor.get_component_by_class(unreal.GeometryCollectionComponent)\n"
+          "if not _component:\n"
+          "    raise RuntimeError('Actor has no Geometry Collection component')\n"
+          "_updates = {}\n"
+          "%s"
+          "for _property, _value in _updates.items():\n"
+          "    _component.set_editor_property(_property, _value)\n"
+          "%s"
+          "print(json.dumps({'actorName': _actor.get_actor_label(), 'updatedProperties': list(_updates.keys())}, sort_keys=True))\n"),
+          *ActorName, *Updates, *CollisionProfileCode);
     }
 
     if (Lower == TEXT("register_python_command")) {

@@ -1461,6 +1461,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("execute_python_string") &&
       Lower != TEXT("execute_python_file") &&
       Lower != TEXT("configure_python_paths") &&
+      Lower != TEXT("list_python_packages") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
     return false; // Not handled by this function
@@ -3071,12 +3072,18 @@ FMessageLog LogListing{FName(*Category)};
     return true;
   } else if (Lower == TEXT("execute_python") || Lower == TEXT("execute_python_script") ||
              Lower == TEXT("execute_python_string") || Lower == TEXT("execute_python_file") ||
-             Lower == TEXT("configure_python_paths")) {
+             Lower == TEXT("configure_python_paths") || Lower == TEXT("list_python_packages")) {
     // Execute Python code with stdout/stderr capture via temp file wrapper
     FString Code;
     Payload->TryGetStringField(TEXT("code"), Code);
     FString File;
     Payload->TryGetStringField(TEXT("file"), File);
+
+    if (Lower == TEXT("list_python_packages")) {
+      Code = TEXT("import importlib.metadata as _m\n"
+                  "_names = sorted({d.metadata.get('Name') or d.name for d in _m.distributions()})\n"
+                  "print('\\n'.join(_names[:500]))\n");
+    }
 
     if (Lower == TEXT("configure_python_paths")) {
       const TArray<TSharedPtr<FJsonValue>>* PythonPaths = nullptr;

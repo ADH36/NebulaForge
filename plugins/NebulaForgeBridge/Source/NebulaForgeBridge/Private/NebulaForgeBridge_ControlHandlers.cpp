@@ -4685,7 +4685,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     TileMapComponent->GetTileMap()->GetTilePolygon(X, Y, Layer, Polygon);
     TArray<TSharedPtr<FJsonValue>> Points;
     for (const FVector& Point : Polygon)
-      Points.Add(McpPropertyReflection::VectorToJsonValue(Point));
+      Points.Add(MakeShared<FJsonValueObject>(McpHandlerUtils::VectorToJson(Point)));
     TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
     Data->SetStringField(TEXT("actorName"), TargetName);
     Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());

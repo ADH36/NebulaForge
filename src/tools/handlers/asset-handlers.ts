@@ -31,7 +31,7 @@ const VALID_ASSET_ACTIONS = new Set([
   'create_curve_table', 'create_curve_float', 'create_curve_linear_color', 'replace_curve_keys', 'add_curve_table_row', 'get_curve_table_rows',
   'import_data_table_csv', 'export_data_table_csv',
   'import_curve_table_csv', 'export_curve_table_csv',
-  'create_media_player', 'create_media_source', 'create_media_texture', 'create_media_playlist', 'create_sprite', 'create_flipbook',
+  'create_media_player', 'create_media_source', 'create_media_texture', 'create_media_playlist', 'create_sprite', 'create_flipbook', 'add_flipbook_keyframe', 'set_flipbook_framerate',
   'generate_lods', 'add_material_parameter', 'list_instances',
   'reset_instance_parameters', 'get_material_stats', 'nanite_rebuild_mesh',
   // Material graph operations

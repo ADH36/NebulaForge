@@ -475,6 +475,63 @@ static bool HandlePaperFlipbookAssetAction(
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper flipbook asset created"), Result, FString());
   return true;
 }
+
+static bool HandlePaperFlipbookEditAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const FString& Action,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString FlipbookPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperFlipbook* Flipbook = Cast<UPaperFlipbook>(UEditorAssetLibrary::LoadAsset(FlipbookPath));
+  if (!Flipbook) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperFlipbook"), TEXT("FLIPBOOK_NOT_FOUND"));
+    return true;
+  }
+  FScopedFlipbookMutator Mutator(Flipbook);
+  if (Action == TEXT("add_flipbook_keyframe")) {
+    const FString SpritePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("spritePath")));
+    UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+    if (!Sprite) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("spritePath must resolve to a PaperSprite"), TEXT("SPRITE_NOT_FOUND"));
+      return true;
+    }
+    int32 FrameRun = GetJsonIntField(Payload, TEXT("frameRun"), 1);
+    if (FrameRun < 1 || FrameRun > 100000) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("frameRun must be between 1 and 100000"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    FPaperFlipbookKeyFrame KeyFrame;
+    KeyFrame.Sprite = Sprite;
+    KeyFrame.FrameRun = FrameRun;
+    int32 InsertIndex = INDEX_NONE;
+    if (Payload->HasField(TEXT("keyFrameIndex"))) InsertIndex = GetJsonIntField(Payload, TEXT("keyFrameIndex"), INDEX_NONE);
+    if (InsertIndex < 0 || InsertIndex > Mutator.KeyFrames.Num()) Mutator.KeyFrames.Add(KeyFrame);
+    else Mutator.KeyFrames.Insert(KeyFrame, InsertIndex);
+  } else {
+    const double FramesPerSecond = GetJsonNumberField(Payload, TEXT("framesPerSecond"), 0.0);
+    if (!FMath::IsFinite(FramesPerSecond) || FramesPerSecond <= 0.0 || FramesPerSecond > 10000.0) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("framesPerSecond must be between 0 and 10000"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    Mutator.FramesPerSecond = static_cast<float>(FramesPerSecond);
+  }
+  Mutator.InvalidateCachedData();
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(Flipbook)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper flipbook edited but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Flipbook->GetPathName());
+  Result->SetNumberField(TEXT("keyFrameCount"), Mutator.KeyFrames.Num());
+  Result->SetNumberField(TEXT("framesPerSecond"), Mutator.FramesPerSecond);
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper flipbook edited"), Result, FString());
+  return true;
+}
 #endif
 
 #if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS
@@ -736,6 +793,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("create_flipbook")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperFlipbookAssetAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("add_flipbook_keyframe") || Lower == TEXT("set_flipbook_framerate")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperFlipbookEditAction(this, RequestId, Lower, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

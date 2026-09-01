@@ -2106,7 +2106,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Sprites: `create_sprite` (official `UPaperSpriteFactory`; requires Paper2DEditor and an existing `UTexture2D`)
 - [ ] Sprites: `configure_sprite_source`, `set_sprite_pivot`, `configure_sprite_collision`
 - [x] Flipbooks: `create_flipbook` (official `UPaperFlipbookFactory` keyframes from existing sprites; requires Paper2DEditor)
-- [ ] Flipbooks: `add_flipbook_keyframe`, `set_flipbook_framerate`, `configure_flipbook_loop`
+- [x] Flipbooks: `add_flipbook_keyframe`, `set_flipbook_framerate` (official `FScopedFlipbookMutator` edits with cache invalidation and safe persistence)
+- [ ] Flipbooks: `configure_flipbook_loop` (runtime component behavior is covered by `control_actor.configure_paper_flipbook`)
 - [ ] Tile Maps: `create_tile_map`, `create_tile_set`, `add_tile_to_set`, `paint_tile`, `fill_tile_region`, `configure_tile_collision`
 - [x] Actors: `spawn_paper_sprite_actor`, `spawn_paper_flipbook_actor` (official Paper2D actor/component APIs; requires the optional Paper2D plugin and a pre-existing sprite/flipbook asset)
 - [x] `set_paper_sprite_color`, `configure_paper_flipbook` (newly audited official Paper2D component color/playback APIs; requires the optional Paper2D plugin)

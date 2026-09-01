@@ -136,6 +136,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'get_localized_string', stringTableId: 'ContractTable', stringKey: 'Greeting' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'set_culture', culture: 'en-US' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'set_quality_level', level: 2 }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'configure_scalability_group', group: 'Shadow', level: 2 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'remove_gameplay_tag', tag: 'Contract.Test', backup: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_runtime_gameplay_tag', tag: 'Contract.Test' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'create_tag_container', tags: ['Contract.Test'] }, expected: 'success|error' },

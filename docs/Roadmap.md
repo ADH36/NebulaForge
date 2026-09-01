@@ -1678,7 +1678,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 35.9 Scalability
 - [ ] `create_device_profile`
-- [ ] `configure_scalability_group`
+- [x] `configure_scalability_group` (validated group-to-scalability-CVar mapping)
 - [ ] `set_cvar_for_profile`
 - [ ] `configure_platform_settings`
 - [x] `set_quality_level` (overall 0-4 scalability level via `Scalability::FQualityLevels`)

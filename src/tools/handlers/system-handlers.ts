@@ -424,7 +424,8 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       };
     }
     case 'set_quality':
-    case 'set_quality_level': {
+    case 'set_quality_level':
+    case 'configure_scalability_group': {
       const quality = argsTyped.level ?? 'medium';
       let qVal: number;
       if (typeof quality === 'number') {
@@ -436,7 +437,8 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       // Clamp quality level to valid range 0-4
       qVal = Math.max(0, Math.min(4, qVal));
 
-      const category = String(argsTyped.category || 'ViewDistance').toLowerCase();
+      const argsRecord = argsTyped as Record<string, unknown>;
+      const category = String(argsTyped.category || argsRecord.group || 'ViewDistance').toLowerCase();
       let cvar = 'sg.ViewDistanceQuality';
 
       if (category.includes('shadow')) cvar = 'sg.ShadowQuality';

@@ -1423,7 +1423,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
       Lower == TEXT("get_config_value") || Lower == TEXT("read_config_value") || Lower == TEXT("set_config_value") || Lower == TEXT("write_config_value") ||
       Lower == TEXT("get_section") || Lower == TEXT("create_config_section") ||
-      Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy");
+      Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy") || Lower == TEXT("configure_scalability_group");
   const bool bDataValidationAction = Lower == TEXT("run_data_validation") || Lower == TEXT("create_asset_validator");
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
   const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project");

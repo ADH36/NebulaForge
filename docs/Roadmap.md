@@ -35,6 +35,7 @@ This roadmap outlines the comprehensive development plan for expanding the Unrea
 - [x] **Documentation**: Comprehensive handler mappings and API references.
 - [x] **Metrics Dashboard**: `ue://health` view backed by bridge/server metrics.
 - [x] **UE 5.7 Support**: Full compatibility with Unreal Engine 5.7 (Control Rig, Subobject Data).
+- [x] **Enhanced Input Authoring**: Create Input Actions and Mapping Contexts, configure runtime context priority, key mappings, triggers, modifiers, legacy mappings, action value types, and inspect input assets through the consolidated `manage_input` surface. This covers Epic's documented Enhanced Input concepts for UE 5.8.
 
 ## Phase 5: Infrastructure Improvements (Current)
 

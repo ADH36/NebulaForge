@@ -51,6 +51,7 @@
 #include "Materials/MaterialInterface.h"
 
 #if WITH_EDITOR
+#include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "EditorAssetLibrary.h"
 #if __has_include("Subsystems/EditorActorSubsystem.h")
@@ -1354,6 +1355,23 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                 NiComp, ParameterName, SkeletalComponent);
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("StaticMeshComponent"), ESearchCase::IgnoreCase)) {
+          FString ComponentName;
+          LocalPayload->TryGetStringField(TEXT("componentName"), ComponentName);
+          TArray<UStaticMeshComponent *> StaticComponents;
+          Actor->GetComponents<UStaticMeshComponent>(StaticComponents);
+          UStaticMeshComponent *StaticComponent = nullptr;
+          for (UStaticMeshComponent *Candidate : StaticComponents) {
+            if (Candidate && (ComponentName.IsEmpty() || Candidate->GetName().Equals(ComponentName, ESearchCase::IgnoreCase))) {
+              StaticComponent = Candidate;
+              break;
+            }
+          }
+          if (StaticComponent) {
+            UNiagaraFunctionLibrary::OverrideSystemUserVariableStaticMeshComponent(
+                NiComp, ParameterName, StaticComponent);
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) ||
                    ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase)) {
           const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
@@ -1429,6 +1447,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Object"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("SkeletalMeshComponent"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("SkeletalMesh"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("StaticMeshComponent"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase) &&

@@ -492,6 +492,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Texture Render Target runtime parameter values via Epic's `UNiagaraComponent::SetVariableTextureRenderTarget` API (`set_niagara_parameter`, `parameterType: TextureRenderTarget` or `RenderTarget`, `renderTargetPath`); paths are normalized and restricted to valid Unreal object roots.
 - [x] Generic UObject runtime parameter values via Epic's `UNiagaraComponent::SetVariableObject` API (`set_niagara_parameter`, `parameterType: Object`, `objectPath`); paths are normalized and restricted to valid Unreal object roots.
 - [x] Skeletal mesh component runtime parameter overrides via Epic's `UNiagaraFunctionLibrary::OverrideSystemUserVariableSkeletalMeshComponent` API (`set_niagara_parameter`, `parameterType: SkeletalMeshComponent` or `SkeletalMesh`, optional `componentName`).
+- [x] Static mesh component runtime parameter overrides via Epic's `UNiagaraFunctionLibrary::OverrideSystemUserVariableStaticMeshComponent` API (`set_niagara_parameter`, `parameterType: StaticMeshComponent`, optional `componentName`).
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

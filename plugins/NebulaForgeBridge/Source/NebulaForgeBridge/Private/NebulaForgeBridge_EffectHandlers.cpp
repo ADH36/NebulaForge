@@ -1130,6 +1130,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("QuaternionArray"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("ColorArray"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("MatrixArray"), ESearchCase::IgnoreCase)) {
           const TArray<TSharedPtr<FJsonValue>> *ArrayValue = nullptr;
           bool bValidArray = LocalPayload->TryGetArrayField(TEXT("value"), ArrayValue) && ArrayValue;
@@ -1148,6 +1149,23 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               Values.Add(static_cast<int32>(Number));
             }
             if (bValidArray) { UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayInt32(NiComp, ParamName, Values); bApplied = true; }
+          } else if (bValidArray && ParameterType.Equals(TEXT("ColorArray"), ESearchCase::IgnoreCase)) {
+            TArray<FLinearColor> Colors;
+            for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
+              const TArray<TSharedPtr<FJsonValue>> *Components = nullptr;
+              if (!Entry.IsValid() || !Entry->TryGetArray(Components) || !Components || Components->Num() < 3) { bValidArray = false; break; }
+              float Values[4] = {0, 0, 0, 1};
+              for (int32 Index = 0; Index < 4 && Index < Components->Num(); ++Index) {
+                if (!(*Components)[Index].IsValid() || (*Components)[Index]->Type != EJson::Number || !FMath::IsFinite((*Components)[Index]->AsNumber())) { bValidArray = false; break; }
+                Values[Index] = static_cast<float>((*Components)[Index]->AsNumber());
+              }
+              if (!bValidArray) break;
+              Colors.Add(FLinearColor(Values[0], Values[1], Values[2], Values[3]));
+            }
+            if (bValidArray) {
+              UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayColor(NiComp, ParamName, Colors);
+              bApplied = true;
+            }
           } else if (bValidArray && (ParameterType.Contains(TEXT("Vector2"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Vector4"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase))) {
             TArray<FVector> VectorValues;
             TArray<FVector2D> Vector2Values;
@@ -1605,6 +1623,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("QuaternionArray"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("ColorArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("MatrixArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&

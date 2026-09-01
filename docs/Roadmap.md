@@ -1645,7 +1645,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 35.2 Checkpoint System
 - [ ] `create_checkpoint_actor`
 - [ ] `configure_checkpoint_data`
-- [ ] `save_checkpoint`, `load_checkpoint`
+- [x] `save_checkpoint`, `load_checkpoint` (aliases over the existing UE `UGameplayStatics` SaveGame slot pipeline, defaulting to the `Checkpoint` slot while accepting an explicit `slotName`)
 - [ ] `configure_checkpoint_respawn`
 
 ### 35.3 Objective System

@@ -375,7 +375,8 @@ export type SystemAction = 'profile' | 'show_fps' | 'set_quality' | 'play_sound'
   | 'create_event_dispatcher' | 'bind_to_event' | 'unbind_from_event' | 'broadcast_event'
   | 'create_delegate' | 'bind_delegate' | 'inspect_delegate' | 'list_delegate_bindings'
   | 'create_blueprint_interface' | 'add_interface_function' | 'implement_interface'
-  | 'get_interface_info' | 'call_interface_function';
+  | 'get_interface_info' | 'call_interface_function'
+  | 'save_checkpoint' | 'load_checkpoint';
 export type VerificationAction = 'foliage_type_exists' | 'foliage_instances_near' | 'landscape_exists' | 'quality_level';
 
 // Consolidated tool parameter types

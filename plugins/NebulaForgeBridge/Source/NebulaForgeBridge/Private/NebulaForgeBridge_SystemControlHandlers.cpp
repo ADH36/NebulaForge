@@ -1380,6 +1380,13 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     Payload->TryGetStringField(TEXT("action"), SubAction);
   }
 
+  if (Payload.IsValid() &&
+      (SubAction.Equals(TEXT("save_checkpoint"), ESearchCase::IgnoreCase) ||
+       SubAction.Equals(TEXT("load_checkpoint"), ESearchCase::IgnoreCase))) {
+    if (!Payload->HasField(TEXT("slotName"))) Payload->SetStringField(TEXT("slotName"), TEXT("Checkpoint"));
+    SubAction = SubAction.Equals(TEXT("save_checkpoint"), ESearchCase::IgnoreCase) ? TEXT("save_game_to_slot") : TEXT("load_game_from_slot");
+  }
+
   const FString Lower = SubAction.ToLower();
   const bool bSubsystemAction =
       Lower == TEXT("create_game_instance_subsystem") ||

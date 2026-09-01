@@ -1667,12 +1667,14 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Implementation note:** World Partition HLOD layer creation, actor assignment, configuration, inspection, and managed rebuild/delete lifecycle are available through `manage_level_structure`; transition tuning remains project-specific.
 
 ### 35.8 Localization
-- [ ] `create_string_table`
-- [ ] `add_string_entry`
+- [x] `create_string_table`
+- [x] `add_string_entry`
 - [ ] `configure_localization_target`
 - [ ] `import_localization`, `export_localization`
 - [ ] `set_culture`
-- [ ] `get_localized_string`
+- [x] `get_localized_string`
+
+**Implementation note:** These actions manage transient process-level string tables through UE's `FStringTableRegistry`; persisted String Table assets and localization target commandlets remain project-specific.
 
 ### 35.9 Scalability
 - [ ] `create_device_profile`

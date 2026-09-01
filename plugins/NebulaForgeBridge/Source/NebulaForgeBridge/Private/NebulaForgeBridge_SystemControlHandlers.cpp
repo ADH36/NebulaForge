@@ -10,6 +10,8 @@
 #include "GameFramework/SaveGame.h"
 #include "GameplayTagContainer.h"
 #include "GameplayTagsManager.h"
+#include "Internationalization/StringTableCore.h"
+#include "Internationalization/StringTableRegistry.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Guid.h"
 #include "Misc/AutomationTest.h"
@@ -1423,6 +1425,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bDataValidationAction = Lower == TEXT("run_data_validation") || Lower == TEXT("create_asset_validator");
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
   const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project");
+  const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -1449,7 +1452,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias && !bStringTableAction) {
     return false; // Not handled by this function
   }
 
@@ -1469,6 +1472,74 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     return HandleRuntimeSaveGameAction(RequestId, Lower, Payload, RequestingSocket);
   }
 #endif
+
+  if (bStringTableAction) {
+    if (!Payload.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("System control payload missing"), TEXT("INVALID_PAYLOAD"));
+      return true;
+    }
+    FString TableId;
+    Payload->TryGetStringField(TEXT("stringTableId"), TableId);
+    TableId.TrimStartAndEndInline();
+    if (TableId.IsEmpty() || TableId.Len() > 128) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("stringTableId is required and must be at most 128 characters"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const FName TableName(*TableId);
+    FString Key;
+    Payload->TryGetStringField(TEXT("stringKey"), Key);
+    Key.TrimStartAndEndInline();
+    if (Lower == TEXT("create_string_table")) {
+      if (FStringTableRegistry::Get().FindStringTable(TableName).IsValid()) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("String table already exists"), TEXT("STRING_TABLE_EXISTS"));
+        return true;
+      }
+      FStringTableRef Table = FStringTable::NewStringTable();
+      FString Namespace;
+      Payload->TryGetStringField(TEXT("namespace"), Namespace);
+      Namespace.TrimStartAndEndInline();
+      if (!Namespace.IsEmpty()) Table->SetNamespace(FTextKey(Namespace));
+      FStringTableRegistry::Get().RegisterStringTable(TableName, Table);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("stringTableId"), TableId);
+      Result->SetStringField(TEXT("namespace"), Namespace);
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("String table created"), Result, FString());
+      return true;
+    }
+    FStringTablePtr Table = FStringTableRegistry::Get().FindMutableStringTable(TableName);
+    if (!Table.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("String table is not registered"), TEXT("STRING_TABLE_NOT_FOUND"));
+      return true;
+    }
+    if (Key.IsEmpty() || Key.Len() > 256) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("stringKey is required and must be at most 256 characters"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (Lower == TEXT("add_string_entry")) {
+      FString SourceString;
+      FString DevNotes;
+      Payload->TryGetStringField(TEXT("sourceString"), SourceString);
+      Payload->TryGetStringField(TEXT("devNotes"), DevNotes);
+      if (SourceString.IsEmpty()) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("sourceString is required"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      Table->SetSourceString(FTextKey(Key), SourceString, DevNotes);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("stringTableId"), TableId);
+      Result->SetStringField(TEXT("stringKey"), Key);
+      Result->SetStringField(TEXT("sourceString"), SourceString);
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("String table entry added"), Result, FString());
+      return true;
+    }
+    const FText LocalizedText = FText::FromStringTable(TableName, Key);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("stringTableId"), TableId);
+    Result->SetStringField(TEXT("stringKey"), Key);
+    Result->SetStringField(TEXT("text"), LocalizedText.ToString());
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Localized string resolved"), Result, FString());
+    return true;
+  }
 
   if (bGameplayTagContainerAction) {
     if (!Payload.IsValid()) {
@@ -1577,7 +1648,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   // These operations require the TypeScript host process: it owns the
   // external-process job registry and project-file safety boundary. Keep the
   // native endpoint contract explicit rather than falling through as unknown.
-  if (bHostWorkflowAction || bDataValidationAction || bGameplayTagConfigAction || bBuildPipelineAlias) {
+  if (bHostWorkflowAction || bDataValidationAction || bGameplayTagConfigAction || bBuildPipelineAlias || bStringTableAction) {
     SendAutomationError(
         RequestingSocket, RequestId,
         TEXT("This action is available through the stdio MCP host; the native /mcp endpoint does not own the host job or project-file registry"),

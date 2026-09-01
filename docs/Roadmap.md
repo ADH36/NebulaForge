@@ -1321,7 +1321,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Tool**: `manage_sequencer` (Expanded) + `manage_movie_render` + `manage_media`
 
 ### 30.1 Sequencer (Expanded)
-- [x] Additional official Niagara Sequencer coverage: `inspect_niagara_parameter_track` reads typed parameter metadata and section counts; `add_niagara_integer_parameter_key` authors typed integer keys through `FMovieSceneIntegerChannel::AddKeys`.
+- [x] Additional official Niagara Sequencer coverage: `inspect_niagara_parameter_track` reads typed parameter metadata and section counts; `add_niagara_integer_parameter_key` authors typed integer keys through `FMovieSceneIntegerChannel::AddKeys`; `add_niagara_bool_parameter_key` authors typed boolean keys through `FMovieSceneBoolChannel::AddKeys`.
 - [x] `create_master_sequence` (safe alias of Level Sequence creation)
 - [x] `add_subsequence` (native MovieSceneSubTrack section authoring)
 - [x] `add_shot_track` (native cinematic-shot track); [x] `configure_shot_settings` (official cinematic shot display, thumbnail offset, and frame-range setters)

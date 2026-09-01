@@ -43,6 +43,8 @@ public:
 			.String(TEXT("profileType"), TEXT("Device type such as Win64, IOS, or Android."))
 			.String(TEXT("parentProfileName"), TEXT("Optional base device profile."))
 			.Object(TEXT("cvars"), TEXT("Scalar CVar overrides for the device profile."))
+			.String(TEXT("cvarName"), TEXT("Device profile CVar name."))
+			.String(TEXT("cvarValue"), TEXT("Device profile CVar value."))
 			.StringEnum(TEXT("shaderMode"), { TEXT("changed"), TEXT("all") }, TEXT("Shader recompilation scope."))
 			.String(TEXT("target"), TEXT(""))
 			.String(TEXT("platform"), TEXT(""))

@@ -35,3 +35,35 @@ export async function createDeviceProfile(options: {
   const written = await writeProjectFile(options.projectPath, 'Config/DefaultDeviceProfiles.ini', `${existingContent}${prefix}${lines.join('\n')}\n`, options.backup !== false);
   return { ...written, profileName: name, profileType: type, parentProfileName: parent || undefined, cvarCount: cvars.length, configName: 'DefaultDeviceProfiles.ini' };
 }
+
+export async function setDeviceProfileCvar(options: {
+  projectPath?: string;
+  profileName: string;
+  cvarName: string;
+  cvarValue: string | number | boolean;
+  backup?: boolean;
+}): Promise<Record<string, unknown>> {
+  const name = options.profileName.trim();
+  const cvar = options.cvarName.trim();
+  const value = String(options.cvarValue);
+  if (!PROFILE_NAME.test(name) || !CVAR_NAME.test(cvar) || /[\r\n]/.test(value)) {
+    return { success: false, error: 'INVALID_ARGUMENT', message: 'profileName, cvarName, and cvarValue must be safe bounded values' };
+  }
+  const existing = await readProjectFile(options.projectPath, 'Config/DefaultDeviceProfiles.ini');
+  if (existing.success !== true) return existing;
+  const content = String(existing.content ?? '');
+  const lines = content.split(/\r?\n/);
+  const section = `[${name} DeviceProfile]`;
+  const start = lines.findIndex(line => line.trim() === section);
+  if (start < 0) return { success: false, error: 'PROFILE_NOT_FOUND', message: `Device profile does not exist: ${name}` };
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^\s*\[[^\]]+\]\s*$/.test(lines[index])) { end = index; break; }
+  }
+  const entry = `+CVars=${cvar}=${value}`;
+  const existingIndex = lines.findIndex((line, index) => index > start && index < end && line.trim().startsWith(`+CVars=${cvar}=`));
+  if (existingIndex >= 0) lines[existingIndex] = entry;
+  else lines.splice(end, 0, entry);
+  const written = await writeProjectFile(options.projectPath, 'Config/DefaultDeviceProfiles.ini', lines.join('\n'), options.backup !== false);
+  return { ...written, profileName: name, cvarName: cvar, cvarValue: options.cvarValue, configName: 'DefaultDeviceProfiles.ini' };
+}

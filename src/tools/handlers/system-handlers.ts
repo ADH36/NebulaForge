@@ -14,7 +14,7 @@ import { getAutomationTestResults, runUnrealAutomationTests, validateProject } f
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
 import { addArchitectureRequirement, createGameArchitectureManifest, validateGameArchitecture } from '../../services/game-architecture-service.js';
-import { createDeviceProfile } from '../../services/device-profile-service.js';
+import { createDeviceProfile, setDeviceProfileCvar } from '../../services/device-profile-service.js';
 
 /** Response from various operations */
 interface OperationResponse {
@@ -322,6 +322,13 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         ? Object.fromEntries(Object.entries(rawCvars).filter((entry): entry is [string, string | number | boolean] => ['string', 'number', 'boolean'].includes(typeof entry[1])))
         : undefined;
       return createDeviceProfile({ projectPath: argsTyped.projectPath, profileName: record.profileName, profileType: record.profileType, parentProfileName: typeof record.parentProfileName === 'string' ? record.parentProfileName : undefined, cvars, backup: record.backup !== false });
+    }
+    case 'set_cvar_for_profile': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.profileName !== 'string' || typeof record.cvarName !== 'string' || !['string', 'number', 'boolean'].includes(typeof record.cvarValue)) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'profileName, cvarName, and scalar cvarValue are required' };
+      }
+      return setDeviceProfileCvar({ projectPath: argsTyped.projectPath, profileName: record.profileName, cvarName: record.cvarName, cvarValue: record.cvarValue as string | number | boolean, backup: record.backup !== false });
     }
     case 'remove_gameplay_tag': {
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };

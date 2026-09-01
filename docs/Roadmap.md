@@ -2199,7 +2199,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_variant_dependencies` (official `VariantDependency`, `Variant.is_valid_dependency`, and `VariantManagerLibrary.add_dependency`; cycle-safe named variant relationships)
 - [ ] `set_exclusive_variants`
 - [ ] `capture_variant_thumbnail`, `set_variant_thumbnail`
-- [ ] `activate_variant`, `get_active_variants`
+- [x] `activate_variant` (official `Variant.switch_on()` activation by named Level Variant Set and Variant)
+- [x] `get_active_variants` (official `Variant.is_active()` status readback across all sets and variants)
 - [ ] `export_variant_configuration`
 
 ---

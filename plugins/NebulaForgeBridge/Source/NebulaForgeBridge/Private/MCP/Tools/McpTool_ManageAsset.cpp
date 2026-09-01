@@ -163,6 +163,7 @@ public:
 			.Number(TEXT("keyFrameIndex"), TEXT("Optional insertion index for a flipbook keyframe."))
 			.Number(TEXT("framesPerSecond"), TEXT("Flipbook nominal playback frame rate."))
 			.Bool(TEXT("forceResize"), TEXT("Force PaperTileMap resize when reducing dimensions."))
+			.String(TEXT("texturePath"), TEXT("Optional UTexture2D used as the initial PaperTileSet texture."))
 			.StringEnum(TEXT("collisionDomain"), { TEXT("none"), TEXT("2d"), TEXT("3d") }, TEXT("PaperTileMap collision domain."))
 			.Number(TEXT("collisionThickness"), TEXT("PaperTileMap collision extrusion thickness."))
 			.String(TEXT("expressionClass"), TEXT(""))

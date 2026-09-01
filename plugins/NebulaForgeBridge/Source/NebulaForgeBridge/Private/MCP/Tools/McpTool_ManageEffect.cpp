@@ -143,6 +143,7 @@ public:
 			.String(TEXT("parameterName"), TEXT("Name of the parameter."))
 			.String(TEXT("parameterType"), TEXT(""))
 			.String(TEXT("objectPath"), TEXT("Unreal object asset path for generic Niagara object parameters."))
+			.String(TEXT("componentName"), TEXT("Optional skeletal mesh component name for Niagara skeletal mesh parameters."))
 			.FreeformObject(TEXT("parameterValue"), TEXT("Generic parameter value (any type)."))
 			.FreeformObject(TEXT("value"), TEXT("Generic value (any type)."))
 			.String(TEXT("sourceBinding"), TEXT("Niagara source binding, e.g. Emitter.Age."))

@@ -2104,7 +2104,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 45.5 Paper2D
 - [x] Sprites: `create_sprite` (official `UPaperSpriteFactory`; requires Paper2DEditor and an existing `UTexture2D`)
-- [ ] Sprites: `configure_sprite_source`, `configure_sprite_collision`
+- [ ] Sprites: `configure_sprite_collision`
+- [x] Sprites: `configure_sprite_source` (official `UPaperSprite::SetTrim` source-region editing with safe persistence)
 - [x] Sprites: `set_sprite_pivot` (official `UPaperSprite::SetPivotMode` with documented modes and safe persistence)
 - [x] Sprites: `inspect_sprite` (official source, UV, pivot, and collision metadata readback)
 - [x] Flipbooks: `create_flipbook` (official `UPaperFlipbookFactory` keyframes from existing sprites; requires Paper2DEditor)

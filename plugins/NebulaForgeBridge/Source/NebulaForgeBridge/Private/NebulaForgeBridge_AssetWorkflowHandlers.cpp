@@ -598,6 +598,89 @@ static bool HandlePaperFlipbookEditAction(
   return true;
 }
 
+static bool HandlePaperSpriteSourceAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString SpritePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+  if (!Sprite) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperSprite"), TEXT("SPRITE_NOT_FOUND"));
+    return true;
+  }
+  bool bTrimmed = true;
+  Payload->TryGetBoolField(TEXT("trimmed"), bTrimmed);
+  double OriginX = 0.0;
+  double OriginY = 0.0;
+  double Width = 0.0;
+  double Height = 0.0;
+  if (!Payload->TryGetNumberField(TEXT("sourceOriginX"), OriginX) || !Payload->TryGetNumberField(TEXT("sourceOriginY"), OriginY) ||
+      !Payload->TryGetNumberField(TEXT("sourceWidth"), Width) || !Payload->TryGetNumberField(TEXT("sourceHeight"), Height) ||
+      !FMath::IsFinite(OriginX) || !FMath::IsFinite(OriginY) || !FMath::IsFinite(Width) || !FMath::IsFinite(Height) || Width <= 0.0 || Height <= 0.0) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("sourceOriginX/sourceOriginY and positive sourceWidth/sourceHeight are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  bool bRebuildData = true;
+  Payload->TryGetBoolField(TEXT("rebuildData"), bRebuildData);
+  Sprite->Modify();
+  Sprite->SetTrim(bTrimmed, FVector2D(static_cast<float>(OriginX), static_cast<float>(OriginY)),
+                  FVector2D(static_cast<float>(Width), static_cast<float>(Height)), bRebuildData);
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(Sprite)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper sprite source region updated but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  const FVector2D SourceSize = Sprite->GetSourceSize();
+  const FVector2D SourceUV = Sprite->GetSourceUV();
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Sprite->GetPathName());
+  Result->SetBoolField(TEXT("trimmed"), bTrimmed);
+  Result->SetNumberField(TEXT("sourceWidth"), SourceSize.X);
+  Result->SetNumberField(TEXT("sourceHeight"), SourceSize.Y);
+  Result->SetNumberField(TEXT("sourceUVX"), SourceUV.X);
+  Result->SetNumberField(TEXT("sourceUVY"), SourceUV.Y);
+  Result->SetBoolField(TEXT("rebuiltData"), bRebuildData);
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite source region updated"), Result, FString());
+  return true;
+}
+
+static bool HandlePaperSpriteInspectAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString SpritePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+  if (!Sprite) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperSprite"), TEXT("SPRITE_NOT_FOUND"));
+    return true;
+  }
+  const FVector2D SourceSize = Sprite->GetSourceSize();
+  const FVector2D SourceUV = Sprite->GetSourceUV();
+  const FVector2D PivotPosition = Sprite->GetPivotPosition();
+  FVector2D CustomPivot;
+  const ESpritePivotMode::Type PivotMode = Sprite->GetPivotMode(CustomPivot);
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Sprite->GetPathName());
+  Result->SetStringField(TEXT("sourceTexture"), Sprite->GetSourceTexture() ? Sprite->GetSourceTexture()->GetPathName() : FString());
+  Result->SetNumberField(TEXT("sourceWidth"), SourceSize.X);
+  Result->SetNumberField(TEXT("sourceHeight"), SourceSize.Y);
+  Result->SetNumberField(TEXT("sourceUVX"), SourceUV.X);
+  Result->SetNumberField(TEXT("sourceUVY"), SourceUV.Y);
+  Result->SetNumberField(TEXT("pivotX"), PivotPosition.X);
+  Result->SetNumberField(TEXT("pivotY"), PivotPosition.Y);
+  Result->SetNumberField(TEXT("pivotModeValue"), static_cast<int32>(PivotMode));
+  Result->SetNumberField(TEXT("collisionDomainValue"), static_cast<int32>(Sprite->GetSpriteCollisionDomain()));
+  Result->SetNumberField(TEXT("collisionThickness"), Sprite->GetCollisionThickness());
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite inspected"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperSpritePivotAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -934,6 +1017,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("inspect_sprite")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperSpriteInspectAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("configure_sprite_source")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperSpriteSourceAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

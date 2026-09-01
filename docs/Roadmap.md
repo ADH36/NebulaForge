@@ -2093,7 +2093,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Sculpt: `set_sculpt_brush`, `set_brush_size`, `set_brush_strength`, `set_brush_falloff`, `sculpt_stroke`
 - [ ] Deform: `apply_lattice_deform`, `apply_bend_deform`, `apply_twist_deform`
 - [ ] UV: `open_uv_editor`, `select_uv_islands`, `transform_uvs`, `pack_uvs`, `unwrap_uvs`
-- [ ] Mesh Ops: `simplify_mesh_tool`, `remesh_tool`, `boolean_tool`, `merge_meshes_tool`, `separate_meshes_tool`
+- [x] Mesh Ops: `simplify_mesh_tool`, `remesh_tool`, `boolean_tool` (GeometryScript-backed equivalents with explicit operation routing)
+- [ ] Mesh Ops: `merge_meshes_tool`, `separate_meshes_tool` (editor-mode topology behavior remains plugin/API dependent)
 
 ### 45.4 Common UI Plugin
 - [ ] `configure_ui_input_config`, `set_input_mode`, `configure_analog_cursor`

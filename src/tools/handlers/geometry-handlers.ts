@@ -37,6 +37,7 @@ const GEOMETRY_ACTIONS = [
   'triangulate', 'poke',
   // Mesh processing
   'simplify_mesh', 'subdivide', 'remesh_uniform', 'merge_vertices', 'remesh_voxel',
+  'simplify_mesh_tool', 'remesh_tool', 'boolean_tool',
   // Mesh repair
   'weld_vertices', 'fill_holes', 'remove_degenerates',
   // UVs

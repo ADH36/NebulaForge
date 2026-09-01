@@ -7713,6 +7713,17 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     if (SubAction == TEXT("self_union")) return HandleSelfUnion(this, RequestId, Payload, RequestingSocket);
 
     // Mesh Utils
+    if (SubAction == TEXT("simplify_mesh_tool")) return HandleSimplifyMesh(this, RequestId, Payload, RequestingSocket);
+    if (SubAction == TEXT("remesh_tool")) return HandleRemeshVoxel(this, RequestId, Payload, RequestingSocket);
+    if (SubAction == TEXT("boolean_tool"))
+    {
+        const FString Operation = GetStringFieldGeom(Payload, TEXT("operation"), TEXT("union")).ToLower();
+        if (Operation == TEXT("union") || Operation == TEXT("add")) return HandleBooleanUnion(this, RequestId, Payload, RequestingSocket);
+        if (Operation == TEXT("subtract") || Operation == TEXT("difference")) return HandleBooleanSubtract(this, RequestId, Payload, RequestingSocket);
+        if (Operation == TEXT("intersect") || Operation == TEXT("intersection")) return HandleBooleanIntersection(this, RequestId, Payload, RequestingSocket);
+        SendAutomationError(RequestingSocket, RequestId, TEXT("boolean_tool operation must be union, subtract, or intersection"), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
     if (SubAction == TEXT("get_mesh_info")) return HandleGetMeshInfo(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("recalculate_normals")) return HandleRecalculateNormals(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("flip_normals")) return HandleFlipNormals(this, RequestId, Payload, RequestingSocket);

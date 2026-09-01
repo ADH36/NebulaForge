@@ -88,6 +88,9 @@ public:
 				TEXT("remesh_uniform"),
 				TEXT("merge_vertices"),
 				TEXT("remesh_voxel"),
+				TEXT("simplify_mesh_tool"),
+				TEXT("remesh_tool"),
+				TEXT("boolean_tool"),
 				TEXT("weld_vertices"),
 				TEXT("fill_holes"),
 				TEXT("remove_degenerates"),
@@ -181,6 +184,9 @@ public:
 				TEXT("Target triangle count for simplification."))
 			.Number(TEXT("targetEdgeLength"),
 				TEXT("Target edge length for remeshing."))
+			.StringEnum(TEXT("operation"), {
+				TEXT("union"), TEXT("subtract"), TEXT("intersection")
+			}, TEXT("Boolean operation for boolean_tool."))
 			.Number(TEXT("weldDistance"),
 				TEXT("Distance threshold for vertex welding."))
 			.Number(TEXT("uvChannel"), TEXT("UV channel index (0-7)."))

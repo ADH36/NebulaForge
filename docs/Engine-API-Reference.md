@@ -166,6 +166,8 @@ NebulaForge exposes the second path through `system_control.configure_console_va
 
 `manage_geometry.activate_modeling_tool` and `deactivate_modeling_tool` use Epic's `FEditorModeTools::ActivateMode`/`DeactivateMode` with `EM_ModelingToolsEditorMode`, and verify the resulting active mode. They require the optional Modeling Tools Editor Mode plugin.
 
+`manage_geometry.inspect_modeling_mode` uses Epic's `FEditorModeTools::GetActiveMode` to report whether the optional Modeling Tools Editor Mode is currently active.
+
 ### Core Types
 ```cpp
 // Dynamic mesh container

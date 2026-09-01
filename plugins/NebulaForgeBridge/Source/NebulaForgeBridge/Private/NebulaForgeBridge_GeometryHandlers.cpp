@@ -7853,7 +7853,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     }
 
 #if WITH_EDITOR
-    if (SubAction == TEXT("activate_modeling_tool") || SubAction == TEXT("deactivate_modeling_tool"))
+    if (SubAction == TEXT("activate_modeling_tool") || SubAction == TEXT("deactivate_modeling_tool") ||
+        SubAction == TEXT("inspect_modeling_mode"))
     {
         if (!GEditor)
         {
@@ -7866,7 +7867,7 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         {
             GLevelEditorModeTools().ActivateMode(ModelingModeId, false);
         }
-        else
+        else if (SubAction == TEXT("deactivate_modeling_tool"))
         {
             GLevelEditorModeTools().DeactivateMode(ModelingModeId);
         }
@@ -7883,6 +7884,12 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("modeId"), ModelingModeId.ToString());
         Result->SetBoolField(TEXT("active"), bActive);
+        if (SubAction == TEXT("inspect_modeling_mode"))
+        {
+            SendAutomationResponse(RequestingSocket, RequestId, true,
+                                   TEXT("Modeling Tools Editor Mode inspected"), Result, FString());
+            return true;
+        }
         SendAutomationResponse(RequestingSocket, RequestId, true,
                                SubAction == TEXT("activate_modeling_tool") ? TEXT("Modeling Tools Editor Mode activated") : TEXT("Modeling Tools Editor Mode deactivated"),
                                Result, FString());

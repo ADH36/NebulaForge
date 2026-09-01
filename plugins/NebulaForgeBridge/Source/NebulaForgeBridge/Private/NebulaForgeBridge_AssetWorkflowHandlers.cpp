@@ -128,6 +128,14 @@
 #else
 #define MCP_HAS_PAPER2D_EDITOR 0
 #endif
+#if __has_include("PaperTileMapFactory.h") && __has_include("PaperTileMap.h") && __has_include("PaperTileSet.h")
+#include "PaperTileMapFactory.h"
+#include "PaperTileMap.h"
+#include "PaperTileSet.h"
+#define MCP_HAS_PAPER_TILEMAP_EDITOR 1
+#else
+#define MCP_HAS_PAPER_TILEMAP_EDITOR 0
+#endif
 #if __has_include("ContentBrowserModule.h")
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
@@ -476,6 +484,63 @@ static bool HandlePaperFlipbookAssetAction(
   return true;
 }
 
+#endif
+
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+static bool HandlePaperTileMapAssetAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  FString Name;
+  FString PackagePath;
+  Payload->TryGetStringField(TEXT("name"), Name);
+  Payload->TryGetStringField(TEXT("path"), PackagePath);
+  Name = SanitizeAssetName(Name);
+  PackagePath = SanitizeProjectRelativePath(PackagePath);
+  if (Name.IsEmpty() || PackagePath.IsEmpty()) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("name and path are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const FString AssetPackagePath = PackagePath + TEXT("/") + Name;
+  if (UEditorAssetLibrary::DoesAssetExist(AssetPackagePath)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile-map asset already exists"), TEXT("ASSET_EXISTS"));
+    return true;
+  }
+  UPaperTileMapFactory* Factory = NewObject<UPaperTileMapFactory>();
+  FString TileSetPath;
+  Payload->TryGetStringField(TEXT("tileSetPath"), TileSetPath);
+  TileSetPath = SanitizeProjectRelativePath(TileSetPath);
+  if (!TileSetPath.IsEmpty()) {
+    Factory->InitialTileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(TileSetPath));
+    if (!Factory->InitialTileSet) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("tileSetPath must resolve to a UPaperTileSet"), TEXT("TILESET_NOT_FOUND"));
+      return true;
+    }
+  }
+  UObject* NewAsset = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get().CreateAsset(
+      Name, PackagePath, UPaperTileMap::StaticClass(), Factory);
+  if (!NewAsset) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Unable to create Paper tile-map asset"), TEXT("CREATE_FAILED"));
+    return true;
+  }
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(NewAsset)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile-map created but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), NewAsset->GetPathName());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map asset created"), Result, FString());
+  return true;
+}
+
+#endif
+
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
 static bool HandlePaperFlipbookEditAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -793,6 +858,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("create_flipbook")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperFlipbookAssetAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("create_tile_map")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapAssetAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

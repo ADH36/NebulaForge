@@ -2250,7 +2250,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 47.1 Visual Accessibility
 - [ ] `create_colorblind_filter` (protanopia, deuteranopia, tritanopia)
 - [ ] `configure_colorblind_simulation`
-- [ ] `set_ui_scale`, `set_font_scale`
+- [x] `set_ui_scale` (official `UUserInterfaceSettings::ApplicationScale` with live `FSlateApplication::SetApplicationScale`)
+- [ ] `set_font_scale` (UE exposes font DPI settings, but not a stable global font-scale setter across supported versions)
 - [ ] `configure_high_contrast_mode`
 - [ ] `set_screen_reader_text` (for UI elements)
 - [ ] `configure_text_to_speech`
@@ -2295,6 +2296,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `export_accessibility_settings`
 - [ ] `import_accessibility_settings`
 - [ ] `configure_accessibility_menu`
+
+**API-derived addition:** `system_control.announce_accessible_string` uses Unreal's official `UGameplayStatics::AnnounceAccessibleString` API to send a platform accessibility announcement.
 
 ---
 

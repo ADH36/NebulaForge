@@ -14,6 +14,7 @@
 #include "Internationalization/StringTableRegistry.h"
 #include "Internationalization/Internationalization.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/UserInterfaceSettings.h"
 #include "Misc/Guid.h"
 #include "Misc/AutomationTest.h"
 #include "Scalability.h"
@@ -93,6 +94,7 @@ bool BuildSaveGameSchemaInspection(
 #include "Engine/StaticMesh.h"
 #include "Engine/SkeletalMesh.h"
 #include "Materials/Material.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "GameplayTagsManager.h"
 #include "Exporters/Exporter.h"
@@ -1471,6 +1473,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("configure_geometry_collection") &&
       Lower != TEXT("inspect_geometry_collection") &&
       Lower != TEXT("configure_geometry_collection_component") &&
+      Lower != TEXT("set_ui_scale") &&
+      Lower != TEXT("announce_accessible_string") &&
       Lower != TEXT("register_python_command") &&
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
@@ -1478,6 +1482,57 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
     return false; // Not handled by this function
+  }
+
+  if (Lower == TEXT("set_ui_scale")) {
+    double Scale = 0.0;
+    if (!Payload.IsValid() || !Payload->TryGetNumberField(TEXT("uiScale"), Scale) || Scale < 0.1 || Scale > 4.0) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("set_ui_scale requires uiScale between 0.1 and 4.0"),
+                          TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UUserInterfaceSettings* Settings = GetMutableDefault<UUserInterfaceSettings>();
+    if (!Settings) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("User interface settings unavailable"), TEXT("NOT_SUPPORTED"));
+      return true;
+    }
+    Settings->ApplicationScale = static_cast<float>(Scale);
+    Settings->SaveConfig();
+#if WITH_EDITOR
+    if (FSlateApplication::IsInitialized()) {
+      FSlateApplication::Get().SetApplicationScale(static_cast<float>(Scale));
+    }
+#endif
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("uiScale"), Scale);
+    Result->SetBoolField(TEXT("persisted"), true);
+    Result->SetBoolField(TEXT("appliedLive"),
+#if WITH_EDITOR
+                         FSlateApplication::IsInitialized()
+#else
+                         false
+#endif
+    );
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("UI scale updated"), Result);
+    return true;
+  }
+
+  if (Lower == TEXT("announce_accessible_string")) {
+    FString Announcement;
+    if (!Payload.IsValid() || !Payload->TryGetStringField(TEXT("announcement"), Announcement) ||
+        Announcement.TrimStartAndEnd().IsEmpty() || Announcement.Len() > 1024) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("announce_accessible_string requires a non-empty announcement of at most 1024 characters"),
+                          TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    Announcement.TrimStartAndEndInline();
+    UGameplayStatics::AnnounceAccessibleString(Announcement);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("announcement"), Announcement);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Accessibility announcement sent"), Result);
+    return true;
   }
 
 #if !WITH_EDITOR

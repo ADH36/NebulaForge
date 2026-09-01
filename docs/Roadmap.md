@@ -2301,6 +2301,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 **API-derived addition:** `system_control.get_ui_scale` reads the official `UUserInterfaceSettings::ApplicationScale` value and reports whether the editor Slate application is initialized.
 
+**API-derived addition:** `system_control.configure_screen_reader_support` applies the official `Accessibility.Enable` console variable documented by Epic for third-party screen-reader support, and reports `NOT_SUPPORTED` when the target build omits that CVar.
+
 **API-derived addition:** `system_control.set_screen_reader_text` configures a live `UWidget` through Epic's public `AccessibleText`, `AccessibleSummaryText`, `AccessibleBehavior`, and `bOverrideAccessibleDefaults` properties. The caller must provide the widget's full UObject path; the bridge does not guess among similarly named widgets.
 
 ---

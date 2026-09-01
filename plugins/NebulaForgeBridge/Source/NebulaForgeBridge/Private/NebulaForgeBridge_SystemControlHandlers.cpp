@@ -1477,6 +1477,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("configure_geometry_collection_component") &&
       Lower != TEXT("get_ui_scale") &&
       Lower != TEXT("set_ui_scale") &&
+      Lower != TEXT("configure_screen_reader_support") &&
       Lower != TEXT("announce_accessible_string") &&
       Lower != TEXT("set_screen_reader_text") &&
       Lower != TEXT("register_python_command") &&
@@ -1504,6 +1505,28 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
 #endif
     );
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("UI scale inspected"), Result);
+    return true;
+  }
+
+  if (Lower == TEXT("configure_screen_reader_support")) {
+    bool bEnabled = false;
+    if (!Payload.IsValid() || !Payload->TryGetBoolField(TEXT("enabled"), bEnabled)) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("configure_screen_reader_support requires enabled"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    IConsoleVariable* AccessibilityEnable = IConsoleManager::Get().FindConsoleVariable(TEXT("Accessibility.Enable"));
+    if (!AccessibilityEnable) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Accessibility.Enable is not available in this Unreal build"), TEXT("NOT_SUPPORTED"));
+      return true;
+    }
+    AccessibilityEnable->Set(bEnabled ? 1 : 0, ECVF_SetByCode);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("enabled"), AccessibilityEnable->GetInt() != 0);
+    Result->SetStringField(TEXT("consoleVariable"), TEXT("Accessibility.Enable"));
+    Result->SetBoolField(TEXT("appliedRuntime"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Screen-reader support configured"), Result);
     return true;
   }
 

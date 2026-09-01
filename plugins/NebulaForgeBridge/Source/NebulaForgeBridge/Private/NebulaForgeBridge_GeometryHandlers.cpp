@@ -5605,10 +5605,15 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
 
     TArray<FVector> Vertices;
     TArray<int32> Triangles;
-    if (!ReadProcMeshVectorArray(Payload, TEXT("vertices"), Vertices) || Vertices.Num() == 0 ||
-        !ReadProcMeshIndexArray(Payload, TEXT("triangles"), Triangles) || Triangles.Num() == 0 || Triangles.Num() % 3 != 0)
+    if (!ReadProcMeshVectorArray(Payload, TEXT("vertices"), Vertices) || Vertices.Num() == 0)
     {
-        Self->SendAutomationError(Socket, RequestId, TEXT("vertices and triangles arrays are required; triangles count must be divisible by three"), TEXT("INVALID_ARGUMENT"));
+        Self->SendAutomationError(Socket, RequestId, TEXT("vertices array is required"), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
+    if (SubAction == TEXT("create_mesh_section") &&
+        (!ReadProcMeshIndexArray(Payload, TEXT("triangles"), Triangles) || Triangles.Num() == 0 || Triangles.Num() % 3 != 0))
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("triangles array is required for create_mesh_section and its count must be divisible by three"), TEXT("INVALID_ARGUMENT"));
         return true;
     }
     for (const int32 Index : Triangles)
@@ -7591,6 +7596,13 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
 #endif
+    if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
+        SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections"))
+    {
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));
+        return true;
+    }
 
     // Booleans
     if (SubAction == TEXT("boolean_union")) return HandleBooleanUnion(this, RequestId, Payload, RequestingSocket);

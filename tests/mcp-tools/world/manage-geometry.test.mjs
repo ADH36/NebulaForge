@@ -20,6 +20,13 @@ const testCases = [
   // === SETUP ===
   { scenario: 'Setup: create test folder', toolName: 'manage_asset', arguments: { action: 'create_folder', path: TEST_FOLDER }, expected: 'success|already exists' },
   { scenario: 'Setup: spawn test actor', toolName: 'control_actor', arguments: { action: 'spawn', classPath: '/Engine/BasicShapes/Cube', actorName: `TestActor_${ts}`, location: { x: 0, y: 0, z: 100 } }, expected: 'success' },
+  { scenario: 'Setup: add ProceduralMeshComponent', toolName: 'control_actor', arguments: { action: 'add_component', actorName: `TestActor_${ts}`, componentType: '/Script/ProceduralMeshComponent.ProceduralMeshComponent', componentName: `TestProcMesh_${ts}` }, expected: 'success|error' },
+
+  // === PROCEDURAL MESH COMPONENT ===
+  { scenario: 'PROCEDURAL: create_mesh_section', toolName: 'manage_geometry', arguments: { action: 'create_mesh_section', actorName: `TestActor_${ts}`, componentName: `TestProcMesh_${ts}`, sectionIndex: 0, vertices: [[0, 0, 0], [100, 0, 0], [0, 100, 0]], triangles: [0, 1, 2], normals: [[0, 0, 1], [0, 0, 1], [0, 0, 1]], uv0: [[0, 0], [1, 0], [0, 1]], createCollision: true }, expected: 'success|error' },
+  { scenario: 'PROCEDURAL: update_mesh_section', toolName: 'manage_geometry', arguments: { action: 'update_mesh_section', actorName: `TestActor_${ts}`, componentName: `TestProcMesh_${ts}`, sectionIndex: 0, vertices: [[0, 0, 2], [100, 0, 2], [0, 100, 2]] }, expected: 'success|error' },
+  { scenario: 'PROCEDURAL: clear_mesh_section', toolName: 'manage_geometry', arguments: { action: 'clear_mesh_section', actorName: `TestActor_${ts}`, componentName: `TestProcMesh_${ts}`, sectionIndex: 0 }, expected: 'success|error' },
+  { scenario: 'PROCEDURAL: clear_all_mesh_sections', toolName: 'manage_geometry', arguments: { action: 'clear_all_mesh_sections', actorName: `TestActor_${ts}`, componentName: `TestProcMesh_${ts}` }, expected: 'success|error' },
 
   // === CREATE ===
   { scenario: 'CREATE: create_box', toolName: 'manage_geometry', arguments: {"action": "create_box", "name": `Testbox_${ts}`, "path": TEST_FOLDER_ALIAS, "width": 120, "height": 80, "depth": 60, "widthSegments": 2, "heightSegments": 2, "depthSegments": 2, "rotation": {"pitch": 0, "yaw": 15, "roll": 0}, "scale": {"x": 1, "y": 1, "z": 1}}, expected: 'success|already exists' },

@@ -1655,7 +1655,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `configure_photo_mode_camera`
 - [ ] `configure_photo_mode_filters`
 - [ ] `configure_photo_mode_poses`
-- [ ] `take_photo_mode_screenshot`
+- [x] `take_photo_mode_screenshot` (named alias over the validated screenshot pipeline, including editor/game/full-window modes and optional metadata)
 - [ ] `configure_photo_mode_ui`
 
 ### 35.6 Quest/Dialogue System

@@ -1068,6 +1068,7 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         };
       }
     }
+    case 'take_photo_mode_screenshot':
     case 'screenshot': {
       const includeMetadata = argsTyped.includeMetadata === true;
       const filenameArg = typeof argsTyped.filename === 'string'

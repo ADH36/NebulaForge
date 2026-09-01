@@ -1191,6 +1191,97 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     return true;
 }
 
+static bool HandleGetUVSetBounds(UNebulaForgeBridgeSubsystem* Self, const FString& RequestId,
+                                 const TSharedPtr<FJsonObject>& Payload, TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+    const FString ActorName = GetStringFieldGeom(Payload, TEXT("actorName"));
+    const int32 UVChannel = GetIntFieldGeom(Payload, TEXT("uvChannel"), 0);
+    if (ActorName.IsEmpty())
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("actorName required"), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
+    if (UVChannel < 0)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("uvChannel must be non-negative"), TEXT("INVALID_ARGUMENT"));
+        return true;
+    }
+
+    UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+    if (!World)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("No world available"), TEXT("NO_WORLD"));
+        return true;
+    }
+
+    ADynamicMeshActor* TargetActor = nullptr;
+    for (TActorIterator<ADynamicMeshActor> It(World); It; ++It)
+    {
+        if (It->GetActorLabel() == ActorName)
+        {
+            TargetActor = *It;
+            break;
+        }
+    }
+    if (!TargetActor)
+    {
+        Self->SendAutomationError(Socket, RequestId, FString::Printf(TEXT("Actor not found: %s"), *ActorName), TEXT("ACTOR_NOT_FOUND"));
+        return true;
+    }
+
+    UDynamicMeshComponent* DMC = TargetActor->GetDynamicMeshComponent();
+    UDynamicMesh* Mesh = DMC ? DMC->GetDynamicMesh() : nullptr;
+    if (!Mesh)
+    {
+        Self->SendAutomationError(Socket, RequestId, TEXT("DynamicMesh not available"), TEXT("MESH_NOT_FOUND"));
+        return true;
+    }
+
+    const int32 NumUVSets = UGeometryScriptLibrary_MeshQueryFunctions::GetNumUVSets(Mesh);
+    const bool bValidUVChannel = UVChannel < NumUVSets;
+    bool bUVChannelEmpty = true;
+    FBox2D UVBounds(EForceInit::ForceInit);
+    if (bValidUVChannel)
+    {
+        for (int32 TriangleID = 0; TriangleID < Mesh->GetTriangleCount(); ++TriangleID)
+        {
+            FVector2D UV1, UV2, UV3;
+            bool bHaveValidUVs = false;
+            UGeometryScriptLibrary_MeshQueryFunctions::GetTriangleUVs(
+                Mesh, UVChannel, TriangleID, UV1, UV2, UV3, bHaveValidUVs);
+            if (!bHaveValidUVs)
+            {
+                continue;
+            }
+            UVBounds += UV1;
+            UVBounds += UV2;
+            UVBounds += UV3;
+            bUVChannelEmpty = false;
+        }
+    }
+
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetNumberField(TEXT("uvChannel"), UVChannel);
+    Result->SetBoolField(TEXT("isValidUVChannel"), bValidUVChannel);
+    Result->SetBoolField(TEXT("uvChannelIsEmpty"), bUVChannelEmpty);
+    if (bValidUVChannel && !bUVChannelEmpty)
+    {
+        TSharedPtr<FJsonObject> Min = MakeShared<FJsonObject>();
+        Min->SetNumberField(TEXT("u"), UVBounds.Min.X);
+        Min->SetNumberField(TEXT("v"), UVBounds.Min.Y);
+        TSharedPtr<FJsonObject> Max = MakeShared<FJsonObject>();
+        Max->SetNumberField(TEXT("u"), UVBounds.Max.X);
+        Max->SetNumberField(TEXT("v"), UVBounds.Max.Y);
+        Result->SetObjectField(TEXT("min"), Min);
+        Result->SetObjectField(TEXT("max"), Max);
+        Result->SetNumberField(TEXT("width"), UVBounds.GetSize().X);
+        Result->SetNumberField(TEXT("height"), UVBounds.GetSize().Y);
+    }
+    Self->SendAutomationResponse(Socket, RequestId, true, TEXT("UV set bounds retrieved"), Result);
+    return true;
+}
+
 static bool HandleRecalculateNormals(UNebulaForgeBridgeSubsystem* Self, const FString& RequestId,
                                      const TSharedPtr<FJsonObject>& Payload, TSharedPtr<FMcpBridgeWebSocket> Socket)
 {
@@ -7974,6 +8065,7 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         return true;
     }
     if (SubAction == TEXT("get_mesh_info")) return HandleGetMeshInfo(this, RequestId, Payload, RequestingSocket);
+    if (SubAction == TEXT("get_uv_set_bounds")) return HandleGetUVSetBounds(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("recalculate_normals")) return HandleRecalculateNormals(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("flip_normals")) return HandleFlipNormals(this, RequestId, Payload, RequestingSocket);
     if (SubAction == TEXT("simplify_mesh")) return HandleSimplifyMesh(this, RequestId, Payload, RequestingSocket);

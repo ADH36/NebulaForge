@@ -2102,6 +2102,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] UV: `open_uv_editor`, `select_uv_islands` (interactive editor UV-tool selection remains distinct from GeometryScript mesh UV operations)
 - [x] UV: `pack_uvs`, `unwrap_uvs` (explicit aliases to the existing GeometryScript `pack_uv_islands` and `unwrap_uv` operations)
 - [x] UV: `transform_uvs` (GeometryScript-backed mesh UV translation/scale/rotation equivalent)
+- [x] UV: `get_uv_set_bounds` (additional official GeometryScript UV-channel bounds readback)
 - [x] Mesh Ops: `simplify_mesh_tool`, `remesh_tool`, `boolean_tool` (GeometryScript-backed equivalents with explicit operation routing)
 - [ ] Mesh Ops: `merge_meshes_tool`, `separate_meshes_tool` (editor-mode topology behavior remains plugin/API dependent)
 

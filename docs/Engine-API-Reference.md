@@ -170,6 +170,8 @@ NebulaForge exposes the second path through `system_control.configure_console_va
 
 `manage_geometry.inspect_modeling_mode` uses Epic's `FEditorModeTools::GetActiveMode` to report whether the optional Modeling Tools Editor Mode is currently active.
 
+`manage_geometry.get_uv_set_bounds` reports the bounds of a dynamic mesh UV channel using Epic's [`UGeometryScriptLibrary_MeshQueryFunctions`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/UGeometryScriptLibrary_MeshQuery-), `GetTriangleUVs`, and `FBox2D`. It preserves Epic's documented distinction between an invalid channel and a valid but empty channel.
+
 ### Core Types
 ```cpp
 // Dynamic mesh container

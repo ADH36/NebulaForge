@@ -2943,6 +2943,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         // Niagara parameters
         parameterName: commonSchemas.parameterName,
         parameterType: commonSchemas.stringProp,
+        targetActorName: commonSchemas.actorName,
         parameterValue: commonSchemas.value,
         value: commonSchemas.value,
         sourceBinding: commonSchemas.stringProp,

@@ -486,6 +486,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Integer runtime parameter values via the official `UNiagaraComponent::SetNiagaraVariableInt` API (`set_niagara_parameter`, `parameterType: Int`, `Int32`, or `Integer`); this is additional UE API coverage beyond the original roadmap list.
 - [x] Vector2, Vector4, and Position runtime values via Epic's typed `UNiagaraComponent` setters (`set_niagara_parameter`, `parameterType: Vector2`/`Vec2`, `Vector4`/`Vec4`, or `Position`); this is additional UE API coverage beyond the original roadmap list.
 - [x] Texture and Static Mesh runtime parameter values via Epic's `UNiagaraComponent::SetVariableTexture` and `SetVariableStaticMesh` APIs (`set_niagara_parameter`, `texturePath`/`meshPath`); asset paths are normalized and restricted to valid Unreal object roots.
+- [x] Actor runtime parameter values via Epic's `UNiagaraComponent::SetVariableActor` API (`set_niagara_parameter`, `parameterType: Actor`, `targetActorName`); target actors resolve by editor label or object name.
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

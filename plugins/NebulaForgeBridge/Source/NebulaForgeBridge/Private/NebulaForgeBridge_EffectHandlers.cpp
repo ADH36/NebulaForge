@@ -1242,6 +1242,23 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                            FLinearColor(R, G, B, Alpha));
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase)) {
+          FString TargetActorName;
+          LocalPayload->TryGetStringField(TEXT("targetActorName"), TargetActorName);
+          if (TargetActorName.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) TargetActorName = ValueField->AsString();
+          AActor *TargetActor = nullptr;
+          if (!TargetActorName.IsEmpty()) {
+            for (AActor *Candidate : AllActors) {
+              if (Candidate && (Candidate->GetActorLabel().Equals(TargetActorName, ESearchCase::IgnoreCase) || Candidate->GetName().Equals(TargetActorName, ESearchCase::IgnoreCase))) {
+                TargetActor = Candidate;
+                break;
+              }
+            }
+          }
+          if (TargetActor) {
+            NiComp->SetVariableActor(ParamName, TargetActor);
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Texture"), ESearchCase::IgnoreCase)) {
           FString TexturePath;
           LocalPayload->TryGetStringField(TEXT("texturePath"), TexturePath);
@@ -1335,6 +1352,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Texture"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("StaticMesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Mesh"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Bool"), ESearchCase::IgnoreCase)) {
             ErrMsg = FString::Printf(TEXT("Invalid parameter type: %s"),
                                      *ParameterType);

@@ -2121,6 +2121,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Tile Maps: `inspect_tile_set_tile_metadata` (additional official per-tile metadata, terrain-membership, and collision readback)
 - [x] Tile Maps: `get_tile_set_uv_from_xy` (additional official `UPaperTileSet::GetTileUVFromTileXY` coordinate conversion)
 - [x] Tile Maps: `inspect_tile_map` (additional official `UPaperTileMap` dimensions, layers, scale, collision, and grid-color readback)
+- [x] Tile Maps: `configure_tile_map_visuals` (additional official `UPaperTileMap` visual fields for colors, grid layout, scale, and layer/tile separation)
 - [ ] Tile Maps: `add_tile_to_set`, `fill_tile_region`
 - [x] Tile Maps: `paint_paper_tile` (official `UPaperTileMapComponent::SetTile` and `FPaperTileInfo`; owned tile-map component and existing tile set required)
 - [x] Tile Maps: `fill_paper_tile_region` (bounded batch of official `SetTile` calls with optional single collision rebuild)

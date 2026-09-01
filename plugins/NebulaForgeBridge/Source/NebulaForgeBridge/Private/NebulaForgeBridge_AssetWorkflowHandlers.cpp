@@ -853,7 +853,108 @@ static bool HandlePaperTileMapInspectAction(
   Result->SetObjectField(TEXT("layerGridColor"), McpHandlerUtils::LinearColorToJson(TileMap->LayerGridColor));
   Result->SetObjectField(TEXT("tileGridColor"), McpHandlerUtils::LinearColorToJson(TileMap->TileGridColor));
   Result->SetObjectField(TEXT("multiTileGridColor"), McpHandlerUtils::LinearColorToJson(TileMap->MultiTileGridColor));
+  Result->SetNumberField(TEXT("multiTileGridWidth"), TileMap->MultiTileGridWidth);
+  Result->SetNumberField(TEXT("multiTileGridHeight"), TileMap->MultiTileGridHeight);
+  Result->SetNumberField(TEXT("multiTileGridOffsetX"), TileMap->MultiTileGridOffsetX);
+  Result->SetNumberField(TEXT("multiTileGridOffsetY"), TileMap->MultiTileGridOffsetY);
+  Result->SetNumberField(TEXT("separationPerLayer"), TileMap->SeparationPerLayer);
+  Result->SetNumberField(TEXT("separationPerTileX"), TileMap->SeparationPerTileX);
+  Result->SetNumberField(TEXT("separationPerTileY"), TileMap->SeparationPerTileY);
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile map inspected"), Result, FString());
+  return true;
+}
+
+static bool HandlePaperTileMapConfigureVisualsAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  if (!TileMap) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileMap"), TEXT("TILEMAP_NOT_FOUND"));
+    return true;
+  }
+  const bool bHasBackground = Payload->HasField(TEXT("backgroundColor"));
+  const bool bHasLayerGrid = Payload->HasField(TEXT("layerGridColor"));
+  const bool bHasTileGrid = Payload->HasField(TEXT("tileGridColor"));
+  const bool bHasMultiGrid = Payload->HasField(TEXT("multiTileGridColor"));
+  const bool bHasMultiGridSize = Payload->HasField(TEXT("multiTileGridWidth")) || Payload->HasField(TEXT("multiTileGridHeight"));
+  const bool bHasMultiGridOffset = Payload->HasField(TEXT("multiTileGridOffsetX")) || Payload->HasField(TEXT("multiTileGridOffsetY"));
+  const bool bHasScale = Payload->HasField(TEXT("pixelsPerUnrealUnit"));
+  const bool bHasSeparation = Payload->HasField(TEXT("separationPerLayer")) || Payload->HasField(TEXT("separationPerTileX")) ||
+      Payload->HasField(TEXT("separationPerTileY"));
+  if (!bHasBackground && !bHasLayerGrid && !bHasTileGrid && !bHasMultiGrid && !bHasMultiGridSize && !bHasMultiGridOffset && !bHasScale && !bHasSeparation) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("At least one tile-map visual property is required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  auto ReadColor = [&](const TCHAR* FieldName, FLinearColor& OutColor) {
+    const TSharedPtr<FJsonObject>* ColorObject = nullptr;
+    if (!Payload->TryGetObjectField(FieldName, ColorObject) || !ColorObject ||
+        !McpHandlerUtils::JsonToLinearColor(*ColorObject, OutColor)) return false;
+    return FMath::IsFinite(OutColor.R) && FMath::IsFinite(OutColor.G) &&
+        FMath::IsFinite(OutColor.B) && FMath::IsFinite(OutColor.A);
+  };
+  auto ReadBoundedNumber = [&](const TCHAR* FieldName, double DefaultValue, double MinValue, double MaxValue, double& OutValue) {
+    OutValue = DefaultValue;
+    if (!Payload->HasField(FieldName)) return true;
+    return Payload->TryGetNumberField(FieldName, OutValue) && FMath::IsFinite(OutValue) && OutValue >= MinValue && OutValue <= MaxValue;
+  };
+  FLinearColor Color;
+  if (bHasBackground && !ReadColor(TEXT("backgroundColor"), Color)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("backgroundColor must contain finite r, g, b, and a values"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  if (bHasLayerGrid && !ReadColor(TEXT("layerGridColor"), Color)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("layerGridColor must contain finite r, g, b, and a values"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  if (bHasTileGrid && !ReadColor(TEXT("tileGridColor"), Color)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("tileGridColor must contain finite r, g, b, and a values"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  if (bHasMultiGrid && !ReadColor(TEXT("multiTileGridColor"), Color)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("multiTileGridColor must contain finite r, g, b, and a values"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  double Value = 0.0;
+  if (!ReadBoundedNumber(TEXT("multiTileGridWidth"), TileMap->MultiTileGridWidth, 0.0, 1024.0, Value) ||
+      !ReadBoundedNumber(TEXT("multiTileGridHeight"), TileMap->MultiTileGridHeight, 0.0, 1024.0, Value) ||
+      !ReadBoundedNumber(TEXT("multiTileGridOffsetX"), TileMap->MultiTileGridOffsetX, -1024.0, 1024.0, Value) ||
+      !ReadBoundedNumber(TEXT("multiTileGridOffsetY"), TileMap->MultiTileGridOffsetY, -1024.0, 1024.0, Value) ||
+      !ReadBoundedNumber(TEXT("pixelsPerUnrealUnit"), TileMap->PixelsPerUnrealUnit, 0.0001, 10000.0, Value) ||
+      !ReadBoundedNumber(TEXT("separationPerLayer"), TileMap->SeparationPerLayer, -10000.0, 10000.0, Value) ||
+      !ReadBoundedNumber(TEXT("separationPerTileX"), TileMap->SeparationPerTileX, -10000.0, 10000.0, Value) ||
+      !ReadBoundedNumber(TEXT("separationPerTileY"), TileMap->SeparationPerTileY, -10000.0, 10000.0, Value)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Tile-map numeric visual properties are outside their supported bounds"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  TileMap->Modify();
+  if (bHasBackground) { ReadColor(TEXT("backgroundColor"), Color); TileMap->BackgroundColor = Color; }
+  if (bHasLayerGrid) { ReadColor(TEXT("layerGridColor"), Color); TileMap->LayerGridColor = Color; }
+  if (bHasTileGrid) { ReadColor(TEXT("tileGridColor"), Color); TileMap->TileGridColor = Color; }
+  if (bHasMultiGrid) { ReadColor(TEXT("multiTileGridColor"), Color); TileMap->MultiTileGridColor = Color; }
+  if (Payload->HasField(TEXT("multiTileGridWidth"))) { Payload->TryGetNumberField(TEXT("multiTileGridWidth"), Value); TileMap->MultiTileGridWidth = static_cast<int32>(Value); }
+  if (Payload->HasField(TEXT("multiTileGridHeight"))) { Payload->TryGetNumberField(TEXT("multiTileGridHeight"), Value); TileMap->MultiTileGridHeight = static_cast<int32>(Value); }
+  if (Payload->HasField(TEXT("multiTileGridOffsetX"))) { Payload->TryGetNumberField(TEXT("multiTileGridOffsetX"), Value); TileMap->MultiTileGridOffsetX = static_cast<int32>(Value); }
+  if (Payload->HasField(TEXT("multiTileGridOffsetY"))) { Payload->TryGetNumberField(TEXT("multiTileGridOffsetY"), Value); TileMap->MultiTileGridOffsetY = static_cast<int32>(Value); }
+  if (Payload->HasField(TEXT("pixelsPerUnrealUnit"))) { Payload->TryGetNumberField(TEXT("pixelsPerUnrealUnit"), Value); TileMap->PixelsPerUnrealUnit = static_cast<float>(Value); }
+  if (Payload->HasField(TEXT("separationPerLayer"))) { Payload->TryGetNumberField(TEXT("separationPerLayer"), Value); TileMap->SeparationPerLayer = static_cast<float>(Value); }
+  if (Payload->HasField(TEXT("separationPerTileX"))) { Payload->TryGetNumberField(TEXT("separationPerTileX"), Value); TileMap->SeparationPerTileX = static_cast<float>(Value); }
+  if (Payload->HasField(TEXT("separationPerTileY"))) { Payload->TryGetNumberField(TEXT("separationPerTileY"), Value); TileMap->SeparationPerTileY = static_cast<float>(Value); }
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(TileMap)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile map visuals configured but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Result->SetNumberField(TEXT("multiTileGridWidth"), TileMap->MultiTileGridWidth);
+  Result->SetNumberField(TEXT("multiTileGridHeight"), TileMap->MultiTileGridHeight);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile map visuals configured"), Result, FString());
   return true;
 }
 
@@ -1552,6 +1653,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("inspect_tile_map")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileMapInspectAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("configure_tile_map_visuals")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapConfigureVisualsAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

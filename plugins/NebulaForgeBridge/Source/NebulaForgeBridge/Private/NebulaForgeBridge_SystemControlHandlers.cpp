@@ -1471,6 +1471,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("create_python_editor_utility") &&
       Lower != TEXT("create_geometry_collection") &&
       Lower != TEXT("create_variant_set") &&
+      Lower != TEXT("add_variant") &&
       Lower != TEXT("add_geometry_to_collection") &&
       Lower != TEXT("remove_geometry_from_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
@@ -3263,6 +3264,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("create_python_editor_utility") || Lower == TEXT("register_python_command") ||
              Lower == TEXT("create_geometry_collection") ||
              Lower == TEXT("create_variant_set") ||
+             Lower == TEXT("add_variant") ||
              Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("inspect_geometry_collection") ||
@@ -3436,6 +3438,51 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
           "print(_lvs.get_path_name() + '|' + _variant_set.get_display_text().to_string())\n"),
           *PythonAssetPath, *AssetName, *PythonPackagePath, *VariantSetName);
+    }
+
+    if (Lower == TEXT("add_variant")) {
+      FString AssetPath;
+      FString VariantSetName;
+      FString VariantName;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      Payload->TryGetStringField(TEXT("variantSetName"), VariantSetName);
+      Payload->TryGetStringField(TEXT("variantName"), VariantName);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("add_variant requires a valid /Game LevelVariantSets asset path"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      VariantSetName = VariantSetName.TrimStartAndEnd();
+      VariantName = VariantName.TrimStartAndEnd();
+      if (VariantSetName.IsEmpty() || VariantName.IsEmpty() || VariantSetName.Len() > 128 || VariantName.Len() > 128) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("add_variant requires non-empty variantSetName and variantName values of at most 128 characters"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString PythonAssetPath = SafeAssetPath;
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantSetName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import unreal\n"
+          "_lvs = unreal.EditorAssetLibrary.load_asset('%s')\n"
+          "if not _lvs:\n"
+          "    raise RuntimeError('Level Variant Sets asset not found')\n"
+          "_variant_set = _lvs.get_variant_set_by_name('%s')\n"
+          "if not _variant_set:\n"
+          "    raise RuntimeError('Variant set not found')\n"
+          "_name = '%s'\n"
+          "_variant = _variant_set.get_variant_by_name(_name)\n"
+          "if not _variant:\n"
+          "    _variant = unreal.Variant(_variant_set)\n"
+          "    _variant.set_display_text(unreal.Text(_name))\n"
+          "    _variant_set.add_variant(_variant)\n"
+          "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
+          "print(_lvs.get_path_name() + '|' + _variant_set.get_display_text().to_string() + '|' + _variant.get_display_text().to_string())\n"),
+          *PythonAssetPath, *VariantSetName, *VariantName);
     }
 
     if (Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection")) {

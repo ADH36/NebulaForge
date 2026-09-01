@@ -2194,7 +2194,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 45.7 Variant Manager
 - [x] `create_variant_set` (official `VariantManagerLibrary.create_level_variant_sets_asset`, `VariantSet`, and `LevelVariantSets.add_variant_set`; requires VariantManagerContent and Python Editor Script Plugin)
-- [ ] `add_variant`, `configure_variant_properties`
+- [x] `add_variant` (official `Variant`, `VariantSet.add_variant`, and `VariantSet.get_variant_by_name`; requires an existing LevelVariantSets asset)
+- [ ] `configure_variant_properties`
 - [ ] `set_variant_dependencies`, `set_exclusive_variants`
 - [ ] `capture_variant_thumbnail`, `set_variant_thumbnail`
 - [ ] `activate_variant`, `get_active_variants`

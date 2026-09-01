@@ -1820,6 +1820,29 @@ static bool HandlePaperFlipbookSpriteAtTimeAction(
   return true;
 }
 
+static bool HandlePaperFlipbookSpriteAtFrameAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString FlipbookPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperFlipbook* Flipbook = Cast<UPaperFlipbook>(UEditorAssetLibrary::LoadAsset(FlipbookPath));
+  int32 FrameIndex = 0;
+  if (!Flipbook || !Payload->TryGetNumberField(TEXT("frameIndex"), FrameIndex) || FrameIndex < 0 || FrameIndex >= Flipbook->GetNumFrames()) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath and frameIndex within the flipbook frame count are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  UPaperSprite* Sprite = Flipbook->GetSpriteAtFrame(FrameIndex);
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Flipbook->GetPathName());
+  Result->SetNumberField(TEXT("frameIndex"), FrameIndex);
+  Result->SetBoolField(TEXT("hasSprite"), Sprite != nullptr);
+  Result->SetStringField(TEXT("spritePath"), Sprite ? Sprite->GetPathName() : FString());
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper flipbook sprite resolved at frame"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperSpriteTextureBoundsAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -2485,6 +2508,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("get_flipbook_sprite_at_time")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperFlipbookSpriteAtTimeAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("get_flipbook_sprite_at_frame")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperFlipbookSpriteAtFrameAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

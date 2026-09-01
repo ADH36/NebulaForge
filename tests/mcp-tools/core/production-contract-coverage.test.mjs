@@ -76,6 +76,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'inspect_flipbook', assetPath: '/Game/Contract/ContractFlipbook' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'get_flipbook_socket_transform', assetPath: '/Game/Contract/ContractFlipbook', socketName: 'Muzzle', keyFrameIndex: 0 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'get_flipbook_sprite_at_time', assetPath: '/Game/Contract/ContractFlipbook', time: 0.5, clampToEnds: true }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'get_flipbook_sprite_at_frame', assetPath: '/Game/Contract/ContractFlipbook', frameIndex: 0 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'configure_tile_map_collision', assetPath: '/Game/Contract/TileMap', collisionDomain: '3d', collisionThickness: 10, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'add_flipbook_keyframe', assetPath: '/Game/Contract/ContractFlipbook', spritePath: '/Game/Contract/SpriteA', frameRun: 2, keyFrameIndex: 0, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_flipbook_framerate', assetPath: '/Game/Contract/ContractFlipbook', framesPerSecond: 12, save: true }, expected: 'success|error' },

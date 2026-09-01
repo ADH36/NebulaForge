@@ -1326,7 +1326,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `add_render_pass` (beauty and optional `object_id`; depth, normal, motion_vector, and custom_stencil require project-specific deferred-pass material/plugin configuration)
 - [x] `configure_anti_aliasing` (spatial and temporal sample counts on the transient MRQ job)
 - [x] `configure_console_variables` (validated batch updates via UE `IConsoleManager`/`IConsoleVariable`)
-- [ ] `configure_burn_ins`
+- [x] `configure_burn_ins` (transient MRQ burn-in setting and widget class)
 - [x] `queue_render`, `start_render` (implemented as `manage_sequence.render_sequence_mrq` and `render_sequence_queue`)
 
 **Implemented gap:** `system_control.configure_console_variables` now performs validated batch CVar updates through UE's `IConsoleManager`/`IConsoleVariable` API and returns per-variable results.

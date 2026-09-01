@@ -183,6 +183,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_sequence', arguments: { action: 'render_sequence_mrq', path: '/Game/Contract/ContractSequence', outputPath: 'Saved/MCP/MRQ/Contract', spatialSampleCount: 4, temporalSampleCount: 8 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'render_sequence_mrq', path: '/Game/Contract/ContractSequence', outputPath: 'Saved/MCP/MRQ/Contract', outputFormat: 'exr', renderPass: 'object_id' }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'render_sequence_mrq', path: '/Game/Contract/ContractSequence', outputPath: 'Saved/MCP/MRQ/Contract', mrqPresetPath: '/Game/Contract/MRQ/DefaultConfig' }, expected: 'success|error' },
+  { toolName: 'manage_sequence', arguments: { action: 'configure_burn_ins', path: '/Game/Contract/ContractSequence', outputPath: 'Saved/MCP/MRQ/Contract', compositeBurnIn: true }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'create_master_sequence', name: 'ContractMaster', path: '/Game/Contract' }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'create_cine_camera_actor', path: '/Game/Contract/ContractMaster', spawnable: true }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'add_subsequence', path: '/Game/Contract/ContractMaster', subsequencePath: '/Game/Contract/ContractShot', startFrame: 0, durationFrames: 120, rowIndex: 0 }, expected: 'success|error' },

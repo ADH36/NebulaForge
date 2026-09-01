@@ -105,6 +105,13 @@
 #else
 #define MCP_HAS_MRQ_AA 0
 #endif
+#if __has_include("MoviePipelineBurnInSetting.h") && __has_include("MoviePipelineBurnInWidget.h")
+#include "MoviePipelineBurnInSetting.h"
+#include "MoviePipelineBurnInWidget.h"
+#define MCP_HAS_MRQ_BURN_IN 1
+#else
+#define MCP_HAS_MRQ_BURN_IN 0
+#endif
 #if __has_include("MoviePipelineObjectIdPass.h")
 #include "MoviePipelineObjectIdPass.h"
 #define MCP_HAS_MRQ_OBJECT_ID 1
@@ -2729,6 +2736,50 @@ static bool HandleMovieRenderQueueAction(
     Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
         TEXT("Movie Render Queue anti-aliasing is unavailable in this build"), nullptr,
         TEXT("MRQ_AA_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  const bool bHasBurnInClass = Payload->HasField(TEXT("burnInClass"));
+  const bool bHasCompositeBurnIn = Payload->HasField(TEXT("compositeBurnIn"));
+  if (bHasBurnInClass || bHasCompositeBurnIn) {
+#if MCP_HAS_MRQ_BURN_IN
+    UMoviePipelineBurnInSetting *BurnIn =
+        Cast<UMoviePipelineBurnInSetting>(Job->GetConfiguration()->FindOrAddSettingByClass(
+            UMoviePipelineBurnInSetting::StaticClass()));
+    if (!BurnIn) {
+      Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+          TEXT("Unable to configure Movie Render Queue burn-in"), nullptr,
+          TEXT("MRQ_BURN_IN_CONFIGURATION_FAILED"));
+      return true;
+    }
+    if (bHasBurnInClass) {
+      FString BurnInClassPath;
+      Payload->TryGetStringField(TEXT("burnInClass"), BurnInClassPath);
+      BurnInClassPath.TrimStartAndEndInline();
+      if (BurnInClassPath.IsEmpty() || BurnInClassPath.Len() > 512) {
+        Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+            TEXT("burnInClass must be a non-empty class path of at most 512 characters"), nullptr,
+            TEXT("INVALID_BURN_IN_CLASS"));
+        return true;
+      }
+      UClass *BurnInWidgetClass = LoadClass<UMoviePipelineBurnInWidget>(nullptr, *BurnInClassPath);
+      if (!BurnInWidgetClass) {
+        Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+            TEXT("burnInClass must resolve to a UMoviePipelineBurnInWidget class"), nullptr,
+            TEXT("BURN_IN_CLASS_NOT_FOUND"));
+        return true;
+      }
+      BurnIn->BurnInClass = FSoftClassPath(BurnInClassPath);
+    }
+    if (bHasCompositeBurnIn) {
+      bool bComposite = false;
+      Payload->TryGetBoolField(TEXT("compositeBurnIn"), bComposite);
+      BurnIn->bCompositeOntoFinalImage = bComposite;
+    }
+#else
+    Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+        TEXT("Movie Render Queue burn-in is unavailable in this build"), nullptr,
+        TEXT("MRQ_BURN_IN_NOT_AVAILABLE"));
     return true;
 #endif
   }

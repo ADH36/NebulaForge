@@ -2060,7 +2060,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'add_spawnable_from_class', 'add_track', 'add_section', 'set_display_rate', 'set_tick_resolution',
             'set_work_range', 'set_view_range', 'set_track_muted', 'set_track_solo', 'set_track_locked',
             'list_tracks', 'remove_track', 'list_track_types',
-            'render_sequence_mrq', 'get_mrq_status', 'cancel_mrq', 'render_sequence_queue'
+            'render_sequence_mrq', 'configure_burn_ins', 'get_mrq_status', 'cancel_mrq', 'render_sequence_queue'
           ],
           description: 'Action'
         },
@@ -2120,6 +2120,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         mrqJobId: commonSchemas.stringProp,
         sequencePath: commonSchemas.assetPath,
         outputPath: commonSchemas.outputPath,
+        burnInClass: commonSchemas.stringProp,
+        compositeBurnIn: commonSchemas.booleanProp,
         mrqPresetPath: commonSchemas.assetPath,
         outputFormat: commonSchemas.stringProp,
         customResolution: commonSchemas.booleanProp,

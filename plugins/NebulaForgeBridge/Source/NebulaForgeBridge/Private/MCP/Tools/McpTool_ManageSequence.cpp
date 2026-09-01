@@ -67,7 +67,7 @@ public:
 				TEXT("list_tracks"),
 				TEXT("remove_track"),
 				TEXT("list_track_types"),
-				TEXT("render_sequence_mrq"),
+				TEXT("render_sequence_mrq"), TEXT("configure_burn_ins"),
 				TEXT("get_mrq_status"),
 				TEXT("cancel_mrq"),
 				TEXT("render_sequence_queue")
@@ -96,6 +96,8 @@ public:
 			.Number(TEXT("endFrame"), TEXT(""))
 			.StringEnum(TEXT("outputFormat"), { TEXT("png"), TEXT("jpg"), TEXT("jpeg"), TEXT("bmp"), TEXT("exr") }, TEXT("MRQ image-sequence output format."))
 			.StringEnum(TEXT("renderPass"), { TEXT("beauty"), TEXT("object_id") }, TEXT("Optional MRQ render pass; object_id requires Movie Render Queue Additional Render Passes and EXR output."))
+			.String(TEXT("burnInClass"), TEXT("Optional UMoviePipelineBurnInWidget class path."))
+			.Bool(TEXT("compositeBurnIn"), TEXT("Composite the burn-in into the final image."))
 			.Integer(TEXT("spatialSampleCount"), TEXT("MRQ spatial anti-aliasing sample count."))
 			.Integer(TEXT("temporalSampleCount"), TEXT("MRQ temporal anti-aliasing sample count."))
 			.String(TEXT("mrqPresetPath"), TEXT("Optional /Game UMoviePipelinePrimaryConfig asset copied into the transient MRQ job."))

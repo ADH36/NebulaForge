@@ -731,6 +731,16 @@ export async function handleSequenceTools(action: string, args: Record<string, u
 			...args, path, outputPath, subAction: 'render_sequence_mrq'
 		}));
 	}
+	case 'configure_burn_ins': {
+		const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+		const outputPath = requireNonEmptyString(args.outputPath, 'outputPath', 'Missing required parameter: outputPath');
+		if (args.burnInClass !== undefined && (typeof args.burnInClass !== 'string' || args.burnInClass.trim().length === 0)) {
+			throw new Error('burnInClass must be a non-empty class path');
+		}
+		return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+			...args, path, outputPath, subAction: 'render_sequence_mrq'
+		}));
+	}
 	case 'get_mrq_status':
 		return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
 			...args, subAction: 'get_mrq_status'

@@ -1467,7 +1467,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `get_test_results`
 - [x] `create_test_level` (validated alias to UE level creation)
 - [ ] `configure_test_settings`
-- [ ] `run_gauntlet_test`
+- [x] `run_gauntlet_test` (managed RunUAT RunUnreal job)
 
 ### 33.2 Profiling
 - [x] `start_unreal_insights` (via `system_control.start_session`)

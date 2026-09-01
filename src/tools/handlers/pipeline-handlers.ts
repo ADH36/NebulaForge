@@ -1044,6 +1044,31 @@ async function findBundledDotNetRoot(ubtPath: string): Promise<string | undefine
 /** Dispatch system_control pipeline actions to local UBT or the C++ bridge. */
 export async function handlePipelineTools(action: string, args: PipelineArgs, tools: ITools) {
   switch (action) {
+    case 'run_gauntlet_test': {
+      const testName = typeof args.testName === 'string' ? args.testName.trim() : '';
+      if (!testName || !/^[A-Za-z0-9_.-]{1,256}$/.test(testName)) throw new Error('testName is required and must be a safe Gauntlet test identifier');
+      const script = await findRunUatScript();
+      if (!script) throw new Error('RunUAT was not found. Set UE_ENGINE_PATH to an Unreal Engine root or Engine directory.');
+      const projectPath = args.projectPath || process.env.UE_PROJECT_PATH;
+      if (!projectPath) throw new Error('UE_PROJECT_PATH or projectPath is required for run_gauntlet_test.');
+      const projectFile = resolveProjectFile(projectPath);
+      const platform = args.platform || 'Win64';
+      const configuration = args.configuration || 'Development';
+      validateUbtPlatform(platform);
+      validateUbtConfiguration(configuration);
+      const extraArgs = args.arguments || '';
+      validateUatArgumentsString(extraArgs);
+      const gauntletArgs = ['RunUnreal', `-project=${projectFile}`, `-platform=${platform}`, `-configuration=${configuration}`, '-build=local', `-test=${testName}`, ...tokenizeArgs(extraArgs)];
+      const executable = process.platform === 'win32' ? 'cmd.exe' : 'bash';
+      const actualArgs = process.platform === 'win32' ? ['/d', '/s', '/c', script, ...gauntletArgs] : [script, ...gauntletArgs];
+      const child = spawn(executable, actualArgs, { shell: false });
+      const job = jobManager.startProcess({ label: `run_gauntlet_test:${testName}/${platform}/${configuration}`, process: child, timeoutMs: getProcessTimeoutMs(args) });
+      if (args.async === true) return cleanObject({ success: true, started: true, jobId: job.jobId, status: job.status, testName, platform, configuration });
+      return new Promise(resolve => {
+        child.once('close', code => resolve(cleanObject({ success: code === 0, error: code === 0 ? undefined : 'GAUNTLET_FAILED', message: code === 0 ? 'Gauntlet test completed successfully' : `Gauntlet test failed with code ${code}`, testName, jobId: job.jobId })));
+        child.once('error', error => resolve({ success: false, error: 'SPAWN_FAILED', message: error.message, jobId: job.jobId }));
+      });
+    }
     case 'compile_shaders': {
       const mode = args.shaderMode === 'all' ? 'all' : 'changed';
       return cleanObject(await executeAutomationRequest(tools, 'console_command', { ...args, command: `recompileshaders ${mode}` }, 'Automation bridge not available for shader compilation'));

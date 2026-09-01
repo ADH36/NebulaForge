@@ -265,7 +265,7 @@ function registerDefaultHandlers() {
     if (
       action === 'run_ubt' || action === 'compile_shaders' || action === 'generate_project_files' || action === 'run_uat' || action === 'validate_release' ||
       action === 'sign_release' || action === 'run_packaged' || action === 'deploy_package' ||
-      action === 'run_network_soak' || action === 'analyze_trace' || action === 'release_gate' ||
+      action === 'run_network_soak' || action === 'analyze_trace' || action === 'release_gate' || action === 'run_gauntlet_test' ||
       action === 'cook_content' || action === 'package_project' || action === 'create_pak_file' || action === 'configure_compression' || action === 'configure_asset_encryption'
     ) {
       const pipelineAction = action === 'cook_content' || action === 'package_project' || action === 'create_pak_file' || action === 'configure_compression' || action === 'configure_asset_encryption' ? 'run_uat' : action;

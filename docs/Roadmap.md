@@ -1659,10 +1659,12 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_hierarchical_instanced_static_mesh`
 - [ ] `add_instance`, `remove_instance`, `update_instance_transform`
 - [ ] `configure_instance_culling`, `configure_instance_lod`
-- [ ] `create_hlod_layer`
-- [ ] `configure_hlod_settings`
-- [ ] `add_actors_to_hlod`, `build_hlod`
+- [x] `create_hlod_layer`
+- [x] `configure_hlod_settings` (via `configure_hlod_layer`)
+- [x] `add_actors_to_hlod`, `build_hlod` (via `assign_hlod_layer` and `build_hlods`)
 - [ ] `configure_hlod_transition`
+
+**Implementation note:** World Partition HLOD layer creation, actor assignment, configuration, inspection, and managed rebuild/delete lifecycle are available through `manage_level_structure`; transition tuning remains project-specific.
 
 ### 35.8 Localization
 - [ ] `create_string_table`

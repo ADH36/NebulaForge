@@ -186,6 +186,16 @@ export async function handleSequenceTools(action: string, args: Record<string, u
       }) as SequenceActionResponse;
       return cleanObject(res);
     }
+    case 'inspect_shot_settings': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const shotIndex = Number(args.shotIndex ?? 0);
+      if (!Number.isInteger(shotIndex) || shotIndex < 0 || shotIndex > 100000) {
+        throw new Error('shotIndex must be a non-negative integer');
+      }
+      return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args, path, shotIndex, subAction: 'inspect_shot_settings'
+      }) as SequenceActionResponse);
+    }
     case 'add_shot_track':
     case 'configure_shot_settings':
     case 'add_camera_cut_track':

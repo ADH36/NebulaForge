@@ -1324,6 +1324,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_master_sequence` (safe alias of Level Sequence creation)
 - [x] `add_subsequence` (native MovieSceneSubTrack section authoring)
 - [x] `add_shot_track` (native cinematic-shot track); [x] `configure_shot_settings` (official cinematic shot display, thumbnail offset, and frame-range setters)
+- [x] `inspect_shot_settings` (official cinematic shot metadata and section-range readback)
 - [x] `create_cine_camera_actor` (safe alias of camera binding authoring)
 - [x] `configure_camera_settings` (filmback, lens, focus via `control_actor` and reflected `UCineCameraComponent` settings)
 - [x] `add_camera_cut_track`; [x] `add_camera_shake_track` (native `UMovieSceneCameraShakeTrack::AddNewCameraShake` authoring)

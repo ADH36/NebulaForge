@@ -3203,6 +3203,49 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     return true;
   }
 
+  if (EffectiveAction == TEXT("sequence_inspect_shot_settings")) {
+#if MCP_HAS_CINEMATIC_SHOT_SECTION
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    ULevelSequence* Sequence = SeqPath.IsEmpty() ? nullptr : LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    int32 ShotIndex = 0;
+    LocalPayload->TryGetNumberField(TEXT("shotIndex"), ShotIndex);
+    if (ShotIndex < 0 || ShotIndex > 100000) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("shotIndex must be a non-negative integer"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UMovieSceneCinematicShotSection* ShotSection = nullptr;
+    for (UMovieSceneTrack* Track : MCP_GET_MOVIESCENE_TRACKS(Sequence->GetMovieScene())) {
+      UMovieSceneCinematicShotTrack* ShotTrack = Cast<UMovieSceneCinematicShotTrack>(Track);
+      if (!ShotTrack || !ShotTrack->GetAllSections().IsValidIndex(ShotIndex)) continue;
+      ShotSection = Cast<UMovieSceneCinematicShotSection>(ShotTrack->GetAllSections()[ShotIndex]);
+      if (ShotSection) break;
+    }
+    if (!ShotSection) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Cinematic shot section not found"), TEXT("SHOT_NOT_FOUND"));
+      return true;
+    }
+    const TRange<FFrameNumber> Range = ShotSection->GetRange();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), Sequence->GetPathName());
+    Result->SetNumberField(TEXT("shotIndex"), ShotIndex);
+    Result->SetStringField(TEXT("shotDisplayName"), ShotSection->GetShotDisplayName());
+    Result->SetNumberField(TEXT("thumbnailReferenceOffset"), ShotSection->GetThumbnailReferenceOffset());
+    Result->SetBoolField(TEXT("hasStartFrame"), Range.HasLowerBound());
+    Result->SetBoolField(TEXT("hasEndFrame"), Range.HasUpperBound());
+    if (Range.HasLowerBound()) Result->SetNumberField(TEXT("startFrame"), Range.GetLowerBoundValue().Value);
+    if (Range.HasUpperBound()) Result->SetNumberField(TEXT("endFrame"), Range.GetUpperBoundValue().Value);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Cinematic shot settings inspected"), Result);
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Cinematic shot section API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+
   if (EffectiveAction == TEXT("sequence_configure_shot_settings")) {
 #if MCP_HAS_CINEMATIC_SHOT_SECTION
     const FString SeqPath = ResolveSequencePath(LocalPayload);

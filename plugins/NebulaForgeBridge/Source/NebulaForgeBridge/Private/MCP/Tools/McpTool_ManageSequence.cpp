@@ -30,6 +30,7 @@ public:
 				TEXT("add_subsequence"),
 				TEXT("add_shot_track"),
 				TEXT("configure_shot_settings"),
+				TEXT("inspect_shot_settings"),
 				TEXT("add_camera_cut_track"),
 				TEXT("add_camera_shake_track"),
 				TEXT("add_fade_track"),

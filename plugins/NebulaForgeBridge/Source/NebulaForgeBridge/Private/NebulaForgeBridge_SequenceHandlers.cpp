@@ -249,6 +249,13 @@ TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedS
 #else
 #define MCP_HAS_NIAGARA_FLOAT_PARAMETER_TRACK 0
 #endif
+#if __has_include("MovieScene/Parameters/MovieSceneNiagaraIntegerParameterTrack.h") && __has_include("Channels/MovieSceneIntegerChannel.h") && __has_include("NiagaraVariable.h") && __has_include("NiagaraTypes.h")
+#include "MovieScene/Parameters/MovieSceneNiagaraIntegerParameterTrack.h"
+#include "Channels/MovieSceneIntegerChannel.h"
+#define MCP_HAS_NIAGARA_INTEGER_PARAMETER_TRACK 1
+#else
+#define MCP_HAS_NIAGARA_INTEGER_PARAMETER_TRACK 0
+#endif
 #include "Tracks/MovieSceneEventTrack.h"
 #include "Sound/SoundBase.h"
 
@@ -3357,6 +3364,80 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     return true;
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara parameter track API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_niagara_integer_parameter_key")) {
+#if MCP_HAS_NIAGARA_INTEGER_PARAMETER_TRACK
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    FString ActorName, ParameterName;
+    int32 Frame = 0, RowIndex = 0, Value = 0;
+    if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("actorName"), ActorName) || ActorName.IsEmpty() ||
+        !LocalPayload->TryGetStringField(TEXT("parameterName"), ParameterName) || ParameterName.IsEmpty() ||
+        !LocalPayload->TryGetNumberField(TEXT("value"), Value)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("path, actorName, parameterName, and integer value are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    LocalPayload->TryGetNumberField(TEXT("frame"), Frame);
+    LocalPayload->TryGetNumberField(TEXT("rowIndex"), RowIndex);
+    if (Frame < -1000000000 || Frame > 1000000000 || RowIndex < 0 || RowIndex > 100000) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("frame or rowIndex is outside the supported range"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    ULevelSequence* Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    FGuid BindingGuid;
+    for (const FMovieSceneBinding& Binding : Sequence->GetMovieScene()->GetBindings()) {
+      FString BindingName;
+      if (const FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(Binding.GetObjectGuid())) BindingName = Possessable->GetName();
+      else if (const FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(Binding.GetObjectGuid())) BindingName = Spawnable->GetName();
+      if (BindingName.Equals(ActorName, ESearchCase::IgnoreCase) || BindingName.Contains(ActorName)) { BindingGuid = Binding.GetObjectGuid(); break; }
+    }
+    if (!BindingGuid.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Binding not found for actor"), TEXT("BINDING_NOT_FOUND"));
+      return true;
+    }
+    UMovieSceneNiagaraIntegerParameterTrack* ParameterTrack = nullptr;
+    for (UMovieSceneTrack* Track : Sequence->GetMovieScene()->FindTracks(UMovieSceneNiagaraIntegerParameterTrack::StaticClass(), BindingGuid)) {
+      ParameterTrack = Cast<UMovieSceneNiagaraIntegerParameterTrack>(Track);
+      if (ParameterTrack) break;
+    }
+    if (!ParameterTrack) ParameterTrack = Cast<UMovieSceneNiagaraIntegerParameterTrack>(Sequence->GetMovieScene()->AddTrack(UMovieSceneNiagaraIntegerParameterTrack::StaticClass(), BindingGuid));
+    if (!ParameterTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara integer parameter track"), TEXT("TRACK_CREATION_FAILED"));
+      return true;
+    }
+    ParameterTrack->SetParameter(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), FName(*ParameterName)));
+    UMovieSceneSection* Section = ParameterTrack->GetAllSections().Num() > 0 ? ParameterTrack->GetAllSections()[0] : ParameterTrack->CreateNewSection();
+    if (!Section) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara integer parameter section"), TEXT("SECTION_CREATION_FAILED"));
+      return true;
+    }
+    if (ParameterTrack->GetAllSections().Num() == 0) ParameterTrack->AddSection(*Section);
+    FMovieSceneIntegerChannel* Channel = Section->GetChannelProxy().GetChannel<FMovieSceneIntegerChannel>(0);
+    if (!Channel) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara integer parameter section has no integer channel"), TEXT("CHANNEL_UNAVAILABLE"));
+      return true;
+    }
+    TArray<FFrameNumber> Times{FFrameNumber(Frame)};
+    TArray<int32> Values{Value};
+    Channel->AddKeys(Times, Values);
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), SeqPath);
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetStringField(TEXT("parameterName"), ParameterName);
+    Result->SetNumberField(TEXT("frame"), Frame);
+    Result->SetNumberField(TEXT("value"), Value);
+    Result->SetNumberField(TEXT("rowIndex"), RowIndex);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Niagara integer parameter key added"), Result);
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara integer parameter track API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
     return true;
 #endif
   }

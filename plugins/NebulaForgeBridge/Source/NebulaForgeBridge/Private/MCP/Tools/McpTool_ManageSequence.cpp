@@ -38,6 +38,7 @@ public:
 				TEXT("add_niagara_system_track"),
 				TEXT("create_niagara_float_parameter_track"),
 				TEXT("add_niagara_float_parameter_key"),
+				TEXT("add_niagara_integer_parameter_key"),
 				TEXT("inspect_niagara_parameter_track"),
 				TEXT("add_camera_cut_track"),
 				TEXT("add_camera_shake_track"),

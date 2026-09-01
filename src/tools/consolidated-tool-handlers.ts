@@ -272,6 +272,10 @@ function registerDefaultHandlers() {
       const pipelineArgs = action === 'cook_content' ? { ...args, uatOperation: 'cook' } : action === 'package_project' || action === 'create_pak_file' || action === 'configure_compression' || action === 'configure_asset_encryption' ? { ...args, uatOperation: 'package', compressed: action === 'configure_compression' ? true : args.compressed, encryptIniFiles: action === 'configure_asset_encryption' ? true : args.encryptIniFiles, encryptPakIndex: action === 'configure_asset_encryption' ? true : args.encryptPakIndex } : args;
       return await handlePipelineTools(pipelineAction, pipelineArgs, tools);
     }
+    if (action === 'create_test_level') {
+      const levelName = typeof args.levelName === 'string' ? args.levelName : args.name;
+      return cleanObject(await executeAutomationRequest(tools, 'manage_level', { ...args, subAction: 'create_level', levelName }, 'Bridge unavailable for test level creation'));
+    }
     if (performanceActionSet.has(action)) return await handlePerformanceTools(action, args, tools);
     if (action === 'run_tests') return cleanObject(await executeAutomationRequest(tools, 'manage_tests', { ...args, subAction: action }, 'Bridge unavailable'));
     if (action === 'subscribe' || action === 'unsubscribe') {

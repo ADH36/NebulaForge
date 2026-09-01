@@ -17,6 +17,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'create_pak_file', platform: 'Win64', configuration: 'Development' }, expected: 'success|error|timeout' },
   { toolName: 'system_control', arguments: { action: 'configure_compression', platform: 'Win64', configuration: 'Development' }, expected: 'success|error|timeout' },
   { toolName: 'system_control', arguments: { action: 'configure_asset_encryption', platform: 'Win64', configuration: 'Development' }, expected: 'success|error|timeout' },
+  { toolName: 'system_control', arguments: { action: 'create_test_level', levelName: 'ContractTestLevel' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_tag_table', path: '/Game/MCPTest', name: 'ContractTagTable', save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'add_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'modify_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },

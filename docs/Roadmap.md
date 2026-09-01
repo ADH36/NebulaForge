@@ -1465,7 +1465,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `run_automation_tests` (managed job/report path)
 - [x] `get_test_results` (bounded report or terminal-job inspection)
 - [x] `get_test_results`
-- [ ] `create_test_level`
+- [x] `create_test_level` (validated alias to UE level creation)
 - [ ] `configure_test_settings`
 - [ ] `run_gauntlet_test`
 

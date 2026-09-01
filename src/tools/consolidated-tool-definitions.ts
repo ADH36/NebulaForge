@@ -1812,7 +1812,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python', 'release_gate'
           ,
-            'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'generate_project_files', 'register_native_tag',
+            'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'generate_project_files', 'register_native_tag',
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
           description: 'Action'
         },
@@ -1823,6 +1823,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         enabled: commonSchemas.enabled,
         resolution: commonSchemas.resolution,
         command: commonSchemas.stringProp,
+        levelName: commonSchemas.stringProp,
+        levelPath: commonSchemas.levelPath,
         profileName: commonSchemas.name,
         parentProfileName: commonSchemas.name,
         cvars: { type: 'object', additionalProperties: { type: ['string', 'number', 'boolean'] } },

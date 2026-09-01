@@ -4419,7 +4419,40 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return true;
   }
 #endif
-  if (LowerSub == TEXT("set_paper_sprite_color") || LowerSub == TEXT("configure_paper_flipbook") || LowerSub == TEXT("configure_flipbook_loop") || LowerSub == TEXT("configure_paper_character")) {
+#if MCP_HAS_PAPER_TILEMAP
+  if (LowerSub == TEXT("set_paper_tile_map_color")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    const TSharedPtr<FJsonObject>* ColorObject = nullptr;
+    if (!TileMapComponent || !Payload->TryGetObjectField(TEXT("color"), ColorObject) || !ColorObject || !ColorObject->IsValid()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperTileMapComponent, and color {r,g,b,a} are required"), nullptr);
+      return true;
+    }
+    const FLinearColor Color(
+        GetJsonNumberField(*ColorObject, TEXT("r"), 1.0),
+        GetJsonNumberField(*ColorObject, TEXT("g"), 1.0),
+        GetJsonNumberField(*ColorObject, TEXT("b"), 1.0),
+        GetJsonNumberField(*ColorObject, TEXT("a"), 1.0));
+    TileMapComponent->SetTileMapColor(Color);
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map color updated"), Data);
+    return true;
+  }
+#endif
+  if (LowerSub == TEXT("set_paper_sprite_color") || LowerSub == TEXT("set_paper_tile_map_color") || LowerSub == TEXT("configure_paper_flipbook") || LowerSub == TEXT("configure_flipbook_loop") || LowerSub == TEXT("configure_paper_character")) {
     SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_SUPPORTED"),
                               TEXT("Paper2D plugin is required for Paper2D component controls"), nullptr);
     return true;

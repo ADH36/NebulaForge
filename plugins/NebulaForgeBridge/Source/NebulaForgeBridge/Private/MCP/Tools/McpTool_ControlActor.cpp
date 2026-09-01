@@ -54,6 +54,7 @@ public:
 				TEXT("configure_instance_lod"),
 				TEXT("create_media_sound_component"),
 				TEXT("set_paper_sprite_color"),
+				TEXT("set_paper_tile_map_color"),
 				TEXT("configure_paper_flipbook"),
 				TEXT("configure_flipbook_loop"),
 				TEXT("configure_paper_character"),

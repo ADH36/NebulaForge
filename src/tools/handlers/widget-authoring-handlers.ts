@@ -99,6 +99,11 @@ export async function handleWidgetAuthoringTools(
       return sendRequest(action);
     }
 
+    case 'create_common_tab_list': {
+      requireNonEmptyString(argsRecord.name, 'name', 'Missing required parameter: name');
+      return sendRequest('create_common_tab_list');
+    }
+
     case 'configure_analog_cursor': {
       if (argsRecord.enabled !== undefined && typeof argsRecord.enabled !== 'boolean') {
         throw new Error('enabled must be a boolean when provided');

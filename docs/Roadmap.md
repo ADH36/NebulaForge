@@ -2121,7 +2121,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `configure_ui_input_config`, `set_input_mode`
 - [x] `configure_analog_cursor` (CommonInput gamepad platform cursor CVar; optional CommonUI plugin)
 - [x] `create_common_activatable_widget`, `create_common_button_base` (CommonUI widget blueprint factories; optional CommonUI plugin)
-- [ ] `create_common_tab_list`, `create_common_action_widget` (tab-list factory/version behavior and action-widget ownership need further validation; `UCommonActionWidget` is not a `UUserWidget` blueprint parent)
+- [x] `create_common_tab_list` (CommonUI tab-list widget blueprint factory; optional CommonUI plugin)
+- [ ] `create_common_action_widget` (action-widget ownership needs further validation; `UCommonActionWidget` is not a `UUserWidget` blueprint parent)
 - [ ] `configure_navigation_rules`, `set_focus_widget`, `configure_back_action`
 - [ ] `register_ui_action`, `bind_ui_action_to_input`
 

@@ -25,6 +25,7 @@ public:
 				TEXT("create_widget_blueprint"),
 				TEXT("create_common_activatable_widget"),
 				TEXT("create_common_button_base"),
+				TEXT("create_common_tab_list"),
 				TEXT("configure_analog_cursor"),
 				TEXT("set_widget_parent_class"),
 				TEXT("add_canvas_panel"),

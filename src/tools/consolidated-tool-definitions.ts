@@ -177,7 +177,7 @@ export const NAVIGATION_ACTIONS = [
 
 export const WIDGET_AUTHORING_ACTIONS = [
   'create_widget_blueprint', 'set_widget_parent_class', 'add_canvas_panel', 'add_horizontal_box',
-  'create_common_activatable_widget', 'create_common_button_base', 'configure_analog_cursor',
+  'create_common_activatable_widget', 'create_common_button_base', 'create_common_tab_list', 'configure_analog_cursor',
   'add_vertical_box', 'add_overlay', 'add_grid_panel', 'add_uniform_grid', 'add_wrap_box',
   'add_scroll_box', 'add_size_box', 'add_scale_box', 'add_border', 'add_text_block',
   'add_rich_text_block', 'add_image', 'add_button', 'add_check_box', 'add_slider', 'add_progress_bar',

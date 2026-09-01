@@ -59,9 +59,10 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Blueprint/WidgetTree.h"
-#if __has_include("CommonActivatableWidget.h") && __has_include("CommonButtonBase.h")
+#if __has_include("CommonActivatableWidget.h") && __has_include("CommonButtonBase.h") && __has_include("CommonTabListWidgetBase.h")
 #include "CommonActivatableWidget.h"
 #include "CommonButtonBase.h"
+#include "CommonTabListWidgetBase.h"
 #define MCP_HAS_COMMON_UI 1
 #else
 #define MCP_HAS_COMMON_UI 0
@@ -481,7 +482,8 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
   // SubActions: CommonUI widget blueprint factories
   // ===========================================================================
   else if (LowerSub == TEXT("create_common_activatable_widget") ||
-           LowerSub == TEXT("create_common_button_base")) {
+           LowerSub == TEXT("create_common_button_base") ||
+           LowerSub == TEXT("create_common_tab_list")) {
 #if WITH_EDITOR && MCP_HAS_WIDGET_FACTORY && MCP_HAS_COMMON_UI
     FString WidgetName;
     if (!Payload->TryGetStringField(TEXT("name"), WidgetName) || WidgetName.IsEmpty()) {
@@ -509,7 +511,9 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
         } else {
           Factory->ParentClass = LowerSub == TEXT("create_common_button_base")
               ? UCommonButtonBase::StaticClass()
-              : UCommonActivatableWidget::StaticClass();
+              : LowerSub == TEXT("create_common_tab_list")
+                  ? UCommonTabListWidgetBase::StaticClass()
+                  : UCommonActivatableWidget::StaticClass();
           UObject *NewAsset = Factory->FactoryCreateNew(
               UWidgetBlueprint::StaticClass(),
               UEditorAssetLibrary::DoesAssetExist(Folder)

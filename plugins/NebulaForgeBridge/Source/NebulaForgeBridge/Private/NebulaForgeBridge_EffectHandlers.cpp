@@ -47,6 +47,7 @@
 #include "NebulaForgeBridgeSubsystem.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/Texture.h"
+#include "Engine/TextureRenderTarget.h"
 #include "Materials/MaterialInterface.h"
 
 #if WITH_EDITOR
@@ -1243,6 +1244,17 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                            FLinearColor(R, G, B, Alpha));
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("TextureRenderTarget"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("RenderTarget"), ESearchCase::IgnoreCase)) {
+          FString RenderTargetPath;
+          LocalPayload->TryGetStringField(TEXT("renderTargetPath"), RenderTargetPath);
+          if (RenderTargetPath.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) RenderTargetPath = ValueField->AsString();
+          RenderTargetPath = SanitizeProjectRelativePath(RenderTargetPath);
+          UTextureRenderTarget *RenderTarget = IsValidAssetPath(RenderTargetPath) ? LoadObject<UTextureRenderTarget>(nullptr, *RenderTargetPath) : nullptr;
+          if (RenderTarget) {
+            NiComp->SetVariableTextureRenderTarget(ParamName, RenderTarget);
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase)) {
           FString MaterialPath;
           LocalPayload->TryGetStringField(TEXT("materialPath"), MaterialPath);
@@ -1388,6 +1400,8 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("TextureRenderTarget"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("RenderTarget"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Bool"), ESearchCase::IgnoreCase)) {
             ErrMsg = FString::Printf(TEXT("Invalid parameter type: %s"),
                                      *ParameterType);

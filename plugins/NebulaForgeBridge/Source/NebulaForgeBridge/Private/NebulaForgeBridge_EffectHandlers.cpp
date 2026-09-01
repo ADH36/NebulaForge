@@ -1183,6 +1183,23 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                            FLinearColor(R, G, B, Alpha));
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase)) {
+          const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
+          const TSharedPtr<FJsonObject> *ObjValue = nullptr;
+          double QX = 0.0, QY = 0.0, QZ = 0.0, QW = 1.0;
+          bool bHasQuat = false;
+          if (LocalPayload->TryGetArrayField(TEXT("value"), ArrValue) && ArrValue && ArrValue->Num() >= 4) {
+            QX = (*ArrValue)[0]->AsNumber(); QY = (*ArrValue)[1]->AsNumber(); QZ = (*ArrValue)[2]->AsNumber(); QW = (*ArrValue)[3]->AsNumber();
+            bHasQuat = true;
+          } else if (LocalPayload->TryGetObjectField(TEXT("value"), ObjValue) && ObjValue && (*ObjValue).IsValid()) {
+            bHasQuat = (*ObjValue)->TryGetNumberField(TEXT("x"), QX) && (*ObjValue)->TryGetNumberField(TEXT("y"), QY) && (*ObjValue)->TryGetNumberField(TEXT("z"), QZ);
+            (*ObjValue)->TryGetNumberField(TEXT("w"), QW);
+          }
+          if (bHasQuat && FMath::IsFinite(QX) && FMath::IsFinite(QY) && FMath::IsFinite(QZ) && FMath::IsFinite(QW)) {
+            NiComp->SetNiagaraVariableQuat(ParamName, FQuat(static_cast<float>(QX), static_cast<float>(QY), static_cast<float>(QZ), static_cast<float>(QW)));
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Bool"),
                                         ESearchCase::IgnoreCase)) {
           bool bValue = false;
@@ -1225,6 +1242,8 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
           if (!ParameterType.Equals(TEXT("Float"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Color"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Bool"), ESearchCase::IgnoreCase)) {
             ErrMsg = FString::Printf(TEXT("Invalid parameter type: %s"),
                                      *ParameterType);

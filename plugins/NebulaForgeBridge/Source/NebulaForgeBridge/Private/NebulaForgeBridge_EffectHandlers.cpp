@@ -1129,7 +1129,8 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) ||
-            ParameterType.Equals(TEXT("QuaternionArray"), ESearchCase::IgnoreCase)) {
+            ParameterType.Equals(TEXT("QuaternionArray"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("MatrixArray"), ESearchCase::IgnoreCase)) {
           const TArray<TSharedPtr<FJsonValue>> *ArrayValue = nullptr;
           bool bValidArray = LocalPayload->TryGetArrayField(TEXT("value"), ArrayValue) && ArrayValue;
           if (bValidArray && ParameterType.Contains(TEXT("Float"), ESearchCase::IgnoreCase)) {
@@ -1170,6 +1171,27 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               else if (ParameterType.Contains(TEXT("Vector4"), ESearchCase::IgnoreCase)) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVector4(NiComp, ParamName, Vector4Values);
               else if (ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase)) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayQuat(NiComp, ParamName, QuatValues);
               else UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVector(NiComp, ParamName, VectorValues);
+              bApplied = true;
+            }
+          } else if (bValidArray && ParameterType.Equals(TEXT("MatrixArray"), ESearchCase::IgnoreCase)) {
+            TArray<FMatrix> MatrixValues;
+            for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
+              const TArray<TSharedPtr<FJsonValue>> *Components = nullptr;
+              if (!Entry.IsValid() || !Entry->TryGetArray(Components) || !Components || Components->Num() < 16) { bValidArray = false; break; }
+              float Values[16];
+              for (int32 Index = 0; Index < 16; ++Index) {
+                if (!(*Components)[Index].IsValid() || (*Components)[Index]->Type != EJson::Number || !FMath::IsFinite((*Components)[Index]->AsNumber())) { bValidArray = false; break; }
+                Values[Index] = static_cast<float>((*Components)[Index]->AsNumber());
+              }
+              if (!bValidArray) break;
+              MatrixValues.Add(FMatrix(
+                  FPlane(Values[0], Values[1], Values[2], Values[3]),
+                  FPlane(Values[4], Values[5], Values[6], Values[7]),
+                  FPlane(Values[8], Values[9], Values[10], Values[11]),
+                  FPlane(Values[12], Values[13], Values[14], Values[15])));
+            }
+            if (bValidArray) {
+              UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayMatrix(NiComp, ParamName, MatrixValues, true);
               bApplied = true;
             }
           }
@@ -1583,6 +1605,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("QuaternionArray"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("MatrixArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase) &&

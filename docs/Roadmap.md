@@ -2196,7 +2196,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_variant_set` (official `VariantManagerLibrary.create_level_variant_sets_asset`, `VariantSet`, and `LevelVariantSets.add_variant_set`; requires VariantManagerContent and Python Editor Script Plugin)
 - [x] `add_variant` (official `Variant`, `VariantSet.add_variant`, and `VariantSet.get_variant_by_name`; requires an existing LevelVariantSets asset)
 - [x] `configure_variant_properties` (official `Variant.capture_property` and `VariantManagerLibrary.set_value_bool/int/float/string`; scalar values require an existing actor binding target and property path)
-- [ ] `set_variant_dependencies`, `set_exclusive_variants`
+- [x] `set_variant_dependencies` (official `VariantDependency`, `Variant.is_valid_dependency`, and `VariantManagerLibrary.add_dependency`; cycle-safe named variant relationships)
+- [ ] `set_exclusive_variants`
 - [ ] `capture_variant_thumbnail`, `set_variant_thumbnail`
 - [ ] `activate_variant`, `get_active_variants`
 - [ ] `export_variant_configuration`

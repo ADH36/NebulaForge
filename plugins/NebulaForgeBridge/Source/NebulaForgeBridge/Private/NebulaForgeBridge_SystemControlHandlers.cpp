@@ -1473,6 +1473,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("create_variant_set") &&
       Lower != TEXT("add_variant") &&
       Lower != TEXT("configure_variant_properties") &&
+      Lower != TEXT("set_variant_dependencies") &&
       Lower != TEXT("add_geometry_to_collection") &&
       Lower != TEXT("remove_geometry_from_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
@@ -3267,6 +3268,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("create_variant_set") ||
              Lower == TEXT("add_variant") ||
              Lower == TEXT("configure_variant_properties") ||
+             Lower == TEXT("set_variant_dependencies") ||
              Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("inspect_geometry_collection") ||
@@ -3564,6 +3566,58 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
           "print(json.dumps({'actorName': _actor.get_actor_label(), 'propertyPath': '%s', 'propertyType': unreal.VariantManagerLibrary.get_property_type_string(_prop), 'variant': _variant.get_display_text().to_string()}, sort_keys=True))\n"),
           *PythonAssetPath, *VariantSetName, *VariantName, *ActorName, *PropertyPath, *PropertyType, *PropertyValue, *PropertyPath);
+    }
+
+    if (Lower == TEXT("set_variant_dependencies")) {
+      FString AssetPath;
+      FString VariantSetName;
+      FString VariantName;
+      FString DependencyVariantSetName;
+      FString DependencyVariantName;
+      bool bEnabled = true;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      Payload->TryGetStringField(TEXT("variantSetName"), VariantSetName);
+      Payload->TryGetStringField(TEXT("variantName"), VariantName);
+      Payload->TryGetStringField(TEXT("dependencyVariantSetName"), DependencyVariantSetName);
+      Payload->TryGetStringField(TEXT("dependencyVariantName"), DependencyVariantName);
+      Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      VariantSetName = VariantSetName.TrimStartAndEnd();
+      VariantName = VariantName.TrimStartAndEnd();
+      DependencyVariantSetName = DependencyVariantSetName.TrimStartAndEnd();
+      DependencyVariantName = DependencyVariantName.TrimStartAndEnd();
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase) ||
+          VariantSetName.IsEmpty() || VariantName.IsEmpty() || DependencyVariantSetName.IsEmpty() || DependencyVariantName.IsEmpty() ||
+          VariantSetName.Len() > 128 || VariantName.Len() > 128 || DependencyVariantSetName.Len() > 128 || DependencyVariantName.Len() > 128) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("set_variant_dependencies requires valid source and dependency asset/set/variant names"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString PythonAssetPath = SafeAssetPath;
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantSetName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      DependencyVariantSetName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      DependencyVariantName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import unreal\n"
+          "_lvs = unreal.EditorAssetLibrary.load_asset('%s')\n"
+          "if not _lvs:\n"
+          "    raise RuntimeError('Level Variant Sets asset not found')\n"
+          "_source_set = _lvs.get_variant_set_by_name('%s')\n"
+          "_source_variant = _source_set.get_variant_by_name('%s') if _source_set else None\n"
+          "_dependency_set = _lvs.get_variant_set_by_name('%s')\n"
+          "_dependency_variant = _dependency_set.get_variant_by_name('%s') if _dependency_set else None\n"
+          "if not _source_variant or not _dependency_variant:\n"
+          "    raise RuntimeError('Source or dependency variant was not found')\n"
+          "if not _source_variant.is_valid_dependency(_dependency_variant):\n"
+          "    raise RuntimeError('Dependency would create an invalid or cyclic relationship')\n"
+          "_dependency = unreal.VariantDependency(_dependency_set, _dependency_variant, %s)\n"
+          "unreal.VariantManagerLibrary.add_dependency(_source_variant, _dependency)\n"
+          "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
+          "print(_source_variant.get_display_text().to_string() + '|' + _dependency_variant.get_display_text().to_string())\n"),
+          *PythonAssetPath, *VariantSetName, *VariantName, *DependencyVariantSetName, *DependencyVariantName, bEnabled ? TEXT("True") : TEXT("False"));
     }
 
     if (Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection")) {

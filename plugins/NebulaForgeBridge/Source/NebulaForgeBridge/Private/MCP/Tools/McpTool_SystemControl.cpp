@@ -162,6 +162,8 @@ public:
 			.String(TEXT("variantName"), TEXT("Display name for a new Variant Manager variant."))
 			.String(TEXT("variantPropertyType"), TEXT("Scalar Variant Manager property setter type: bool, int, float, or string."))
 			.String(TEXT("variantPropertyValue"), TEXT("Scalar value captured by the Variant Manager property."))
+			.String(TEXT("dependencyVariantSetName"), TEXT("Dependency Variant Manager set name."))
+			.String(TEXT("dependencyVariantName"), TEXT("Dependency Variant Manager variant name."))
 			.String(TEXT("accessibleSummaryText"), TEXT("Optional summary screen-reader text for a live UMG widget object."))
 			.StringEnum(TEXT("accessibleBehavior"), { TEXT("Auto"), TEXT("Summary"), TEXT("Custom"), TEXT("ToolTip"), TEXT("NotAccessible") }, TEXT("Official UMG accessibility behavior."))
 			.StringEnum(TEXT("accessibleSummaryBehavior"), { TEXT("Auto"), TEXT("Summary"), TEXT("Custom"), TEXT("ToolTip"), TEXT("NotAccessible") }, TEXT("Official UMG summary accessibility behavior."))

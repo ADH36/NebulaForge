@@ -4581,6 +4581,11 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     FVector StepY;
     FVector OffsetYFactor;
     TileMapComponent->GetTileMap()->GetTileToLocalParameters(CornerPosition, StepX, StepY, OffsetYFactor);
+    FVector LocalCornerPosition;
+    FVector LocalStepX;
+    FVector LocalStepY;
+    FVector LocalOffsetYFactor;
+    TileMapComponent->GetTileMap()->GetLocalToTileParameters(LocalCornerPosition, LocalStepX, LocalStepY, LocalOffsetYFactor);
     TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
     Data->SetStringField(TEXT("actorName"), TargetName);
     Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
@@ -4588,6 +4593,10 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     Data->SetObjectField(TEXT("stepX"), McpHandlerUtils::VectorToJson(StepX));
     Data->SetObjectField(TEXT("stepY"), McpHandlerUtils::VectorToJson(StepY));
     Data->SetObjectField(TEXT("offsetYFactor"), McpHandlerUtils::VectorToJson(OffsetYFactor));
+    Data->SetObjectField(TEXT("localToTileCornerPosition"), McpHandlerUtils::VectorToJson(LocalCornerPosition));
+    Data->SetObjectField(TEXT("localToTileStepX"), McpHandlerUtils::VectorToJson(LocalStepX));
+    Data->SetObjectField(TEXT("localToTileStepY"), McpHandlerUtils::VectorToJson(LocalStepY));
+    Data->SetObjectField(TEXT("localToTileOffsetYFactor"), McpHandlerUtils::VectorToJson(LocalOffsetYFactor));
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map parameters read"), Data);
     return true;
   }

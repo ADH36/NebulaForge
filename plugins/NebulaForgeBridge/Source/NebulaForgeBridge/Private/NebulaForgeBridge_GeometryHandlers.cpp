@@ -5702,12 +5702,42 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         TArray<FVector> NewVertices;
         TArray<FVector> NewNormals;
         TArray<FVector2D> NewUV0;
+        TArray<FColor> NewColors;
+        TArray<FProcMeshTangent> NewTangents;
         const bool bVertices = SubAction == TEXT("set_mesh_vertices");
         const bool bNormals = SubAction == TEXT("set_mesh_normals");
-        const TCHAR* FieldName = bNormals ? TEXT("normals") : (bVertices ? TEXT("vertices") : TEXT("uv0"));
-        const bool bRead = bNormals ? ReadProcMeshVectorArray(Payload, FieldName, NewNormals) :
-            (bVertices ? ReadProcMeshVectorArray(Payload, FieldName, NewVertices) : ReadProcMeshUVArray(Payload, FieldName, NewUV0));
-        const int32 NewCount = bNormals ? NewNormals.Num() : (bVertices ? NewVertices.Num() : NewUV0.Num());
+        const bool bUVs = SubAction == TEXT("set_mesh_uvs");
+        const bool bColors = SubAction == TEXT("set_mesh_colors");
+        const bool bTangents = SubAction == TEXT("set_mesh_tangents");
+        bool bRead = false;
+        if (bNormals) bRead = ReadProcMeshVectorArray(Payload, TEXT("normals"), NewNormals);
+        else if (bVertices) bRead = ReadProcMeshVectorArray(Payload, TEXT("vertices"), NewVertices);
+        else if (bUVs) bRead = ReadProcMeshUVArray(Payload, TEXT("uv0"), NewUV0);
+        else
+        {
+            const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
+            bRead = Payload->TryGetArrayField(bColors ? TEXT("colors") : TEXT("tangents"), Values) && Values;
+            if (bRead)
+            {
+                for (const TSharedPtr<FJsonValue>& Value : *Values)
+                {
+                    const TArray<TSharedPtr<FJsonValue>>* Components = Value.IsValid() ? &Value->AsArray() : nullptr;
+                    if (!Components || Components->Num() != 4)
+                    {
+                        bRead = false;
+                        break;
+                    }
+                    for (const TSharedPtr<FJsonValue>& Component : *Components)
+                        if (!Component.IsValid() || Component->Type != EJson::Number || !FMath::IsFinite(Component->AsNumber())) bRead = false;
+                    if (!bRead) break;
+                    if (bColors)
+                        NewColors.Add(FColor(static_cast<uint8>(FMath::Clamp(FMath::RoundToInt((*Components)[0]->AsNumber()), 0, 255)), static_cast<uint8>(FMath::Clamp(FMath::RoundToInt((*Components)[1]->AsNumber()), 0, 255)), static_cast<uint8>(FMath::Clamp(FMath::RoundToInt((*Components)[2]->AsNumber()), 0, 255)), static_cast<uint8>(FMath::Clamp(FMath::RoundToInt((*Components)[3]->AsNumber()), 0, 255))));
+                    else
+                        NewTangents.Add(FProcMeshTangent(FVector((*Components)[0]->AsNumber(), (*Components)[1]->AsNumber(), (*Components)[2]->AsNumber()), (*Components)[3]->AsNumber() != 0.0));
+                }
+            }
+        }
+        const int32 NewCount = bNormals ? NewNormals.Num() : (bVertices ? NewVertices.Num() : (bUVs ? NewUV0.Num() : (bColors ? NewColors.Num() : NewTangents.Num())));
         if (!Section || !bRead || NewCount != Section->ProcVertexBuffer.Num())
         {
             Self->SendAutomationError(Socket, RequestId, TEXT("attribute array must match the existing section vertex count"), TEXT("INVALID_ARGUMENT"));
@@ -5731,7 +5761,9 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
             Tangents.Add(Vertex.Tangent);
         }
         if (bNormals) Normals = MoveTemp(NewNormals);
-        if (!bNormals && !bVertices) UV0 = MoveTemp(NewUV0);
+        if (bUVs) UV0 = MoveTemp(NewUV0);
+        if (bColors) Colors = MoveTemp(NewColors);
+        if (bTangents) Tangents = MoveTemp(NewTangents);
         ProcMesh->UpdateMeshSection(SectionIndex, NewVertices, Normals, UV0, Colors, Tangents);
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
@@ -7776,7 +7808,9 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
         SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility") ||
         SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data") ||
-        SubAction == TEXT("set_mesh_vertices"))
+        SubAction == TEXT("set_mesh_vertices") || SubAction == TEXT("set_mesh_normals") ||
+        SubAction == TEXT("set_mesh_uvs") || SubAction == TEXT("set_mesh_colors") ||
+        SubAction == TEXT("set_mesh_tangents"))
     {
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
@@ -7790,7 +7824,9 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
         SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility") ||
         SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data") ||
-        SubAction == TEXT("set_mesh_vertices"))
+        SubAction == TEXT("set_mesh_vertices") || SubAction == TEXT("set_mesh_normals") ||
+        SubAction == TEXT("set_mesh_uvs") || SubAction == TEXT("set_mesh_colors") ||
+        SubAction == TEXT("set_mesh_tangents"))
     {
         SendAutomationError(RequestingSocket, RequestId,
             TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));

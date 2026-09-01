@@ -107,6 +107,7 @@ Epic's [Niagara scalability and pooling guidance](https://dev.epicgames.com/docu
 - `manage_geometry.get_mesh_section_data` uses Epic's [`UProceduralMeshComponent::GetProcMeshSection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/ProceduralMeshComponent/UProceduralMeshComponent/GetProcMeshSection) and the public [`FProcMeshSection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/ProceduralMeshComponent/FProcMeshSection) / [`FProcMeshVertex`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/ProceduralMeshComponent/FProcMeshVertex) buffers for section readback.
 - `manage_geometry.set_mesh_vertices` uses Epic's [`UProceduralMeshComponent::UpdateMeshSection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/ProceduralMeshComponent/UProceduralMeshComponent/UpdateMeshSection) to replace positions without discarding the section's existing normals, UVs, colors, or tangents.
 - `manage_geometry.set_mesh_normals` and `set_mesh_uvs` use the same official section-update API with exact-count validation and preserve all other existing attributes.
+- `manage_geometry.set_mesh_colors` and `set_mesh_tangents` use the same official section-update API with exact-count validation; colors are bounded to RGBA bytes and tangents accept a handedness flag.
 
 NebulaForge exposes the second path through `system_control.configure_console_variables`, accepting `{ name, value }` entries and returning per-variable applied/rejected results.
 

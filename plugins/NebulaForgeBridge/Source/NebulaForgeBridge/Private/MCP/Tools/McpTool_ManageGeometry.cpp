@@ -47,6 +47,8 @@ public:
 				TEXT("set_mesh_vertices"),
 				TEXT("set_mesh_normals"),
 				TEXT("set_mesh_uvs"),
+				TEXT("set_mesh_colors"),
+				TEXT("set_mesh_tangents"),
 				TEXT("set_collision_from_mesh"),
 				TEXT("add_collision_convex_mesh"),
 				TEXT("clear_collision_convex_meshes"),

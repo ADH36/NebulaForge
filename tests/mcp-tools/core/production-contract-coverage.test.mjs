@@ -47,6 +47,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'create_flipbook', name: 'ContractFlipbook', path: '/Game/Contract', spritePaths: ['/Game/Contract/SpriteA', '/Game/Contract/SpriteB'], frameRuns: [1, 2], save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_tile_set', name: 'ContractTileSet', path: '/Game/Contract', texturePath: '/Game/Contract/Texture', save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'inspect_tile_set', assetPath: '/Game/Contract/TileSet' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'configure_tile_set', assetPath: '/Game/Contract/TileSet', tileWidth: 32, tileHeight: 32, spacingX: 1, spacingY: 1, marginLeft: 2, marginTop: 2, marginRight: 2, marginBottom: 2, drawingOffsetX: 0, drawingOffsetY: 0, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_tile_map', name: 'ContractTileMap', path: '/Game/Contract', tileSetPath: '/Game/Contract/TileSet', save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'resize_tile_map', assetPath: '/Game/Contract/TileMap', width: 64, height: 32, forceResize: true, save: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_sprite_pivot', assetPath: '/Game/Contract/Sprite', pivotMode: 'center_center', rebuildData: true, save: true }, expected: 'success|error' },

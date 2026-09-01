@@ -488,6 +488,99 @@ static bool HandlePaperFlipbookAssetAction(
 #endif
 
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+static bool HandlePaperTileSetConfigureAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  if (!TileSet) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileSet"), TEXT("TILESET_NOT_FOUND"));
+    return true;
+  }
+  const bool bHasTexture = Payload->HasField(TEXT("texturePath"));
+  const bool bHasTileSize = Payload->HasField(TEXT("tileWidth")) || Payload->HasField(TEXT("tileHeight"));
+  const bool bHasSpacing = Payload->HasField(TEXT("spacingX")) || Payload->HasField(TEXT("spacingY"));
+  const bool bHasMargin = Payload->HasField(TEXT("marginLeft")) || Payload->HasField(TEXT("marginTop")) ||
+      Payload->HasField(TEXT("marginRight")) || Payload->HasField(TEXT("marginBottom"));
+  const bool bHasOffset = Payload->HasField(TEXT("drawingOffsetX")) || Payload->HasField(TEXT("drawingOffsetY"));
+  if (!bHasTexture && !bHasTileSize && !bHasSpacing && !bHasMargin && !bHasOffset) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("At least one tile-set property is required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  auto ReadBoundedInt = [&](const TCHAR* FieldName, int32 DefaultValue, int32 MinValue, int32 MaxValue, int32& OutValue) {
+    OutValue = DefaultValue;
+    if (!Payload->HasField(FieldName)) return true;
+    return Payload->TryGetNumberField(FieldName, OutValue) && OutValue >= MinValue && OutValue <= MaxValue;
+  };
+  TileSet->Modify();
+  if (bHasTexture) {
+    const FString TexturePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("texturePath")));
+    UTexture2D* Texture = Cast<UTexture2D>(UEditorAssetLibrary::LoadAsset(TexturePath));
+    if (!Texture) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("texturePath must resolve to a UTexture2D"), TEXT("TEXTURE_NOT_FOUND"));
+      return true;
+    }
+    TileSet->SetTileSheetTexture(Texture);
+  }
+  if (bHasTileSize) {
+    int32 TileWidth = 0;
+    int32 TileHeight = 0;
+    if (!ReadBoundedInt(TEXT("tileWidth"), TileSet->GetTileSize().X, 1, 8192, TileWidth) ||
+        !ReadBoundedInt(TEXT("tileHeight"), TileSet->GetTileSize().Y, 1, 8192, TileHeight)) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("tileWidth and tileHeight must be between 1 and 8192"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TileSet->SetTileSize(FIntPoint(TileWidth, TileHeight));
+  }
+  if (bHasSpacing) {
+    int32 SpacingX = 0;
+    int32 SpacingY = 0;
+    if (!ReadBoundedInt(TEXT("spacingX"), TileSet->GetPerTileSpacing().X, 0, 8192, SpacingX) ||
+        !ReadBoundedInt(TEXT("spacingY"), TileSet->GetPerTileSpacing().Y, 0, 8192, SpacingY)) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("spacingX and spacingY must be between 0 and 8192"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TileSet->SetPerTileSpacing(FIntPoint(SpacingX, SpacingY));
+  }
+  if (bHasMargin) {
+    FIntMargin Margin = TileSet->GetMargin();
+    if (!ReadBoundedInt(TEXT("marginLeft"), Margin.Left, 0, 8192, Margin.Left) ||
+        !ReadBoundedInt(TEXT("marginTop"), Margin.Top, 0, 8192, Margin.Top) ||
+        !ReadBoundedInt(TEXT("marginRight"), Margin.Right, 0, 8192, Margin.Right) ||
+        !ReadBoundedInt(TEXT("marginBottom"), Margin.Bottom, 0, 8192, Margin.Bottom)) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("margin values must be between 0 and 8192"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TileSet->SetMargin(Margin);
+  }
+  if (bHasOffset) {
+    FIntPoint Offset = TileSet->GetDrawingOffset();
+    if (!ReadBoundedInt(TEXT("drawingOffsetX"), Offset.X, -8192, 8192, Offset.X) ||
+        !ReadBoundedInt(TEXT("drawingOffsetY"), Offset.Y, -8192, 8192, Offset.Y)) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("drawing offsets must be between -8192 and 8192"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TileSet->SetDrawingOffset(Offset);
+  }
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(TileSet)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile-set configured but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileSet->GetPathName());
+  Result->SetNumberField(TEXT("tileCount"), TileSet->GetTileCount());
+  Result->SetNumberField(TEXT("tileCountX"), TileSet->GetTileCountX());
+  Result->SetNumberField(TEXT("tileCountY"), TileSet->GetTileCountY());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-set configured"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileSetInspectAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1209,6 +1302,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("inspect_tile_set")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileSetInspectAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("configure_tile_set")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileSetConfigureAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

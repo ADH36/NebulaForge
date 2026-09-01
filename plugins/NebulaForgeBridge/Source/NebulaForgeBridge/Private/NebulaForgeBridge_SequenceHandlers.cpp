@@ -231,7 +231,9 @@ TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedS
 #endif
 
 #include "Tracks/MovieSceneAudioTrack.h"
+#include "Sections/MovieSceneAudioSection.h"
 #include "Tracks/MovieSceneEventTrack.h"
+#include "Sound/SoundBase.h"
 
 #if __has_include("Sections/MovieScene3DTransformSection.h")
 #include "Sections/MovieScene3DTransformSection.h"
@@ -2913,6 +2915,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
       else if (EffectiveAction == TEXT("create_cine_camera_actor"))
         EffectiveAction = TEXT("sequence_add_camera");
       else if (EffectiveAction == TEXT("add_shot_track") ||
+               EffectiveAction == TEXT("add_audio_track") ||
                EffectiveAction == TEXT("add_camera_cut_track") ||
                EffectiveAction == TEXT("add_camera_shake_track") ||
                EffectiveAction == TEXT("add_fade_track") ||
@@ -2924,6 +2927,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
       {
         FString TrackType;
         if (EffectiveAction == TEXT("add_shot_track")) TrackType = TEXT("CinematicShot");
+        else if (EffectiveAction == TEXT("add_audio_track")) TrackType = TEXT("Audio");
         else if (EffectiveAction == TEXT("add_camera_cut_track")) TrackType = TEXT("CameraCut");
         else if (EffectiveAction == TEXT("add_camera_shake_track")) TrackType = TEXT("CameraShake");
         else if (EffectiveAction == TEXT("add_fade_track")) TrackType = TEXT("Fade");
@@ -2933,9 +2937,12 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         else if (EffectiveAction == TEXT("add_event_track")) TrackType = TEXT("Event");
         else TrackType = TEXT("Property");
         LocalPayload->SetStringField(TEXT("trackType"), TrackType);
-        EffectiveAction = EffectiveAction == TEXT("add_camera_shake_track")
-            ? TEXT("sequence_add_camera_shake_track")
-            : TEXT("sequence_add_track");
+        if (EffectiveAction == TEXT("add_camera_shake_track"))
+          EffectiveAction = TEXT("sequence_add_camera_shake_track");
+        else if (EffectiveAction == TEXT("add_audio_track"))
+          EffectiveAction = TEXT("sequence_add_audio_track");
+        else
+          EffectiveAction = TEXT("sequence_add_track");
       }
       else if (!EffectiveAction.StartsWith(TEXT("sequence_")))
         EffectiveAction = TEXT("sequence_") + EffectiveAction;
@@ -3200,6 +3207,68 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
           FString::Printf(TEXT("Failed to add track of type: %s"), *TrackType),
           nullptr, TEXT("TRACK_CREATION_FAILED"));
     }
+    return true;
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_audio_track")) {
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    FString SoundPath;
+    int32 Frame = 0;
+    int32 DurationFrames = 1;
+    int32 RowIndex = 0;
+    if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("soundPath"), SoundPath) || SoundPath.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("path and soundPath are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    LocalPayload->TryGetNumberField(TEXT("frame"), Frame);
+    LocalPayload->TryGetNumberField(TEXT("durationFrames"), DurationFrames);
+    LocalPayload->TryGetNumberField(TEXT("rowIndex"), RowIndex);
+    if (DurationFrames < 1 || DurationFrames > 10000000 || RowIndex < 0 || RowIndex > 100000) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("durationFrames must be positive and rowIndex must be non-negative"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    ULevelSequence* Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    USoundBase* Sound = LoadObject<USoundBase>(nullptr, *SoundPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    if (!Sound) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Sound asset not found"), TEXT("SOUND_NOT_FOUND"));
+      return true;
+    }
+    UMovieSceneAudioTrack* AudioTrack = nullptr;
+    for (UMovieSceneTrack* Track : MCP_GET_MOVIESCENE_TRACKS(Sequence->GetMovieScene())) {
+      AudioTrack = Cast<UMovieSceneAudioTrack>(Track);
+      if (AudioTrack) break;
+    }
+    if (!AudioTrack) AudioTrack = Cast<UMovieSceneAudioTrack>(Sequence->GetMovieScene()->AddTrack(UMovieSceneAudioTrack::StaticClass()));
+    if (!AudioTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create audio track"), TEXT("TRACK_CREATION_FAILED"));
+      return true;
+    }
+    UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(AudioTrack->AddNewSoundOnRow(Sound, FFrameNumber(Frame), RowIndex));
+    if (!AudioSection) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create audio section"), TEXT("SECTION_CREATION_FAILED"));
+      return true;
+    }
+    AudioSection->SetRange(TRange<FFrameNumber>(FFrameNumber(Frame), FFrameNumber(Frame + DurationFrames)));
+    bool bLooping = false;
+    bool bPlayUntilFinished = false;
+    LocalPayload->TryGetBoolField(TEXT("looping"), bLooping);
+    LocalPayload->TryGetBoolField(TEXT("playUntilFinished"), bPlayUntilFinished);
+    AudioSection->SetRepeating(bLooping);
+    AudioSection->SetPlayUntilFinished(bPlayUntilFinished);
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), SeqPath);
+    Result->SetStringField(TEXT("soundPath"), Sound->GetPathName());
+    Result->SetNumberField(TEXT("frame"), Frame);
+    Result->SetNumberField(TEXT("durationFrames"), DurationFrames);
+    Result->SetNumberField(TEXT("rowIndex"), RowIndex);
+    Result->SetBoolField(TEXT("looping"), bLooping);
+    Result->SetBoolField(TEXT("playUntilFinished"), bPlayUntilFinished);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Audio track section added"), Result);
     return true;
   }
 

@@ -31,6 +31,7 @@ public:
 				TEXT("add_shot_track"),
 				TEXT("configure_shot_settings"),
 				TEXT("inspect_shot_settings"),
+				TEXT("add_audio_track"),
 				TEXT("add_camera_cut_track"),
 				TEXT("add_camera_shake_track"),
 				TEXT("add_fade_track"),
@@ -117,6 +118,9 @@ public:
 			.Integer(TEXT("shotIndex"), TEXT("Zero-based cinematic shot section index."))
 			.String(TEXT("shotDisplayName"), TEXT("Cinematic shot display name."))
 			.Number(TEXT("thumbnailReferenceOffset"), TEXT("Shot thumbnail reference offset."))
+			.String(TEXT("soundPath"), TEXT("USoundBase asset path for a cinematic audio section."))
+			.Bool(TEXT("looping"), TEXT("Repeat the sound when the section is longer than its natural duration."))
+			.Bool(TEXT("playUntilFinished"), TEXT("Play through the sound's full duration past the section end."))
 			.Number(TEXT("rowIndex"), TEXT("Optional subsequence track row."))
 			.String(TEXT("outputPath"), TEXT("Project-relative Movie Render Queue output directory."))
 			.String(TEXT("mrqJobId"), TEXT("Movie Render Queue job identifier."))

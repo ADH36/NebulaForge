@@ -196,6 +196,19 @@ export async function handleSequenceTools(action: string, args: Record<string, u
         ...args, path, shotIndex, subAction: 'inspect_shot_settings'
       }) as SequenceActionResponse);
     }
+    case 'add_audio_track': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const soundPath = requireNonEmptyString(args.soundPath, 'soundPath', 'Missing required parameter: soundPath');
+      const frame = Number(args.frame ?? 0);
+      const durationFrames = Number(args.durationFrames ?? 1);
+      const rowIndex = Number(args.rowIndex ?? 0);
+      if (!Number.isInteger(frame) || frame < -1000000000 || frame > 1000000000) throw new Error('frame must be an integer between -1000000000 and 1000000000');
+      if (!Number.isInteger(durationFrames) || durationFrames < 1 || durationFrames > 10000000) throw new Error('durationFrames must be an integer between 1 and 10000000');
+      if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex > 100000) throw new Error('rowIndex must be a non-negative integer');
+      return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args, path, soundPath, frame, durationFrames, rowIndex, subAction: 'add_audio_track'
+      }) as SequenceActionResponse);
+    }
     case 'add_shot_track':
     case 'configure_shot_settings':
     case 'add_camera_cut_track':

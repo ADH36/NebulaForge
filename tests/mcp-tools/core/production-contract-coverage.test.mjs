@@ -146,6 +146,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_editor', arguments: { action: 'get_take_recording_status' }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'configure_shot_settings', path: '/Game/MCPTest/ContractSequence', shotIndex: 0, shotDisplayName: 'Contract Shot', thumbnailReferenceOffset: 0.5 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'inspect_shot_settings', path: '/Game/MCPTest/ContractSequence', shotIndex: 0 }, expected: 'success|error' },
+  { toolName: 'manage_sequence', arguments: { action: 'add_audio_track', path: '/Game/MCPTest/ContractSequence', soundPath: '/Game/MCPTest/ContractSound', frame: 0, durationFrames: 60, rowIndex: 0 }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'start_demo_recording', filename: 'ContractDemoAlias' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'stop_demo_recording' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'inspect_asset_capabilities', assetPath: '/Game/MCPTest/ContractDataAsset' }, expected: 'success|error' },

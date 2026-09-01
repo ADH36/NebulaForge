@@ -1412,7 +1412,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Tool**: `manage_build`
 
 ### 32.1 Build Pipeline
-- [ ] `run_ubt` (expanded)
+- [x] `run_ubt` (expanded)
 - [ ] `generate_project_files`
 - [ ] `compile_shaders`
 - [x] `cook_content` (platform)
@@ -1421,6 +1421,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_build_target`
 
 **Implementation note:** `cook_content` and `package_project` are dedicated aliases over the validated RunUAT `BuildCookRun` pipeline, selecting the corresponding operation while preserving platform, configuration, async job, and packaging option handling.
+
+`run_ubt` validates target, platform, configuration, and bounded extra arguments before launching the discovered UnrealBuildTool executable through the managed job lifecycle.
 
 ### 32.2 Platform Builds
 - [ ] `configure_windows_build`

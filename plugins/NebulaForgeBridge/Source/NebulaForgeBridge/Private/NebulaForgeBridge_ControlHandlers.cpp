@@ -4521,6 +4521,54 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map layer color updated"), Data);
     return true;
   }
+  if (LowerSub == TEXT("configure_paper_tile_map_layer_collision")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    int32 Layer = 0;
+    bool bHasCollision = false;
+    bool bOverrideThickness = false;
+    bool bOverrideOffset = false;
+    double CustomThickness = 0.0;
+    double CustomOffset = 0.0;
+    bool bRebuildCollision = true;
+    if (!TileMapComponent || !Payload->TryGetNumberField(TEXT("layer"), Layer) || Layer < 0 ||
+        !Payload->TryGetBoolField(TEXT("hasCollision"), bHasCollision)) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperTileMapComponent, non-negative layer, and hasCollision are required"), nullptr);
+      return true;
+    }
+    Payload->TryGetBoolField(TEXT("overrideThickness"), bOverrideThickness);
+    Payload->TryGetBoolField(TEXT("overrideOffset"), bOverrideOffset);
+    Payload->TryGetNumberField(TEXT("customThickness"), CustomThickness);
+    Payload->TryGetNumberField(TEXT("customOffset"), CustomOffset);
+    Payload->TryGetBoolField(TEXT("rebuildCollision"), bRebuildCollision);
+    if (!FMath::IsFinite(CustomThickness) || !FMath::IsFinite(CustomOffset) || CustomThickness < 0.0 || CustomOffset < -1000000.0 || CustomOffset > 1000000.0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("customThickness must be non-negative and customOffset must be finite and bounded"), nullptr);
+      return true;
+    }
+    TileMapComponent->SetLayerCollision(Layer, bHasCollision, bOverrideThickness,
+                                        static_cast<float>(CustomThickness), bOverrideOffset,
+                                        static_cast<float>(CustomOffset), bRebuildCollision);
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetNumberField(TEXT("layer"), Layer);
+    Data->SetBoolField(TEXT("hasCollision"), bHasCollision);
+    Data->SetBoolField(TEXT("rebuiltCollision"), bRebuildCollision);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map layer collision configured"), Data);
+    return true;
+  }
 #endif
   if (LowerSub == TEXT("set_paper_sprite_color") || LowerSub == TEXT("set_paper_tile_map_color") || LowerSub == TEXT("configure_paper_flipbook") || LowerSub == TEXT("configure_flipbook_loop") || LowerSub == TEXT("configure_paper_character")) {
     SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_SUPPORTED"),

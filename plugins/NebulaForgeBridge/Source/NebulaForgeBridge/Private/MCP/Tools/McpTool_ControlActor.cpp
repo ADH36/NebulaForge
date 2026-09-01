@@ -57,6 +57,7 @@ public:
 				TEXT("set_paper_tile_map_color"),
 				TEXT("set_paper_tile_map_layer_color"),
 				TEXT("get_paper_tile_map_info"),
+				TEXT("configure_paper_tile_map_layer_collision"),
 				TEXT("configure_paper_flipbook"),
 				TEXT("configure_flipbook_loop"),
 				TEXT("configure_paper_character"),
@@ -142,6 +143,12 @@ public:
 			.Number(TEXT("maxWalkSpeed"), TEXT("Paper character maximum ground speed."))
 			.Number(TEXT("gravityScale"), TEXT("Paper character gravity scale."))
 			.Integer(TEXT("layer"), TEXT("Paper tile-map layer index."))
+			.Bool(TEXT("hasCollision"), TEXT("Whether the tile-map layer has collision."))
+			.Bool(TEXT("overrideThickness"), TEXT("Override the tile-map layer collision thickness."))
+			.Number(TEXT("customThickness"), TEXT("Custom tile-map layer collision thickness."))
+			.Bool(TEXT("overrideOffset"), TEXT("Override the tile-map layer collision offset."))
+			.Number(TEXT("customOffset"), TEXT("Custom tile-map layer collision offset."))
+			.Bool(TEXT("rebuildCollision"), TEXT("Rebuild tile-map collision after the layer change."))
 			.String(TEXT("materialPath"), TEXT("Material asset path."))
 			.Integer(TEXT("materialSlot"), TEXT("Material slot index."))
 			.Integer(TEXT("materialIndex"), TEXT("Material slot index alias."))

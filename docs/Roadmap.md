@@ -2108,7 +2108,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Flipbooks: `create_flipbook` (official `UPaperFlipbookFactory` keyframes from existing sprites; requires Paper2DEditor)
 - [x] Flipbooks: `add_flipbook_keyframe`, `set_flipbook_framerate` (official `FScopedFlipbookMutator` edits with cache invalidation and safe persistence)
 - [x] Flipbooks: `configure_flipbook_loop` (explicit alias to the validated `UPaperFlipbookComponent::SetLooping` handler)
-- [ ] Tile Maps: `create_tile_map`, `create_tile_set`, `add_tile_to_set`, `paint_tile`, `fill_tile_region`, `configure_tile_collision`
+- [ ] Tile Maps: `create_tile_map`, `create_tile_set`, `add_tile_to_set`, `paint_tile`, `fill_tile_region`
+- [x] Tile Maps: `configure_paper_tile_map_layer_collision` (official `UPaperTileMapComponent::SetLayerCollision`; requires an owned/editable tile map component and the optional Paper2D plugin)
 - [x] Actors: `spawn_paper_sprite_actor`, `spawn_paper_flipbook_actor` (official Paper2D actor/component APIs; requires the optional Paper2D plugin and a pre-existing sprite/flipbook asset)
 - [x] Actors: `spawn_paper_tile_map_actor` (official `APaperTileMapActor::GetRenderComponent` and `UPaperTileMapComponent::SetTileMap`; requires the optional Paper2D plugin and a pre-existing tile-map asset)
 - [x] Actors: `set_paper_tile_map_color` (official `UPaperTileMapComponent::SetTileMapColor`; requires the optional Paper2D plugin)

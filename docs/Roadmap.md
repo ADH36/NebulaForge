@@ -2137,7 +2137,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_mesh_section`, `update_mesh_section`, `clear_mesh_section`, `clear_all_mesh_sections` (official `UProceduralMeshComponent` section APIs; requires the optional Procedural Mesh Component plugin)
 - [x] `set_mesh_section_visibility`, `get_mesh_section_visibility` (newly audited official section visibility APIs; requires the optional Procedural Mesh Component plugin)
 - [x] `set_mesh_section_material` (newly audited `UMeshComponent::SetMaterial` section assignment; requires the optional Procedural Mesh Component plugin)
-- [x] `get_mesh_section_data` (official `UProceduralMeshComponent::GetProcMeshSection` readback of vertices, topology, normals, UV0, colors, visibility, and collision flags)
+- [x] `get_mesh_section_data` (official `UProceduralMeshComponent::GetProcMeshSection` readback of vertices, topology, normals, UV0, colors, tangents, visibility, and collision flags)
 - [x] `set_mesh_vertices` (official `UProceduralMeshComponent::UpdateMeshSection`; exact-count position updates preserve existing attributes)
 - [x] `set_mesh_normals`, `set_mesh_uvs` (official `UProceduralMeshComponent::UpdateMeshSection`; exact-count attribute updates preserve other attributes)
 - [x] `set_mesh_colors`, `set_mesh_tangents` (official `UProceduralMeshComponent::UpdateMeshSection`; exact-count color/tangent updates preserve other attributes)

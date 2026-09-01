@@ -5668,6 +5668,7 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         TArray<TSharedPtr<FJsonValue>> Normals;
         TArray<TSharedPtr<FJsonValue>> UV0;
         TArray<TSharedPtr<FJsonValue>> Colors;
+        TArray<TSharedPtr<FJsonValue>> Tangents;
         for (const FProcMeshVertex& Vertex : Section->ProcVertexBuffer)
         {
             Vertices.Add(VectorValue(Vertex.Position));
@@ -5679,6 +5680,10 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
             ColorComponents.Add(MakeShared<FJsonValueNumber>(Vertex.Color.B));
             ColorComponents.Add(MakeShared<FJsonValueNumber>(Vertex.Color.A));
             Colors.Add(MakeShared<FJsonValueArray>(ColorComponents));
+            TArray<TSharedPtr<FJsonValue>> TangentComponents;
+            TangentComponents.Add(VectorValue(Vertex.Tangent.TangentX));
+            TangentComponents.Add(MakeShared<FJsonValueNumber>(Vertex.Tangent.bFlipTangentY ? 1.0 : 0.0));
+            Tangents.Add(MakeShared<FJsonValueArray>(TangentComponents));
         }
         TArray<TSharedPtr<FJsonValue>> Triangles;
         for (const uint32 Index : Section->ProcIndexBuffer)
@@ -5690,6 +5695,7 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         Result->SetArrayField(TEXT("normals"), Normals);
         Result->SetArrayField(TEXT("uv0"), UV0);
         Result->SetArrayField(TEXT("colors"), Colors);
+        Result->SetArrayField(TEXT("tangents"), Tangents);
         Result->SetBoolField(TEXT("createCollision"), Section->bEnableCollision);
         Result->SetBoolField(TEXT("visible"), Section->bSectionVisible);
         Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section data read"), Result);

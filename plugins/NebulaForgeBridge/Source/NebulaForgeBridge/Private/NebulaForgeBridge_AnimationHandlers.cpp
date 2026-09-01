@@ -965,12 +965,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 
           bool bShouldSave = true;
           Payload->TryGetBoolField(TEXT("save"), bShouldSave);
-          if (bShouldSave) {
-            McpSafeAssetSave(AnimBP);
+          if (bShouldSave && !McpSafeAssetSave(AnimBP)) {
+            Message = TEXT("Blend tree created but animation blueprint save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          } else {
+            bSuccess = true;
+            Message = FString::Printf(TEXT("Blend tree '%s' created in %s"), *TreeName, *BlueprintPath);
           }
-
-          bSuccess = true;
-          Message = FString::Printf(TEXT("Blend tree '%s' created in %s"), *TreeName, *BlueprintPath);
           Resp->SetStringField(TEXT("blueprintPath"), BlueprintPath);
           Resp->SetStringField(TEXT("treeName"), TreeName);
           Resp->SetStringField(TEXT("nodeType"), TEXT("BlendTree"));
@@ -1275,15 +1277,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 
                     NewSequence->PostEditChange();
                     NewSequence->MarkPackageDirty();
-                    if (bShouldSave) {
-                      McpSafeAssetSave(NewSequence);
+                    if (bShouldSave && !McpSafeAssetSave(NewSequence)) {
+                      Message = TEXT("Procedural animation created but save failed");
+                      ErrorCode = TEXT("SAVE_FAILED");
+                      Resp->SetStringField(TEXT("error"), Message);
+                    } else {
+                      bSuccess = true;
+                      Message = FString::Printf(TEXT("Procedural animation '%s' created with %d tracks"), *Name, AppliedTrackCount);
                     }
-
-                    bSuccess = true;
-                    Message =
-                        FString::Printf(TEXT("Procedural animation '%s' "
-                                             "created with %d tracks"),
-                                        *Name, AppliedTrackCount);
                     Resp->SetStringField(TEXT("assetPath"),
                                          NewSequence->GetPathName());
                     Resp->SetStringField(TEXT("skeletonPath"),
@@ -1485,10 +1486,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
             }
 
             FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(AnimBP);
-            McpSafeAssetSave(AnimBP);
-
-            bSuccess = true;
-            Message = FString::Printf(TEXT("State machine '%s' created in %s"), *MachineName, *BlueprintPath);
+            if (!McpSafeAssetSave(AnimBP)) {
+              Message = TEXT("Animation state machine created but save failed");
+              ErrorCode = TEXT("SAVE_FAILED");
+              Resp->SetStringField(TEXT("error"), Message);
+            } else {
+              bSuccess = true;
+              Message = FString::Printf(TEXT("State machine '%s' created in %s"), *MachineName, *BlueprintPath);
+            }
             Resp->SetStringField(TEXT("blueprintPath"), BlueprintPath);
             Resp->SetStringField(TEXT("machineName"), MachineName);
           }
@@ -2215,13 +2220,22 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 
               bool bAssignToMesh = false;
               Payload->TryGetBoolField(TEXT("assignToMesh"), bAssignToMesh);
+              bool bPersistenceSucceeded = true;
 
               if (bAssignToMesh) {
                 TargetMesh->Modify();
                 TargetMesh->SetPhysicsAsset(PhysicsAsset);
-                McpSafeAssetSave(TargetMesh);
+                bPersistenceSucceeded = McpSafeAssetSave(TargetMesh);
               }
-              McpSafeAssetSave(PhysicsAsset);
+              bPersistenceSucceeded = McpSafeAssetSave(PhysicsAsset) && bPersistenceSucceeded;
+
+              if (!bPersistenceSucceeded) {
+                Message = TEXT("Physics simulation configured but asset save failed");
+                ErrorCode = TEXT("SAVE_FAILED");
+                Resp->SetStringField(TEXT("error"), Message);
+                SendAutomationResponse(RequestingSocket, RequestId, false, Message, Resp, ErrorCode);
+                return true;
+              }
 
               Resp->SetStringField(TEXT("physicsAssetPath"),
                                    PhysicsAsset->GetPathName());
@@ -2520,7 +2534,13 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
           DestinationSequence->SetSkeleton(TargetSkeleton);
           DestinationPackage->MarkPackageDirty();
           FAssetRegistryModule::AssetCreated(DestinationSequence);
-          McpSafeAssetSave(DestinationSequence);
+          if (!McpSafeAssetSave(DestinationSequence)) {
+            WarningArray.Add(MakeShared<FJsonValueString>(FString::Printf(
+                TEXT("Failed to save retarget destination: %s"),
+                *DestinationObjectPath)));
+            SkippedAssets.Add(SourceAssetPath);
+            continue;
+          }
 
           // Animation retargeting in UE5 requires IK Rig system
           // Use a duplicated AnimSequence with the target skeleton assigned.
@@ -2666,11 +2686,15 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
           AnimSeq->Notifies.Add(NewEvent);
 
           AnimSeq->PostEditChange();
-          McpSafeAssetSave(AnimSeq);
-
-          bSuccess = true;
-          Message = FString::Printf(TEXT("Added notify '%s' to %s at %.2fs"),
-                                    *NotifyName, *AssetPath, Time);
+          if (!McpSafeAssetSave(AnimSeq)) {
+            Message = TEXT("Animation notify added but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          } else {
+            bSuccess = true;
+            Message = FString::Printf(TEXT("Added notify '%s' to %s at %.2fs"),
+                                      *NotifyName, *AssetPath, Time);
+          }
           Resp->SetStringField(TEXT("assetPath"), AssetPath);
           Resp->SetStringField(TEXT("notifyName"), NotifyName);
           Resp->SetStringField(TEXT("notifyClass"),
@@ -2833,11 +2857,15 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 
             AnimSeq->Notifies.Add(NewEvent);
             AnimSeq->PostEditChange();
-            McpSafeAssetSave(AnimSeq);
-
-            bSuccess = true;
-            Message = FString::Printf(TEXT("Added notify '%s' to %s at %.2fs"),
-                                      *NotifyName, *AssetPath, Time);
+            if (!McpSafeAssetSave(AnimSeq)) {
+              Message = TEXT("Animation notify added but save failed");
+              ErrorCode = TEXT("SAVE_FAILED");
+              Resp->SetStringField(TEXT("error"), Message);
+            } else {
+              bSuccess = true;
+              Message = FString::Printf(TEXT("Added notify '%s' to %s at %.2fs"),
+                                        *NotifyName, *AssetPath, Time);
+            }
             Resp->SetStringField(TEXT("assetPath"), AssetPath);
             Resp->SetStringField(TEXT("notifyName"), NotifyName);
             Resp->SetNumberField(TEXT("time"), Time);
@@ -2966,10 +2994,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 #endif
 #endif
         AnimSeq->MarkPackageDirty();
-        McpSafeAssetSave(AnimSeq);
-
-        bSuccess = true;
-        Message = FString::Printf(TEXT("Sequence length set to %.2f seconds"), Length);
+        if (!McpSafeAssetSave(AnimSeq)) {
+          Message = TEXT("Animation sequence length changed but save failed");
+          ErrorCode = TEXT("SAVE_FAILED");
+          Resp->SetStringField(TEXT("error"), Message);
+        } else {
+          bSuccess = true;
+          Message = FString::Printf(TEXT("Sequence length set to %.2f seconds"), Length);
+        }
         Resp->SetStringField(TEXT("assetPath"), AssetPath);
         Resp->SetNumberField(TEXT("length"), Length);
       }
@@ -3035,7 +3067,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 #endif
         if (bSuccess) {
           AnimSeq->MarkPackageDirty();
-          McpSafeAssetSave(AnimSeq);
+          if (!McpSafeAssetSave(AnimSeq)) {
+            bSuccess = false;
+            Message = TEXT("Bone track changed but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          }
         }
       }
     }
@@ -3117,7 +3154,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 #endif
         if (bSuccess) {
           AnimSeq->MarkPackageDirty();
-          McpSafeAssetSave(AnimSeq);
+          if (!McpSafeAssetSave(AnimSeq)) {
+            bSuccess = false;
+            Message = TEXT("Animation key changed but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          }
         }
       }
     }
@@ -3189,7 +3231,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 #endif
         if (bSuccess) {
           AnimSeq->MarkPackageDirty();
-          McpSafeAssetSave(AnimSeq);
+          if (!McpSafeAssetSave(AnimSeq)) {
+            bSuccess = false;
+            Message = TEXT("Animation curve key changed but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          }
         }
       }
     }
@@ -3598,10 +3645,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
           Section.NextSectionName = FName(*ToSection);
 
           Montage->MarkPackageDirty();
-          McpSafeAssetSave(Montage);
-
-          bSuccess = true;
-          Message = FString::Printf(TEXT("Linked '%s' -> '%s'"), *FromSection, *ToSection);
+          if (!McpSafeAssetSave(Montage)) {
+            Message = TEXT("Montage sections linked but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          } else {
+            bSuccess = true;
+            Message = FString::Printf(TEXT("Linked '%s' -> '%s'"), *FromSection, *ToSection);
+          }
           Resp->SetStringField(TEXT("assetPath"), AssetPath);
           Resp->SetStringField(TEXT("fromSection"), FromSection);
           Resp->SetStringField(TEXT("toSection"), ToSection);
@@ -3759,10 +3810,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 #endif
 
           BlendSpace->MarkPackageDirty();
-          McpSafeAssetSave(BlendSpace);
-
-          bSuccess = true;
-          Message = FString::Printf(TEXT("Sample added at (%.2f, %.2f)"), SampleX, SampleY);
+          if (!McpSafeAssetSave(BlendSpace)) {
+            Message = TEXT("Blend space sample added but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          } else {
+            bSuccess = true;
+            Message = FString::Printf(TEXT("Sample added at (%.2f, %.2f)"), SampleX, SampleY);
+          }
           Resp->SetStringField(TEXT("assetPath"), AssetPath);
           Resp->SetStringField(TEXT("animationPath"), AnimationPath);
           Resp->SetNumberField(TEXT("sampleX"), SampleX);
@@ -3825,10 +3880,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
         }
 
         BlendSpace->MarkPackageDirty();
-        McpSafeAssetSave(BlendSpace);
-
-        bSuccess = true;
-        Message = FString::Printf(TEXT("Axis %d configured: [%.2f, %.2f] grid=%d"), AxisIndex, MinValue, MaxValue, GridNum);
+        if (!McpSafeAssetSave(BlendSpace)) {
+          Message = TEXT("Blend space axis changed but save failed");
+          ErrorCode = TEXT("SAVE_FAILED");
+          Resp->SetStringField(TEXT("error"), Message);
+        } else {
+          bSuccess = true;
+          Message = FString::Printf(TEXT("Axis %d configured: [%.2f, %.2f] grid=%d"), AxisIndex, MinValue, MaxValue, GridNum);
+        }
         Resp->SetStringField(TEXT("assetPath"), AssetPath);
         Resp->SetNumberField(TEXT("axisIndex"), AxisIndex);
         Resp->SetNumberField(TEXT("minValue"), MinValue);
@@ -3868,10 +3927,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
         }
 
         BlendSpace->MarkPackageDirty();
-        McpSafeAssetSave(BlendSpace);
-
-        bSuccess = true;
-        Message = TEXT("Interpolation settings updated");
+        if (!McpSafeAssetSave(BlendSpace)) {
+          Message = TEXT("Blend space interpolation changed but save failed");
+          ErrorCode = TEXT("SAVE_FAILED");
+          Resp->SetStringField(TEXT("error"), Message);
+        } else {
+          bSuccess = true;
+          Message = TEXT("Interpolation settings updated");
+        }
         Resp->SetStringField(TEXT("assetPath"), AssetPath);
         Resp->SetNumberField(TEXT("interpolationSpeed"), BlendSpace->TargetWeightInterpolationSpeedPerSec);
       }
@@ -4010,10 +4073,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
 #endif
 
           AimOffset->MarkPackageDirty();
-          McpSafeAssetSave(AimOffset);
-
-          bSuccess = true;
-          Message = FString::Printf(TEXT("Aim offset sample added at Yaw=%.2f, Pitch=%.2f"), Yaw, Pitch);
+          if (!McpSafeAssetSave(AimOffset)) {
+            Message = TEXT("Aim offset sample added but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          } else {
+            bSuccess = true;
+            Message = FString::Printf(TEXT("Aim offset sample added at Yaw=%.2f, Pitch=%.2f"), Yaw, Pitch);
+          }
           Resp->SetStringField(TEXT("assetPath"), AssetPath);
           Resp->SetStringField(TEXT("animationPath"), AnimationPath);
           Resp->SetNumberField(TEXT("yaw"), Yaw);
@@ -4491,11 +4558,17 @@ bool UNebulaForgeBridgeSubsystem::HandleAnimationPhysicsAction(
               PoseLibrary->Description = TEXT("Pose Library for animation poses");
               PoseLibrary->Properties.Add(TEXT("SkeletonPath"), SkeletonPath);
               PoseLibrary->MarkPackageDirty();
-              McpSafeAssetSave(PoseLibrary);
+              if (!McpSafeAssetSave(PoseLibrary)) {
+                Message = TEXT("Pose library created but save failed");
+                ErrorCode = TEXT("SAVE_FAILED");
+                Resp->SetStringField(TEXT("error"), Message);
+              }
             }
 
-            bSuccess = true;
-            Message = TEXT("Pose library created successfully");
+            if (ErrorCode.IsEmpty()) {
+              bSuccess = true;
+              Message = TEXT("Pose library created successfully");
+            }
             Resp->SetStringField(TEXT("assetPath"), NewAsset->GetPathName());
             Resp->SetStringField(TEXT("savePath"), SavePath);
             Resp->SetStringField(TEXT("skeletonPath"), SkeletonPath);
@@ -4768,7 +4841,13 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateAnimBlueprint(
   Payload->TryGetBoolField(TEXT("save"), bShouldSave);
   if (bShouldSave)
   {
-    McpSafeAssetSave(AnimBlueprint);
+    if (!McpSafeAssetSave(AnimBlueprint))
+    {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("Animation blueprint created but save failed"),
+                          TEXT("SAVE_FAILED"));
+      return true;
+    }
   }
 
   FAssetRegistryModule::AssetCreated(AnimBlueprint);

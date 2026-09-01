@@ -34,6 +34,7 @@ public:
 				TEXT("add_audio_track"),
 				TEXT("add_material_parameter_track"),
 				TEXT("add_material_color_track"),
+				TEXT("add_custom_primitive_data_track"),
 				TEXT("add_camera_cut_track"),
 				TEXT("add_camera_shake_track"),
 				TEXT("add_fade_track"),
@@ -128,6 +129,7 @@ public:
 			.Number(TEXT("colorG"), TEXT("Green channel for a material color key."))
 			.Number(TEXT("colorB"), TEXT("Blue channel for a material color key."))
 			.Number(TEXT("colorA"), TEXT("Alpha channel for a material color key."))
+			.Integer(TEXT("customPrimitiveDataIndex"), TEXT("Custom primitive data start index."))
 			.Number(TEXT("rowIndex"), TEXT("Optional subsequence track row."))
 			.String(TEXT("outputPath"), TEXT("Project-relative Movie Render Queue output directory."))
 			.String(TEXT("mrqJobId"), TEXT("Movie Render Queue job identifier."))

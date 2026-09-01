@@ -2212,7 +2212,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         action: {
           type: 'string',
           enum: [
-            'create', 'create_master_sequence', 'open', 'add_camera', 'create_cine_camera_actor', 'add_subsequence', 'add_shot_track', 'configure_shot_settings', 'inspect_shot_settings', 'add_audio_track', 'add_material_parameter_track', 'add_material_color_track', 'add_camera_cut_track', 'add_camera_shake_track', 'add_fade_track', 'add_level_visibility_track', 'add_skeletal_animation_track', 'add_transform_track', 'add_event_track', 'add_property_track', 'add_actor', 'add_actors', 'remove_actors',
+            'create', 'create_master_sequence', 'open', 'add_camera', 'create_cine_camera_actor', 'add_subsequence', 'add_shot_track', 'configure_shot_settings', 'inspect_shot_settings', 'add_audio_track', 'add_material_parameter_track', 'add_material_color_track', 'add_custom_primitive_data_track', 'add_camera_cut_track', 'add_camera_shake_track', 'add_fade_track', 'add_level_visibility_track', 'add_skeletal_animation_track', 'add_transform_track', 'add_event_track', 'add_property_track', 'add_actor', 'add_actors', 'remove_actors',
             'get_bindings', 'play', 'pause', 'stop', 'set_playback_speed', 'add_keyframe',
             'get_properties', 'set_properties', 'duplicate', 'rename', 'delete', 'list', 'get_metadata', 'set_metadata',
             'add_spawnable_from_class', 'add_track', 'add_section', 'set_display_rate', 'set_tick_resolution',
@@ -2264,6 +2264,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         looping: commonSchemas.booleanProp,
         playUntilFinished: commonSchemas.booleanProp,
         parameterName: commonSchemas.stringProp,
+        customPrimitiveDataIndex: commonSchemas.integerProp,
         colorR: commonSchemas.numberProp,
         colorG: commonSchemas.numberProp,
         colorB: commonSchemas.numberProp,

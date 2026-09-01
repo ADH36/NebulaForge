@@ -233,6 +233,7 @@ TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedS
 #include "Tracks/MovieSceneAudioTrack.h"
 #include "Sections/MovieSceneAudioSection.h"
 #include "Tracks/MovieSceneMaterialTrack.h"
+#include "Tracks/MovieSceneCustomPrimitiveDataTrack.h"
 #include "Tracks/MovieSceneEventTrack.h"
 #include "Sound/SoundBase.h"
 
@@ -2919,6 +2920,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
                EffectiveAction == TEXT("add_audio_track") ||
                EffectiveAction == TEXT("add_material_parameter_track") ||
                EffectiveAction == TEXT("add_material_color_track") ||
+               EffectiveAction == TEXT("add_custom_primitive_data_track") ||
                EffectiveAction == TEXT("add_camera_cut_track") ||
                EffectiveAction == TEXT("add_camera_shake_track") ||
                EffectiveAction == TEXT("add_fade_track") ||
@@ -2933,6 +2935,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         else if (EffectiveAction == TEXT("add_audio_track")) TrackType = TEXT("Audio");
         else if (EffectiveAction == TEXT("add_material_parameter_track")) TrackType = TEXT("Material");
         else if (EffectiveAction == TEXT("add_material_color_track")) TrackType = TEXT("Material");
+        else if (EffectiveAction == TEXT("add_custom_primitive_data_track")) TrackType = TEXT("CustomPrimitiveData");
         else if (EffectiveAction == TEXT("add_camera_cut_track")) TrackType = TEXT("CameraCut");
         else if (EffectiveAction == TEXT("add_camera_shake_track")) TrackType = TEXT("CameraShake");
         else if (EffectiveAction == TEXT("add_fade_track")) TrackType = TEXT("Fade");
@@ -2950,6 +2953,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
           EffectiveAction = TEXT("sequence_add_material_parameter_track");
         else if (EffectiveAction == TEXT("add_material_color_track"))
           EffectiveAction = TEXT("sequence_add_material_color_track");
+        else if (EffectiveAction == TEXT("add_custom_primitive_data_track"))
+          EffectiveAction = TEXT("sequence_add_custom_primitive_data_track");
         else
           EffectiveAction = TEXT("sequence_add_track");
       }
@@ -3278,6 +3283,62 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     Result->SetBoolField(TEXT("looping"), bLooping);
     Result->SetBoolField(TEXT("playUntilFinished"), bPlayUntilFinished);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Audio track section added"), Result);
+    return true;
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_custom_primitive_data_track")) {
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    FString ActorName;
+    int32 Frame = 0, RowIndex = 0, DataIndex = -1;
+    double Value = 0.0;
+    if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("actorName"), ActorName) || ActorName.IsEmpty() ||
+        !LocalPayload->TryGetNumberField(TEXT("customPrimitiveDataIndex"), DataIndex) ||
+        !LocalPayload->TryGetNumberField(TEXT("value"), Value)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("path, actorName, customPrimitiveDataIndex, and value are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    LocalPayload->TryGetNumberField(TEXT("frame"), Frame);
+    LocalPayload->TryGetNumberField(TEXT("rowIndex"), RowIndex);
+    if (DataIndex < 0 || DataIndex > 255 || Frame < -1000000000 || Frame > 1000000000 || RowIndex < 0 || RowIndex > 100000 || !FMath::IsFinite(Value)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("customPrimitiveDataIndex, frame, rowIndex, or value is outside the supported range"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    ULevelSequence* Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    FGuid BindingGuid;
+    for (const FMovieSceneBinding& Binding : Sequence->GetMovieScene()->GetBindings()) {
+      FString BindingName;
+      if (const FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(Binding.GetObjectGuid())) BindingName = Possessable->GetName();
+      else if (const FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(Binding.GetObjectGuid())) BindingName = Spawnable->GetName();
+      if (BindingName.Equals(ActorName, ESearchCase::IgnoreCase) || BindingName.Contains(ActorName)) { BindingGuid = Binding.GetObjectGuid(); break; }
+    }
+    if (!BindingGuid.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Binding not found for actor"), TEXT("BINDING_NOT_FOUND"));
+      return true;
+    }
+    UMovieSceneCustomPrimitiveDataTrack* DataTrack = nullptr;
+    for (UMovieSceneTrack* Track : Sequence->GetMovieScene()->FindTracks(UMovieSceneCustomPrimitiveDataTrack::StaticClass(), BindingGuid)) {
+      DataTrack = Cast<UMovieSceneCustomPrimitiveDataTrack>(Track);
+      if (DataTrack) break;
+    }
+    if (!DataTrack) DataTrack = Cast<UMovieSceneCustomPrimitiveDataTrack>(Sequence->GetMovieScene()->AddTrack(UMovieSceneCustomPrimitiveDataTrack::StaticClass(), BindingGuid));
+    if (!DataTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create custom primitive data track"), TEXT("TRACK_CREATION_FAILED"));
+      return true;
+    }
+    DataTrack->AddScalarParameterKey(static_cast<uint8>(DataIndex), FFrameNumber(Frame), RowIndex, static_cast<float>(Value), RCIM_Linear);
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), SeqPath);
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetNumberField(TEXT("customPrimitiveDataIndex"), DataIndex);
+    Result->SetNumberField(TEXT("frame"), Frame);
+    Result->SetNumberField(TEXT("value"), Value);
+    Result->SetNumberField(TEXT("rowIndex"), RowIndex);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Custom primitive data key added"), Result);
     return true;
   }
 

@@ -239,6 +239,22 @@ export async function handleSequenceTools(action: string, args: Record<string, u
         subAction: 'add_material_color_track'
       }) as SequenceActionResponse);
     }
+    case 'add_custom_primitive_data_track': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const actorName = requireNonEmptyString(args.actorName, 'actorName', 'Missing required parameter: actorName');
+      const customPrimitiveDataIndex = Number(args.customPrimitiveDataIndex);
+      const frame = Number(args.frame ?? 0);
+      const value = Number(args.value);
+      const rowIndex = Number(args.rowIndex ?? 0);
+      if (!Number.isInteger(customPrimitiveDataIndex) || customPrimitiveDataIndex < 0 || customPrimitiveDataIndex > 255) throw new Error('customPrimitiveDataIndex must be an integer between 0 and 255');
+      if (!Number.isInteger(frame) || frame < -1000000000 || frame > 1000000000) throw new Error('frame must be an integer between -1000000000 and 1000000000');
+      if (!Number.isFinite(value)) throw new Error('value must be a finite number');
+      if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex > 100000) throw new Error('rowIndex must be a non-negative integer');
+      return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args, path, actorName, customPrimitiveDataIndex, frame, value, rowIndex,
+        subAction: 'add_custom_primitive_data_track'
+      }) as SequenceActionResponse);
+    }
     case 'add_shot_track':
     case 'configure_shot_settings':
     case 'add_camera_cut_track':

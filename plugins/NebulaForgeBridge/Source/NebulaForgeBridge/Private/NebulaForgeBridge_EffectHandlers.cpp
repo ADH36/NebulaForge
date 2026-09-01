@@ -130,7 +130,10 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
     TSharedPtr<FMcpBridgeWebSocket> RequestingSocket) {
   const FString Lower = Action.ToLower();
   const bool bIsCreateEffect = Lower.Equals(TEXT("create_effect")) ||
-                               Lower.StartsWith(TEXT("create_effect"));
+                               Lower.StartsWith(TEXT("create_effect")) ||
+                               Lower.Equals(TEXT("spawn_pooled_effect")) ||
+                               Lower.Equals(TEXT("release_pooled_effect")) ||
+                               Lower.Equals(TEXT("destroy_effect_pool"));
   const bool bIsNiagaraModule = Lower.StartsWith(TEXT("add_")) ||
                                  Lower.StartsWith(TEXT("set_parameter")) ||
                                  Lower.StartsWith(TEXT("bind_parameter")) ||
@@ -259,6 +262,163 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
     }
     return HandleNiagaraGraphAction(RequestId, TEXT("manage_niagara_graph"),
                                     LocalPayload, RequestingSocket);
+  }
+  if (NativeSubAction == TEXT("create_effect_pool") ||
+      NativeSubAction == TEXT("spawn_pooled_effect") ||
+      NativeSubAction == TEXT("release_pooled_effect") ||
+      NativeSubAction == TEXT("destroy_effect_pool")) {
+#if WITH_EDITOR
+    if (!GEditor || !GEditor->GetEditorWorldContext().World()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Editor world not available"), TEXT("EDITOR_NOT_AVAILABLE"));
+      return true;
+    }
+
+    UWorld *World = GEditor->GetEditorWorldContext().World();
+    FString PoolName;
+    LocalPayload->TryGetStringField(TEXT("poolName"), PoolName);
+    PoolName = PoolName.TrimStartAndEnd();
+    if (PoolName.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("poolName is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+
+    if (NativeSubAction == TEXT("create_effect_pool")) {
+      FString SystemPath;
+      LocalPayload->TryGetStringField(TEXT("systemPath"), SystemPath);
+      if (SystemPath.IsEmpty()) LocalPayload->TryGetStringField(TEXT("system"), SystemPath);
+      double RequestedSize = 4.0;
+      LocalPayload->TryGetNumberField(TEXT("poolSize"), RequestedSize);
+      const int32 PoolSize = FMath::Clamp(FMath::RoundToInt(RequestedSize), 1, 128);
+      FString OwnershipPolicy = TEXT("pool");
+      LocalPayload->TryGetStringField(TEXT("ownershipPolicy"), OwnershipPolicy);
+      OwnershipPolicy = OwnershipPolicy.ToLower();
+      if (OwnershipPolicy != TEXT("pool") && OwnershipPolicy != TEXT("level") && OwnershipPolicy != TEXT("persistent")) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("ownershipPolicy must be pool, level, or persistent"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (SystemPath.IsEmpty() || !UEditorAssetLibrary::DoesAssetExist(SystemPath)) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("A valid Niagara system asset path is required"), TEXT("ASSET_NOT_FOUND"));
+        return true;
+      }
+      UNiagaraSystem *NiagaraSystem = LoadObject<UNiagaraSystem>(nullptr, *SystemPath);
+      if (!NiagaraSystem) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Failed to load Niagara system"), TEXT("LOAD_FAILED"));
+        return true;
+      }
+      if (NiagaraEffectPools.Contains(PoolName)) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Effect pool already exists"), TEXT("ALREADY_EXISTS"));
+        return true;
+      }
+
+      TArray<TWeakObjectPtr<ANiagaraActor>> PoolActors;
+      for (int32 Index = 0; Index < PoolSize; ++Index) {
+        ANiagaraActor *Actor = World->SpawnActor<ANiagaraActor>(ANiagaraActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator);
+        if (!Actor) continue;
+        Actor->SetActorLabel(FString::Printf(TEXT("MCP_EffectPool_%s_%d"), *PoolName, Index));
+        if (UNiagaraComponent *Component = Actor->GetNiagaraComponent()) {
+          Component->SetAsset(NiagaraSystem);
+          Component->Deactivate();
+        }
+        PoolActors.Add(Actor);
+      }
+      if (PoolActors.Num() == 0) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("No pooled Niagara actors could be created"), TEXT("SPAWN_FAILED"));
+        return true;
+      }
+      NiagaraEffectPools.Add(PoolName, MoveTemp(PoolActors));
+      NiagaraEffectPoolSystemPaths.Add(PoolName, SystemPath);
+      NiagaraEffectPoolOwnershipPolicies.Add(PoolName, OwnershipPolicy);
+      NiagaraEffectPoolMaxSizes.Add(PoolName, PoolSize);
+      TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+      Response->SetStringField(TEXT("poolName"), PoolName);
+      Response->SetStringField(TEXT("systemPath"), SystemPath);
+      Response->SetStringField(TEXT("ownershipPolicy"), OwnershipPolicy);
+      Response->SetNumberField(TEXT("poolSize"), NiagaraEffectPools[PoolName].Num());
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Niagara effect pool created"), Response);
+      return true;
+    }
+
+    TArray<TWeakObjectPtr<ANiagaraActor>> *PoolActors = NiagaraEffectPools.Find(PoolName);
+    if (!PoolActors) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Effect pool not found"), TEXT("POOL_NOT_FOUND"));
+      return true;
+    }
+    if (NativeSubAction == TEXT("destroy_effect_pool")) {
+      int32 Destroyed = 0;
+      for (const TWeakObjectPtr<ANiagaraActor> &WeakActor : *PoolActors) {
+        if (ANiagaraActor *Actor = WeakActor.Get()) {
+          Actor->Destroy();
+          ++Destroyed;
+        }
+      }
+      NiagaraEffectPools.Remove(PoolName);
+      NiagaraEffectPoolSystemPaths.Remove(PoolName);
+      NiagaraEffectPoolOwnershipPolicies.Remove(PoolName);
+      NiagaraEffectPoolMaxSizes.Remove(PoolName);
+      TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+      Response->SetStringField(TEXT("poolName"), PoolName);
+      Response->SetNumberField(TEXT("destroyedCount"), Destroyed);
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Niagara effect pool destroyed"), Response);
+      return true;
+    }
+
+    if (NativeSubAction == TEXT("spawn_pooled_effect")) {
+      ANiagaraActor *SelectedActor = nullptr;
+      for (const TWeakObjectPtr<ANiagaraActor> &WeakActor : *PoolActors) {
+        ANiagaraActor *Candidate = WeakActor.Get();
+        if (Candidate && Candidate->GetNiagaraComponent() && !Candidate->GetNiagaraComponent()->IsActive()) {
+          SelectedActor = Candidate;
+          break;
+        }
+      }
+      if (!SelectedActor) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("No inactive actor is available in the effect pool"), TEXT("POOL_EXHAUSTED"));
+        return true;
+      }
+      double X = 0.0, Y = 0.0, Z = 0.0;
+      const TSharedPtr<FJsonObject> *Location = nullptr;
+      if (LocalPayload->TryGetObjectField(TEXT("location"), Location) && Location && (*Location).IsValid()) {
+        (*Location)->TryGetNumberField(TEXT("x"), X);
+        (*Location)->TryGetNumberField(TEXT("y"), Y);
+        (*Location)->TryGetNumberField(TEXT("z"), Z);
+      }
+      SelectedActor->SetActorLocation(FVector(X, Y, Z));
+      FString ActorName;
+      LocalPayload->TryGetStringField(TEXT("actorName"), ActorName);
+      if (!ActorName.IsEmpty()) SelectedActor->SetActorLabel(ActorName);
+      SelectedActor->GetNiagaraComponent()->Activate(true);
+      TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+      Response->SetStringField(TEXT("poolName"), PoolName);
+      Response->SetStringField(TEXT("actorName"), SelectedActor->GetActorLabel());
+      Response->SetStringField(TEXT("actorPath"), SelectedActor->GetPathName());
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Pooled Niagara effect spawned"), Response);
+      return true;
+    }
+
+    FString ActorName;
+    LocalPayload->TryGetStringField(TEXT("actorName"), ActorName);
+    if (ActorName.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("actorName is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    for (const TWeakObjectPtr<ANiagaraActor> &WeakActor : *PoolActors) {
+      ANiagaraActor *Actor = WeakActor.Get();
+      if (Actor && (Actor->GetActorLabel().Equals(ActorName, ESearchCase::IgnoreCase) || Actor->GetPathName().Equals(ActorName, ESearchCase::IgnoreCase))) {
+        Actor->GetNiagaraComponent()->Deactivate();
+        TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+        Response->SetStringField(TEXT("poolName"), PoolName);
+        Response->SetStringField(TEXT("actorName"), Actor->GetActorLabel());
+        Response->SetBoolField(TEXT("active"), false);
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Pooled Niagara effect released"), Response);
+        return true;
+      }
+    }
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Pooled actor not found"), TEXT("ACTOR_NOT_FOUND"));
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Effect pools require an editor build"), TEXT("NOT_SUPPORTED"));
+    return true;
+#endif
   }
   if (Lower.Equals(TEXT("manage_effect")) && !NativeSubAction.IsEmpty()) {
     const FString RoutedAction =

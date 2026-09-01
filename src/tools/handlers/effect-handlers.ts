@@ -25,6 +25,10 @@ const EFFECT_GRAPH_ACTIONS = new Set<string>([
   'remove_niagara_node'
 ]);
 
+const EFFECT_POOL_ACTIONS = new Set<string>([
+  'create_effect_pool', 'spawn_pooled_effect', 'release_pooled_effect', 'destroy_effect_pool'
+]);
+
 const EFFECT_GRAPH_SUB_ACTIONS: Record<string, string> = {
   'add_niagara_module': 'add_module',
   'connect_niagara_pins': 'connect_pins',
@@ -213,6 +217,12 @@ export async function handleEffectTools(action: string, args: HandlerArgs, tools
   // Always ensure action/subAction are present before any routing.
   ensureActionAndSubAction(action, mutableArgs);
   sanitizeEffectPaths(mutableArgs);
+
+  if (EFFECT_POOL_ACTIONS.has(action)) {
+    mutableArgs.action = action;
+    mutableArgs.subAction = action;
+    return cleanObject(await executeAutomationRequest(tools, 'manage_effect', mutableArgs)) as Record<string, unknown>;
+  }
 
   if (action === 'create_effect_preset') {
     const presetArgs = mutableArgs as Record<string, unknown>;

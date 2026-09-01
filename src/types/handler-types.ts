@@ -613,6 +613,9 @@ export interface LightingArgs extends HandlerArgs {
     lightType?: string;
     lightName?: string;
     actorName?: string;
+    poolName?: string;
+    poolSize?: number;
+    ownershipPolicy?: 'pool' | 'level' | 'persistent';
     actorPath?: string;
     lightPath?: string;
     name?: string;

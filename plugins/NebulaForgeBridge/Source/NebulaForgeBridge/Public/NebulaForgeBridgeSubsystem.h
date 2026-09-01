@@ -15,6 +15,7 @@ class FMcpNativeTransport;
 class UObject;
 class UWorld;
 class UMoviePipelineExecutorBase;
+class ANiagaraActor;
 
 #include "NebulaForgeBridgeSubsystem.generated.h"
 
@@ -394,6 +395,10 @@ private:
   TMap<FString, bool> ManagedGameplayTaskAutoActivate;
 
   TMap<FString, FAutomationHandler> AutomationHandlers;
+  TMap<FString, TArray<TWeakObjectPtr<ANiagaraActor>>> NiagaraEffectPools;
+  TMap<FString, FString> NiagaraEffectPoolSystemPaths;
+  TMap<FString, FString> NiagaraEffectPoolOwnershipPolicies;
+  TMap<FString, int32> NiagaraEffectPoolMaxSizes;
   void InitializeHandlers();
 
   /**

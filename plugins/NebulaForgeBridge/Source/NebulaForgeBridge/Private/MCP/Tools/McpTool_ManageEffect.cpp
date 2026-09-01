@@ -35,6 +35,10 @@ public:
 				TEXT("create_environment_effect"),
 				TEXT("create_impact_effect"),
 				TEXT("create_niagara_ribbon"),
+				TEXT("create_effect_pool"),
+				TEXT("spawn_pooled_effect"),
+				TEXT("release_pooled_effect"),
+				TEXT("destroy_effect_pool"),
 				TEXT("activate"),
 				TEXT("activate_effect"),
 				TEXT("deactivate"),
@@ -108,6 +112,9 @@ public:
 				S.Number(TEXT("x")).Number(TEXT("y")).Number(TEXT("z"));
 			})
 			.String(TEXT("actorName"), TEXT("Name of the actor."))
+			.String(TEXT("poolName"), TEXT("Reusable effect pool identifier."))
+			.Integer(TEXT("poolSize"), TEXT("Initial and maximum pooled actor count."))
+			.StringEnum(TEXT("ownershipPolicy"), { TEXT("pool"), TEXT("level"), TEXT("persistent") }, TEXT("Ownership policy for pooled actors."))
 			.String(TEXT("attachToActor"), TEXT("Actor label to attach spawned Niagara actor to."))
 			.Number(TEXT("lifespanSeconds"), TEXT("Actor lifespan in seconds; zero means infinite."))
 			.Bool(TEXT("reset"), TEXT(""))

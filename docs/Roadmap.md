@@ -463,7 +463,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 12.3 Runtime Lifecycle
 - [x] `set_lifespan` with finite bounded duration validation (`0` means infinite)
 - [x] `destroy_effect` with explicit actor lookup and destruction result
-- [ ] Reusable effect pooling and project-specific ownership policies
+- [x] Reusable effect pooling and project-specific ownership policies (prewarmed Niagara actor pools with pool, level, and persistent ownership modes)
 - [x] `add_collision_module`
 - [x] `add_kill_particles_module`
 - [x] `add_camera_offset_module`

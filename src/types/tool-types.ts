@@ -356,6 +356,10 @@ export type EffectAction =
   | 'spawn_niagara'
   | 'set_niagara_parameter'
   | 'clear_debug_shapes'
+  | 'create_effect_pool'
+  | 'spawn_pooled_effect'
+  | 'release_pooled_effect'
+  | 'destroy_effect_pool'
   | 'create_dynamic_light'
   | 'cleanup';
 export type BlueprintAction = 'create' | 'add_component';

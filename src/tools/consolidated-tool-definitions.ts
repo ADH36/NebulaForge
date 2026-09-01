@@ -2661,7 +2661,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'particle', 'niagara', 'debug_shape', 'spawn_niagara', 'create_dynamic_light',
             'create_niagara_system', 'create_niagara_emitter', 'create_volumetric_fog',
             'create_particle_trail', 'create_environment_effect', 'create_impact_effect',
-            'create_niagara_ribbon', 'activate', 'activate_effect', 'deactivate', 'reset', 'set_lifespan', 'destroy_effect',
+            'create_niagara_ribbon', 'create_effect_pool', 'spawn_pooled_effect', 'release_pooled_effect', 'destroy_effect_pool', 'activate', 'activate_effect', 'deactivate', 'reset', 'set_lifespan', 'destroy_effect',
             'advance_simulation', 'add_niagara_module', 'connect_niagara_pins',
             'remove_niagara_node', 'set_niagara_parameter', 'clear_debug_shapes', 'cleanup',
             'list_debug_shapes', 'add_emitter_to_system', 'set_emitter_properties',
@@ -2700,6 +2700,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         // Placement and lifecycle
         location: commonSchemas.location,
         actorName: commonSchemas.actorName,
+        poolName: commonSchemas.name,
+        poolSize: commonSchemas.integerProp,
+        ownershipPolicy: { type: 'string', enum: ['pool', 'level', 'persistent'] },
         attachToActor: commonSchemas.actorName,
         lifespanSeconds: commonSchemas.numberProp,
         reset: commonSchemas.booleanProp,

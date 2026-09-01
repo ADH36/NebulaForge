@@ -1472,6 +1472,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("create_geometry_collection") &&
       Lower != TEXT("create_variant_set") &&
       Lower != TEXT("add_variant") &&
+      Lower != TEXT("configure_variant_properties") &&
       Lower != TEXT("add_geometry_to_collection") &&
       Lower != TEXT("remove_geometry_from_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
@@ -3265,6 +3266,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("create_geometry_collection") ||
              Lower == TEXT("create_variant_set") ||
              Lower == TEXT("add_variant") ||
+             Lower == TEXT("configure_variant_properties") ||
              Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("inspect_geometry_collection") ||
@@ -3483,6 +3485,85 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
           "print(_lvs.get_path_name() + '|' + _variant_set.get_display_text().to_string() + '|' + _variant.get_display_text().to_string())\n"),
           *PythonAssetPath, *VariantSetName, *VariantName);
+    }
+
+    if (Lower == TEXT("configure_variant_properties")) {
+      FString AssetPath;
+      FString VariantSetName;
+      FString VariantName;
+      FString ActorName;
+      FString PropertyPath;
+      FString PropertyType;
+      FString PropertyValue;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      Payload->TryGetStringField(TEXT("variantSetName"), VariantSetName);
+      Payload->TryGetStringField(TEXT("variantName"), VariantName);
+      Payload->TryGetStringField(TEXT("actorName"), ActorName);
+      Payload->TryGetStringField(TEXT("propertyPath"), PropertyPath);
+      Payload->TryGetStringField(TEXT("variantPropertyType"), PropertyType);
+      Payload->TryGetStringField(TEXT("variantPropertyValue"), PropertyValue);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase) ||
+          VariantSetName.TrimStartAndEnd().IsEmpty() || VariantName.TrimStartAndEnd().IsEmpty() ||
+          ActorName.TrimStartAndEnd().IsEmpty() || PropertyPath.TrimStartAndEnd().IsEmpty() || PropertyValue.Len() > 4096) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("configure_variant_properties requires valid assetPath, variantSetName, variantName, actorName, propertyPath, and variantPropertyValue"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (!PropertyType.Equals(TEXT("bool"), ESearchCase::IgnoreCase) &&
+          !PropertyType.Equals(TEXT("int"), ESearchCase::IgnoreCase) &&
+          !PropertyType.Equals(TEXT("float"), ESearchCase::IgnoreCase) &&
+          !PropertyType.Equals(TEXT("string"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("variantPropertyType must be bool, int, float, or string"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString PythonAssetPath = SafeAssetPath;
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantSetName = VariantSetName.TrimStartAndEnd();
+      VariantName = VariantName.TrimStartAndEnd();
+      ActorName = ActorName.TrimStartAndEnd();
+      PropertyPath = PropertyPath.TrimStartAndEnd();
+      PropertyType = PropertyType.ToLower();
+      VariantSetName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      ActorName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      PropertyPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      PropertyType.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      PropertyValue.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import json\n"
+          "import unreal\n"
+          "_lvs = unreal.EditorAssetLibrary.load_asset('%s')\n"
+          "if not _lvs:\n"
+          "    raise RuntimeError('Level Variant Sets asset not found')\n"
+          "_variant_set = _lvs.get_variant_set_by_name('%s')\n"
+          "if not _variant_set:\n"
+          "    raise RuntimeError('Variant set not found')\n"
+          "_variant = _variant_set.get_variant_by_name('%s')\n"
+          "if not _variant:\n"
+          "    raise RuntimeError('Variant not found')\n"
+          "_actor = next((a for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors() if a.get_actor_label() == '%s'), None)\n"
+          "if not _actor:\n"
+          "    raise RuntimeError('Actor not found')\n"
+          "_variant.add_actor_binding(_actor)\n"
+          "_prop = _variant.capture_property(_actor, '%s')\n"
+          "if not _prop:\n"
+          "    raise RuntimeError('Property path could not be captured')\n"
+          "_type = '%s'\n"
+          "_value = '%s'\n"
+          "if _type == 'bool':\n"
+          "    unreal.VariantManagerLibrary.set_value_bool(_prop, _value.lower() == 'true')\n"
+          "elif _type == 'int':\n"
+          "    unreal.VariantManagerLibrary.set_value_int(_prop, int(_value))\n"
+          "elif _type == 'float':\n"
+          "    unreal.VariantManagerLibrary.set_value_float(_prop, float(_value))\n"
+          "else:\n"
+          "    unreal.VariantManagerLibrary.set_value_string(_prop, _value)\n"
+          "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
+          "print(json.dumps({'actorName': _actor.get_actor_label(), 'propertyPath': '%s', 'propertyType': unreal.VariantManagerLibrary.get_property_type_string(_prop), 'variant': _variant.get_display_text().to_string()}, sort_keys=True))\n"),
+          *PythonAssetPath, *VariantSetName, *VariantName, *ActorName, *PropertyPath, *PropertyType, *PropertyValue, *PropertyPath);
     }
 
     if (Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection")) {

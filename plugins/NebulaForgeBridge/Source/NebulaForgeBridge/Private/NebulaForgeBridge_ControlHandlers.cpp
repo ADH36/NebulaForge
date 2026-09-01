@@ -57,6 +57,8 @@
 #include "Dom/JsonObject.h"
 #include "Async/Async.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -4243,6 +4245,67 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     Forward->SetStringField(TEXT("actorName"), TargetName);
     Forward->SetObjectField(TEXT("variables"), Variables);
     return HandleControlActorSetBlueprintVariables(RequestId, Forward, RequestingSocket);
+  }
+  if (LowerSub == TEXT("add_instance") ||
+      LowerSub == TEXT("remove_instance") ||
+      LowerSub == TEXT("update_instance_transform")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UActorComponent* Component = Found ? FindComponentByName(Found, ComponentName) : nullptr;
+    UInstancedStaticMeshComponent* Instanced = Cast<UInstancedStaticMeshComponent>(Component);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (!Instanced) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INSTANCED_COMPONENT_NOT_FOUND"), TEXT("componentName must resolve to an ISM or HISM component"), nullptr);
+      return true;
+    }
+    int32 InstanceIndex = INDEX_NONE;
+    Payload->TryGetNumberField(TEXT("instanceIndex"), InstanceIndex);
+    bool bWorldSpace = true;
+    Payload->TryGetBoolField(TEXT("worldSpace"), bWorldSpace);
+    bool bChanged = false;
+    if (LowerSub == TEXT("add_instance")) {
+      const FTransform Transform(
+          ExtractRotatorField(Payload, TEXT("rotation"), FRotator::ZeroRotator).Quaternion(),
+          ExtractVectorField(Payload, TEXT("location"), FVector::ZeroVector),
+          ExtractVectorField(Payload, TEXT("scale"), FVector::OneVector));
+      InstanceIndex = Instanced->AddInstance(Transform, bWorldSpace);
+      bChanged = InstanceIndex >= 0;
+    } else if (InstanceIndex < 0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("instanceIndex must be a non-negative integer"), nullptr);
+      return true;
+    } else if (LowerSub == TEXT("remove_instance")) {
+      bChanged = Instanced->RemoveInstance(InstanceIndex);
+    } else {
+      const FTransform Transform(
+          ExtractRotatorField(Payload, TEXT("rotation"), FRotator::ZeroRotator).Quaternion(),
+          ExtractVectorField(Payload, TEXT("location"), FVector::ZeroVector),
+          ExtractVectorField(Payload, TEXT("scale"), FVector::OneVector));
+      bool bMarkRenderStateDirty = true;
+      bool bTeleport = true;
+      Payload->TryGetBoolField(TEXT("markRenderStateDirty"), bMarkRenderStateDirty);
+      Payload->TryGetBoolField(TEXT("teleport"), bTeleport);
+      bChanged = Instanced->UpdateInstanceTransform(InstanceIndex, Transform, bWorldSpace, bMarkRenderStateDirty, bTeleport);
+    }
+    if (!bChanged) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INSTANCE_OPERATION_FAILED"), TEXT("The instanced mesh operation failed"), nullptr);
+      return true;
+    }
+    Found->Modify();
+    Instanced->MarkRenderStateDirty();
+    Found->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Response->SetStringField(TEXT("componentName"), Instanced->GetName());
+    Response->SetNumberField(TEXT("instanceIndex"), InstanceIndex);
+    Response->SetStringField(TEXT("operation"), LowerSub);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Instanced mesh operation completed"), Response, FString());
+    return true;
   }
   if (LowerSub == TEXT("create_instanced_static_mesh_component") ||
       LowerSub == TEXT("create_hierarchical_instanced_static_mesh")) {

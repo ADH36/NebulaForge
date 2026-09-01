@@ -43,6 +43,9 @@ public:
 				TEXT("add_component"),
 				TEXT("create_instanced_static_mesh_component"),
 				TEXT("create_hierarchical_instanced_static_mesh"),
+				TEXT("add_instance"),
+				TEXT("remove_instance"),
+				TEXT("update_instance_transform"),
 				TEXT("create_media_sound_component"),
 				TEXT("configure_camera_settings"),
 				TEXT("configure_camera_rig_rail"),
@@ -139,6 +142,10 @@ public:
 			})
 			.String(TEXT("componentType"), TEXT(""))
 			.String(TEXT("componentName"), TEXT("Name of the component."))
+			.Integer(TEXT("instanceIndex"), TEXT("Instance index."))
+			.Bool(TEXT("worldSpace"), TEXT("Interpret the instance transform in world space."))
+			.Bool(TEXT("markRenderStateDirty"), TEXT("Update rendering immediately."))
+			.Bool(TEXT("teleport"), TEXT("Teleport the instance when updating its transform."))
 			.String(TEXT("mediaPlayerPath"), TEXT("UMediaPlayer asset path for media audio output."))
 			.Number(TEXT("focalLength"), TEXT("Cine camera focal length in millimeters."))
 			.Number(TEXT("aperture"), TEXT("Cine camera f-stop."))

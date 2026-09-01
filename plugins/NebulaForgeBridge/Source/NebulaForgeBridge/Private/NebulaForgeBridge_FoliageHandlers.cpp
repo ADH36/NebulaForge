@@ -305,7 +305,12 @@ bool UNebulaForgeBridgeSubsystem::HandlePaintFoliage(
             AutoFT->SetStaticMesh(StaticMesh);
             AutoFT->Density = 100.0f;
             AutoFT->ReapplyDensity = true;
-            McpSafeAssetSave(AutoFT);
+            if (!McpSafeAssetSave(AutoFT))
+            {
+                SendAutomationError(RequestingSocket, RequestId,
+                                    TEXT("Auto-created foliage type could not be saved."), TEXT("SAVE_FAILED"));
+                return true;
+            }
             FoliageType = AutoFT;
 			FoliageTypePath = AutoFT->GetPathName();
           }
@@ -837,7 +842,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAddFoliageType(
   }
   FoliageType->ReapplyDensity = true;
 
-  McpSafeAssetSave(FoliageType);
+  if (!McpSafeAssetSave(FoliageType))
+  {
+    SendAutomationError(RequestingSocket, RequestId,
+                        TEXT("Foliage type configuration changed but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
 
   TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
   Resp->SetBoolField(TEXT("success"), true);
@@ -1066,7 +1076,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAddFoliageInstances(
         AutoFT->SetStaticMesh(StaticMesh);
         AutoFT->Density = 100.0f;
         AutoFT->ReapplyDensity = true;
-        McpSafeAssetSave(AutoFT);
+        if (!McpSafeAssetSave(AutoFT))
+        {
+          SendAutomationError(RequestingSocket, RequestId,
+                              TEXT("Auto-created foliage type could not be saved."), TEXT("SAVE_FAILED"));
+          return true;
+        }
         FoliageType = AutoFT;
 				FoliageTypePath = AutoFT->GetPathName();
       }
@@ -1288,7 +1303,12 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateProceduralFoliage(
                   FoliageTypesProp->ContainerPtrToValuePtr<void>(Spawner));
               int32 Index = Helper.AddValue();
               void* RawData = Helper.GetRawPtr(Index);
-              McpSafeAssetSave(FT);
+              if (!McpSafeAssetSave(FT))
+              {
+                SendAutomationError(RequestingSocket, RequestId,
+                                    TEXT("Procedural foliage type could not be saved."), TEXT("SAVE_FAILED"));
+                return true;
+              }
               UScriptStruct *Struct = FFoliageTypeObject::StaticStruct();
 
               FObjectProperty *ObjProp = FindFProperty<FObjectProperty>(
@@ -1323,7 +1343,12 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateProceduralFoliage(
                         TEXT("Failed to spawn volume"), TEXT("SPAWN_FAILED"));
     return true;
   }
-  McpSafeAssetSave(Spawner);
+  if (!McpSafeAssetSave(Spawner))
+  {
+    SendAutomationError(RequestingSocket, RequestId,
+                        TEXT("Procedural foliage spawner could not be saved."), TEXT("SAVE_FAILED"));
+    return true;
+  }
   // AProceduralFoliageVolume uses ABrush with default extent of 100 units (half-size)
   // Scale = desired_size / (default_brush_extent * 2) = desired_size / 200
   // For a 1000x1000x1000 volume with Size=(1000,1000,1000), scale = 5.0

@@ -512,6 +512,36 @@ static bool HandlePaperTileSetTileUVAction(
   return true;
 }
 
+static bool HandlePaperTileSetTileXYAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  double TextureU = 0.0;
+  double TextureV = 0.0;
+  bool bRoundUp = false;
+  Payload->TryGetBoolField(TEXT("roundUp"), bRoundUp);
+  const bool bValidCoordinates = Payload->TryGetNumberField(TEXT("textureU"), TextureU) &&
+      Payload->TryGetNumberField(TEXT("textureV"), TextureV) && FMath::IsFinite(TextureU) && FMath::IsFinite(TextureV);
+  if (!TileSet || !bValidCoordinates) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileSet and textureU/textureV must be finite numbers"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const FIntPoint TileXY = TileSet->GetTileXYFromTextureUV(FVector2D(TextureU, TextureV), bRoundUp);
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileSet->GetPathName());
+  Result->SetNumberField(TEXT("textureU"), TextureU);
+  Result->SetNumberField(TEXT("textureV"), TextureV);
+  Result->SetBoolField(TEXT("roundUp"), bRoundUp);
+  Result->SetNumberField(TEXT("tileX"), TileXY.X);
+  Result->SetNumberField(TEXT("tileY"), TileXY.Y);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-set tile coordinates read"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileSetConfigureAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1385,6 +1415,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("configure_tile_set_tile_metadata")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileSetTileMetadataAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("get_tile_set_tile_xy")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileSetTileXYAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

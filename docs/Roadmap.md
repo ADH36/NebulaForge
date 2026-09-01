@@ -1325,9 +1325,11 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `configure_output_settings`
 - [ ] `add_render_pass` (beauty, depth, normal, motion_vector, object_id, custom_stencil)
 - [ ] `configure_anti_aliasing` (spatial, temporal)
-- [ ] `configure_console_variables`
+- [x] `configure_console_variables` (validated batch updates via UE `IConsoleManager`/`IConsoleVariable`)
 - [ ] `configure_burn_ins`
 - [ ] `queue_render`, `start_render`
+
+**Implemented gap:** `system_control.configure_console_variables` now performs validated batch CVar updates through UE's `IConsoleManager`/`IConsoleVariable` API and returns per-variable results.
 
 ### 30.3 Media Framework
 - [ ] `create_media_player`

@@ -12,6 +12,7 @@
 #include "Misc/Guid.h"
 #include "Misc/AutomationTest.h"
 #include "HAL/FileManager.h"
+#include "HAL/IConsoleManager.h"
 #include "Misc/Paths.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
@@ -1431,6 +1432,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("validate_blueprints") &&
       Lower != TEXT("start_memory_report") &&
       Lower != TEXT("configure_stat_commands") &&
+      Lower != TEXT("configure_console_variables") &&
       Lower != TEXT("check_for_errors") &&
       Lower != TEXT("capture_insights_trace") &&
       Lower != TEXT("start_network_profiler") &&
@@ -2047,6 +2049,62 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     SendAutomationResponse(RequestingSocket, RequestId, Rejected.IsEmpty() && !Applied.IsEmpty(),
         Rejected.IsEmpty() ? TEXT("Stat commands configured") : TEXT("One or more stat commands were rejected"), Result,
         Rejected.IsEmpty() ? FString() : TEXT("STAT_CONFIGURATION_FAILED"));
+    return true;
+  }
+
+  if (Lower == TEXT("configure_console_variables")) {
+    const TArray<TSharedPtr<FJsonValue>>* VariableValues = nullptr;
+    if (!Payload->TryGetArrayField(TEXT("consoleVariables"), VariableValues) ||
+        !VariableValues || VariableValues->IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("configure_console_variables requires a non-empty consoleVariables array"),
+                          TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TArray<TSharedPtr<FJsonValue>> Applied;
+    TArray<TSharedPtr<FJsonValue>> Rejected;
+    for (const TSharedPtr<FJsonValue>& Value : *VariableValues) {
+      const TSharedPtr<FJsonObject>* Entry = nullptr;
+      if (!Value.IsValid() || !Value->TryGetObject(Entry) || !Entry || !Entry->IsValid()) {
+        Rejected.Add(MakeShared<FJsonValueString>(TEXT("<invalid>")));
+        continue;
+      }
+      FString Name;
+      FString NewValue;
+      (*Entry)->TryGetStringField(TEXT("name"), Name);
+      (*Entry)->TryGetStringField(TEXT("value"), NewValue);
+      Name.TrimStartAndEndInline();
+      NewValue.TrimStartAndEndInline();
+      bool bSafeName = !Name.IsEmpty() && Name.Len() <= 128;
+      for (const TCHAR Character : Name) {
+        bSafeName = bSafeName && (FChar::IsAlnum(Character) || Character == TEXT('.') ||
+                                  Character == TEXT('_') || Character == TEXT('-'));
+      }
+      if (!bSafeName || NewValue.Len() > 1024 || NewValue.Contains(TEXT("\n")) || NewValue.Contains(TEXT("\r"))) {
+        Rejected.Add(MakeShared<FJsonValueString>(Name.IsEmpty() ? TEXT("<invalid>") : Name));
+        continue;
+      }
+      IConsoleVariable* Variable = IConsoleManager::Get().FindConsoleVariable(*Name);
+      if (!Variable) {
+        Rejected.Add(MakeShared<FJsonValueString>(Name));
+        continue;
+      }
+      Variable->Set(*NewValue, ECVF_SetByCode);
+      TSharedPtr<FJsonObject> AppliedEntry = McpHandlerUtils::CreateResultObject();
+      AppliedEntry->SetStringField(TEXT("name"), Name);
+      AppliedEntry->SetStringField(TEXT("value"), Variable->GetString());
+      Applied.Add(MakeShared<FJsonValueObject>(AppliedEntry));
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetArrayField(TEXT("applied"), Applied);
+    Result->SetArrayField(TEXT("rejected"), Rejected);
+    Result->SetNumberField(TEXT("appliedCount"), Applied.Num());
+    Result->SetNumberField(TEXT("rejectedCount"), Rejected.Num());
+    const bool bSuccess = Rejected.IsEmpty() && !Applied.IsEmpty();
+    Result->SetBoolField(TEXT("success"), bSuccess);
+    SendAutomationResponse(RequestingSocket, RequestId, bSuccess,
+                            bSuccess ? TEXT("Console variables configured") : TEXT("One or more console variables were rejected"),
+                            Result, bSuccess ? FString() : TEXT("CVAR_CONFIGURATION_FAILED"));
     return true;
   }
 

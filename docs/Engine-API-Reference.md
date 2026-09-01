@@ -4,6 +4,15 @@ This document provides key engine API information to guide implementation of the
 
 Paths below use `<UE_ROOT>` as the Unreal Engine installation root, for example `/data/UnrealEngine` or `C:/Program Files/Epic Games/UE_5.6`.
 
+## Verified UE 5 API additions
+
+The profiling and runtime configuration work uses Epic's official UE 5 API contracts:
+
+- [`FTraceAuxiliary`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/FTraceAuxiliary) and [`FTraceAuxiliary::Start`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/ProfilingDebugging/FTraceAuxiliary/Start) provide trace session state and file/network capture.
+- [`IConsoleManager`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/IConsoleManager) and [`IConsoleVariable::Set`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/HAL/IConsoleVariable/Set/1) provide direct CVar lookup and string-backed updates.
+
+NebulaForge exposes the second path through `system_control.configure_console_variables`, accepting `{ name, value }` entries and returning per-variable applied/rejected results.
+
 ---
 
 ## Phase 6: Geometry & Mesh Creation

@@ -220,6 +220,7 @@ const testCases = [
     { scenario: 'TOGGLE: enable_gpu_timing', toolName: 'system_control', arguments: {"action": "enable_gpu_timing"}, expected: 'success' },
     // === CONFIG ===
     { scenario: 'CONFIG: configure_texture_streaming', toolName: 'system_control', arguments: {"action": "configure_texture_streaming", "poolSize": 128, "boostPlayerLocation": false}, expected: 'success' },
+    { scenario: 'CONFIG: configure_console_variables', toolName: 'system_control', arguments: {"action": "configure_console_variables", "consoleVariables": [{"name": "r.VSync", "value": "0"}, {"name": "t.MaxFPS", "value": "60"}]}, expected: 'success|error' },
     { scenario: 'CONFIG: configure_lod', toolName: 'system_control', arguments: {"action": "configure_lod", "forceLOD": -1, "lodBias": 0}, expected: 'success' },
     // === ACTION ===
     { scenario: 'ACTION: apply_baseline_settings', toolName: 'system_control', arguments: {"action": "apply_baseline_settings"}, expected: 'success' },

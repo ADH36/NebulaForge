@@ -1126,6 +1126,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             ParameterType.Equals(TEXT("IntArray"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Int32Array"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("ArrayInt32"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) ||
@@ -1141,14 +1142,20 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               Values.Add(static_cast<float>(Entry->AsNumber()));
             }
             if (bValidArray) { UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(NiComp, ParamName, Values); bApplied = true; }
-          } else if (bValidArray && ParameterType.Contains(TEXT("Int"), ESearchCase::IgnoreCase)) {
+          } else if (bValidArray && (ParameterType.Contains(TEXT("Int"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase))) {
             TArray<int32> Values;
             for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
               const double Number = Entry.IsValid() && Entry->Type == EJson::Number ? Entry->AsNumber() : 0.0;
-              if (!Entry.IsValid() || Entry->Type != EJson::Number || !FMath::IsFinite(Number) || !FMath::IsNearlyEqual(Number, FMath::RoundToDouble(Number)) || Number < MIN_int32 || Number > MAX_int32) { bValidArray = false; break; }
+              const double Minimum = ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase) ? 0.0 : static_cast<double>(MIN_int32);
+              const double Maximum = ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase) ? 255.0 : static_cast<double>(MAX_int32);
+              if (!Entry.IsValid() || Entry->Type != EJson::Number || !FMath::IsFinite(Number) || !FMath::IsNearlyEqual(Number, FMath::RoundToDouble(Number)) || Number < Minimum || Number > Maximum) { bValidArray = false; break; }
               Values.Add(static_cast<int32>(Number));
             }
-            if (bValidArray) { UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayInt32(NiComp, ParamName, Values); bApplied = true; }
+            if (bValidArray) {
+              if (ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase)) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayUInt8(NiComp, ParamName, Values);
+              else UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayInt32(NiComp, ParamName, Values);
+              bApplied = true;
+            }
           } else if (bValidArray && ParameterType.Equals(TEXT("ColorArray"), ESearchCase::IgnoreCase)) {
             TArray<FLinearColor> Colors;
             for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
@@ -1619,6 +1626,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("IntArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Int32Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("ArrayInt32"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) &&

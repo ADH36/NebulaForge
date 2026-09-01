@@ -2202,7 +2202,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_variant_thumbnail` (official `Variant.set_thumbnail_from_file` or `set_thumbnail_from_editor_viewport`; file inputs are project-confined)
 - [x] `activate_variant` (official `Variant.switch_on()` activation by named Level Variant Set and Variant)
 - [x] `get_active_variants` (official `Variant.is_active()` status readback across all sets and variants)
-- [ ] `export_variant_configuration`
+- [x] `export_variant_configuration` (official Variant Manager readback exported as project-confined JSON metadata, including sets, variants, active state, actor bindings, and captured-property display/type information)
 
 ---
 

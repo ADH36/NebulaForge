@@ -1478,6 +1478,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("get_active_variants") &&
       Lower != TEXT("capture_variant_thumbnail") &&
       Lower != TEXT("set_variant_thumbnail") &&
+      Lower != TEXT("export_variant_configuration") &&
       Lower != TEXT("add_geometry_to_collection") &&
       Lower != TEXT("remove_geometry_from_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
@@ -3277,6 +3278,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("get_active_variants") ||
              Lower == TEXT("capture_variant_thumbnail") ||
              Lower == TEXT("set_variant_thumbnail") ||
+             Lower == TEXT("export_variant_configuration") ||
              Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("inspect_geometry_collection") ||
@@ -3752,6 +3754,54 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
           "print(_variant.get_display_text().to_string())\n"),
           *PythonAssetPath, *VariantSetName, *VariantName, *ThumbnailSource, *AbsoluteThumbnailPath);
+    }
+
+    if (Lower == TEXT("export_variant_configuration")) {
+      FString AssetPath;
+      FString ExportPath;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      Payload->TryGetStringField(TEXT("variantExportPath"), ExportPath);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      const FString SafeExportPath = SanitizeProjectFilePath(ExportPath);
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase) ||
+          SafeExportPath.IsEmpty() || !SafeExportPath.EndsWith(TEXT(".json"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("export_variant_configuration requires a /Game asset path and project-confined .json variantExportPath"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString PythonAssetPath = SafeAssetPath;
+      FString AbsoluteExportPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / SafeExportPath);
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      AbsoluteExportPath.ReplaceInline(TEXT("\\"), TEXT("/"));
+      AbsoluteExportPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import json\n"
+          "import os\n"
+          "import unreal\n"
+          "_lvs = unreal.EditorAssetLibrary.load_asset('%s')\n"
+          "if not _lvs:\n"
+          "    raise RuntimeError('Level Variant Sets asset not found')\n"
+          "_export = {'assetPath': _lvs.get_path_name(), 'variantSets': []}\n"
+          "for _set_index in range(_lvs.get_num_variant_sets()):\n"
+          "    _set = _lvs.get_variant_set(_set_index)\n"
+          "    _set_data = {'name': _set.get_display_text().to_string(), 'variants': []}\n"
+          "    for _variant_index in range(_set.get_num_variants()):\n"
+          "        _variant = _set.get_variant(_variant_index)\n"
+          "        _variant_data = {'name': _variant.get_display_text().to_string(), 'active': _variant.is_active(), 'actors': [], 'dependencies': _variant.get_num_dependencies()}\n"
+          "        for _actor_index in range(_variant.get_num_actors()):\n"
+          "            _actor = _variant.get_actor(_actor_index)\n"
+          "            _properties = []\n"
+          "            for _prop in _variant.get_captured_properties(_actor):\n"
+          "                _properties.append({'type': _prop.get_property_type_string(), 'display': _prop.get_full_display_string()})\n"
+          "            _variant_data['actors'].append({'name': _actor.get_actor_label(), 'properties': _properties})\n"
+          "        _set_data['variants'].append(_variant_data)\n"
+          "    _export['variantSets'].append(_set_data)\n"
+          "os.makedirs(os.path.dirname('%s'), exist_ok=True)\n"
+          "with open('%s', 'w', encoding='utf-8') as _file:\n"
+          "    json.dump(_export, _file, indent=2, sort_keys=True)\n"
+          "print('%s')\n"),
+          *PythonAssetPath, *AbsoluteExportPath, *AbsoluteExportPath, *AbsoluteExportPath);
     }
 
     if (Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection")) {

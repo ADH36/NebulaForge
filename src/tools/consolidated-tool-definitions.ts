@@ -352,6 +352,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         collisionDomain: { type: 'string', enum: ['none', '2d', '3d'], description: 'PaperTileMap collision domain.' },
         collisionThickness: commonSchemas.numberProp,
         tileIndex: { type: 'integer', minimum: 0, description: 'Packed tile index within the PaperTileSet.' },
+        flags: { type: 'integer', minimum: 0, maximum: 7, description: 'Packed PaperTileInfo transform flags (0-7).'
+        },
         layerIndex: { type: 'integer', minimum: 0, description: 'PaperTileMap layer index.' },
         tileX: { type: 'integer', minimum: 0, description: 'PaperTileSet tile coordinate X.' },
         tileY: { type: 'integer', minimum: 0, description: 'PaperTileSet tile coordinate Y.' },

@@ -1094,9 +1094,11 @@ static bool HandlePaperTileMapSetCellAction(
   int32 X = 0;
   int32 Y = 0;
   int32 TileIndex = 0;
+  int32 Flags = 0;
   if (!TileMap || !TileSet || !Payload->TryGetNumberField(TEXT("layerIndex"), LayerIndex) ||
       !Payload->TryGetNumberField(TEXT("x"), X) || !Payload->TryGetNumberField(TEXT("y"), Y) ||
       !Payload->TryGetNumberField(TEXT("tileIndex"), TileIndex) || LayerIndex < 0 || LayerIndex >= TileMap->TileLayers.Num() ||
+      (Payload->HasField(TEXT("flags")) && (!Payload->TryGetNumberField(TEXT("flags"), Flags) || Flags < 0 || Flags > 7)) ||
       TileIndex < 0 || TileIndex >= TileSet->GetTileCount() || !TileMap->TileLayers[LayerIndex].Get() ||
       !TileMap->TileLayers[LayerIndex]->InBounds(X, Y)) {
     Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath/tileSetPath, layerIndex, x/y, and tileIndex must identify an in-bounds tile-map cell and valid PaperTileSet tile"), TEXT("INVALID_ARGUMENT"));
@@ -1105,6 +1107,7 @@ static bool HandlePaperTileMapSetCellAction(
   FPaperTileInfo TileInfo;
   TileInfo.TileSet = TileSet;
   TileInfo.PackedTileIndex = TileIndex;
+  TileInfo.SetFlagsAsIndex(static_cast<uint8>(Flags));
   TileMap->Modify();
   TileMap->TileLayers[LayerIndex]->Modify();
   TileMap->TileLayers[LayerIndex]->SetCell(X, Y, TileInfo);
@@ -1123,6 +1126,7 @@ static bool HandlePaperTileMapSetCellAction(
   Result->SetNumberField(TEXT("x"), X);
   Result->SetNumberField(TEXT("y"), Y);
   Result->SetNumberField(TEXT("tileIndex"), TileIndex);
+  Result->SetNumberField(TEXT("flags"), Flags);
   Result->SetBoolField(TEXT("rebuiltCollision"), bRebuildCollision);
   Result->SetBoolField(TEXT("saved"), bSave);
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map cell set"), Result, FString());
@@ -1177,10 +1181,12 @@ static bool HandlePaperTileMapFillRegionAction(
   int32 Width = 0;
   int32 Height = 0;
   int32 TileIndex = 0;
+  int32 Flags = 0;
   if (!TileMap || !TileSet || !Payload->TryGetNumberField(TEXT("layerIndex"), LayerIndex) ||
       !Payload->TryGetNumberField(TEXT("x"), X) || !Payload->TryGetNumberField(TEXT("y"), Y) ||
       !Payload->TryGetNumberField(TEXT("width"), Width) || !Payload->TryGetNumberField(TEXT("height"), Height) ||
       !Payload->TryGetNumberField(TEXT("tileIndex"), TileIndex) || LayerIndex < 0 || LayerIndex >= TileMap->TileLayers.Num() ||
+      (Payload->HasField(TEXT("flags")) && (!Payload->TryGetNumberField(TEXT("flags"), Flags) || Flags < 0 || Flags > 7)) ||
       Width < 1 || Width > 1024 || Height < 1 || Height > 1024 || TileIndex < 0 || TileIndex >= TileSet->GetTileCount() ||
       X < 0 || Y < 0 || X + Width > TileMap->MapWidth || Y + Height > TileMap->MapHeight || !TileMap->TileLayers[LayerIndex].Get()) {
     Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath/tileSetPath, in-bounds positive region, layerIndex, and tileIndex are required"), TEXT("INVALID_ARGUMENT"));
@@ -1190,6 +1196,7 @@ static bool HandlePaperTileMapFillRegionAction(
   FPaperTileInfo TileInfo;
   TileInfo.TileSet = TileSet;
   TileInfo.PackedTileIndex = TileIndex;
+  TileInfo.SetFlagsAsIndex(static_cast<uint8>(Flags));
   TileMap->Modify();
   Layer->Modify();
   for (int32 CellY = Y; CellY < Y + Height; ++CellY)
@@ -1212,6 +1219,7 @@ static bool HandlePaperTileMapFillRegionAction(
   Result->SetNumberField(TEXT("width"), Width);
   Result->SetNumberField(TEXT("height"), Height);
   Result->SetNumberField(TEXT("tileIndex"), TileIndex);
+  Result->SetNumberField(TEXT("flags"), Flags);
   Result->SetNumberField(TEXT("cellsWritten"), Width * Height);
   Result->SetBoolField(TEXT("rebuiltCollision"), bRebuildCollision);
   Result->SetBoolField(TEXT("saved"), bSave);

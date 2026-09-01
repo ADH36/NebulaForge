@@ -69,7 +69,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("create_render_target"), TEXT("create_data_asset"), TEXT("create_primary_data_asset"),
 		TEXT("get_data_asset_properties"), TEXT("set_data_asset_properties"),
 		TEXT("list_primary_assets"), TEXT("get_primary_asset"),
-		TEXT("create_media_player"), TEXT("create_media_source"), TEXT("create_media_texture"), TEXT("create_media_playlist"),
+		TEXT("create_media_player"), TEXT("create_media_source"), TEXT("create_media_texture"), TEXT("create_media_playlist"), TEXT("create_sprite"),
 		TEXT("create_data_table"), TEXT("create_tag_table"), TEXT("add_data_table_row"), TEXT("modify_data_table_row"), TEXT("delete_data_table_row"), TEXT("get_data_table_rows"), TEXT("import_data_table_csv"), TEXT("export_data_table_csv"),
 		TEXT("create_curve_table"), TEXT("create_curve_float"), TEXT("create_curve_linear_color"), TEXT("replace_curve_keys"), TEXT("add_curve_table_row"), TEXT("get_curve_table_rows"),
 		TEXT("import_curve_table_csv"), TEXT("export_curve_table_csv"), TEXT("generate_lods"),

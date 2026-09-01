@@ -119,6 +119,13 @@
 #else
 #define MCP_HAS_MEDIA_ASSETS 0
 #endif
+#if __has_include("PaperSpriteFactory.h") && __has_include("PaperSprite.h")
+#include "PaperSpriteFactory.h"
+#include "PaperSprite.h"
+#define MCP_HAS_PAPER2D_EDITOR 1
+#else
+#define MCP_HAS_PAPER2D_EDITOR 0
+#endif
 #if __has_include("ContentBrowserModule.h")
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
@@ -351,6 +358,59 @@ static void FinalizeHost(UMaterial* Material, UMaterialFunction* Function) {
 // =============================================================================
 // ASSET ACTION DISPATCHER
 // =============================================================================
+
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+static bool HandlePaperSpriteAssetAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  FString Name;
+  FString PackagePath;
+  FString TexturePath;
+  Payload->TryGetStringField(TEXT("name"), Name);
+  Payload->TryGetStringField(TEXT("path"), PackagePath);
+  Payload->TryGetStringField(TEXT("texturePath"), TexturePath);
+  Name = SanitizeAssetName(Name);
+  PackagePath = SanitizeProjectRelativePath(PackagePath);
+  TexturePath = SanitizeProjectRelativePath(TexturePath);
+  if (Name.IsEmpty() || PackagePath.IsEmpty() || TexturePath.IsEmpty()) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("name, path, and texturePath are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const FString AssetPackagePath = PackagePath + TEXT("/") + Name;
+  if (UEditorAssetLibrary::DoesAssetExist(AssetPackagePath)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper sprite asset already exists"), TEXT("ASSET_EXISTS"));
+    return true;
+  }
+  UTexture2D* Texture = Cast<UTexture2D>(UEditorAssetLibrary::LoadAsset(TexturePath));
+  if (!Texture) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("texturePath must resolve to a UTexture2D"), TEXT("TEXTURE_NOT_FOUND"));
+    return true;
+  }
+  UPaperSpriteFactory* Factory = NewObject<UPaperSpriteFactory>();
+  Factory->InitialTexture = Texture;
+  UObject* NewAsset = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get().CreateAsset(
+      Name, PackagePath, UPaperSprite::StaticClass(), Factory);
+  if (!NewAsset) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Unable to create Paper sprite asset"), TEXT("CREATE_FAILED"));
+    return true;
+  }
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(NewAsset)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper sprite created but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), NewAsset->GetPathName());
+  Result->SetStringField(TEXT("texturePath"), Texture->GetPathName());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite asset created"), Result, FString());
+  return true;
+}
+#endif
 
 #if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS
 static bool HandleMediaAssetAction(
@@ -599,6 +659,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     Result->SetBoolField(TEXT("loaded"), AssetManager.GetPrimaryAssetObject(Id) != nullptr);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Primary Asset inspected"), Result, FString());
     return true;
+  }
+  if (Lower == TEXT("create_sprite")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperSpriteAssetAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
   }
   if (Lower == TEXT("create_media_player") ||
       Lower == TEXT("create_media_source") ||

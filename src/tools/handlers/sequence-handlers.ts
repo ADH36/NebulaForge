@@ -287,6 +287,13 @@ export async function handleSequenceTools(action: string, args: Record<string, u
         ...args, path, actorName, parameterName, frame, value, rowIndex, subAction: 'add_niagara_float_parameter_key'
       }) as SequenceActionResponse);
     }
+    case 'inspect_niagara_parameter_track': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const actorName = requireNonEmptyString(args.actorName, 'actorName', 'Missing required parameter: actorName');
+      return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args, path, actorName, subAction: 'inspect_niagara_parameter_track'
+      }) as SequenceActionResponse);
+    }
     case 'add_shot_track':
     case 'configure_shot_settings':
     case 'add_camera_cut_track':

@@ -153,6 +153,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_sequence', arguments: { action: 'add_niagara_system_track', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', startFrame: 0, endFrame: 60 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'create_niagara_float_parameter_track', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', parameterName: 'User.Rate' }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'add_niagara_float_parameter_key', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', parameterName: 'User.Rate', frame: 0, value: 1, rowIndex: 0 }, expected: 'success|error' },
+  { toolName: 'manage_sequence', arguments: { action: 'inspect_niagara_parameter_track', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'start_demo_recording', filename: 'ContractDemoAlias' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'stop_demo_recording' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'inspect_asset_capabilities', assetPath: '/Game/MCPTest/ContractDataAsset' }, expected: 'success|error' },

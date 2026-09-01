@@ -345,6 +345,23 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       }
       return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
     }
+    case 'configure_windows_build':
+    case 'configure_linux_build':
+    case 'configure_mac_build': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.key !== 'string' || typeof record.value !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'key and string value are required' };
+      }
+      const platformDefaults: Record<string, { configName: string; section: string }> = {
+        configure_windows_build: { configName: 'DefaultEngine.ini', section: '/Script/WindowsTargetPlatform.WindowsTargetSettings' },
+        configure_linux_build: { configName: 'DefaultEngine.ini', section: '/Script/LinuxTargetPlatform.LinuxTargetSettings' },
+        configure_mac_build: { configName: 'DefaultEngine.ini', section: '/Script/MacTargetPlatform.MacTargetSettings' }
+      };
+      const defaults = platformDefaults[action];
+      const configName = typeof record.configName === 'string' && record.configName.trim() ? record.configName : defaults.configName;
+      const section = typeof record.section === 'string' && record.section.trim() ? record.section : defaults.section;
+      return setConfigValue(argsTyped.projectPath, configName, section, record.key, record.value, record.backup !== false);
+    }
     case 'configure_test_settings': {
       const record = argsTyped as Record<string, unknown>;
       if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {

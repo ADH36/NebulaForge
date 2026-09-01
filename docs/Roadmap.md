@@ -1425,9 +1425,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 `run_ubt` validates target, platform, configuration, and bounded extra arguments before launching the discovered UnrealBuildTool executable through the managed job lifecycle.
 
 ### 32.2 Platform Builds
-- [ ] `configure_windows_build`
-- [ ] `configure_linux_build`
-- [ ] `configure_mac_build`
+- [x] `configure_windows_build`, `configure_linux_build`, `configure_mac_build` (safe platform target-settings INI authoring)
 - [ ] `configure_ios_build`, `configure_ios_signing` (provisioning profile, bundle ID)
 - [ ] `configure_android_build`, `configure_android_signing` (keystore, package name)
 

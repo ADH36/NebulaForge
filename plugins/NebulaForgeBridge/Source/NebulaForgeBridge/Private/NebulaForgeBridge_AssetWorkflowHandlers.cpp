@@ -1227,6 +1227,43 @@ static bool HandlePaperTileMapFillRegionAction(
   return true;
 }
 
+static bool HandlePaperTileMapGeometryAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  int32 LayerIndex = 0;
+  int32 TileX = 0;
+  int32 TileY = 0;
+  if (!TileMap || !Payload->TryGetNumberField(TEXT("layerIndex"), LayerIndex) ||
+      !Payload->TryGetNumberField(TEXT("tileX"), TileX) || !Payload->TryGetNumberField(TEXT("tileY"), TileY) ||
+      LayerIndex < 0 || LayerIndex >= TileMap->TileLayers.Num() || !TileMap->TileLayers[LayerIndex].Get() ||
+      !TileMap->TileLayers[LayerIndex]->InBounds(TileX, TileY)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath, layerIndex, and tileX/tileY must identify an in-bounds tile-map cell"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const FVector Position = TileMap->GetTilePositionInLocalSpace(static_cast<float>(TileX), static_cast<float>(TileY), LayerIndex);
+  const FVector Center = TileMap->GetTileCenterInLocalSpace(static_cast<float>(TileX), static_cast<float>(TileY), LayerIndex);
+  TArray<FVector> Polygon;
+  TileMap->GetTilePolygon(TileX, TileY, LayerIndex, Polygon);
+  TArray<TSharedPtr<FJsonValue>> Points;
+  for (const FVector& Point : Polygon)
+    Points.Add(MakeShared<FJsonValueObject>(McpHandlerUtils::VectorToJson(Point)));
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetNumberField(TEXT("layerIndex"), LayerIndex);
+  Result->SetNumberField(TEXT("tileX"), TileX);
+  Result->SetNumberField(TEXT("tileY"), TileY);
+  Result->SetObjectField(TEXT("tilePosition"), McpHandlerUtils::VectorToJson(Position));
+  Result->SetObjectField(TEXT("tileCenter"), McpHandlerUtils::VectorToJson(Center));
+  Result->SetArrayField(TEXT("polygon"), Points);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map tile geometry read"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileMapResizeAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1970,6 +2007,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("fill_tile_map_region")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileMapFillRegionAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("get_tile_map_tile_geometry")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapGeometryAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

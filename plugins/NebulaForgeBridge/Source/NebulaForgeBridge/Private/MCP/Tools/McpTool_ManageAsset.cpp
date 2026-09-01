@@ -202,6 +202,8 @@ public:
 			.StringEnum(TEXT("collisionDomain"), { TEXT("none"), TEXT("2d"), TEXT("3d") }, TEXT("PaperTileMap collision domain."))
 			.Number(TEXT("collisionThickness"), TEXT("PaperTileMap collision extrusion thickness."))
 			.Number(TEXT("layerIndex"), TEXT("PaperTileMap layer index."))
+			.Number(TEXT("tileX"), TEXT("PaperTileMap cell X coordinate for geometry readback."))
+			.Number(TEXT("tileY"), TEXT("PaperTileMap cell Y coordinate for geometry readback."))
 			.Number(TEXT("flags"), TEXT("Packed PaperTileInfo transform flags (0-7)."))
 			.String(TEXT("expressionClass"), TEXT(""))
 			.Number(TEXT("coordinateIndex"), TEXT(""))

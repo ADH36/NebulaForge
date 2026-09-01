@@ -56,7 +56,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("delete"), TEXT("delete_asset"), TEXT("delete_assets"),
 		TEXT("create_folder"), TEXT("search_assets"), TEXT("get_dependencies"),
 		TEXT("get_source_control_state"), TEXT("analyze_graph"),
-		TEXT("get_asset_graph"), TEXT("reference_viewer"), TEXT("create_thumbnail"), TEXT("set_tags"),
+		TEXT("get_asset_graph"), TEXT("reference_viewer"), TEXT("audit_assets"), TEXT("create_thumbnail"), TEXT("set_tags"),
 		TEXT("get_metadata"), TEXT("set_metadata"), TEXT("validate"),
 		TEXT("fixup_redirectors"), TEXT("find_by_tag"), TEXT("verify_asset_persistence"), TEXT("generate_report"),
 		TEXT("inspect_asset_capabilities"),

@@ -1435,7 +1435,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 32.3 Asset Management
 - [x] `validate_assets`
-- [ ] `audit_assets`
+- [x] `audit_assets` (Asset Registry inventory with dependency/referencer counts)
 - [ ] `size_map_analysis`
 - [x] `reference_viewer` (bidirectional Asset Registry graph with configurable traversal depth)
 - [ ] `configure_chunking`

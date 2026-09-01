@@ -641,6 +641,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     }
     return HandleGetAssetGraph(RequestId, Payload, RequestingSocket);
   }
+  if (Lower == TEXT("audit_assets")) {
+    if (Payload.IsValid()) {
+      Payload->SetStringField(TEXT("reportType"), TEXT("audit"));
+    }
+    return HandleGenerateReport(RequestId, Payload, RequestingSocket);
+  }
   if (Lower == TEXT("get_asset_graph"))
     return HandleGetAssetGraph(RequestId, Payload, RequestingSocket);
   if (Lower == TEXT("set_tags"))
@@ -3753,6 +3759,9 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateReport(
     // will NOT appear. Use Content Browser "Rescan" or rescan_content_directory.
     TArray<FAssetData> AssetList;
     AssetRegistryModule.Get().GetAssets(Filter, AssetList);
+    const bool bAudit = ReportType.Equals(TEXT("audit"), ESearchCase::IgnoreCase);
+    int32 TotalDependencies = 0;
+    int32 TotalReferencers = 0;
 
     TArray<TSharedPtr<FJsonValue>> AssetsArray;
     for (const FAssetData &Asset : AssetList) {
@@ -3766,6 +3775,16 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateReport(
                                Asset.ToSoftObjectPath().ToString());
       AssetObj->SetStringField(TEXT("class"), Asset.AssetClass.ToString());
 #endif
+      if (bAudit) {
+        TArray<FName> Dependencies;
+        TArray<FName> Referencers;
+        AssetRegistryModule.Get().GetDependencies(Asset.PackageName, Dependencies);
+        AssetRegistryModule.Get().GetReferencers(Asset.PackageName, Referencers);
+        AssetObj->SetNumberField(TEXT("dependencyCount"), Dependencies.Num());
+        AssetObj->SetNumberField(TEXT("referencerCount"), Referencers.Num());
+        TotalDependencies += Dependencies.Num();
+        TotalReferencers += Referencers.Num();
+      }
       AssetsArray.Add(MakeShared<FJsonValueObject>(AssetObj));
     }
 
@@ -3814,6 +3833,11 @@ bool UNebulaForgeBridgeSubsystem::HandleGenerateReport(
     Resp->SetStringField(TEXT("reportType"), ReportType);
     Resp->SetNumberField(TEXT("assetCount"), AssetList.Num());
     Resp->SetArrayField(TEXT("assets"), AssetsArray);
+    if (bAudit) {
+      Resp->SetBoolField(TEXT("audit"), true);
+      Resp->SetNumberField(TEXT("totalDependencies"), TotalDependencies);
+      Resp->SetNumberField(TEXT("totalReferencers"), TotalReferencers);
+    }
     if (!OutputPath.IsEmpty()) {
       Resp->SetStringField(TEXT("outputPath"), OutputPath);
       Resp->SetBoolField(TEXT("fileWritten"), bFileWritten);

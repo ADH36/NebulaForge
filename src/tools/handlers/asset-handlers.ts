@@ -21,7 +21,7 @@ const VALID_ASSET_ACTIONS = new Set([
   'create_collection', 'add_to_collection', 'set_asset_color', 'show_in_explorer',
   'set_search_text',
   // Asset metadata
-  'create_thumbnail', 'set_tags', 'get_metadata', 'set_metadata', 'generate_report',
+  'create_thumbnail', 'set_tags', 'get_metadata', 'set_metadata', 'generate_report', 'audit_assets',
   'inspect_asset_capabilities',
   // Material operations
   'create_material', 'create_material_instance', 'create_render_target',
@@ -601,6 +601,21 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
           subAction: 'generate_report'
         }) as AssetOperationResponse;
         return ResponseFactory.success(res, 'Report generated successfully');
+      }
+      case 'audit_assets': {
+        const params = normalizeArgs(args, [
+          { key: 'directory' },
+          { key: 'outputPath' }
+        ]);
+        const directory = extractOptionalString(params, 'directory') ?? '';
+        const outputPath = extractOptionalString(params, 'outputPath');
+        const res = await executeAutomationRequest(tools, 'manage_asset', {
+          directory,
+          reportType: 'audit',
+          outputPath,
+          subAction: 'generate_report'
+        }) as AssetOperationResponse;
+        return ResponseFactory.success(res, 'Asset audit generated');
       }
       case 'inspect_asset_capabilities': {
         const res = await executeAutomationRequest(tools, 'manage_asset', {

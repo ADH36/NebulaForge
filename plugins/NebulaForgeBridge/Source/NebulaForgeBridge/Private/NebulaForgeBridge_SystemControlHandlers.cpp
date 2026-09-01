@@ -1467,6 +1467,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("create_python_editor_utility") &&
       Lower != TEXT("create_geometry_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
+      Lower != TEXT("inspect_geometry_collection") &&
       Lower != TEXT("register_python_command") &&
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
@@ -3086,6 +3087,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("create_python_editor_utility") || Lower == TEXT("register_python_command") ||
              Lower == TEXT("create_geometry_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
+             Lower == TEXT("inspect_geometry_collection") ||
              Lower == TEXT("unregister_python_command") ||
              Lower == TEXT("run_editor_utility") || Lower == TEXT("inspect_editor_utility")) {
     // Execute Python code with stdout/stderr capture via temp file wrapper
@@ -3284,6 +3286,34 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_asset.get_path_name())\n"
           "print(json.dumps({'assetPath': _asset.get_path_name(), 'updatedProperties': [%s]}))\n"),
           *PythonAssetPath, *Updates, *UpdatedNames);
+    }
+
+    if (Lower == TEXT("inspect_geometry_collection")) {
+      FString AssetPath;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("inspect_geometry_collection requires a valid /Game asset path"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString PythonAssetPath = SafeAssetPath;
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import json\n"
+          "import unreal\n"
+          "_asset = unreal.load_asset('%s')\n"
+          "if not _asset or not isinstance(_asset, unreal.GeometryCollection):\n"
+          "    raise RuntimeError('Geometry Collection asset was not found')\n"
+          "_result = {'assetPath': _asset.get_path_name(), 'classPath': _asset.get_class().get_path_name()}\n"
+          "for _property in ('mass', 'mass_as_density', 'enable_clustering', 'enable_nanite', 'support_ray_tracing', 'damage_threshold', 'max_cluster_level', 'remove_on_max_sleep'):\n"
+          "    try:\n"
+          "        _result[_property] = _asset.get_editor_property(_property)\n"
+          "    except Exception:\n"
+          "        _result[_property] = None\n"
+          "print(json.dumps(_result, default=str, sort_keys=True))\n"),
+          *PythonAssetPath);
     }
 
     if (Lower == TEXT("register_python_command")) {

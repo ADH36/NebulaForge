@@ -44,7 +44,7 @@ const VALID_ASSET_ACTIONS = new Set([
   // Source control
   'source_control_checkout', 'source_control_submit', 'source_control_enable', 'get_source_control_state',
   // Graph analysis
-  'analyze_graph', 'get_asset_graph', 'reference_viewer', 'configure_sprite_collision', 'inspect_sprite_sockets'
+  'analyze_graph', 'get_asset_graph', 'reference_viewer', 'configure_sprite_collision', 'inspect_sprite_sockets', 'get_sprite_socket_transform'
 ]);
 
 /**

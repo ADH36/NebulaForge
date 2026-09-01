@@ -1632,6 +1632,33 @@ static bool HandlePaperSpriteSocketsInspectAction(
   return true;
 }
 
+static bool HandlePaperSpriteSocketTransformAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString SpritePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+  FString SocketName;
+  Payload->TryGetStringField(TEXT("socketName"), SocketName);
+  if (!Sprite || SocketName.IsEmpty() || SocketName.Len() > 128) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath and a socketName of at most 128 characters are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  FPaperSpriteSocket* SocketInfo = Sprite->FindSocket(FName(*SocketName));
+  if (!SocketInfo) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("The named PaperSprite socket was not found"), TEXT("SOCKET_NOT_FOUND"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Sprite->GetPathName());
+  Result->SetStringField(TEXT("socketName"), SocketInfo->SocketName.ToString());
+  Result->SetObjectField(TEXT("transform"), McpHandlerUtils::TransformToJson(SocketInfo->LocalTransform));
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite socket transform read"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperSpritePivotAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -2213,6 +2240,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("inspect_sprite_sockets")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperSpriteSocketsInspectAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("get_sprite_socket_transform")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperSpriteSocketTransformAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

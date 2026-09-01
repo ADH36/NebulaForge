@@ -29,6 +29,7 @@ public:
 				TEXT("create_common_action_widget"),
 				TEXT("configure_navigation_rules"),
 				TEXT("set_focus_widget"),
+				TEXT("configure_back_action"),
 				TEXT("configure_analog_cursor"),
 				TEXT("set_widget_parent_class"),
 				TEXT("add_canvas_panel"),

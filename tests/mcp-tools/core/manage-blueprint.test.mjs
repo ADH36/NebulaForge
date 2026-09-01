@@ -296,6 +296,7 @@ const testCases = [
     { scenario: 'ADD: create_common_action_widget', toolName: 'manage_blueprint', arguments: widgetArgs('create_common_action_widget', { slotName: 'CommonActionWidget', parentSlot: 'HUDCanvas' }), expected: 'success|already exists|not available|NOT_AVAILABLE' },
     { scenario: 'CONFIG: configure_navigation_rules', toolName: 'manage_blueprint', arguments: widgetArgs('configure_navigation_rules', { slotName: 'HUDCanvas', direction: 'right', rule: 'wrap' }), expected: 'success' },
     { scenario: 'RUNTIME: set_focus_widget', toolName: 'manage_blueprint', arguments: { action: 'set_focus_widget', widgetName: 'HUDCanvas' }, expected: 'success|not found|WIDGET_NOT_FOUND|NO_WORLD|not implemented' },
+    { scenario: 'RUNTIME: configure_back_action', toolName: 'manage_blueprint', arguments: { action: 'configure_back_action', widgetName: 'HUDCanvas' }, expected: 'success|not found|WIDGET_NOT_FOUND|NO_WORLD|NOT_AVAILABLE|not implemented' },
     { scenario: 'CONFIG: configure_analog_cursor', toolName: 'manage_blueprint', arguments: { action: 'configure_analog_cursor', enabled: false }, expected: 'success|not available|NOT_AVAILABLE' },
     { scenario: 'CONFIG: set_widget_parent_class', toolName: 'manage_blueprint', arguments: widgetArgs('set_widget_parent_class', { parentClass: 'UserWidget' }), expected: 'success' },
 

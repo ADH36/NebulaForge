@@ -122,6 +122,11 @@ export async function handleWidgetAuthoringTools(
       return sendRequest('set_focus_widget');
     }
 
+    case 'configure_back_action': {
+      requireNonEmptyString(argsRecord.widgetName, 'widgetName', 'Missing required parameter: widgetName');
+      return sendRequest('configure_back_action');
+    }
+
     case 'configure_analog_cursor': {
       if (argsRecord.enabled !== undefined && typeof argsRecord.enabled !== 'boolean') {
         throw new Error('enabled must be a boolean when provided');

@@ -2125,7 +2125,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_common_action_widget` (adds Epic's `UCommonActionWidget` as a child in an existing widget blueprint; optional CommonUI plugin)
 - [x] `configure_navigation_rules` (official UWidget navigation rule setters with validated directions and explicit targets)
 - [x] `set_focus_widget` (live editor/PIE widget lookup with official UWidget::SetKeyboardFocus)
-- [ ] `configure_back_action`
+- [x] `configure_back_action` (dispatches Epic's UCommonActivatableWidget::HandleBackAction on a live widget)
 - [ ] `register_ui_action`, `bind_ui_action_to_input`
 
 ### 45.5 Paper2D

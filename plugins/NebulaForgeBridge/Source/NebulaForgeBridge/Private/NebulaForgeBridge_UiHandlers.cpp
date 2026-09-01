@@ -629,6 +629,61 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
     }
   }
   // ===========================================================================
+  // SubAction: configure_back_action
+  // ===========================================================================
+  else if (LowerSub == TEXT("configure_back_action")) {
+#if WITH_EDITOR && MCP_HAS_COMMON_UI
+    FString WidgetName;
+    Payload->TryGetStringField(TEXT("widgetName"), WidgetName);
+    if (WidgetName.IsEmpty()) {
+      Message = TEXT("widgetName field required for configure_back_action");
+      ErrorCode = TEXT("INVALID_ARGUMENT");
+      Resp->SetStringField(TEXT("error"), Message);
+    } else {
+      TArray<UUserWidget *> LiveWidgets;
+      if (GEditor && GEditor->GetEditorWorldContext().World()) {
+        UWidgetBlueprintLibrary::GetAllWidgetsOfClass(
+            GEditor->GetEditorWorldContext().World(), LiveWidgets,
+            UUserWidget::StaticClass(), true);
+      }
+      if (GEngine && GEngine->GameViewport && GEngine->GameViewport->GetWorld()) {
+        UWidgetBlueprintLibrary::GetAllWidgetsOfClass(
+            GEngine->GameViewport->GetWorld(), LiveWidgets,
+            UUserWidget::StaticClass(), true);
+      }
+      UCommonActivatableWidget *TargetWidget = nullptr;
+      for (UUserWidget *UserWidget : LiveWidgets) {
+        if (!UserWidget) {
+          continue;
+        }
+        if (UserWidget->GetName().Equals(WidgetName, ESearchCase::IgnoreCase)) {
+          TargetWidget = Cast<UCommonActivatableWidget>(UserWidget);
+        } else if (UWidget *Child = UserWidget->GetWidgetFromName(FName(*WidgetName))) {
+          TargetWidget = Cast<UCommonActivatableWidget>(Child);
+        }
+        if (TargetWidget) {
+          break;
+        }
+      }
+      if (!TargetWidget) {
+        Message = FString::Printf(TEXT("Live CommonUI activatable widget '%s' was not found"), *WidgetName);
+        ErrorCode = TEXT("WIDGET_NOT_FOUND");
+        Resp->SetStringField(TEXT("error"), Message);
+      } else {
+        TargetWidget->HandleBackAction();
+        bSuccess = true;
+        Message = FString::Printf(TEXT("CommonUI back action dispatched to '%s'"), *WidgetName);
+        Resp->SetStringField(TEXT("widgetName"), WidgetName);
+        Resp->SetStringField(TEXT("resolvedWidget"), TargetWidget->GetName());
+      }
+    }
+#else
+    Message = TEXT("CommonUI back action requires the optional CommonUI plugin");
+    ErrorCode = TEXT("NOT_AVAILABLE");
+    Resp->SetStringField(TEXT("error"), Message);
+#endif
+  }
+  // ===========================================================================
   // SubAction: add_widget_child
   // ===========================================================================
   else if (LowerSub == TEXT("add_widget_child")) {

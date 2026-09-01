@@ -193,6 +193,7 @@ inline const TArray<FString>& WidgetAuthoring()
 		TEXT("create_common_action_widget"),
 		TEXT("configure_navigation_rules"),
 		TEXT("set_focus_widget"),
+		TEXT("configure_back_action"),
 		TEXT("configure_analog_cursor"),
 		TEXT("add_canvas_panel"), TEXT("add_horizontal_box"),
 		TEXT("add_vertical_box"), TEXT("add_overlay"), TEXT("add_grid_panel"),

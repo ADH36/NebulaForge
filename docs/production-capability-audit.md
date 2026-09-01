@@ -212,7 +212,7 @@ AI/module and persistence readiness can be queried with `inspect_ai_capabilities
 |---|:---:|---|
 | Basic asset create/load/save/delete | ✅ | Broad editor coverage exists and is exposed through the asset workflow handler. |
 | Source-control checkout/submit | ⚠️ | Native checkout/submit/state actions are implemented; success depends on an enabled editor source-control provider and workspace state. |
-| Generic asset tagging/metadata | ✅ | Generic tag and package-metadata set/get/find actions are implemented with normalized asset paths. |
+| Generic asset tagging/metadata | ✅ | Generic tag and package-metadata set/get/find actions are implemented with normalized asset paths. Reflected data-asset properties and data-table row CRUD are also available through `manage_asset`. |
 | Nanite rebuild workflow | ✅ | `nanite_rebuild_mesh` applies settings, invokes `UStaticMesh::Build()`, performs `PostEditChange()`, and confirms safe persistence for static meshes, subject to Nanite/engine support. |
 | Cube/volume/array texture generation | ⚠️ | Source-backed import/assembly is supported; arbitrary generated cube, volume, and array sources remain intentionally unsupported. |
 | Dependency-aware migration | ⚠️ | Dependency inspection plus duplicate/move operations exist; transactional dependency closure and release migration are not automatic. |

@@ -1369,18 +1369,22 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Tools**: `manage_data_assets`, `manage_save_system`, `manage_gameplay_tags`, `manage_config`
 
 ### 31.1 Data Assets
-- [ ] `create_data_asset`, `create_primary_data_asset`
-- [ ] `create_data_table`, `add_data_table_row`, `modify_data_table_row`, `delete_data_table_row`
+- [x] `create_data_asset`; [ ] `create_primary_data_asset`
+- [x] `create_data_table`, `add_data_table_row`, `modify_data_table_row`, `delete_data_table_row`
 - [ ] `import_data_table_csv`, `export_data_table_csv`
 - [x] `create_curve_table`, `create_curve_float`, `create_curve_linear_color`
+
+**Implementation note:** `manage_asset` also exposes the unlisted `get_data_asset_properties` and `set_data_asset_properties` actions for reflected `UDataAsset` properties.
 
 ### 31.2 Save System
 - [ ] `create_save_game_class`
 - [ ] `add_save_variable`
-- [ ] `save_game_to_slot`, `load_game_from_slot`
-- [ ] `delete_save_slot`, `check_save_slot_exists`
-- [ ] `get_save_slot_names`
-- [ ] `configure_async_save_load`
+- [x] `save_game_to_slot`, `load_game_from_slot`
+- [x] `delete_save_slot`, `check_save_slot_exists`
+- [x] `get_save_slot_names`
+- [x] `configure_async_save_load`
+
+**Implementation note:** `system_control` maps the roadmap names to `save_game_to_slot`, `load_game_from_slot`, `delete_save_game_slot`, `check_save_game_slot`, and `list_save_game_slots`; save/load support synchronous and bounded managed async paths.
 
 ### 31.3 Gameplay Tags
 - [ ] `create_gameplay_tag`

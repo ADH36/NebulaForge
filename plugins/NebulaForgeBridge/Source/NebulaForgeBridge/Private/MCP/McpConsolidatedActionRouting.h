@@ -510,7 +510,7 @@ inline const TArray<FString>& SystemControlCore()
       TEXT("run_tests"), TEXT("run_uat"), TEXT("validate_release"), TEXT("release_gate"), TEXT("validate_project"), TEXT("create_game_architecture_manifest"), TEXT("add_architecture_requirement"), TEXT("validate_game_architecture"), TEXT("inspect_platform_capabilities"), TEXT("manage_project_plugin"), TEXT("list_plugins"), TEXT("enable_plugin"), TEXT("disable_plugin"), TEXT("get_plugin_status"), TEXT("create_asset_validator"), TEXT("run_data_validation"), TEXT("wait_for_job"), TEXT("get_job_status"), TEXT("list_jobs"), TEXT("cancel_job"),
       TEXT("read_project_file"), TEXT("write_project_file"), TEXT("validate_blueprints"), TEXT("start_memory_report"), TEXT("configure_stat_commands"), TEXT("configure_console_variables"), TEXT("check_for_errors"), TEXT("start_network_profiler"), TEXT("enable_visual_logger"), TEXT("add_visual_log_entry"),
       TEXT("generate_save_game_class"),
-      TEXT("cook_content"), TEXT("package_project"), TEXT("create_pak_file"), TEXT("configure_compression"), TEXT("configure_asset_encryption"), TEXT("create_test_level"), TEXT("run_gauntlet_test"),
+      TEXT("cook_content"), TEXT("package_project"), TEXT("create_pak_file"), TEXT("configure_compression"), TEXT("configure_asset_encryption"), TEXT("create_test_level"), TEXT("configure_test_settings"), TEXT("run_gauntlet_test"),
       TEXT("runtime_health"), TEXT("get_runtime_capabilities"), TEXT("get_runtime_world"), TEXT("get_runtime_actors"), TEXT("get_runtime_actor"),
       TEXT("list_gameplay_tags"), TEXT("get_runtime_gameplay_tag"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
       TEXT("create_gameplay_tag"), TEXT("register_native_tag"),

@@ -1427,7 +1427,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bDataValidationAction = Lower == TEXT("run_data_validation") || Lower == TEXT("create_asset_validator");
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
   const bool bGameplayTagNativeAction = Lower == TEXT("register_native_tag");
-  const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project") || Lower == TEXT("create_pak_file") || Lower == TEXT("configure_compression") || Lower == TEXT("configure_asset_encryption") || Lower == TEXT("create_test_level") || Lower == TEXT("run_gauntlet_test") || Lower == TEXT("compile_shaders");
+  const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project") || Lower == TEXT("create_pak_file") || Lower == TEXT("configure_compression") || Lower == TEXT("configure_asset_encryption") || Lower == TEXT("create_test_level") || Lower == TEXT("configure_test_settings") || Lower == TEXT("run_gauntlet_test") || Lower == TEXT("compile_shaders");
   const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
   const bool bCultureAction = Lower == TEXT("set_culture") || Lower == TEXT("set_language_and_locale") || Lower == TEXT("set_locale");
   const bool bQualityLevelAction = Lower == TEXT("set_quality_level");

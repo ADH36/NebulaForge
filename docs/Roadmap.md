@@ -1728,7 +1728,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 37.1 Quixel Bridge / Megascans / Fab
 - [ ] `connect_to_bridge`, `list_bridge_assets`, `list_downloaded_assets`
 - [ ] `import_megascan_surface`, `import_megascan_3d_asset`, `import_megascan_3d_plant`, `import_megascan_decal`, `import_megascan_atlas`, `import_megascan_brush`
-- [ ] `configure_import_settings`, `set_lod_generation`, `set_material_blend_mode`, `configure_nanite_import`, `configure_virtual_texture`
+- [ ] `configure_import_settings`, `set_lod_generation`, `set_material_blend_mode`, `configure_nanite_import`
+- [x] `configure_virtual_texture` (shared texture authoring handler)
 - [ ] `search_megascan_library`, `filter_by_category`, `filter_by_biome`, `download_asset`
 - [ ] Fab: `browse_fab_assets`, `download_fab_asset`, `import_fab_asset`
 
@@ -1860,7 +1861,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Runtime: `switch_ndisplay_config`, `set_viewport_enabled`
 
 ### 40.2 Composure
-- [ ] `create_composure_actor`, `add_composure_layer`, `configure_layer_blend`
+- [ ] `create_composure_actor`, `add_composure_layer`
+- [x] `configure_layer_blend` (shared material/layer authoring handler)
 - [ ] Elements: `add_cg_layer`, `add_media_layer`, `add_transform_pass`, `add_compositing_pass`
 - [ ] Keying: `add_chroma_keyer`, `configure_chroma_key_color`, `configure_key_settings`
 - [ ] Transform: `configure_layer_transform`, `add_distortion_correction`
@@ -2086,7 +2088,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 45.3 Modeling Tools Editor Mode
 - [ ] `activate_modeling_tool`, `deactivate_modeling_tool`
-- [ ] PolyEdit: `select_mesh_elements`, `transform_selection`, `extrude_selection`, `inset_selection`, `bevel_selection`, `bridge_edges`, `fill_hole`, `weld_edges`, `split_edges`, `triangulate`, `flip_normals`
+- [ ] PolyEdit: `select_mesh_elements`, `transform_selection`, `extrude_selection`, `inset_selection`, `bevel_selection`, `bridge_edges`, `fill_hole`, `weld_edges`, `split_edges`
+- [x] PolyEdit: `triangulate`, `flip_normals` (shared GeometryScript mesh operations)
 - [ ] Sculpt: `set_sculpt_brush`, `set_brush_size`, `set_brush_strength`, `set_brush_falloff`, `sculpt_stroke`
 - [ ] Deform: `apply_lattice_deform`, `apply_bend_deform`, `apply_twist_deform`
 - [ ] UV: `open_uv_editor`, `select_uv_islands`, `transform_uvs`, `pack_uvs`, `unwrap_uvs`
@@ -2126,7 +2129,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Collection: `create_geometry_collection`, `add_geometry_to_collection`, `remove_geometry_from_collection`
 - [ ] Fracturing: `apply_uniform_fracture`, `apply_clustered_fracture`, `apply_radial_fracture`, `apply_planar_fracture`, `apply_brick_fracture`, `apply_mesh_fracture`, `configure_fracture_settings`
 - [ ] Clustering: `set_cluster_group`, `configure_cluster_level`, `auto_cluster`
-- [ ] Damage: `configure_damage_threshold`, `apply_damage`, `enable_strain_damage`
+- [ ] Damage: `configure_damage_threshold`, `enable_strain_damage`
+- [x] Damage: `apply_damage` (shared combat authoring handler)
 - [ ] Materials: `set_interior_material`, `configure_interior_uv_scale`
 - [ ] Physics: `configure_rigid_body_settings`, `set_sleeping_threshold`, `configure_collision_filter`
 - [ ] Fields: `add_anchor_field`, `remove_anchor_field`, `create_field_system`, `add_radial_falloff_field`, `add_uniform_vector_field`, `add_radial_vector_field`, `add_plane_falloff_field`, `add_noise_field`, `add_kill_field`

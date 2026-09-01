@@ -73,7 +73,7 @@ NebulaForge provides broad Unreal Editor automation, but it is not yet a complet
 | Build and deployment tool | ⚠️ | TypeScript `system_control` provides validated `run_uat` BuildCookRun operations, controlled signing, bounded local packaged launch, Win64/Linux/Mac local staging, Android/iOS/tvOS local deployment, and host job polling; external stores and hosting remain absent, while native `/mcp` reports host-only actions explicitly. |
 | Cook content | ⚠️ | `run_uat` supports cook through BuildCookRun, but live Unreal verification is still required. |
 | Package/stage/archive project | ⚠️ | BuildCookRun package/archive operations, `validate_release`, controlled signing, bounded local packaged launch, local device deployment, and optional architecture-manifest release gating exist; external stores and hosting remain absent. |
-| Platform builds and signing | ⚠️ | Host signing is supported for Win64, Mac/iOS, and Android when tools and credentials are supplied; Linux and console signing/provider deployment remain project/toolchain dependent. |
+| Platform builds and signing | ⚠️ | Validated project target-settings authoring is available for Win64, Linux, Mac, iOS, and Android; host signing is supported for Win64, Mac/iOS, and Android when tools and credentials are supplied, while Linux and console signing/provider deployment remain project/toolchain dependent. |
 | Plugin enable/disable management | ⚠️ | `manage_project_plugin` lists, validates, enables, and disables declared project plugins; dependency resolution and live project reload remain project-dependent. |
 | Asset chunking, compression, encryption, PAK creation | ⚠️ | `run_uat` exposes bounded packaging, compression, encrypted INI, encrypted PAK index, and prerequisite controls; chunk rules and key management remain project/platform dependent. |
 
@@ -118,7 +118,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-31-data--persistence)
 | Movie Render Queue jobs | ⚠️ | Guarded MRQ PNG/JPG/BMP/EXR image-sequence submission, stable job IDs (`jobId`/`mrqJobId`), executor callback-backed completed/failed status, bounded `WIDTHxHEIGHT` resolution and frame-range overrides, project-relative output paths, status polling, cancellation, ordered `render_sequence_queue` orchestration, and immutable-copy application of `UMoviePipelinePrimaryConfig` presets are available; burn-ins, video codecs, and transactional multi-job recovery remain incomplete. |
 | Media Framework | ⚠️ | Media players, sources, textures, playlists, and guarded playback controls are available; codec/provider availability remains project dependent. |
 | Take Recorder | ⚠️ | Start/stop/status lifecycle is available when Take Recorder is compiled; track policy and capture-device configuration remain project dependent. |
-| Demo/replay system | ⚠️ | Replay playback, scrubbing, pausing, and speed controls are available where the replay subsystem is enabled; recording configuration, streamer setup, and killcam presentation remain project dependent. |
+| Demo/replay system | ⚠️ | Replay playback, scrubbing, pausing, speed controls, and bounded killcam seek/playback windows are available where the replay subsystem is enabled; recording configuration and streamer setup remain project dependent. |
 | Lighting and post-processing controls | ✅ | Broad authoring coverage exists, but engine/project configuration remains conditional. |
 | Scene captures and reflection controls | ✅ | Implemented with renderer-dependent limitations. |
 
@@ -161,7 +161,7 @@ Evidence: [AnimationHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForg
 | Niagara spawning and parameter mutation | ⚠️ | Multiple actions are editor-only or have unsupported paths. |
 | Ribbon/trail authoring | ⚠️ | Conditional implementation. |
 | Effect presets | ⚠️ | Host-managed, project-confined JSON presets can be created, validated, and applied as ordered MCP effect actions; native Niagara graph semantics and transactional rollback remain engine/project dependent. |
-| Attachment/lifespan/pooling | ⚠️ | Explicit actor attachment, bounded lifespan, and destruction are available; reusable effect pooling and project-specific ownership policies remain project-authored. |
+| Attachment/lifespan/pooling | ⚠️ | Explicit actor attachment, bounded lifespan, destruction, and prewarmed Niagara effect pools with explicit ownership policies are available; deeper project-specific pooling policies remain project-authored. |
 | VFX performance validation | ⚠️ | `validate_niagara_system` provides explicit emitter/renderer budget gates; GPU/CPU cost, memory, and frame-time budgets still require project-specific profiling captures. |
 
 Evidence: [native-automation-progress.md](./native-automation-progress.md#niagara--effect-handlers), [NiagaraHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_NiagaraHandlers.cpp#L247)

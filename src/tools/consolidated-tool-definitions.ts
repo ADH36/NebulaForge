@@ -1830,7 +1830,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python', 'release_gate'
           ,
-            'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'configure_plugin_settings', 'configure_windows_build', 'configure_linux_build', 'configure_mac_build', 'configure_chunking', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'configure_localization_target', 'import_localization', 'export_localization', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
+            'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'configure_plugin_settings', 'configure_windows_build', 'configure_linux_build', 'configure_mac_build', 'configure_ios_build', 'configure_android_build', 'configure_chunking', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'configure_localization_target', 'import_localization', 'export_localization', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
           description: 'Action'
         },

@@ -1426,8 +1426,10 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 32.2 Platform Builds
 - [x] `configure_windows_build`, `configure_linux_build`, `configure_mac_build` (safe platform target-settings INI authoring)
-- [ ] `configure_ios_build`, `configure_ios_signing` (provisioning profile, bundle ID)
-- [ ] `configure_android_build`, `configure_android_signing` (keystore, package name)
+- [x] `configure_ios_build` (safe iOS target-settings INI authoring)
+- [ ] `configure_ios_signing` (provisioning profile, bundle ID; requires Apple signing credentials/SDK)
+- [x] `configure_android_build` (safe Android target-settings INI authoring)
+- [ ] `configure_android_signing` (keystore, package name; requires Android signing credentials/SDK)
 
 > **Note**: Console builds (PlayStation, Xbox, Switch) require external SDK installation and platform portal registration BEFORE the project can be opened. Once SDKs are installed, MCP can configure build settings within the project.
 

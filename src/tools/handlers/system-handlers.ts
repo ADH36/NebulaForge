@@ -347,7 +347,9 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
     }
     case 'configure_windows_build':
     case 'configure_linux_build':
-    case 'configure_mac_build': {
+    case 'configure_mac_build':
+    case 'configure_ios_build':
+    case 'configure_android_build': {
       const record = argsTyped as Record<string, unknown>;
       if (typeof record.key !== 'string' || typeof record.value !== 'string') {
         return { success: false, error: 'INVALID_ARGUMENT', message: 'key and string value are required' };
@@ -355,7 +357,9 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       const platformDefaults: Record<string, { configName: string; section: string }> = {
         configure_windows_build: { configName: 'DefaultEngine.ini', section: '/Script/WindowsTargetPlatform.WindowsTargetSettings' },
         configure_linux_build: { configName: 'DefaultEngine.ini', section: '/Script/LinuxTargetPlatform.LinuxTargetSettings' },
-        configure_mac_build: { configName: 'DefaultEngine.ini', section: '/Script/MacTargetPlatform.MacTargetSettings' }
+        configure_mac_build: { configName: 'DefaultEngine.ini', section: '/Script/MacTargetPlatform.MacTargetSettings' },
+        configure_ios_build: { configName: 'DefaultEngine.ini', section: '/Script/IOSRuntimeSettings.IOSRuntimeSettings' },
+        configure_android_build: { configName: 'DefaultEngine.ini', section: '/Script/AndroidRuntimeSettings.AndroidRuntimeSettings' }
       };
       const defaults = platformDefaults[action];
       const configName = typeof record.configName === 'string' && record.configName.trim() ? record.configName : defaults.configName;

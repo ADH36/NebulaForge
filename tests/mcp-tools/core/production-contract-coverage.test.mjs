@@ -12,6 +12,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'configure_windows_build', projectPath: 'ContractProject', key: 'TargetedRHIs', value: '(D3D_SM6)' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'configure_linux_build', projectPath: 'ContractProject', key: 'TargetedRHIs', value: '(VULKAN_SM6)' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'configure_mac_build', projectPath: 'ContractProject', key: 'TargetedRHIs', value: '(METAL_SM6)' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'configure_ios_build', projectPath: 'ContractProject', key: 'bEnableMetalMRT', value: 'True' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'configure_android_build', projectPath: 'ContractProject', key: 'TargetSDKVersion', value: '34' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_instanced_static_mesh_component', actorName: 'ContractActor', componentName: 'ContractISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_hierarchical_instanced_static_mesh', actorName: 'ContractActor', componentName: 'ContractHISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'add_instance', actorName: 'ContractActor', componentName: 'ContractISM', location: { x: 0, y: 0, z: 0 }, rotation: { pitch: 0, yaw: 0, roll: 0 }, scale: { x: 1, y: 1, z: 1 }, worldSpace: true }, expected: 'success|error' },

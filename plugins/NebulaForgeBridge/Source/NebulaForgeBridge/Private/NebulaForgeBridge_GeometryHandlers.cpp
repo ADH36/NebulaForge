@@ -1196,6 +1196,7 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     Result->SetBoolField(TEXT("hasPolygroups"), bHasMaterialIDs);
     Result->SetNumberField(TEXT("surfaceArea"), SurfaceArea);
     Result->SetNumberField(TEXT("volume"), Volume);
+    Result->SetStringField(TEXT("info"), UGeometryScriptLibrary_MeshQueryFunctions::GetMeshInfoString(Mesh));
     TSharedPtr<FJsonObject> Center = MakeShared<FJsonObject>();
     Center->SetNumberField(TEXT("x"), CenterOfMass.X);
     Center->SetNumberField(TEXT("y"), CenterOfMass.Y);

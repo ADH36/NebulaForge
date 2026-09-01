@@ -180,6 +180,8 @@ The mesh-info query uses Epic's [`GetMeshVolumeAreaCenter`](https://dev.epicgame
 
 `manage_geometry.get_num_uv_islands` uses Epic's [`Get Num UV Islands`](https://dev.epicgames.com/documentation/en-us/unreal-engine/geometry-scripting-reference-in-unreal-engine) query when running UE 5.5 or newer; older supported engine versions return `NOT_SUPPORTED` because Epic added this UV-stat method in UE 5.5.
 
+The mesh-info query also includes Epic's [`GetMeshInfoString`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/GeometryScript/UGeometryScriptLibrary_MeshQuery-/GetMeshInfoString) diagnostic summary.
+
 ### Core Types
 ```cpp
 // Dynamic mesh container

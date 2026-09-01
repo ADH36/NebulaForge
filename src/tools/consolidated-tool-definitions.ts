@@ -2611,6 +2611,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         volume: commonSchemas.numberProp,
         uvIslandCount: commonSchemas.numberProp,
         centerOfMass: commonSchemas.objectProp,
+        info: commonSchemas.stringProp,
         meshInfo: {
           type: 'object',
           properties: {

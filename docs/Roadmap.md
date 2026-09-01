@@ -1352,9 +1352,11 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 30.5 Demo/Replay System
 - [ ] `start_demo_recording`, `stop_demo_recording`
 - [ ] `configure_demo_settings`
-- [ ] `play_demo`, `pause_demo`, `seek_demo`
-- [ ] `set_demo_playback_speed`
+- [x] `play_demo`, `pause_demo`, `seek_demo`
+- [x] `set_demo_playback_speed`
 - [ ] `configure_killcam_duration`, `start_killcam`
+
+**Implementation note:** Replay playback controls route through `control_editor` and the UE `DemoNetDriver` console/API path. Recording setup, streamer configuration, and killcam presentation remain project-specific.
 
 ---
 

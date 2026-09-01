@@ -118,7 +118,7 @@ Evidence: [Roadmap.md](./Roadmap.md#phase-31-data--persistence)
 | Movie Render Queue jobs | ⚠️ | Guarded MRQ PNG/JPG/BMP/EXR image-sequence submission, stable job IDs (`jobId`/`mrqJobId`), executor callback-backed completed/failed status, bounded `WIDTHxHEIGHT` resolution and frame-range overrides, project-relative output paths, status polling, cancellation, ordered `render_sequence_queue` orchestration, and immutable-copy application of `UMoviePipelinePrimaryConfig` presets are available; burn-ins, video codecs, and transactional multi-job recovery remain incomplete. |
 | Media Framework | ⚠️ | Media players, sources, textures, playlists, and guarded playback controls are available; codec/provider availability remains project dependent. |
 | Take Recorder | ⚠️ | Start/stop/status lifecycle is available when Take Recorder is compiled; track policy and capture-device configuration remain project dependent. |
-| Demo/replay system | ⚠️ | Replay controls and status are available where the replay subsystem is enabled; project recording configuration and killcam presentation remain project dependent. |
+| Demo/replay system | ⚠️ | Replay playback, scrubbing, pausing, and speed controls are available where the replay subsystem is enabled; recording configuration, streamer setup, and killcam presentation remain project dependent. |
 | Lighting and post-processing controls | ✅ | Broad authoring coverage exists, but engine/project configuration remains conditional. |
 | Scene captures and reflection controls | ✅ | Implemented with renderer-dependent limitations. |
 

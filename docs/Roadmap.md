@@ -1440,10 +1440,12 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `configure_compression`
 
 ### 32.4 Plugins
-- [ ] `list_plugins`
-- [ ] `enable_plugin`, `disable_plugin`
-- [ ] `get_plugin_status`
+- [x] `list_plugins`
+- [x] `enable_plugin`, `disable_plugin`
+- [x] `get_plugin_status`
 - [ ] `configure_plugin_settings`
+
+**Implementation note:** Dedicated plugin actions delegate to the existing safe project-plugin service; status reports descriptor validation and project enablement, while enable/disable update the project descriptor with backups.
 
 ---
 

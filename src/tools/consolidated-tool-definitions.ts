@@ -1812,7 +1812,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python', 'release_gate'
           ,
-            'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
+            'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'configure_localization_target', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
           description: 'Action'
         },
@@ -1830,6 +1830,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         cvars: { type: 'object', additionalProperties: { type: ['string', 'number', 'boolean'] } },
         cvarName: commonSchemas.stringProp,
         cvarValue: { type: ['string', 'number', 'boolean'] },
+        localizationTargetName: commonSchemas.name,
+        localizationConfig: { type: 'string', maxLength: 1048576, description: 'GatherText INI content containing CommonSettings, NativeCulture, and CulturesToGenerate.' },
         target: commonSchemas.stringProp,
         targetName: commonSchemas.name,
         targetType: { type: 'string', enum: ['Game', 'Client', 'Server', 'Editor', 'Program'], description: 'UBT target type.' },

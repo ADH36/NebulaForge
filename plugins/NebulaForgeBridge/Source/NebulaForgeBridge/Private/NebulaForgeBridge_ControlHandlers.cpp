@@ -4535,7 +4535,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       else
         TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
     }
-    if (!TileMapComponent) {
+    if (!TileMapComponent || !TileMapComponent->GetTileMap()) {
       SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("COMPONENT_NOT_FOUND"),
                                 TEXT("actorName must resolve to a PaperTileMapComponent"), nullptr);
       return true;
@@ -4556,6 +4556,39 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     Data->SetNumberField(TEXT("triangles"), NumTriangles);
     Data->SetNumberField(TEXT("batches"), NumBatches);
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map info read"), Data);
+    return true;
+  }
+  if (LowerSub == TEXT("get_paper_tile_map_parameters")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    if (!TileMapComponent || !TileMapComponent->GetTileMap()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("COMPONENT_NOT_FOUND"),
+                                TEXT("actorName must resolve to a PaperTileMapComponent"), nullptr);
+      return true;
+    }
+    FVector CornerPosition;
+    FVector StepX;
+    FVector StepY;
+    FVector OffsetYFactor;
+    TileMapComponent->GetTileMap()->GetTileToLocalParameters(CornerPosition, StepX, StepY, OffsetYFactor);
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetObjectField(TEXT("cornerPosition"), McpHandlerUtils::VectorToJson(CornerPosition));
+    Data->SetObjectField(TEXT("stepX"), McpHandlerUtils::VectorToJson(StepX));
+    Data->SetObjectField(TEXT("stepY"), McpHandlerUtils::VectorToJson(StepY));
+    Data->SetObjectField(TEXT("offsetYFactor"), McpHandlerUtils::VectorToJson(OffsetYFactor));
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map parameters read"), Data);
     return true;
   }
   if (LowerSub == TEXT("get_paper_tile")) {

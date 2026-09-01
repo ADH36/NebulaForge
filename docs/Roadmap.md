@@ -1323,13 +1323,15 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 30.2 Movie Render Queue
 - [x] `create_render_job` (implemented as `manage_sequence.render_sequence_mrq`)
 - [x] `configure_output_settings` (MRQ preset, project-relative output path, resolution, frame range, and image format)
-- [ ] `add_render_pass` (beauty, depth, normal, motion_vector, object_id, custom_stencil)
+- [x] `add_render_pass` (beauty and optional `object_id`; depth, normal, motion_vector, and custom_stencil require project-specific deferred-pass material/plugin configuration)
 - [x] `configure_anti_aliasing` (spatial and temporal sample counts on the transient MRQ job)
 - [x] `configure_console_variables` (validated batch updates via UE `IConsoleManager`/`IConsoleVariable`)
 - [ ] `configure_burn_ins`
 - [x] `queue_render`, `start_render` (implemented as `manage_sequence.render_sequence_mrq` and `render_sequence_queue`)
 
 **Implemented gap:** `system_control.configure_console_variables` now performs validated batch CVar updates through UE's `IConsoleManager`/`IConsoleVariable` API and returns per-variable results.
+
+**Render-pass note:** `manage_sequence.render_sequence_mrq` accepts `renderPass: "beauty" | "object_id"`; Object ID requires Epic's Movie Render Queue Additional Render Passes plugin and EXR output. The remaining AOVs are intentionally not claimed without a stable cross-version UE API for the required deferred-pass materials.
 
 ### 30.3 Media Framework
 - [x] `create_media_player`

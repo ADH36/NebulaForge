@@ -105,6 +105,12 @@
 #else
 #define MCP_HAS_MRQ_AA 0
 #endif
+#if __has_include("MoviePipelineObjectIdPass.h")
+#include "MoviePipelineObjectIdPass.h"
+#define MCP_HAS_MRQ_OBJECT_ID 1
+#else
+#define MCP_HAS_MRQ_OBJECT_ID 0
+#endif
 #include "MoviePipelineImageSequenceOutput.h"
 #if __has_include("MoviePipelineEXROutput.h") && __has_include("Imath/ImathBox.h")
 #include "MoviePipelineEXROutput.h"
@@ -2749,6 +2755,31 @@ static bool HandleMovieRenderQueueAction(
     Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
         TEXT("outputFormat must be one of png, jpg, jpeg, bmp, or exr"), nullptr,
         TEXT("INVALID_OUTPUT_FORMAT"));
+    return true;
+  }
+  FString RenderPass = TEXT("beauty");
+  Payload->TryGetStringField(TEXT("renderPass"), RenderPass);
+  RenderPass.TrimStartAndEndInline();
+  RenderPass.ToLowerInline();
+  if (RenderPass == TEXT("object_id")) {
+#if MCP_HAS_MRQ_OBJECT_ID
+    if (OutputFormat != TEXT("exr")) {
+      Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+          TEXT("object_id render pass requires EXR output"), nullptr,
+          TEXT("OBJECT_ID_REQUIRES_EXR"));
+      return true;
+    }
+    Job->GetConfiguration()->FindOrAddSettingByClass(UMoviePipelineObjectIdRenderPass::StaticClass());
+#else
+    Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+        TEXT("object_id render pass requires the Movie Render Queue Additional Render Passes plugin"), nullptr,
+        TEXT("OBJECT_ID_NOT_AVAILABLE"));
+    return true;
+#endif
+  } else if (RenderPass != TEXT("beauty")) {
+    Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+        TEXT("renderPass must be beauty or object_id; depth, normal, and motion-vector outputs require project-specific deferred-pass materials"), nullptr,
+        TEXT("UNSUPPORTED_RENDER_PASS"));
     return true;
   }
   Job->GetConfiguration()->FindOrAddSettingByClass(ImageOutputClass);

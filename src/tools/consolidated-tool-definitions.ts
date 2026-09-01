@@ -2075,6 +2075,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         startFrame: commonSchemas.numberProp,
         endFrame: commonSchemas.numberProp,
         outputFormat: { type: 'string', enum: ['png', 'jpg', 'jpeg', 'bmp', 'exr'], description: 'MRQ image-sequence output format. Defaults to png.' },
+        renderPass: { type: 'string', enum: ['beauty', 'object_id'], description: 'Optional MRQ render pass. object_id requires the Movie Render Queue Additional Render Passes plugin and EXR output.' },
         spatialSampleCount: commonSchemas.integerProp,
         temporalSampleCount: commonSchemas.integerProp,
         mrqPresetPath: { ...commonSchemas.assetPath, description: 'Optional UMoviePipelinePrimaryConfig asset copied into the transient MRQ job.' },

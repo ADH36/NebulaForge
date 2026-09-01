@@ -723,6 +723,10 @@ export async function handleSequenceTools(action: string, args: Record<string, u
 				throw new Error(`${field} must be an integer between 1 and 256`);
 			}
 		}
+		if (args.renderPass !== undefined) {
+			const renderPass = String(args.renderPass).trim().toLowerCase();
+			if (!['beauty', 'object_id'].includes(renderPass)) throw new Error('renderPass must be beauty or object_id');
+		}
 		return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
 			...args, path, outputPath, subAction: 'render_sequence_mrq'
 		}));

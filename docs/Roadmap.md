@@ -1658,7 +1658,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_instanced_static_mesh_component` (native actor component authoring)
 - [x] `create_hierarchical_instanced_static_mesh` (native actor component authoring)
 - [x] `add_instance`, `remove_instance`, `update_instance_transform` (ISM/HISM component operations)
-- [ ] `configure_instance_culling`, `configure_instance_lod`
+- [x] `configure_instance_culling`, `configure_instance_lod` (ISM/HISM culling and LOD properties)
 - [x] `create_hlod_layer`
 - [x] `configure_hlod_settings` (via `configure_hlod_layer`)
 - [x] `add_actors_to_hlod`, `build_hlod` (via `assign_hlod_layer` and `build_hlods`)

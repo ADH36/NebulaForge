@@ -46,6 +46,8 @@ public:
 				TEXT("add_instance"),
 				TEXT("remove_instance"),
 				TEXT("update_instance_transform"),
+				TEXT("configure_instance_culling"),
+				TEXT("configure_instance_lod"),
 				TEXT("create_media_sound_component"),
 				TEXT("configure_camera_settings"),
 				TEXT("configure_camera_rig_rail"),
@@ -146,6 +148,11 @@ public:
 			.Bool(TEXT("worldSpace"), TEXT("Interpret the instance transform in world space."))
 			.Bool(TEXT("markRenderStateDirty"), TEXT("Update rendering immediately."))
 			.Bool(TEXT("teleport"), TEXT("Teleport the instance when updating its transform."))
+			.Integer(TEXT("startCullDistance"), TEXT("Distance at which instances begin fading."))
+			.Integer(TEXT("endCullDistance"), TEXT("Distance at which instances finish fading."))
+			.Integer(TEXT("minDrawDistance"), TEXT("Minimum distance at which instances draw."))
+			.Number(TEXT("lodDistanceScale"), TEXT("Scale applied to instance LOD distances."))
+			.Bool(TEXT("useGpuLodSelection"), TEXT("Use GPU LOD selection for instances."))
 			.String(TEXT("mediaPlayerPath"), TEXT("UMediaPlayer asset path for media audio output."))
 			.Number(TEXT("focalLength"), TEXT("Cine camera focal length in millimeters."))
 			.Number(TEXT("aperture"), TEXT("Cine camera f-stop."))

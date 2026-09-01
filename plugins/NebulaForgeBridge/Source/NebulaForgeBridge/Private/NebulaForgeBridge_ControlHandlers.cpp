@@ -4307,6 +4307,40 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Instanced mesh operation completed"), Response, FString());
     return true;
   }
+  if (LowerSub == TEXT("configure_instance_culling") ||
+      LowerSub == TEXT("configure_instance_lod")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UInstancedStaticMeshComponent* Instanced = Found ? Cast<UInstancedStaticMeshComponent>(FindComponentByName(Found, ComponentName)) : nullptr;
+    if (!Found || !Instanced) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, !Found ? TEXT("ACTOR_NOT_FOUND") : TEXT("INSTANCED_COMPONENT_NOT_FOUND"), !Found ? TEXT("Actor not found") : TEXT("componentName must resolve to an ISM or HISM component"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Properties = MakeShared<FJsonObject>();
+    double IntValue = 0.0;
+    double NumberValue = 0.0;
+    bool BoolValue = false;
+    if (LowerSub == TEXT("configure_instance_culling")) {
+      if (Payload->TryGetNumberField(TEXT("startCullDistance"), IntValue)) Properties->SetNumberField(TEXT("InstanceStartCullDistance"), IntValue);
+      if (Payload->TryGetNumberField(TEXT("endCullDistance"), IntValue)) Properties->SetNumberField(TEXT("InstanceEndCullDistance"), IntValue);
+      if (Payload->TryGetNumberField(TEXT("minDrawDistance"), IntValue)) Properties->SetNumberField(TEXT("InstanceMinDrawDistance"), IntValue);
+    } else {
+      if (Payload->TryGetNumberField(TEXT("lodDistanceScale"), NumberValue)) Properties->SetNumberField(TEXT("InstanceLODDistanceScale"), NumberValue);
+      if (Payload->TryGetBoolField(TEXT("useGpuLodSelection"), BoolValue)) Properties->SetBoolField(TEXT("bUseGpuLodSelection"), BoolValue);
+    }
+    if (Properties->Values.Num() == 0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("At least one documented instance culling or LOD setting is required"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Forward = MakeShared<FJsonObject>();
+    Forward->SetStringField(TEXT("actorName"), TargetName);
+    Forward->SetStringField(TEXT("componentName"), ComponentName);
+    Forward->SetObjectField(TEXT("properties"), Properties);
+    return HandleControlActorSetComponentProperties(RequestId, Forward, RequestingSocket);
+  }
   if (LowerSub == TEXT("create_instanced_static_mesh_component") ||
       LowerSub == TEXT("create_hierarchical_instanced_static_mesh")) {
     if (Payload.IsValid()) {

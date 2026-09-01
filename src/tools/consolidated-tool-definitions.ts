@@ -2598,6 +2598,13 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         ...commonSchemas.outputBase,
         meshPath: commonSchemas.meshPath,
         actorName: commonSchemas.actorName,
+        uvChannel: commonSchemas.numberProp,
+        isValidUVChannel: commonSchemas.booleanProp,
+        uvChannelIsEmpty: commonSchemas.booleanProp,
+        min: commonSchemas.objectProp,
+        max: commonSchemas.objectProp,
+        width: commonSchemas.numberProp,
+        height: commonSchemas.numberProp,
         meshInfo: {
           type: 'object',
           properties: {

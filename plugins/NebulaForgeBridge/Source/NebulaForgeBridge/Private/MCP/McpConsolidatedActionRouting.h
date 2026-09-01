@@ -84,7 +84,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("create_physical_material"), TEXT("set_friction"), TEXT("set_restitution"),
 		TEXT("set_density"), TEXT("configure_surface_type"), TEXT("assign_physical_material"),
 		TEXT("configure_physical_material"), TEXT("get_physical_material"),
-		TEXT("clear_physical_material_override"), TEXT("configure_sprite_collision"), TEXT("inspect_sprite_sockets"), TEXT("get_sprite_socket_transform"), TEXT("remove_sprite_socket"), TEXT("validate_sprite_socket_names"), TEXT("find_sprite_texture_bounding_box"), TEXT("inspect_flipbook")
+		TEXT("clear_physical_material_override"), TEXT("configure_sprite_collision"), TEXT("inspect_sprite_sockets"), TEXT("get_sprite_socket_transform"), TEXT("remove_sprite_socket"), TEXT("validate_sprite_socket_names"), TEXT("find_sprite_texture_bounding_box"), TEXT("inspect_flipbook"), TEXT("get_flipbook_socket_transform")
 	};
 	return Actions;
 }

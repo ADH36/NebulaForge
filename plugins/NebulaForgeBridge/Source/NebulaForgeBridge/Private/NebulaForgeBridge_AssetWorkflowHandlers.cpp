@@ -1763,6 +1763,35 @@ static bool HandlePaperFlipbookInspectAction(
   return true;
 }
 
+static bool HandlePaperFlipbookSocketTransformAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString FlipbookPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperFlipbook* Flipbook = Cast<UPaperFlipbook>(UEditorAssetLibrary::LoadAsset(FlipbookPath));
+  FString SocketName;
+  int32 KeyFrameIndex = 0;
+  if (!Flipbook || !Payload->TryGetStringField(TEXT("socketName"), SocketName) || SocketName.IsEmpty() || SocketName.Len() > 128 ||
+      !Payload->TryGetNumberField(TEXT("keyFrameIndex"), KeyFrameIndex) || !Flipbook->IsValidKeyFrameIndex(KeyFrameIndex)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath, socketName, and a valid keyFrameIndex are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  FTransform LocalTransform;
+  if (!Flipbook->FindSocket(FName(*SocketName), KeyFrameIndex, LocalTransform)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("The named socket was not found at the requested flipbook keyframe"), TEXT("SOCKET_NOT_FOUND"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Flipbook->GetPathName());
+  Result->SetStringField(TEXT("socketName"), SocketName);
+  Result->SetNumberField(TEXT("keyFrameIndex"), KeyFrameIndex);
+  Result->SetObjectField(TEXT("transform"), McpHandlerUtils::TransformToJson(LocalTransform));
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper flipbook socket transform read"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperSpriteTextureBoundsAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -2412,6 +2441,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("inspect_flipbook")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperFlipbookInspectAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("get_flipbook_socket_transform")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperFlipbookSocketTransformAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

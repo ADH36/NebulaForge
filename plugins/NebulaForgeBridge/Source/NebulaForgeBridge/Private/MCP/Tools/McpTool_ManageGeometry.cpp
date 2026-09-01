@@ -42,6 +42,7 @@ public:
 				TEXT("clear_all_mesh_sections"),
 				TEXT("set_mesh_section_visibility"),
 				TEXT("get_mesh_section_visibility"),
+				TEXT("set_mesh_section_material"),
 				TEXT("set_collision_from_mesh"),
 				TEXT("add_collision_convex_mesh"),
 				TEXT("clear_collision_convex_meshes"),
@@ -121,6 +122,7 @@ public:
 			.Array(TEXT("uv0"), TEXT("Optional primary UV coordinates as [u, v] arrays."), TEXT("array"))
 			.Bool(TEXT("createCollision"), TEXT("Whether to create collision for a new mesh section."))
 			.Bool(TEXT("visible"), TEXT("Whether the procedural mesh section should be rendered."))
+			.String(TEXT("materialPath"), TEXT("Project material asset path assigned to the section."))
 			.Number(TEXT("width"), TEXT("Width value."))
 			.Number(TEXT("height"), TEXT("Height value."))
 			.Number(TEXT("depth"), TEXT("Depth value."))

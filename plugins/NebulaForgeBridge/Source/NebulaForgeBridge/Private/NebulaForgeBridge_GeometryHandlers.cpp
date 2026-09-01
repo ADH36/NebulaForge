@@ -57,6 +57,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogMcpGeometryHandlers, Log, All);
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/Texture2D.h"
+#include "Materials/MaterialInterface.h"
 #include "EngineUtils.h"
 #include "Misc/PackageName.h"
 
@@ -5620,6 +5621,27 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section visibility read"), Result);
         return true;
     }
+    if (SubAction == TEXT("set_mesh_section_material"))
+    {
+        const FString MaterialPath = SanitizeProjectRelativePath(GetStringFieldGeom(Payload, TEXT("materialPath")));
+        if (MaterialPath.IsEmpty())
+        {
+            Self->SendAutomationError(Socket, RequestId, TEXT("materialPath is required"), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        UMaterialInterface* Material = LoadObject<UMaterialInterface>(nullptr, *MaterialPath);
+        if (!Material)
+        {
+            Self->SendAutomationError(Socket, RequestId, FString::Printf(TEXT("Material not found: %s"), *MaterialPath), TEXT("ASSET_NOT_FOUND"));
+            return true;
+        }
+        ProcMesh->SetMaterial(SectionIndex, Material);
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+        Result->SetStringField(TEXT("materialPath"), MaterialPath);
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section material assigned"), Result);
+        return true;
+    }
 
     TArray<FVector> Vertices;
     TArray<int32> Triangles;
@@ -7655,7 +7677,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
 #if MCP_HAS_PROCEDURAL_MESH_COMPONENT
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
-        SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility"))
+        SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility") ||
+        SubAction == TEXT("set_mesh_section_material"))
     {
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
@@ -7667,7 +7690,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
 #endif
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
-        SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility"))
+        SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility") ||
+        SubAction == TEXT("set_mesh_section_material"))
     {
         SendAutomationError(RequestingSocket, RequestId,
             TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));

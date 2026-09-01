@@ -32,6 +32,7 @@ const testCases = [
   { scenario: 'PROCEDURAL: clear_collision_convex_meshes', toolName: 'manage_geometry', arguments: { action: 'clear_collision_convex_meshes', actorName: `TestActor_${ts}`, componentName: `TestProcMesh_${ts}` }, expected: 'success|error' },
   { scenario: 'PROCEDURAL: set_mesh_section_visibility', toolName: 'manage_geometry', arguments: { action: 'set_mesh_section_visibility', actorName: `TestActor_${ts}`, componentName: `TestProcMesh_${ts}`, sectionIndex: 0, visible: false }, expected: 'success|error' },
   { scenario: 'PROCEDURAL: get_mesh_section_visibility', toolName: 'manage_geometry', arguments: { action: 'get_mesh_section_visibility', actorName: `TestActor_${ts}`, componentName: `TestProcMesh_${ts}`, sectionIndex: 0 }, expected: 'success|error' },
+  { scenario: 'PROCEDURAL: set_mesh_section_material', toolName: 'manage_geometry', arguments: { action: 'set_mesh_section_material', actorName: `TestActor_${ts}`, componentName: `TestProcMesh_${ts}`, sectionIndex: 0, materialPath: '/Engine/BasicShapes/BasicShapeMaterial' }, expected: 'success|error' },
 
   // === CREATE ===
   { scenario: 'CREATE: create_box', toolName: 'manage_geometry', arguments: {"action": "create_box", "name": `Testbox_${ts}`, "path": TEST_FOLDER_ALIAS, "width": 120, "height": 80, "depth": 60, "widthSegments": 2, "heightSegments": 2, "depthSegments": 2, "rotation": {"pitch": 0, "yaw": 15, "roll": 0}, "scale": {"x": 1, "y": 1, "z": 1}}, expected: 'success|already exists' },

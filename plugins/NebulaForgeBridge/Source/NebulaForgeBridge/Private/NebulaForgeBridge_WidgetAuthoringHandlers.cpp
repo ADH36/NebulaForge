@@ -856,6 +856,16 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
 
     TSharedPtr<FJsonObject> ResultJson = McpHandlerUtils::CreateResultObject();
 
+    auto SaveWidgetAsset = [&](UObject* Asset) -> bool {
+        if (McpSafeAssetSave(Asset)) {
+            return true;
+        }
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("Widget asset mutation applied but save failed"),
+                            TEXT("SAVE_FAILED"));
+        return false;
+    };
+
     // =========================================================================
     // 19.1 Widget Creation
     // =========================================================================
@@ -3405,6 +3415,14 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
             WidgetBP->MarkPackageDirty();
             const bool bSaveSucceeded = McpSafeAssetSave(WidgetBP);
 
+            if (!bSaveSucceeded)
+            {
+                SendAutomationError(RequestingSocket, RequestId,
+                                    TEXT("Widget clipping changed but save failed"),
+                                    TEXT("SAVE_FAILED"));
+                return true;
+            }
+
             ResultJson->SetStringField(TEXT("mode"), TEXT("write"));
             ResultJson->SetStringField(TEXT("propertyName"), TEXT("Clipping"));
             ResultJson->SetStringField(TEXT("value"), ClippingStr);
@@ -3556,7 +3574,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
 
                 // Property change — mark dirty and save, do NOT recompile (that wipes instance values)
                 WidgetBP->MarkPackageDirty();
-                McpSafeAssetSave(WidgetBP);
+                if (!SaveWidgetAsset(WidgetBP)) return true;
             }
         }
 
@@ -4033,7 +4051,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         RegisterAnimationGuid(WidgetBP, NewAnim);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("animationName"), AnimationName);
@@ -4129,7 +4147,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         ResultJson->SetStringField(TEXT("bindingGuid"), BindingGuid.ToString());
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Animation track added"), ResultJson);
         return true;
@@ -4314,7 +4332,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         RegisterAllWidgetGuids(WidgetBP);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("widgetPath"), WidgetBP->GetPathName());
@@ -4392,7 +4410,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         RegisterAllWidgetGuids(WidgetBP);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("widgetPath"), WidgetBP->GetPathName());
@@ -4434,7 +4452,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         RegisterAllWidgetGuids(WidgetBP);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("widgetPath"), WidgetBP->GetPathName());
@@ -4514,7 +4532,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         RegisterAllWidgetGuids(WidgetBP);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("widgetName"), TEXT("HealthBarContainer"));
@@ -4588,7 +4606,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         RegisterAllWidgetGuids(WidgetBP);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("widgetName"), TEXT("Crosshair"));
@@ -4662,7 +4680,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         RegisterAllWidgetGuids(WidgetBP);
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("widgetName"), TEXT("AmmoCounter"));
@@ -4932,7 +4950,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         }
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("widgetPath"), WidgetPath);
@@ -5209,7 +5227,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         }
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
-        McpSafeAssetSave(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP)) return true;
 
         TArray<TSharedPtr<FJsonValue>> VariablesArray;
         for (const FString& VarName : CreatedVariables)

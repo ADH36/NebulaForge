@@ -47,6 +47,7 @@
 #include "NebulaForgeBridgeSubsystem.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/Texture.h"
+#include "Materials/MaterialInterface.h"
 
 #if WITH_EDITOR
 #include "EditorAssetLibrary.h"
@@ -1242,6 +1243,16 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                            FLinearColor(R, G, B, Alpha));
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase)) {
+          FString MaterialPath;
+          LocalPayload->TryGetStringField(TEXT("materialPath"), MaterialPath);
+          if (MaterialPath.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) MaterialPath = ValueField->AsString();
+          MaterialPath = SanitizeProjectRelativePath(MaterialPath);
+          UMaterialInterface *Material = IsValidAssetPath(MaterialPath) ? LoadObject<UMaterialInterface>(nullptr, *MaterialPath) : nullptr;
+          if (Material) {
+            NiComp->SetVariableMaterial(ParamName, Material);
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase)) {
           const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
           bool bHasMatrix = LocalPayload->TryGetArrayField(TEXT("value"), ArrValue) && ArrValue && ArrValue->Num() >= 16;
@@ -1376,6 +1387,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Mesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Bool"), ESearchCase::IgnoreCase)) {
             ErrMsg = FString::Printf(TEXT("Invalid parameter type: %s"),
                                      *ParameterType);

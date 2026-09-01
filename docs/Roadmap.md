@@ -488,6 +488,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Texture and Static Mesh runtime parameter values via Epic's `UNiagaraComponent::SetVariableTexture` and `SetVariableStaticMesh` APIs (`set_niagara_parameter`, `texturePath`/`meshPath`); asset paths are normalized and restricted to valid Unreal object roots.
 - [x] Actor runtime parameter values via Epic's `UNiagaraComponent::SetVariableActor` API (`set_niagara_parameter`, `parameterType: Actor`, `targetActorName`); target actors resolve by editor label or object name.
 - [x] Matrix runtime parameter values via Epic's `UNiagaraComponent::SetVariableMatrix` API (`set_niagara_parameter`, `parameterType: Matrix`, 16-value row-major array); non-finite matrix values are rejected.
+- [x] Material runtime parameter values via Epic's `UNiagaraComponent::SetVariableMaterial` API (`set_niagara_parameter`, `parameterType: Material`, `materialPath`); material paths are normalized and restricted to valid Unreal object roots.
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

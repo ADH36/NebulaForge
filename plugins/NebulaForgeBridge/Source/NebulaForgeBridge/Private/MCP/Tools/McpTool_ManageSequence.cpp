@@ -41,6 +41,7 @@ public:
 				TEXT("add_niagara_integer_parameter_key"),
 				TEXT("add_niagara_bool_parameter_key"),
 				TEXT("add_niagara_vector_parameter_key"),
+				TEXT("add_niagara_color_parameter_key"),
 				TEXT("inspect_niagara_parameter_track"),
 				TEXT("add_camera_cut_track"),
 				TEXT("add_camera_shake_track"),

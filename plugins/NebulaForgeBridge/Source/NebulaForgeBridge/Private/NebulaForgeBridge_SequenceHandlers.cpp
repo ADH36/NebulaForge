@@ -269,6 +269,14 @@ TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedS
 #else
 #define MCP_HAS_NIAGARA_VECTOR_PARAMETER_TRACK 0
 #endif
+#if __has_include("MovieScene/Parameters/MovieSceneNiagaraColorParameterTrack.h") && __has_include("Channels/MovieSceneFloatChannel.h") && __has_include("NiagaraVariable.h") && __has_include("NiagaraTypes.h")
+#include "MovieScene/Parameters/MovieSceneNiagaraColorParameterTrack.h"
+#include "NiagaraVariable.h"
+#include "NiagaraTypes.h"
+#define MCP_HAS_NIAGARA_COLOR_PARAMETER_TRACK 1
+#else
+#define MCP_HAS_NIAGARA_COLOR_PARAMETER_TRACK 0
+#endif
 #include "Tracks/MovieSceneEventTrack.h"
 #include "Sound/SoundBase.h"
 
@@ -3377,6 +3385,91 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     return true;
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara parameter track API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_niagara_color_parameter_key")) {
+#if MCP_HAS_NIAGARA_COLOR_PARAMETER_TRACK
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    FString ActorName, ParameterName;
+    int32 Frame = 0, RowIndex = 0;
+    double R = 0.0, G = 0.0, B = 0.0, A = 1.0;
+    if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("actorName"), ActorName) || ActorName.IsEmpty() ||
+        !LocalPayload->TryGetStringField(TEXT("parameterName"), ParameterName) || ParameterName.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("path, actorName, and parameterName are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    LocalPayload->TryGetNumberField(TEXT("frame"), Frame);
+    LocalPayload->TryGetNumberField(TEXT("rowIndex"), RowIndex);
+    LocalPayload->TryGetNumberField(TEXT("colorR"), R);
+    LocalPayload->TryGetNumberField(TEXT("colorG"), G);
+    LocalPayload->TryGetNumberField(TEXT("colorB"), B);
+    LocalPayload->TryGetNumberField(TEXT("colorA"), A);
+    if (Frame < -1000000000 || Frame > 1000000000 || RowIndex < 0 || RowIndex > 100000 || !FMath::IsFinite(R) || !FMath::IsFinite(G) || !FMath::IsFinite(B) || !FMath::IsFinite(A)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("frame, rowIndex, or color channels are outside the supported range"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    ULevelSequence* Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    FGuid BindingGuid;
+    for (const FMovieSceneBinding& Binding : Sequence->GetMovieScene()->GetBindings()) {
+      FString BindingName;
+      if (const FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(Binding.GetObjectGuid())) BindingName = Possessable->GetName();
+      else if (const FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(Binding.GetObjectGuid())) BindingName = Spawnable->GetName();
+      if (BindingName.Equals(ActorName, ESearchCase::IgnoreCase) || BindingName.Contains(ActorName)) { BindingGuid = Binding.GetObjectGuid(); break; }
+    }
+    if (!BindingGuid.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Binding not found for actor"), TEXT("BINDING_NOT_FOUND"));
+      return true;
+    }
+    UMovieSceneNiagaraColorParameterTrack* ParameterTrack = nullptr;
+    for (UMovieSceneTrack* Track : Sequence->GetMovieScene()->FindTracks(UMovieSceneNiagaraColorParameterTrack::StaticClass(), BindingGuid)) {
+      ParameterTrack = Cast<UMovieSceneNiagaraColorParameterTrack>(Track);
+      if (ParameterTrack) break;
+    }
+    if (!ParameterTrack) ParameterTrack = Cast<UMovieSceneNiagaraColorParameterTrack>(Sequence->GetMovieScene()->AddTrack(UMovieSceneNiagaraColorParameterTrack::StaticClass(), BindingGuid));
+    if (!ParameterTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara color parameter track"), TEXT("TRACK_CREATION_FAILED"));
+      return true;
+    }
+    ParameterTrack->SetParameter(FNiagaraVariable(FNiagaraTypeDefinition::GetColorDef(), FName(*ParameterName)));
+    UMovieSceneSection* Section = ParameterTrack->GetAllSections().Num() > 0 ? ParameterTrack->GetAllSections()[0] : ParameterTrack->CreateNewSection();
+    if (!Section) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara color parameter section"), TEXT("SECTION_CREATION_FAILED"));
+      return true;
+    }
+    if (ParameterTrack->GetAllSections().Num() == 0) ParameterTrack->AddSection(*Section);
+    FMovieSceneFloatChannel* RChannel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0);
+    FMovieSceneFloatChannel* GChannel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(1);
+    FMovieSceneFloatChannel* BChannel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(2);
+    FMovieSceneFloatChannel* AChannel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(3);
+    if (!RChannel || !GChannel || !BChannel || !AChannel) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara color parameter section does not expose four float channels"), TEXT("CHANNEL_UNAVAILABLE"));
+      return true;
+    }
+    RChannel->AddLinearKey(FFrameNumber(Frame), static_cast<float>(R));
+    GChannel->AddLinearKey(FFrameNumber(Frame), static_cast<float>(G));
+    BChannel->AddLinearKey(FFrameNumber(Frame), static_cast<float>(B));
+    AChannel->AddLinearKey(FFrameNumber(Frame), static_cast<float>(A));
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), SeqPath);
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetStringField(TEXT("parameterName"), ParameterName);
+    Result->SetNumberField(TEXT("frame"), Frame);
+    Result->SetNumberField(TEXT("colorR"), R);
+    Result->SetNumberField(TEXT("colorG"), G);
+    Result->SetNumberField(TEXT("colorB"), B);
+    Result->SetNumberField(TEXT("colorA"), A);
+    Result->SetNumberField(TEXT("rowIndex"), RowIndex);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Niagara color parameter key added"), Result);
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara color parameter track API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
     return true;
 #endif
   }

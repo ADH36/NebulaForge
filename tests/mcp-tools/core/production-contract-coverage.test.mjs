@@ -157,6 +157,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_sequence', arguments: { action: 'add_niagara_integer_parameter_key', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', parameterName: 'User.Count', frame: 0, value: 1, rowIndex: 0 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'add_niagara_bool_parameter_key', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', parameterName: 'User.Enabled', frame: 0, value: true, rowIndex: 0 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'add_niagara_vector_parameter_key', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', parameterName: 'User.Direction', frame: 0, vectorX: 1, vectorY: 0, vectorZ: 0, rowIndex: 0 }, expected: 'success|error' },
+  { toolName: 'manage_sequence', arguments: { action: 'add_niagara_color_parameter_key', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', parameterName: 'User.Color', frame: 0, colorR: 1, colorG: 0.5, colorB: 0.25, colorA: 1, rowIndex: 0 }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'start_demo_recording', filename: 'ContractDemoAlias' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'stop_demo_recording' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'inspect_asset_capabilities', assetPath: '/Game/MCPTest/ContractDataAsset' }, expected: 'success|error' },

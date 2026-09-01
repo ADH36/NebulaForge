@@ -107,6 +107,7 @@
 #if __has_include("Recorder/TakeRecorderSubsystem.h") && __has_include("Recorder/TakeRecorder.h")
 #include "Recorder/TakeRecorder.h"
 #include "Recorder/TakeRecorderSubsystem.h"
+#include "TakeRecorderSources.h"
 #define MCP_HAS_TAKE_RECORDER 1
 #else
 #define MCP_HAS_TAKE_RECORDER 0
@@ -5265,6 +5266,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
 #endif
   }
   if (LowerSub == TEXT("configure_take_sources") ||
+      LowerSub == TEXT("configure_recorded_tracks") ||
       LowerSub == TEXT("start_take_recording") ||
       LowerSub == TEXT("stop_take_recording") ||
       LowerSub == TEXT("get_take_recording_status")) {
@@ -5275,6 +5277,43 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
       SendStandardErrorResponse(this, RequestingSocket, RequestId,
                                 TEXT("TAKE_RECORDER_NOT_AVAILABLE"),
                                 TEXT("Take Recorder subsystem is unavailable"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("configure_recorded_tracks")) {
+      if (!Payload.IsValid()) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("Track settings are required"), nullptr);
+        return true;
+      }
+      UTakeRecorderSources* Sources = TakeSubsystem->GetSources();
+      if (!Sources) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("TAKE_RECORDER_SOURCES_NOT_AVAILABLE"), TEXT("Take Recorder sources are unavailable"), nullptr);
+        return true;
+      }
+      FTakeRecorderSourcesSettings Settings = Sources->GetSettings();
+      TArray<FString> AppliedFields;
+      bool bHasSetting = false;
+      bool BoolValue = false;
+      if (Payload->TryGetBoolField(TEXT("recordToPossessable"), BoolValue)) { Settings.bRecordToPossessable = BoolValue; AppliedFields.Add(TEXT("recordToPossessable")); bHasSetting = true; }
+      if (Payload->TryGetBoolField(TEXT("removeRedundantTracks"), BoolValue)) { Settings.bRemoveRedundantTracks = BoolValue; AppliedFields.Add(TEXT("removeRedundantTracks")); bHasSetting = true; }
+      if (Payload->TryGetBoolField(TEXT("saveRecordedAssets"), BoolValue)) { Settings.bSaveRecordedAssets = BoolValue; AppliedFields.Add(TEXT("saveRecordedAssets")); bHasSetting = true; }
+      if (Payload->TryGetBoolField(TEXT("recordIntoSubSequences"), BoolValue)) { Settings.bRecordSourcesIntoSubSequences = BoolValue; AppliedFields.Add(TEXT("recordIntoSubSequences")); bHasSetting = true; }
+      if (Payload->TryGetBoolField(TEXT("autoLock"), BoolValue)) { Settings.bAutoLock = BoolValue; AppliedFields.Add(TEXT("autoLock")); bHasSetting = true; }
+      if (Payload->TryGetBoolField(TEXT("startAtCurrentTimecode"), BoolValue)) { Settings.bStartAtCurrentTimecode = BoolValue; AppliedFields.Add(TEXT("startAtCurrentTimecode")); bHasSetting = true; }
+      if (!bHasSetting) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("At least one documented Take Recorder track setting must be provided"), nullptr);
+        return true;
+      }
+      Sources->SetSettings(Settings);
+      TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+      Response->SetNumberField(TEXT("configuredCount"), AppliedFields.Num());
+      AddStringArrayFieldForMcp(Response, TEXT("configuredFields"), AppliedFields);
+      Response->SetBoolField(TEXT("recordToPossessable"), Settings.bRecordToPossessable);
+      Response->SetBoolField(TEXT("removeRedundantTracks"), Settings.bRemoveRedundantTracks);
+      Response->SetBoolField(TEXT("saveRecordedAssets"), Settings.bSaveRecordedAssets);
+      Response->SetBoolField(TEXT("recordIntoSubSequences"), Settings.bRecordSourcesIntoSubSequences);
+      Response->SetBoolField(TEXT("autoLock"), Settings.bAutoLock);
+      Response->SetBoolField(TEXT("startAtCurrentTimecode"), Settings.bStartAtCurrentTimecode);
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Take Recorder track settings configured"), Response, FString());
       return true;
     }
     if (LowerSub == TEXT("configure_take_sources")) {

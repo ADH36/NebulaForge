@@ -54,6 +54,7 @@ public:
 				TEXT("seek_media"),
 				TEXT("start_take_recording"),
 				TEXT("configure_take_sources"),
+				TEXT("configure_recorded_tracks"),
 				TEXT("stop_take_recording"),
 				TEXT("get_take_recording_status"),
 				TEXT("play_demo"),
@@ -125,6 +126,12 @@ public:
 			.Array(TEXT("actorNames"), TEXT("Actor names to add as Take Recorder sources."), TEXT("string"))
 			.Bool(TEXT("reduceKeys"), TEXT("Enable key reduction for added actor sources."))
 			.Bool(TEXT("showProgress"), TEXT("Show Take Recorder source processing progress."))
+			.Bool(TEXT("recordToPossessable"), TEXT("Record actor sources to possessable bindings."))
+			.Bool(TEXT("removeRedundantTracks"), TEXT("Remove redundant recorded tracks."))
+			.Bool(TEXT("saveRecordedAssets"), TEXT("Save recorded animation and other assets."))
+			.Bool(TEXT("recordIntoSubSequences"), TEXT("Record sources into sub-sequences."))
+			.Bool(TEXT("autoLock"), TEXT("Auto-lock the recorded take."))
+			.Bool(TEXT("startAtCurrentTimecode"), TEXT("Start recording at the current timecode."))
 			.String(TEXT("objectPath"), TEXT("Object path alias for actorName."))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.Number(TEXT("blendTime"), TEXT("Blend time in seconds for set_view_target."))

@@ -1347,7 +1347,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_take_recorder_panel`
 - [x] `configure_take_sources` (UE Take Recorder actor sources)
 - [x] `start_recording`, `stop_recording` (Take Recorder lifecycle via `control_editor.start_take_recording` / `stop_take_recording`)
-- [ ] `configure_recorded_tracks`
+- [x] `configure_recorded_tracks` (UTakeRecorderSources settings)
 
 **Implementation note:** The lifecycle actions use UE's optional `UTakeRecorderSubsystem`, support recording into an existing Level Sequence, and expose `get_take_recording_status`. `configure_take_sources` adds resolved world actors through the official subsystem API; panel and recorded-track authoring remain plugin-specific follow-up work.
 

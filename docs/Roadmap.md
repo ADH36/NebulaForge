@@ -2084,7 +2084,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 45.2 Editor Scripting Utilities
 - [x] `create_editor_utility_widget` (creates and saves an `EditorUtilityWidgetBlueprint` with Epic's `EditorUtilityWidgetBlueprintFactory`; requires Blutility/Python Editor Script Plugin)
-- [ ] `create_editor_utility_blueprint`, `create_asset_action`, `run_editor_utility`
+- [x] `create_editor_utility_blueprint` (creates and saves an `EditorUtilityBlueprint` with Epic's `EditorUtilityBlueprintFactory`; requires Blutility/Python Editor Script Plugin)
+- [ ] `create_asset_action`, `run_editor_utility`
 - [ ] `create_editor_mode`, `register_editor_mode`, `configure_mode_toolkit`
 - [ ] Menus: `add_menu_entry`, `add_toolbar_button`, `create_submenu`, `register_context_menu`
 - [ ] Commands: `register_editor_command`, `bind_command_to_action`, `execute_editor_command`

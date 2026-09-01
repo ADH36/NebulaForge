@@ -1463,6 +1463,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("configure_python_paths") &&
       Lower != TEXT("list_python_packages") &&
       Lower != TEXT("create_editor_utility_widget") &&
+      Lower != TEXT("create_editor_utility_blueprint") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
     return false; // Not handled by this function
@@ -3074,7 +3075,7 @@ FMessageLog LogListing{FName(*Category)};
   } else if (Lower == TEXT("execute_python") || Lower == TEXT("execute_python_script") ||
              Lower == TEXT("execute_python_string") || Lower == TEXT("execute_python_file") ||
              Lower == TEXT("configure_python_paths") || Lower == TEXT("list_python_packages") ||
-             Lower == TEXT("create_editor_utility_widget")) {
+             Lower == TEXT("create_editor_utility_widget") || Lower == TEXT("create_editor_utility_blueprint")) {
     // Execute Python code with stdout/stderr capture via temp file wrapper
     FString Code;
     Payload->TryGetStringField(TEXT("code"), Code);
@@ -3117,6 +3118,41 @@ FMessageLog LogListing{FName(*Category)};
           "_asset = unreal.AssetToolsHelpers.get_asset_tools().create_asset('%s', '%s', unreal.EditorUtilityWidgetBlueprint, _factory)\n"
           "if not _asset:\n"
           "    raise RuntimeError('Editor Utility Widget creation failed')\n"
+          "unreal.EditorAssetLibrary.save_asset(_asset.get_path_name())\n"
+          "print(_asset.get_path_name())\n"),
+          *AssetName, *PythonPackagePath);
+    }
+
+    if (Lower == TEXT("create_editor_utility_blueprint")) {
+      FString AssetPath;
+      FString AssetName;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      Payload->TryGetStringField(TEXT("name"), AssetName);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("create_editor_utility_blueprint requires a valid /Game asset path"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      const FString DefaultAssetName = FPaths::GetBaseFilename(SafeAssetPath);
+      if (AssetName.TrimStartAndEnd().IsEmpty() && DefaultAssetName.IsEmpty()) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("create_editor_utility_blueprint requires a non-empty asset name"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      AssetName = SanitizeAssetName(AssetName.TrimStartAndEnd().IsEmpty() ? DefaultAssetName : AssetName);
+      FString PythonPackagePath = FPaths::GetPath(SafeAssetPath);
+      PythonPackagePath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      AssetName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import unreal\n"
+          "_factory = unreal.EditorUtilityBlueprintFactory()\n"
+          "_factory.set_editor_property('parent_class', unreal.EditorUtilityBlueprint)\n"
+          "_asset = unreal.AssetToolsHelpers.get_asset_tools().create_asset('%s', '%s', unreal.EditorUtilityBlueprint, _factory)\n"
+          "if not _asset:\n"
+          "    raise RuntimeError('Editor Utility Blueprint creation failed')\n"
           "unreal.EditorAssetLibrary.save_asset(_asset.get_path_name())\n"
           "print(_asset.get_path_name())\n"),
           *AssetName, *PythonPackagePath);

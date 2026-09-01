@@ -1420,7 +1420,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("create_automation_test") ||
       Lower == TEXT("get_test_results") ||
       Lower == TEXT("list_gameplay_tags") || Lower == TEXT("get_runtime_gameplay_tag") || Lower == TEXT("add_gameplay_tag") ||
-      Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
+      Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") || Lower == TEXT("configure_chunking") ||
       Lower == TEXT("get_config_value") || Lower == TEXT("read_config_value") || Lower == TEXT("set_config_value") || Lower == TEXT("write_config_value") ||
       Lower == TEXT("get_section") || Lower == TEXT("create_config_section") ||
       Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy") || Lower == TEXT("configure_scalability_group") || Lower == TEXT("create_device_profile") || Lower == TEXT("set_cvar_for_profile") || Lower == TEXT("configure_build_settings") || Lower == TEXT("configure_platform_settings");

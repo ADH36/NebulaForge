@@ -353,6 +353,28 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       if (!record.key.startsWith('demo.')) return { success: false, error: 'INVALID_ARGUMENT', message: 'Replay settings must use a documented demo.* key' };
       return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
     }
+    case 'configure_chunking': {
+      const record = argsTyped as Record<string, unknown>;
+      const configName = typeof record.configName === 'string' && record.configName.trim() ? record.configName.trim() : 'DefaultGame.ini';
+      const settings: Array<[string, string, unknown]> = [
+        ['bGenerateChunks', 'generateChunks', record.generateChunks],
+        ['bGenerateNoChunks', 'generateNoChunks', record.generateNoChunks],
+        ['bChunkHardReferencesOnly', 'chunkHardReferencesOnly', record.chunkHardReferencesOnly],
+        ['bForceOneChunkPerFile', 'forceOneChunkPerFile', record.forceOneChunkPerFile],
+        ['bBuildHttpChunkInstallData', 'buildHttpChunkInstallData', record.buildHttpChunkInstallData],
+        ['MaxChunkSize', 'maxChunkSize', record.maxChunkSize],
+        ['HttpChunkInstallDataDirectory', 'httpChunkInstallDataDirectory', record.httpChunkInstallDataDirectory]
+      ].filter((entry): entry is [string, string, string | number | boolean] => ['string', 'number', 'boolean'].includes(typeof entry[2]));
+      if (settings.length === 0) return { success: false, error: 'INVALID_ARGUMENT', message: 'At least one documented chunking setting is required' };
+      const section = '/Script/UnrealEd.ProjectPackagingSettings';
+      const applied: string[] = [];
+      for (const [key, field, value] of settings) {
+        const result = await setConfigValue(argsTyped.projectPath, configName, section, key, String(typeof value === 'boolean' ? (value ? 'True' : 'False') : value), record.backup !== false);
+        if (result.success === false) return { ...result, applied, failedField: field };
+        applied.push(field);
+      }
+      return { success: true, configName, section, applied, message: 'Packaging chunking settings updated' };
+    }
     case 'create_build_target': {
       const record = argsTyped as Record<string, unknown>;
       const targetName = typeof record.targetName === 'string' ? record.targetName.trim() : '';

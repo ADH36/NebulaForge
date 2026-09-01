@@ -1438,7 +1438,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `audit_assets` (Asset Registry inventory with dependency/referencer counts)
 - [ ] `size_map_analysis`
 - [x] `reference_viewer` (bidirectional Asset Registry graph with configurable traversal depth)
-- [ ] `configure_chunking`
+- [x] `configure_chunking` (ProjectPackagingSettings chunk policy authoring)
 - [x] `create_pak_file` (RunUAT package/PAK alias)
 - [x] `configure_asset_encryption` (RunUAT INI/PAK encryption options)
 - [x] `configure_compression` (RunUAT compressed packaging option)

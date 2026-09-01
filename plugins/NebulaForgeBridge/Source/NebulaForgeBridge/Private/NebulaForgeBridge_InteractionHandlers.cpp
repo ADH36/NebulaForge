@@ -234,6 +234,16 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInteractionAction(
 
   FString SubAction = GetJsonStringField(Payload, TEXT("subAction"));
 
+  auto SaveInteractionAsset = [&](UObject* Asset) -> bool {
+    if (McpSafeAssetSave(Asset)) {
+      return true;
+    }
+    SendAutomationError(RequestingSocket, RequestId,
+                        TEXT("Interaction asset mutation applied but save failed"),
+                        TEXT("SAVE_FAILED"));
+    return false;
+  };
+
   // ===========================================================================
   // 18.1 Interaction Component
   // ===========================================================================
@@ -274,7 +284,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInteractionAction(
       }
       Blueprint->SimpleConstructionScript->AddNode(Node);
       FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInteractionAsset(Blueprint)) return true;
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetBoolField(TEXT("componentAdded"), true);
@@ -385,7 +395,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInteractionAction(
     Result->SetBoolField(TEXT("configured"), bConfigured);
 
     FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
       McpHandlerUtils::AddVerification(Result, Blueprint);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Interaction trace configured"), Result);
 #else
@@ -490,7 +500,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInteractionAction(
     Result->SetStringField(TEXT("blueprintPath"), BlueprintPath);
 
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Interaction widget configured"), Result);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("configure_interaction_widget is editor-only"), TEXT("EDITOR_ONLY"));
@@ -556,7 +566,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInteractionAction(
     Result->SetNumberField(TEXT("eventCount"), EventNames.Num());
 
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Interaction events added"), Result);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("add_interaction_events is editor-only"), TEXT("EDITOR_ONLY"));
@@ -641,7 +651,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInteractionAction(
 
       FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(InterfaceBP);
       FAssetRegistryModule::AssetCreated(InterfaceBP);
-      McpSafeAssetSave(InterfaceBP);
+      if (!SaveInteractionAsset(InterfaceBP)) return true;
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("interfacePath"), InterfaceBP->GetPathName());
@@ -759,7 +769,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageInteractionAction(
       CollisionNode->SetParent(RootNode);
 
       FBlueprintEditorUtils::MarkBlueprintAsModified(DoorBP);
-      McpSafeAssetSave(DoorBP);
+      if (!SaveInteractionAsset(DoorBP)) return true;
 
 TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetNumberField(TEXT("openAngle"), OpenAngle);
@@ -893,7 +903,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("doorPath"), DoorPath);
 
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Door properties configured"), Result);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("configure_door_properties is editor-only"), TEXT("EDITOR_ONLY"));
@@ -969,7 +979,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       TriggerNode->SetParent(RootNode);
 
       FBlueprintEditorUtils::MarkBlueprintAsModified(SwitchBP);
-      McpSafeAssetSave(SwitchBP);
+      if (!SaveInteractionAsset(SwitchBP)) return true;
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("switchPath"), SwitchBP->GetPathName());
@@ -1077,7 +1087,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("switchPath"), SwitchPath);
 
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Switch properties configured"), Result);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("configure_switch_properties is editor-only"), TEXT("EDITOR_ONLY"));
@@ -1155,7 +1165,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       TriggerNode->SetParent(RootNode);
 
       FBlueprintEditorUtils::MarkBlueprintAsModified(ChestBP);
-      McpSafeAssetSave(ChestBP);
+      if (!SaveInteractionAsset(ChestBP)) return true;
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("chestPath"), ChestBP->GetPathName());
@@ -1279,7 +1289,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("chestPath"), ChestPath);
 
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Chest properties configured"), Result);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("configure_chest_properties is editor-only"), TEXT("EDITOR_ONLY"));
@@ -1355,7 +1365,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       TriggerNode->SetParent(RootNode);
 
       FBlueprintEditorUtils::MarkBlueprintAsModified(LeverBP);
-      McpSafeAssetSave(LeverBP);
+      if (!SaveInteractionAsset(LeverBP)) return true;
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("leverPath"), LeverBP->GetPathName());
@@ -1516,7 +1526,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       }
 
       FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-      McpSafeAssetSave(Blueprint);
+      if (!SaveInteractionAsset(Blueprint)) return true;
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetBoolField(TEXT("componentAdded"), true);
@@ -1619,7 +1629,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       if (RootNode) { TriggerBP->SimpleConstructionScript->AddNode(RootNode); }
 
       FBlueprintEditorUtils::MarkBlueprintAsModified(TriggerBP);
-      McpSafeAssetSave(TriggerBP);
+      if (!SaveInteractionAsset(TriggerBP)) return true;
 
       TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
       Result->SetStringField(TEXT("triggerPath"), TriggerBP->GetPathName());
@@ -1684,7 +1694,7 @@ TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetArrayField(TEXT("eventsAdded"), EventsAdded);
     Result->SetNumberField(TEXT("eventCount"), EventsAdded.Num());
     FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Trigger events configured"), Result);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("configure_trigger_events is editor-only"), TEXT("EDITOR_ONLY"));
@@ -1863,7 +1873,7 @@ if (SubAction == TEXT("configure_trigger_filter")) {
     Result->SetBoolField(TEXT("configured"), true);
     Result->SetArrayField(TEXT("variablesAdded"), VarsAdded);
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Trigger filter configured"), Result);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("configure_trigger_filter is editor-only"), TEXT("EDITOR_ONLY"));
@@ -1918,7 +1928,7 @@ if (SubAction == TEXT("configure_trigger_response")) {
     Result->SetBoolField(TEXT("configured"), true);
     Result->SetArrayField(TEXT("variablesAdded"), VarsAdded);
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!SaveInteractionAsset(Blueprint)) return true;
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Trigger response configured"), Result);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("configure_trigger_response is editor-only"), TEXT("EDITOR_ONLY"));

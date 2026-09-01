@@ -483,6 +483,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `add_user_parameter` (float, vector, color, texture, mesh, etc.)
 - [x] `set_parameter_value`, `bind_parameter_to_source`
 - [x] Quaternion runtime parameter values via the official `UNiagaraComponent::SetNiagaraVariableQuat` API (`set_niagara_parameter`, `parameterType: Quaternion` or `Quat`); this is additional UE API coverage beyond the original roadmap list.
+- [x] Integer runtime parameter values via the official `UNiagaraComponent::SetNiagaraVariableInt` API (`set_niagara_parameter`, `parameterType: Int`, `Int32`, or `Integer`); this is additional UE API coverage beyond the original roadmap list.
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

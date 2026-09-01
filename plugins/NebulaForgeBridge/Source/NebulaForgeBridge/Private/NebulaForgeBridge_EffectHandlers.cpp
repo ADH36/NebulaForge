@@ -1129,6 +1129,19 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                      static_cast<float>(NumberValue));
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Int"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("Int32"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("Integer"), ESearchCase::IgnoreCase)) {
+          double NumberValue = 0.0;
+          bool bHasNumber = LocalPayload->TryGetNumberField(TEXT("value"), NumberValue);
+          if (!bHasNumber && ValueField.IsValid() && ValueField->Type == EJson::Number) {
+            NumberValue = ValueField->AsNumber();
+            bHasNumber = true;
+          }
+          if (bHasNumber && FMath::IsFinite(NumberValue) && FMath::IsNearlyEqual(NumberValue, FMath::RoundToDouble(NumberValue)) && NumberValue >= MIN_int32 && NumberValue <= MAX_int32) {
+            NiComp->SetNiagaraVariableInt(ParamName, static_cast<int32>(NumberValue));
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Vector"),
                                         ESearchCase::IgnoreCase)) {
           const TSharedPtr<FJsonValue> Val =
@@ -1241,6 +1254,9 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
           // Invalid Type?
           if (!ParameterType.Equals(TEXT("Float"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Int"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Int32"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Integer"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Color"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase) &&

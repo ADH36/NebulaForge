@@ -60,6 +60,7 @@ const testCases = [
   // === RUNTIME PARAMETER ===
   { scenario: 'CONFIG: set_niagara_parameter', toolName: 'manage_effect', arguments: { action: 'set_niagara_parameter', actorName: EFFECT_ACTOR, parameterName: 'MCPParameter', parameterType: 'Float', value: 1.25 }, expected: 'success', assertions: [{ path: 'structuredContent.result.applied', equals: true, label: 'runtime Niagara parameter value applied' }] },
   { scenario: 'CONFIG: set_niagara_parameter quaternion', toolName: 'manage_effect', arguments: { action: 'set_niagara_parameter', actorName: EFFECT_ACTOR, parameterName: 'MCPQuaternion', parameterType: 'Quaternion', value: [0, 0, 0, 1] }, expected: 'success|error' },
+  { scenario: 'CONFIG: set_niagara_parameter integer', toolName: 'manage_effect', arguments: { action: 'set_niagara_parameter', actorName: EFFECT_ACTOR, parameterName: 'MCPInteger', parameterType: 'Int32', value: 7 }, expected: 'success|error' },
   { scenario: 'DELETE: clear_debug_shapes', toolName: 'manage_effect', arguments: { action: 'clear_debug_shapes' }, expected: 'success|not found' },
   { scenario: 'ACTION: cleanup with explicit filter', toolName: 'manage_effect', arguments: { action: 'cleanup', filter: `NoSuchManageEffectActor_${ts}` }, expected: 'success|not found' },
   { scenario: 'LIFECYCLE: destroy_effect', toolName: 'manage_effect', arguments: { action: 'destroy_effect', actorName: EFFECT_ACTOR }, expected: 'success', assertions: [{ path: 'structuredContent.result.destroyed', equals: true, label: 'effect actor destroyed explicitly' }] },

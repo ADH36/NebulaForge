@@ -7,6 +7,7 @@ import { jobManager } from '../../services/job-manager.js';
 import { readProjectFile, writeProjectFile } from '../../services/project-file-service.js';
 import { generateSaveGameClass } from '../../services/save-game-generator.js';
 import { generateAutomationTest } from '../../services/automation-test-generator.js';
+import { generateAssetValidator } from '../../services/asset-validator-generator.js';
 import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../services/gameplay-tags-service.js';
 import { createConfigSection, flushConfig, getConfigHierarchy, getConfigSection, getConfigValue, listConfigLayers, reloadConfig, setConfigValue } from '../../services/config-service.js';
 import { getAutomationTestResults, runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
@@ -287,6 +288,17 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         });
       } catch (error) {
         return { success: false, error: 'AUTOMATION_TEST_GENERATION_FAILED', message: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'create_asset_validator': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.className !== 'string' || typeof record.headerPath !== 'string' || typeof record.sourcePath !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'className, headerPath, and sourcePath are required' };
+      }
+      try {
+        return await generateAssetValidator({ projectPath: argsTyped.projectPath, className: record.className, headerPath: record.headerPath, sourcePath: record.sourcePath, backup: record.backup !== false });
+      } catch (error) {
+        return { success: false, error: 'ASSET_VALIDATOR_GENERATION_FAILED', message: error instanceof Error ? error.message : String(error) };
       }
     }
     case 'list_gameplay_tags':

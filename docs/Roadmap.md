@@ -2097,7 +2097,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] PolyEdit: `triangulate`, `flip_normals` (shared GeometryScript mesh operations)
 - [ ] Sculpt: `set_sculpt_brush`, `set_brush_size`, `set_brush_strength`, `set_brush_falloff`, `sculpt_stroke`
 - [ ] Deform: `apply_lattice_deform`, `apply_bend_deform`, `apply_twist_deform`
-- [ ] UV: `open_uv_editor`, `select_uv_islands`, `transform_uvs`, `pack_uvs`, `unwrap_uvs`
+- [ ] UV: `open_uv_editor`, `select_uv_islands`, `pack_uvs`, `unwrap_uvs` (editor UV-tool selection and layout remain distinct from GeometryScript mesh UV operations)
+- [x] UV: `transform_uvs` (GeometryScript-backed mesh UV translation/scale/rotation equivalent)
 - [x] Mesh Ops: `simplify_mesh_tool`, `remesh_tool`, `boolean_tool` (GeometryScript-backed equivalents with explicit operation routing)
 - [ ] Mesh Ops: `merge_meshes_tool`, `separate_meshes_tool` (editor-mode topology behavior remains plugin/API dependent)
 

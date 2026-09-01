@@ -597,6 +597,66 @@ static bool HandlePaperFlipbookEditAction(
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper flipbook edited"), Result, FString());
   return true;
 }
+
+static bool HandlePaperSpritePivotAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString SpritePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+  if (!Sprite) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperSprite"), TEXT("SPRITE_NOT_FOUND"));
+    return true;
+  }
+  FString PivotMode;
+  Payload->TryGetStringField(TEXT("pivotMode"), PivotMode);
+  PivotMode = PivotMode.ToLower().Replace(TEXT("-"), TEXT("_")).Replace(TEXT(" "), TEXT("_"));
+  ESpritePivotMode::Type Mode;
+  if (PivotMode == TEXT("top_left")) Mode = ESpritePivotMode::Top_Left;
+  else if (PivotMode == TEXT("top_center")) Mode = ESpritePivotMode::Top_Center;
+  else if (PivotMode == TEXT("top_right")) Mode = ESpritePivotMode::Top_Right;
+  else if (PivotMode == TEXT("center_left")) Mode = ESpritePivotMode::Center_Left;
+  else if (PivotMode == TEXT("center_center") || PivotMode == TEXT("center")) Mode = ESpritePivotMode::Center_Center;
+  else if (PivotMode == TEXT("center_right")) Mode = ESpritePivotMode::Center_Right;
+  else if (PivotMode == TEXT("bottom_left")) Mode = ESpritePivotMode::Bottom_Left;
+  else if (PivotMode == TEXT("bottom_center")) Mode = ESpritePivotMode::Bottom_Center;
+  else if (PivotMode == TEXT("bottom_right")) Mode = ESpritePivotMode::Bottom_Right;
+  else if (PivotMode == TEXT("custom")) Mode = ESpritePivotMode::Custom;
+  else {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("pivotMode must be a documented Paper2D pivot mode"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  double PivotX = 0.0;
+  double PivotY = 0.0;
+  if (Mode == ESpritePivotMode::Custom &&
+      (!Payload->TryGetNumberField(TEXT("pivotX"), PivotX) || !Payload->TryGetNumberField(TEXT("pivotY"), PivotY) ||
+       !FMath::IsFinite(PivotX) || !FMath::IsFinite(PivotY))) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("custom pivotMode requires finite pivotX and pivotY texture-space coordinates"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  bool bRebuildData = true;
+  Payload->TryGetBoolField(TEXT("rebuildData"), bRebuildData);
+  Sprite->Modify();
+  Sprite->SetPivotMode(Mode, FVector2D(static_cast<float>(PivotX), static_cast<float>(PivotY)), bRebuildData);
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(Sprite)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper sprite pivot updated but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  const FVector2D PivotPosition = Sprite->GetPivotPosition();
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Sprite->GetPathName());
+  Result->SetStringField(TEXT("pivotMode"), PivotMode);
+  Result->SetNumberField(TEXT("pivotX"), PivotPosition.X);
+  Result->SetNumberField(TEXT("pivotY"), PivotPosition.Y);
+  Result->SetBoolField(TEXT("rebuiltData"), bRebuildData);
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite pivot updated"), Result, FString());
+  return true;
+}
 #endif
 
 #if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS

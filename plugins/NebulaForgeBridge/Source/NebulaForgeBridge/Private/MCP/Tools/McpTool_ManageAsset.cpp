@@ -157,6 +157,7 @@ public:
 			.Number(TEXT("marginBottom"), TEXT("PaperTileSet bottom margin in pixels."))
 			.Number(TEXT("drawingOffsetX"), TEXT("PaperTileSet drawing offset X in pixels."))
 			.Number(TEXT("drawingOffsetY"), TEXT("PaperTileSet drawing offset Y in pixels."))
+			.String(TEXT("tileUserData"), TEXT("PaperTileSet per-tile user-data name; empty clears it."))
 			.StringEnum(TEXT("pivotMode"), { TEXT("top_left"), TEXT("top_center"), TEXT("top_right"), TEXT("center_left"), TEXT("center_center"), TEXT("center_right"), TEXT("bottom_left"), TEXT("bottom_center"), TEXT("bottom_right"), TEXT("custom") }, TEXT("PaperSprite pivot mode."))
 			.Bool(TEXT("trimmed"), TEXT("Whether the PaperSprite source region is trimmed."))
 			.Number(TEXT("sourceOriginX"), TEXT("PaperSprite source-region origin X in pixels."))

@@ -605,6 +605,41 @@ static bool HandlePaperTileSetConfigureAction(
   return true;
 }
 
+static bool HandlePaperTileSetTileMetadataAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  int32 TileIndex = 0;
+  FString TileUserData;
+  FPaperTileMetadata* Metadata = nullptr;
+  if (!TileSet || !Payload->TryGetNumberField(TEXT("tileIndex"), TileIndex) || TileIndex < 0 || TileIndex >= TileSet->GetTileCount() ||
+      !Payload->TryGetStringField(TEXT("tileUserData"), TileUserData) || TileUserData.Len() > 128 ||
+      (Metadata = TileSet->GetMutableTileMetadata(TileIndex)) == nullptr) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath and tileIndex must resolve to a valid PaperTileSet tile, and tileUserData must be a string of at most 128 characters"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  TileSet->Modify();
+  Metadata->UserDataName = TileUserData.IsEmpty() ? NAME_None : FName(*TileUserData);
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(TileSet)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile metadata configured but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileSet->GetPathName());
+  Result->SetNumberField(TEXT("tileIndex"), TileIndex);
+  Result->SetStringField(TEXT("tileUserData"), Metadata->UserDataName.ToString());
+  Result->SetBoolField(TEXT("hasMetadata"), Metadata->HasMetaData());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-set tile metadata configured"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileSetInspectAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1342,6 +1377,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("get_tile_set_tile_uv")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileSetTileUVAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("configure_tile_set_tile_metadata")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileSetTileMetadataAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

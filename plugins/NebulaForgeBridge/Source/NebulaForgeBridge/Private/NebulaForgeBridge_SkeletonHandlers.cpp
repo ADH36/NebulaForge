@@ -157,6 +157,20 @@
 
 namespace {
 
+static bool SaveSkeletonAsset(UNebulaForgeBridgeSubsystem* Subsystem,
+                              UObject* Asset,
+                              const FString& RequestId,
+                              TSharedPtr<FMcpBridgeWebSocket> RequestingSocket)
+{
+    if (McpSafeAssetSave(Asset))
+    {
+        return true;
+    }
+    Subsystem->SendAutomationError(RequestingSocket, RequestId,
+        TEXT("Skeleton or rig asset mutation applied but save failed"), TEXT("SAVE_FAILED"));
+    return false;
+}
+
 /**
  * Helper: Load skeleton asset from path
  */
@@ -582,7 +596,7 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateSocket(
     NewSocket->BoneName = FName(*BoneName);
 
     Skeleton->Sockets.Add(NewSocket);
-    McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -682,7 +696,7 @@ bool UNebulaForgeBridgeSubsystem::HandleConfigureSocket(
         Socket->RelativeScale = ParseVectorFromJson(Payload, TEXT("relativeScale"), FVector::OneVector);
     }
 
-    McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -759,7 +773,7 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateVirtualBone(
         NewVirtualBoneName = FName(*VirtualBoneName);
     }
 
-    McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -847,7 +861,7 @@ bool UNebulaForgeBridgeSubsystem::HandleCreatePhysicsAsset(
     PhysicsAsset->UpdateBoundsBodiesArray();
     FAssetRegistryModule::AssetCreated(PhysicsAsset);
     Package->MarkPackageDirty();
-    McpSafeAssetSave(PhysicsAsset);
+    if (!SaveSkeletonAsset(this, PhysicsAsset, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -1091,7 +1105,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAddPhysicsBody(
 
     PhysicsAsset->UpdateBodySetupIndexMap();
     PhysicsAsset->UpdateBoundsBodiesArray();
-    McpSafeAssetSave(PhysicsAsset);
+    if (!SaveSkeletonAsset(this, PhysicsAsset, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -1201,7 +1215,7 @@ bool UNebulaForgeBridgeSubsystem::HandleConfigurePhysicsBody(
         BodySetup->DefaultInstance.bSimulatePhysics = bSimulatePhysics;
     }
 
-    McpSafeAssetSave(PhysicsAsset);
+    if (!SaveSkeletonAsset(this, PhysicsAsset, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -1322,7 +1336,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAddPhysicsConstraint(
     }
 
     PhysicsAsset->UpdateBodySetupIndexMap();
-    McpSafeAssetSave(PhysicsAsset);
+    if (!SaveSkeletonAsset(this, PhysicsAsset, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -1456,7 +1470,7 @@ bool UNebulaForgeBridgeSubsystem::HandleConfigureConstraintLimits(
         }
     }
 
-    McpSafeAssetSave(PhysicsAsset);
+    if (!SaveSkeletonAsset(this, PhysicsAsset, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -1521,7 +1535,7 @@ bool UNebulaForgeBridgeSubsystem::HandleRenameBone(
     if (bIsVirtualBone)
     {
         Skeleton->RenameVirtualBone(FName(*BoneName), FName(*NewBoneName));
-        McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
         bool bSave = false;
         Payload->TryGetBoolField(TEXT("save"), bSave);
@@ -1601,7 +1615,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSetBoneTransform(
     FReferenceSkeletonModifier Modifier(Mesh->GetRefSkeleton(), Mesh->GetSkeleton());
     Modifier.UpdateRefPoseTransform(BoneIndex, NewTransform);
 
-    McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -1776,7 +1790,7 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateMorphTarget(
     // Only register AFTER the morph target has valid data
     Mesh->RegisterMorphTarget(NewMorphTarget);
 
-    McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -1911,7 +1925,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSetMorphTargetDeltas(
         Mesh->RegisterMorphTarget(MorphTarget);
     }
 
-    McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -2026,7 +2040,7 @@ bool UNebulaForgeBridgeSubsystem::HandleNormalizeWeights(
     // We can trigger a rebuild of the weights
 
     Mesh->Build();
-    McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -2074,7 +2088,7 @@ bool UNebulaForgeBridgeSubsystem::HandlePruneWeights(
     // Note: This requires setting import options which are not accessible post-import
 
     Mesh->Build();
-    McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
     // Save if requested
     bool bSave = false;
@@ -2170,7 +2184,7 @@ bool UNebulaForgeBridgeSubsystem::HandleBindClothToSkeletalMesh(
 
         if (bSuccess)
         {
-            McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
             Result->SetBoolField(TEXT("success"), true);
             Result->SetStringField(TEXT("clothAssetName"), ClothAssetName);
             Result->SetNumberField(TEXT("meshLodIndex"), MeshLodIndex);
@@ -2329,7 +2343,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSetPhysicsAsset(
     // Assign physics asset to skeletal mesh
     Mesh->SetPhysicsAsset(PhysAsset);
     Mesh->MarkPackageDirty();
-    McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("skeletalMeshPath"), SkeletalMeshPath);
@@ -2420,7 +2434,7 @@ bool UNebulaForgeBridgeSubsystem::HandleRemovePhysicsBody(
     PhysAsset->UpdateBoundsBodiesArray();
     PhysAsset->UpdateBodySetupIndexMap();
     PhysAsset->MarkPackageDirty();
-    McpSafeAssetSave(PhysAsset);
+    if (!SaveSkeletonAsset(this, PhysAsset, RequestId, RequestingSocket)) return true;
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("physicsAssetPath"), PhysicsAssetPath);
@@ -2598,7 +2612,7 @@ bool UNebulaForgeBridgeSubsystem::HandleDeleteSocket(
             {
                 Skeleton->Modify();
                 Skeleton->Sockets.RemoveAt(SocketIndex);
-                McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
                 TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
                 Result->SetStringField(TEXT("socketName"), SocketName);
@@ -2632,7 +2646,7 @@ bool UNebulaForgeBridgeSubsystem::HandleDeleteSocket(
         {
             Skeleton->Modify();
             Skeleton->Sockets.RemoveAt(SocketIndex);
-            McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
             TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
             Result->SetStringField(TEXT("socketName"), SocketName);
@@ -2769,7 +2783,7 @@ bool UNebulaForgeBridgeSubsystem::HandleDeleteMorphTarget(
     Mesh->Modify();
     Mesh->UnregisterMorphTarget(TargetToRemove);
     Mesh->MarkPackageDirty();
-    McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("skeletalMeshPath"), SkeletalMeshPath);
@@ -3013,7 +3027,7 @@ bool UNebulaForgeBridgeSubsystem::HandleDeleteVirtualBone(
     TArray<FName> BonesToRemove;
     BonesToRemove.Add(FName(*VirtualBoneName));
     Skeleton->RemoveVirtualBones(BonesToRemove);
-    McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("skeletonPath"), SkeletonPath);
@@ -3359,7 +3373,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSkeleton(
         Modifier.Add(RootBone, FTransform::Identity);
 #endif
 
-        McpSafeAssetSave(NewSkeleton);
+    if (!SaveSkeletonAsset(this, NewSkeleton, RequestId, RequestingSocket)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("skeletonPath"), NewSkeleton->GetPathName());
@@ -3448,7 +3462,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSkeleton(
         Modifier.Add(NewBone, BoneTransform);
 #endif
 
-        McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("boneName"), BoneName);
@@ -3502,7 +3516,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSkeleton(
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3
         FReferenceSkeletonModifier Modifier(Skeleton);
         Modifier.Remove(FName(*BoneName), bRemoveChildren);
-        McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("removedBone"), BoneName);
@@ -3569,7 +3583,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSkeleton(
             return true;
         }
 
-        McpSafeAssetSave(Skeleton);
+    if (!SaveSkeletonAsset(this, Skeleton, RequestId, RequestingSocket)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("boneName"), BoneName);
@@ -3713,7 +3727,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSkeleton(
 
         // Rebuild the mesh with the new skin weight profile
         Mesh->Build();
-        McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("skeletalMeshPath"), SkeletalMeshPath);
@@ -3751,7 +3765,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSkeleton(
 
         // Rebuild the mesh - this recalculates skin weights based on bone positions
         Mesh->Build();
-        McpSafeAssetSave(Mesh);
+    if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("skeletalMeshPath"), SkeletalMeshPath);
@@ -3856,7 +3870,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSkeleton(
         // For now we indicate the profile was created and user should use the editor for precise transfer
 
         TargetMesh->Build();
-        McpSafeAssetSave(TargetMesh);
+    if (!SaveSkeletonAsset(this, TargetMesh, RequestId, RequestingSocket)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("sourceMeshPath"), SourceMeshPath);
@@ -3930,7 +3944,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageSkeleton(
         }
 
         Mesh->Build();
-        McpSafeAssetSave(Mesh);
+        if (!SaveSkeletonAsset(this, Mesh, RequestId, RequestingSocket)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("skeletalMeshPath"), SkeletalMeshPath);

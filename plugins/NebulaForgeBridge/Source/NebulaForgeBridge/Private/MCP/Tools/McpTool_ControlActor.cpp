@@ -59,6 +59,7 @@ public:
 				TEXT("get_paper_tile_map_info"),
 				TEXT("get_paper_tile"),
 				TEXT("resize_paper_tile_map"),
+				TEXT("set_paper_tile_map_default_collision"),
 				TEXT("configure_paper_tile_map_layer_collision"),
 				TEXT("paint_paper_tile"),
 				TEXT("fill_paper_tile_region"),

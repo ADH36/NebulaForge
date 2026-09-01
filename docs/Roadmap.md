@@ -2125,6 +2125,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Actors: `get_paper_tile_map_info` (official `UPaperTileMapComponent::GetMapSize` and `GetRenderingStats`; requires the optional Paper2D plugin)
 - [x] Actors: `get_paper_tile` (official `UPaperTileMapComponent::GetTile`, `GetTileCenterPosition`, and `GetTileCornerPosition`; bounded cell readback with local/world-space positions)
 - [x] Actors: `resize_paper_tile_map` (official `UPaperTileMapComponent::ResizeMap`; bounded resize of owned tile maps with resulting dimensions read back)
+- [x] Actors: `set_paper_tile_map_default_collision` (official `UPaperTileMapComponent::SetDefaultCollisionThickness`; bounded thickness with explicit rebuild control)
 - [x] `set_paper_sprite_color`, `configure_paper_flipbook` (newly audited official Paper2D component color/playback APIs; requires the optional Paper2D plugin)
 - [x] `configure_paper_character` (official `APaperCharacter`, `UPaperFlipbookComponent`, and `UCharacterMovementComponent` configuration; requires the optional Paper2D plugin)
 

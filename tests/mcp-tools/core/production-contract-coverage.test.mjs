@@ -26,6 +26,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'get_paper_tile_map_info', actorName: 'ContractPaperTileMap' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_paper_tile', actorName: 'ContractPaperTileMap', x: 0, y: 0, layer: 0, worldSpace: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'resize_paper_tile_map', actorName: 'ContractPaperTileMap', width: 32, height: 16 }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'set_paper_tile_map_default_collision', actorName: 'ContractPaperTileMap', collisionThickness: 10, rebuildCollision: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_paper_tile_map_layer_collision', actorName: 'ContractPaperTileMap', layer: 0, hasCollision: true, overrideThickness: true, customThickness: 1, overrideOffset: true, customOffset: 0, rebuildCollision: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'paint_paper_tile', actorName: 'ContractPaperTileMap', x: 0, y: 0, layer: 0, tileIndex: 0, tileSetPath: '/Game/Contract/TileSet', rebuildCollision: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'fill_paper_tile_region', actorName: 'ContractPaperTileMap', x: 0, y: 0, width: 4, height: 3, layer: 0, tileIndex: 0, tileSetPath: '/Game/Contract/TileSet', rebuildCollision: true }, expected: 'success|error' },

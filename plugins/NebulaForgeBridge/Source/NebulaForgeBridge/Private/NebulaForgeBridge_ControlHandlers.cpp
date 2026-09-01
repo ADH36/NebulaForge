@@ -4608,6 +4608,37 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile read"), Data);
     return true;
   }
+  if (LowerSub == TEXT("set_paper_tile_map_default_collision")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    double ThicknessNumber = 0.0;
+    bool bRebuildCollision = true;
+    if (!TileMapComponent || !Payload->TryGetNumberField(TEXT("collisionThickness"), ThicknessNumber) ||
+        !FMath::IsFinite(ThicknessNumber) || ThicknessNumber < 0.0 || ThicknessNumber > 100000.0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperTileMapComponent, and collisionThickness between 0 and 100000 are required"), nullptr);
+      return true;
+    }
+    Payload->TryGetBoolField(TEXT("rebuildCollision"), bRebuildCollision);
+    TileMapComponent->SetDefaultCollisionThickness(static_cast<float>(ThicknessNumber), bRebuildCollision);
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetNumberField(TEXT("collisionThickness"), ThicknessNumber);
+    Data->SetBoolField(TEXT("rebuiltCollision"), bRebuildCollision);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile-map default collision updated"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("resize_paper_tile_map")) {
     FString TargetName;
     FString ComponentName;

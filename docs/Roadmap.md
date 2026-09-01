@@ -1377,8 +1377,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Implementation note:** `manage_asset` also exposes the unlisted `get_data_asset_properties` and `set_data_asset_properties` actions for reflected `UDataAsset` properties.
 
 ### 31.2 Save System
-- [ ] `create_save_game_class`
-- [ ] `add_save_variable`
+- [x] `create_save_game_class`, `add_save_variable` (compile-ready `USaveGame` class generator accepts serialized variable declarations)
 - [x] `save_game_to_slot`, `load_game_from_slot`
 - [x] `delete_save_slot`, `check_save_slot_exists`
 - [x] `get_save_slot_names`

@@ -146,6 +146,8 @@ public:
 			.Bool(TEXT("overrideFrictionCombineMode"), TEXT("Override project friction combine mode."))
 			.Bool(TEXT("overrideRestitutionCombineMode"), TEXT("Override project restitution combine mode."))
 			.String(TEXT("texturePath"), TEXT("Texture asset path."))
+			.Array(TEXT("spritePaths"), TEXT("PaperSprite asset paths used as flipbook keyframes."))
+			.Array(TEXT("frameRuns"), TEXT("Optional frame durations for flipbook keyframes."))
 			.String(TEXT("expressionClass"), TEXT(""))
 			.Number(TEXT("coordinateIndex"), TEXT(""))
 			.String(TEXT("parameterType"), TEXT(""))

@@ -119,9 +119,11 @@
 #else
 #define MCP_HAS_MEDIA_ASSETS 0
 #endif
-#if __has_include("PaperSpriteFactory.h") && __has_include("PaperSprite.h")
+#if __has_include("PaperSpriteFactory.h") && __has_include("PaperFlipbookFactory.h") && __has_include("PaperSprite.h") && __has_include("PaperFlipbook.h")
 #include "PaperSpriteFactory.h"
+#include "PaperFlipbookFactory.h"
 #include "PaperSprite.h"
+#include "PaperFlipbook.h"
 #define MCP_HAS_PAPER2D_EDITOR 1
 #else
 #define MCP_HAS_PAPER2D_EDITOR 0
@@ -410,6 +412,69 @@ static bool HandlePaperSpriteAssetAction(
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite asset created"), Result, FString());
   return true;
 }
+
+static bool HandlePaperFlipbookAssetAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  FString Name;
+  FString PackagePath;
+  Payload->TryGetStringField(TEXT("name"), Name);
+  Payload->TryGetStringField(TEXT("path"), PackagePath);
+  Name = SanitizeAssetName(Name);
+  PackagePath = SanitizeProjectRelativePath(PackagePath);
+  const TArray<TSharedPtr<FJsonValue>>* SpriteValues = nullptr;
+  if (Payload->TryGetArrayField(TEXT("spritePaths"), SpriteValues) && SpriteValues && SpriteValues->Num() > 0) {
+    if (Name.IsEmpty() || PackagePath.IsEmpty()) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("name and path are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+  } else {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("spritePaths must contain at least one PaperSprite asset path"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const FString AssetPackagePath = PackagePath + TEXT("/") + Name;
+  if (UEditorAssetLibrary::DoesAssetExist(AssetPackagePath)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper flipbook asset already exists"), TEXT("ASSET_EXISTS"));
+    return true;
+  }
+  const TArray<TSharedPtr<FJsonValue>>* FrameRunValues = nullptr;
+  Payload->TryGetArrayField(TEXT("frameRuns"), FrameRunValues);
+  UPaperFlipbookFactory* Factory = NewObject<UPaperFlipbookFactory>();
+  for (int32 Index = 0; Index < SpriteValues->Num(); ++Index) {
+    const FString SpritePath = SanitizeProjectRelativePath((*SpriteValues)[Index]->AsString());
+    UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+    if (!Sprite) {
+      Owner->SendAutomationError(Socket, RequestId, FString::Printf(TEXT("spritePaths[%d] must resolve to a PaperSprite"), Index), TEXT("SPRITE_NOT_FOUND"));
+      return true;
+    }
+    FPaperFlipbookKeyFrame& KeyFrame = Factory->KeyFrames.AddDefaulted_GetRef();
+    KeyFrame.Sprite = Sprite;
+    KeyFrame.FrameRun = 1;
+    if (FrameRunValues && FrameRunValues->IsValidIndex(Index) && (*FrameRunValues)[Index]->Type == EJson::Number)
+      KeyFrame.FrameRun = FMath::Max(1, static_cast<int32>((*FrameRunValues)[Index]->AsNumber()));
+  }
+  UObject* NewAsset = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get().CreateAsset(
+      Name, PackagePath, UPaperFlipbook::StaticClass(), Factory);
+  if (!NewAsset) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Unable to create Paper flipbook asset"), TEXT("CREATE_FAILED"));
+    return true;
+  }
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(NewAsset)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper flipbook created but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), NewAsset->GetPathName());
+  Result->SetNumberField(TEXT("keyFrameCount"), Factory->KeyFrames.Num());
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper flipbook asset created"), Result, FString());
+  return true;
+}
 #endif
 
 #if WITH_EDITOR && MCP_HAS_MEDIA_ASSETS
@@ -663,6 +728,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("create_sprite")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperSpriteAssetAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("create_flipbook")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperFlipbookAssetAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

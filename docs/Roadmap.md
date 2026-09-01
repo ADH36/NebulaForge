@@ -1430,7 +1430,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 > **Note**: Console builds (PlayStation, Xbox, Switch) require external SDK installation and platform portal registration BEFORE the project can be opened. Once SDKs are installed, MCP can configure build settings within the project.
 
 ### 32.3 Asset Management
-- [ ] `validate_assets`
+- [x] `validate_assets`
 - [ ] `audit_assets`
 - [ ] `size_map_analysis`
 - [ ] `reference_viewer`
@@ -1460,7 +1460,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_automation_test` (safe compile-ready C++ test skeleton generator; project test logic remains authored by the caller)
 - [x] `run_automation_tests` (managed job/report path)
 - [x] `get_test_results` (bounded report or terminal-job inspection)
-- [ ] `get_test_results`
+- [x] `get_test_results`
 - [ ] `create_test_level`
 - [ ] `configure_test_settings`
 - [ ] `run_gauntlet_test`

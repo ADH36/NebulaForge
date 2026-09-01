@@ -1353,7 +1353,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 30.5 Demo/Replay System
 - [x] `start_demo_recording`, `stop_demo_recording` (DemoRec/DemoStop aliases)
-- [ ] `configure_demo_settings`
+- [x] `configure_demo_settings` (guarded documented `demo.*` replay setting authoring)
 - [x] `play_demo`, `pause_demo`, `seek_demo`
 - [x] `set_demo_playback_speed`
 - [ ] `configure_killcam_duration`, `start_killcam`

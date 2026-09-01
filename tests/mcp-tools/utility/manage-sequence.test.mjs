@@ -64,6 +64,7 @@ const testCases = [
   // === TRACKS ===
   { scenario: 'ADD: add_spawnable_from_class', toolName: 'manage_sequence', arguments: { action: 'add_spawnable_from_class', path: SEQUENCE_PATH, className: 'CameraActor' }, expected: 'success|already exists' },
   { scenario: 'ADD: add_track', toolName: 'manage_sequence', arguments: { action: 'add_track', path: SEQUENCE_PATH, trackType: TRACK_TYPE, trackName: TRACK_NAME }, expected: 'success|already exists' },
+  { scenario: 'ADD: add_camera_shake_track', toolName: 'manage_sequence', arguments: { action: 'add_camera_shake_track', path: SEQUENCE_PATH, shakeClass: '/Script/Engine.MatineeCameraShake', frame: 24 }, expected: 'success|already exists|unavailable' },
   { scenario: 'ADD: add_section', toolName: 'manage_sequence', arguments: { action: 'add_section', path: SEQUENCE_PATH, trackName: TRACK_NAME, startFrame: 0, endFrame: 48 }, expected: 'success|already exists' },
   { scenario: 'CONFIG: set_track_muted', toolName: 'manage_sequence', arguments: { action: 'set_track_muted', path: SEQUENCE_PATH, trackName: TRACK_NAME, muted: true }, expected: 'success' },
   { scenario: 'CONFIG: set_track_solo', toolName: 'manage_sequence', arguments: { action: 'set_track_solo', path: SEQUENCE_PATH, trackName: TRACK_NAME, solo: true }, expected: 'success', assertions: [{ path: 'structuredContent.result.solo', equals: true, label: 'set_track_solo reports enabled state' }] },

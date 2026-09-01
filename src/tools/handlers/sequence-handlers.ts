@@ -188,6 +188,7 @@ export async function handleSequenceTools(action: string, args: Record<string, u
     }
     case 'add_shot_track':
     case 'add_camera_cut_track':
+    case 'add_camera_shake_track':
     case 'add_fade_track':
     case 'add_level_visibility_track':
     case 'add_skeletal_animation_track':
@@ -198,6 +199,7 @@ export async function handleSequenceTools(action: string, args: Record<string, u
       const trackTypes: Record<string, string> = {
         add_shot_track: 'CinematicShot',
         add_camera_cut_track: 'CameraCut',
+        add_camera_shake_track: 'CameraShake',
         add_fade_track: 'Fade',
         add_level_visibility_track: 'LevelVisibility',
         add_skeletal_animation_track: 'SkeletalAnimation',
@@ -206,6 +208,22 @@ export async function handleSequenceTools(action: string, args: Record<string, u
         add_property_track: 'Property'
       };
       const trackType = trackTypes[seqAction];
+      if (seqAction === 'add_camera_shake_track') {
+        const shakeClass = requireNonEmptyString(args.shakeClass, 'shakeClass', 'Missing required parameter: shakeClass');
+        const frame = Number(args.frame ?? 0);
+        if (!Number.isInteger(frame) || frame < -1000000000 || frame > 1000000000) {
+          throw new Error('frame must be an integer between -1000000000 and 1000000000');
+        }
+        const shakeRes = await executeAutomationRequest(tools, 'manage_sequence', {
+          ...args,
+          path,
+          trackType,
+          shakeClass,
+          frame,
+          subAction: 'add_camera_shake_track'
+        }) as SequenceActionResponse;
+        return cleanObject(shakeRes);
+      }
       const res = await executeAutomationRequest(tools, 'manage_sequence', {
         ...args,
         path,

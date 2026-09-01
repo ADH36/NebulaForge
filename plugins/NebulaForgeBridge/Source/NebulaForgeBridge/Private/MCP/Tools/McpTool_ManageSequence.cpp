@@ -30,6 +30,7 @@ public:
 				TEXT("add_subsequence"),
 				TEXT("add_shot_track"),
 				TEXT("add_camera_cut_track"),
+				TEXT("add_camera_shake_track"),
 				TEXT("add_fade_track"),
 				TEXT("add_level_visibility_track"),
 				TEXT("add_skeletal_animation_track"),
@@ -75,6 +76,7 @@ public:
 			.String(TEXT("path"), TEXT("Asset path (e.g., /Game/Path/Asset)."))
 			.String(TEXT("actorName"), TEXT("Name of the actor."))
 			.Array(TEXT("actorNames"), TEXT(""))
+			.String(TEXT("shakeClass"), TEXT("Camera shake class path for add_camera_shake_track."))
 			.Number(TEXT("frame"), TEXT(""))
 			.FreeformObject(TEXT("value"), TEXT(""))
 			.String(TEXT("property"), TEXT("Name of the property."))

@@ -54,6 +54,14 @@
 #include "Sections/MovieSceneSubSection.h"
 #include "UObject/UObjectIterator.h"
 
+#if __has_include("Tracks/MovieSceneCameraShakeTrack.h") && __has_include("Camera/CameraShakeBase.h")
+#include "Tracks/MovieSceneCameraShakeTrack.h"
+#include "Camera/CameraShakeBase.h"
+#define MCP_HAS_CAMERA_SHAKE_TRACK 1
+#else
+#define MCP_HAS_CAMERA_SHAKE_TRACK 0
+#endif
+
 // UE 5.0 compatibility: GetTracks() was introduced in UE 5.1, use GetMasterTracks() in 5.0
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 #define MCP_GET_MOVIESCENE_TRACKS(MovieScene) (MovieScene)->GetTracks()
@@ -2779,6 +2787,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         EffectiveAction = TEXT("sequence_add_camera");
       else if (EffectiveAction == TEXT("add_shot_track") ||
                EffectiveAction == TEXT("add_camera_cut_track") ||
+               EffectiveAction == TEXT("add_camera_shake_track") ||
                EffectiveAction == TEXT("add_fade_track") ||
                EffectiveAction == TEXT("add_level_visibility_track") ||
                EffectiveAction == TEXT("add_skeletal_animation_track") ||
@@ -2789,6 +2798,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         FString TrackType;
         if (EffectiveAction == TEXT("add_shot_track")) TrackType = TEXT("CinematicShot");
         else if (EffectiveAction == TEXT("add_camera_cut_track")) TrackType = TEXT("CameraCut");
+        else if (EffectiveAction == TEXT("add_camera_shake_track")) TrackType = TEXT("CameraShake");
         else if (EffectiveAction == TEXT("add_fade_track")) TrackType = TEXT("Fade");
         else if (EffectiveAction == TEXT("add_level_visibility_track")) TrackType = TEXT("LevelVisibility");
         else if (EffectiveAction == TEXT("add_skeletal_animation_track")) TrackType = TEXT("SkeletalAnimation");
@@ -2796,7 +2806,9 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         else if (EffectiveAction == TEXT("add_event_track")) TrackType = TEXT("Event");
         else TrackType = TEXT("Property");
         LocalPayload->SetStringField(TEXT("trackType"), TrackType);
-        EffectiveAction = TEXT("sequence_add_track");
+        EffectiveAction = EffectiveAction == TEXT("add_camera_shake_track")
+            ? TEXT("sequence_add_camera_shake_track")
+            : TEXT("sequence_add_track");
       }
       else if (!EffectiveAction.StartsWith(TEXT("sequence_")))
         EffectiveAction = TEXT("sequence_") + EffectiveAction;
@@ -3138,6 +3150,60 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     Result->SetBoolField(TEXT("persisted"), true);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Subsequence section added"), Result);
     return true;
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_camera_shake_track")) {
+#if MCP_HAS_CAMERA_SHAKE_TRACK
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    if (SeqPath.IsEmpty()) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("add_camera_shake_track requires a sequence path"), nullptr,
+                             TEXT("INVALID_SEQUENCE"));
+      return true;
+    }
+    ULevelSequence *Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    UMovieScene *MovieScene = Sequence ? Sequence->GetMovieScene() : nullptr;
+    FString ShakeClassPath;
+    LocalPayload->TryGetStringField(TEXT("shakeClass"), ShakeClassPath);
+    double FrameValue = 0.0;
+    if (!MovieScene || ShakeClassPath.IsEmpty() ||
+        !LocalPayload->TryGetNumberField(TEXT("frame"), FrameValue) ||
+        !FMath::IsFinite(FrameValue) || !FMath::IsNearlyEqual(FrameValue, FMath::RoundToDouble(FrameValue))) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("add_camera_shake_track requires an existing sequence, shakeClass, and an integer frame"), nullptr,
+                             TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UClass *ShakeClass = ResolveUClass(ShakeClassPath);
+    if (!ShakeClass || !ShakeClass->IsChildOf(UCameraShakeBase::StaticClass())) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("shakeClass must resolve to a UCameraShakeBase subclass"), nullptr,
+                             TEXT("INVALID_CLASS_TYPE"));
+      return true;
+    }
+    UMovieSceneCameraShakeTrack *Track = MovieScene->AddMasterTrack<UMovieSceneCameraShakeTrack>();
+    if (!Track) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("Unable to create camera shake track"), nullptr,
+                             TEXT("TRACK_CREATE_FAILED"));
+      return true;
+    }
+    Track->AddNewCameraShake(FFrameNumber(static_cast<int32>(FrameValue)), ShakeClass);
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetStringField(TEXT("sequencePath"), SeqPath);
+    Resp->SetStringField(TEXT("trackType"), TEXT("CameraShake"));
+    Resp->SetStringField(TEXT("shakeClass"), ShakeClass->GetPathName());
+    Resp->SetNumberField(TEXT("frame"), FrameValue);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Camera shake track added successfully"), Resp);
+    return true;
+#else
+    SendAutomationResponse(RequestingSocket, RequestId, false,
+                           TEXT("Camera shake tracks are unavailable in this build"), nullptr,
+                           TEXT("CAMERA_SHAKE_NOT_AVAILABLE"));
+    return true;
+#endif
   }
 
   // sequence_list_tracks: List all tracks for a sequence binding

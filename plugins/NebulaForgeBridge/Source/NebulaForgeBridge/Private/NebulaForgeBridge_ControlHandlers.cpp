@@ -4093,6 +4093,22 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       LowerSub == TEXT("set_actor_visibility"))
     return HandleControlActorSetVisibility(RequestId, Payload,
                                            RequestingSocket);
+  if (LowerSub == TEXT("create_media_sound_component")) {
+    TSharedPtr<FJsonObject> ComponentPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      ComponentPayload->SetField(Pair.Key, Pair.Value);
+    ComponentPayload->SetStringField(TEXT("componentType"), TEXT("/Script/MediaAssets.MediaSoundComponent"));
+    FString MediaPlayerPath;
+    if (!Payload->TryGetStringField(TEXT("mediaPlayerPath"), MediaPlayerPath) || MediaPlayerPath.TrimStartAndEnd().IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("mediaPlayerPath is required"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Properties = MakeShared<FJsonObject>();
+    Properties->SetStringField(TEXT("MediaPlayer"), MediaPlayerPath);
+    ComponentPayload->SetObjectField(TEXT("properties"), Properties);
+    return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("add_component"))
     return HandleControlActorAddComponent(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("set_component_properties") ||

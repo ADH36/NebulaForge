@@ -38,9 +38,9 @@ This roadmap outlines the comprehensive development plan for expanding the Unrea
 
 ## Phase 5: Infrastructure Improvements (Current)
 
-- [ ] **Real-time Streaming**: Streaming logs and test results via SSE or chunked responses.
+- [x] **Real-time Streaming**: Native MCP Streamable HTTP/SSE transport delivers progress and final results; `system_control.subscribe` streams editor logs and test jobs expose lifecycle polling.
 - [ ] **Extensibility Framework**: Dynamic handler registry via JSON config and support for custom C++ handlers.
-- [ ] **Remote Profiling**: Deep integration with Unreal Insights for remote performance tuning.
+- [x] **Remote Profiling**: Trace sessions, file-backed `.utrace` capture, status, and host-side trace analysis are available through `system_control`/`manage_insights`.
 
 ## Context Reduction Initiative (Completed Workstream)
 
@@ -1321,23 +1321,25 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Additional generic tracks: `add_fade_track`, `add_level_visibility_track`, `add_skeletal_animation_track`, `add_transform_track`, `add_event_track`, `add_property_track`; [ ] material/particle-specific tracks
 
 ### 30.2 Movie Render Queue
-- [ ] `create_render_job`
-- [ ] `configure_output_settings`
+- [x] `create_render_job` (implemented as `manage_sequence.render_sequence_mrq`)
+- [x] `configure_output_settings` (MRQ preset, project-relative output path, resolution, frame range, and image format)
 - [ ] `add_render_pass` (beauty, depth, normal, motion_vector, object_id, custom_stencil)
 - [ ] `configure_anti_aliasing` (spatial, temporal)
 - [x] `configure_console_variables` (validated batch updates via UE `IConsoleManager`/`IConsoleVariable`)
 - [ ] `configure_burn_ins`
-- [ ] `queue_render`, `start_render`
+- [x] `queue_render`, `start_render` (implemented as `manage_sequence.render_sequence_mrq` and `render_sequence_queue`)
 
 **Implemented gap:** `system_control.configure_console_variables` now performs validated batch CVar updates through UE's `IConsoleManager`/`IConsoleVariable` API and returns per-variable results.
 
 ### 30.3 Media Framework
-- [ ] `create_media_player`
-- [ ] `create_media_source` (file, stream, platform)
-- [ ] `create_media_texture`
-- [ ] `create_media_sound_component`
-- [ ] `create_media_playlist`
-- [ ] `play_media`, `pause_media`, `seek_media`
+- [x] `create_media_player`
+- [x] `create_media_source` (file, stream)
+- [x] `create_media_texture`
+- [x] `create_media_sound_component` (implemented through `control_actor`, binds a `UMediaPlayer` to `UMediaSoundComponent`)
+- [x] `create_media_playlist`
+- [x] `play_media`, `pause_media`, `seek_media`
+
+**Implementation note:** Media asset creation is guarded by Media Framework availability and uses the native `UMediaPlayer`, `UMediaSource`, `UMediaTexture`, and `UMediaPlaylist` asset types. Platform-specific capture sources and Media Sound Component authoring remain conditional or unimplemented.
 
 ### 30.4 Take Recorder
 - [ ] `create_take_recorder_panel`

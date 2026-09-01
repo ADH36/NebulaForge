@@ -155,6 +155,23 @@ const handlers: Record<string, ActorActionHandler> = {
         }
         return result;
     },
+    create_media_sound_component: async (args, tools) => {
+        const params = normalizeArgs(args, [
+            { key: 'actorName', aliases: ['name'], required: true },
+            { key: 'mediaPlayerPath', aliases: ['mediaPlayer'], required: true },
+            { key: 'componentName', aliases: ['nameTo'] }
+        ]);
+        const actorName = extractString(params, 'actorName');
+        const mediaPlayerPath = extractString(params, 'mediaPlayerPath');
+        const componentName = extractOptionalString(params, 'componentName');
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'create_media_sound_component',
+            actorName,
+            componentName,
+            componentType: '/Script/MediaAssets.MediaSoundComponent',
+            properties: { MediaPlayer: mediaPlayerPath }
+        }) as Record<string, unknown>;
+    },
     delete: async (args, tools) => {
         if (args.actorNames && Array.isArray(args.actorNames)) {
             return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {

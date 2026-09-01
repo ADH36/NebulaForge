@@ -1,4 +1,4 @@
-// McpTool_ControlActor.cpp — control_actor tool definition (67 actions)
+// McpTool_ControlActor.cpp — control_actor tool definition (68 actions)
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -41,6 +41,7 @@ public:
 				TEXT("set_visibility"),
 				TEXT("set_actor_visible"),
 				TEXT("add_component"),
+				TEXT("create_media_sound_component"),
 				TEXT("remove_component"),
 				TEXT("set_component_properties"),
 				TEXT("set_component_property"),
@@ -133,6 +134,7 @@ public:
 			})
 			.String(TEXT("componentType"), TEXT(""))
 			.String(TEXT("componentName"), TEXT("Name of the component."))
+			.String(TEXT("mediaPlayerPath"), TEXT("UMediaPlayer asset path for media audio output."))
 			.FreeformObject(TEXT("properties"), TEXT(""))
 			.String(TEXT("propertyName"), TEXT("Name of the property."))
 			.FreeformObject(TEXT("value"), TEXT("Generic value (any type)."))

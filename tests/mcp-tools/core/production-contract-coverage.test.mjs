@@ -19,6 +19,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'create_procedural_mesh_component', actorName: 'ContractActor', componentName: 'ContractProceduralMesh' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_sprite_actor', actorName: 'ContractPaperSprite', paperAssetPath: '/Game/Contract/Sprite' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_flipbook_actor', actorName: 'ContractPaperFlipbook', paperAssetPath: '/Game/Contract/Flipbook' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'set_paper_sprite_color', actorName: 'ContractPaperSprite', color: { r: 1, g: 0.5, b: 0.25, a: 1 } }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'configure_paper_flipbook', actorName: 'ContractPaperFlipbook', playRate: 1, looping: true, playbackAction: 'play_from_start' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'add_instance', actorName: 'ContractActor', componentName: 'ContractISM', location: { x: 0, y: 0, z: 0 }, rotation: { pitch: 0, yaw: 0, roll: 0 }, scale: { x: 1, y: 1, z: 1 }, worldSpace: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'update_instance_transform', actorName: 'ContractActor', componentName: 'ContractISM', instanceIndex: 0, location: { x: 100, y: 0, z: 0 }, rotation: { pitch: 0, yaw: 45, roll: 0 }, scale: { x: 1, y: 1, z: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'remove_instance', actorName: 'ContractActor', componentName: 'ContractISM', instanceIndex: 0 }, expected: 'success|error' },

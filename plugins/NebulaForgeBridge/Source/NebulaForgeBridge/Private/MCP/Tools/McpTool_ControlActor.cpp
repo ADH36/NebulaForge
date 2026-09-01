@@ -52,6 +52,8 @@ public:
 				TEXT("configure_instance_culling"),
 				TEXT("configure_instance_lod"),
 				TEXT("create_media_sound_component"),
+				TEXT("set_paper_sprite_color"),
+				TEXT("configure_paper_flipbook"),
 				TEXT("configure_camera_settings"),
 				TEXT("configure_camera_rig_rail"),
 				TEXT("configure_camera_rig_crane"),
@@ -121,6 +123,16 @@ public:
 			.String(TEXT("className"), TEXT("Actor class name."))
 			.String(TEXT("meshPath"), TEXT("Mesh asset path."))
 			.String(TEXT("paperAssetPath"), TEXT("Paper2D sprite or flipbook asset path."))
+			.Object(TEXT("color"), TEXT("Paper sprite color (r, g, b, a)."),
+				[](FMcpSchemaBuilder& S) {
+				S.Number(TEXT("r")).Number(TEXT("g")).Number(TEXT("b")).Number(TEXT("a"));
+				})
+			.Number(TEXT("playRate"), TEXT("Flipbook playback rate."))
+			.Bool(TEXT("looping"), TEXT("Whether the flipbook loops."))
+			.Number(TEXT("playbackPosition"), TEXT("Flipbook playback position in seconds."))
+			.StringEnum(TEXT("playbackAction"), {
+				TEXT("play"), TEXT("play_from_start"), TEXT("reverse"), TEXT("reverse_from_end"), TEXT("stop")
+			}, TEXT("Optional flipbook playback command."))
 			.String(TEXT("materialPath"), TEXT("Material asset path."))
 			.Integer(TEXT("materialSlot"), TEXT("Material slot index."))
 			.Integer(TEXT("materialIndex"), TEXT("Material slot index alias."))

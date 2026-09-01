@@ -4253,6 +4253,94 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ComponentPayload->SetObjectField(TEXT("properties"), Properties);
     return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
   }
+#if MCP_HAS_PAPER2D
+  if (LowerSub == TEXT("set_paper_sprite_color")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperSpriteComponent* SpriteComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        SpriteComponent = Cast<UPaperSpriteComponent>(FindComponentByName(Found, ComponentName));
+      else
+        SpriteComponent = Found->FindComponentByClass<UPaperSpriteComponent>();
+    }
+    const TSharedPtr<FJsonObject>* ColorObject = nullptr;
+    if (!SpriteComponent || !Payload->TryGetObjectField(TEXT("color"), ColorObject) || !ColorObject || !ColorObject->IsValid()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperSpriteComponent, and color {r,g,b,a} are required"), nullptr);
+      return true;
+    }
+    const FLinearColor Color(
+        GetJsonNumberField(*ColorObject, TEXT("r"), 1.0),
+        GetJsonNumberField(*ColorObject, TEXT("g"), 1.0),
+        GetJsonNumberField(*ColorObject, TEXT("b"), 1.0),
+        GetJsonNumberField(*ColorObject, TEXT("a"), 1.0));
+    SpriteComponent->SetSpriteColor(Color);
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), SpriteComponent->GetName());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper sprite color updated"), Data);
+    return true;
+  }
+  if (LowerSub == TEXT("configure_paper_flipbook")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperFlipbookComponent* FlipbookComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        FlipbookComponent = Cast<UPaperFlipbookComponent>(FindComponentByName(Found, ComponentName));
+      else
+        FlipbookComponent = Found->FindComponentByClass<UPaperFlipbookComponent>();
+    }
+    if (!FlipbookComponent) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("COMPONENT_NOT_FOUND"),
+                                TEXT("actorName must resolve to a PaperFlipbookComponent"), nullptr);
+      return true;
+    }
+    double PlayRate = 0.0;
+    if (Payload->TryGetNumberField(TEXT("playRate"), PlayRate)) {
+      if (!FMath::IsFinite(PlayRate) || PlayRate < -100.0 || PlayRate > 100.0) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                  TEXT("playRate must be finite and between -100 and 100"), nullptr);
+        return true;
+      }
+      FlipbookComponent->SetPlayRate(static_cast<float>(PlayRate));
+    }
+    bool bLooping = false;
+    if (Payload->TryGetBoolField(TEXT("looping"), bLooping))
+      FlipbookComponent->SetLooping(bLooping);
+    double Position = 0.0;
+    if (Payload->TryGetNumberField(TEXT("playbackPosition"), Position) && FMath::IsFinite(Position) && Position >= 0.0)
+      FlipbookComponent->SetPlaybackPosition(static_cast<float>(Position), false);
+    FString PlaybackAction;
+    Payload->TryGetStringField(TEXT("playbackAction"), PlaybackAction);
+    PlaybackAction = PlaybackAction.ToLower();
+    if (PlaybackAction == TEXT("play")) FlipbookComponent->Play();
+    else if (PlaybackAction == TEXT("play_from_start")) FlipbookComponent->PlayFromStart();
+    else if (PlaybackAction == TEXT("reverse")) FlipbookComponent->Reverse();
+    else if (PlaybackAction == TEXT("reverse_from_end")) FlipbookComponent->ReverseFromEnd();
+    else if (PlaybackAction == TEXT("stop")) FlipbookComponent->Stop();
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), FlipbookComponent->GetName());
+    Data->SetNumberField(TEXT("playRate"), FlipbookComponent->GetPlayRate());
+    Data->SetBoolField(TEXT("looping"), FlipbookComponent->IsLooping());
+    Data->SetBoolField(TEXT("playing"), FlipbookComponent->IsPlaying());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper flipbook configured"), Data);
+    return true;
+  }
+#endif
+  if (LowerSub == TEXT("set_paper_sprite_color") || LowerSub == TEXT("configure_paper_flipbook")) {
+    SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_SUPPORTED"),
+                              TEXT("Paper2D plugin is required for Paper2D component controls"), nullptr);
+    return true;
+  }
   if (LowerSub == TEXT("configure_camera_rig_rail") ||
       LowerSub == TEXT("configure_camera_rig_crane")) {
     FString TargetName;

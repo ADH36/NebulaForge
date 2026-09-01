@@ -21,6 +21,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'run_gauntlet_test', testName: 'UE.BootTest', platform: 'Win64', configuration: 'Development' }, expected: 'success|error|timeout' },
   { toolName: 'system_control', arguments: { action: 'configure_test_settings', configName: 'DefaultEngine.ini', section: '/Script/FunctionalTesting.FunctionalTestingSettings', key: 'bEnableFunctionalTesting', value: 'True' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'configure_demo_settings', configName: 'DefaultEngine.ini', section: '/Script/Engine.DemoNetDriver', key: 'demo.RecordHz', value: '8' }, expected: 'success|error' },
+  { toolName: 'control_editor', arguments: { action: 'configure_take_sources', actorNames: ['ContractActor'], reduceKeys: false, showProgress: false }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'create_build_target', targetName: 'ContractGame', targetType: 'Game', filePath: 'Source/ContractGame.Target.cs' }, expected: 'success|error' },
   { toolName: 'manage_level_structure', arguments: { action: 'configure_hlod_transition', hlodLayerName: 'ContractHLOD', cellSize: 25600, loadingDistance: 50000 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_tag_table', path: '/Game/MCPTest', name: 'ContractTagTable', save: false }, expected: 'success|error' },

@@ -79,6 +79,7 @@ const ACTION_REQUIRED_PARAMS: Record<string, string[]> = {
   'seek_media': ['mediaPlayerPath', 'mediaTime'],
   'start_take_recording': [],
   'stop_take_recording': [],
+  'configure_take_sources': ['actorNames'],
   'get_take_recording_status': [],
 };
 
@@ -143,6 +144,7 @@ const ACTION_ALLOWED_PARAMS: Record<string, string[]> = {
   'seek_media': ['mediaPlayerPath', 'mediaTime'],
   'start_take_recording': ['sequencePath', 'openSequencer', 'showErrorMessage'],
   'stop_take_recording': [],
+  'configure_take_sources': ['actorNames', 'reduceKeys', 'showProgress'],
   'get_take_recording_status': [],
   'simulate_input': ['key', 'type', 'inputType', 'inputAction', 'x', 'y', 'button', 'playerIndex', 'axisName', 'axisValue', 'relative'],
   'get_pie_state': [],
@@ -672,6 +674,11 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'stop_take_recording' }) as Record<string, unknown>);
     case 'get_take_recording_status':
       return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'get_take_recording_status' }) as Record<string, unknown>);
+    case 'configure_take_sources': {
+      const actorNames = Array.isArray(args.actorNames) ? args.actorNames.filter((name): name is string => typeof name === 'string' && name.trim().length > 0) : [];
+      if (actorNames.length === 0) return { success: false, error: 'INVALID_ARGUMENT', message: 'actorNames must contain at least one actor name' };
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'configure_take_sources', actorNames, reduceKeys: args.reduceKeys === true, showProgress: args.showProgress === true }) as Record<string, unknown>);
+    }
     case 'step_frame': {
       // Support stepping multiple frames
       const steps = typeof args.steps === 'number' && args.steps > 0 ? args.steps : 1;

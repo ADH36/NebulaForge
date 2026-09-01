@@ -5264,7 +5264,8 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
     return true;
 #endif
   }
-  if (LowerSub == TEXT("start_take_recording") ||
+  if (LowerSub == TEXT("configure_take_sources") ||
+      LowerSub == TEXT("start_take_recording") ||
       LowerSub == TEXT("stop_take_recording") ||
       LowerSub == TEXT("get_take_recording_status")) {
 #if MCP_HAS_TAKE_RECORDER
@@ -5274,6 +5275,35 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
       SendStandardErrorResponse(this, RequestingSocket, RequestId,
                                 TEXT("TAKE_RECORDER_NOT_AVAILABLE"),
                                 TEXT("Take Recorder subsystem is unavailable"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("configure_take_sources")) {
+      const TArray<TSharedPtr<FJsonValue>>* ActorValues = nullptr;
+      if (!Payload.IsValid() || !Payload->TryGetArrayField(TEXT("actorNames"), ActorValues) || !ActorValues || ActorValues->Num() == 0) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorNames must contain at least one actor name"), nullptr);
+        return true;
+      }
+      bool bReduceKeys = false;
+      bool bShowProgress = false;
+      Payload->TryGetBoolField(TEXT("reduceKeys"), bReduceKeys);
+      Payload->TryGetBoolField(TEXT("showProgress"), bShowProgress);
+      int32 AddedCount = 0;
+      for (const TSharedPtr<FJsonValue>& Value : *ActorValues) {
+        FString ActorName;
+        if (!Value.IsValid() || !Value->TryGetString(ActorName)) continue;
+        ActorName.TrimStartAndEndInline();
+        if (ActorName.IsEmpty()) continue;
+        AActor* Actor = FindActorByName(ActorName, true);
+        if (!Actor) {
+          SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), FString::Printf(TEXT("Actor not found: %s"), *ActorName), nullptr);
+          return true;
+        }
+        TakeSubsystem->AddSourceForActor(Actor, bReduceKeys, bShowProgress);
+        ++AddedCount;
+      }
+      TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+      Response->SetNumberField(TEXT("addedCount"), AddedCount);
+      SendAutomationResponse(RequestingSocket, RequestId, AddedCount > 0, TEXT("Take Recorder sources configured"), Response, AddedCount > 0 ? FString() : TEXT("NO_VALID_ACTORS"));
       return true;
     }
     if (LowerSub == TEXT("get_take_recording_status")) {

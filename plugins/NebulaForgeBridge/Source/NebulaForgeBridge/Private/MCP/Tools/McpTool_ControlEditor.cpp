@@ -53,6 +53,7 @@ public:
 				TEXT("pause_media"),
 				TEXT("seek_media"),
 				TEXT("start_take_recording"),
+				TEXT("configure_take_sources"),
 				TEXT("stop_take_recording"),
 				TEXT("get_take_recording_status"),
 				TEXT("play_demo"),
@@ -121,6 +122,9 @@ public:
 			.String(TEXT("levelPath"), TEXT("Level asset path."))
 			.String(TEXT("path"), TEXT("Path to a directory."))
 			.String(TEXT("actorName"), TEXT("Name of the actor."))
+			.Array(TEXT("actorNames"), TEXT("Actor names to add as Take Recorder sources."), TEXT("string"))
+			.Bool(TEXT("reduceKeys"), TEXT("Enable key reduction for added actor sources."))
+			.Bool(TEXT("showProgress"), TEXT("Show Take Recorder source processing progress."))
 			.String(TEXT("objectPath"), TEXT("Object path alias for actorName."))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.Number(TEXT("blendTime"), TEXT("Blend time in seconds for set_view_target."))

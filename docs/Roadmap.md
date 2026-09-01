@@ -1352,7 +1352,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Implementation note:** The lifecycle actions use UE's optional `UTakeRecorderSubsystem`, support recording into an existing Level Sequence, and expose `get_take_recording_status`. Source/track authoring and panel creation remain plugin-specific follow-up work.
 
 ### 30.5 Demo/Replay System
-- [ ] `start_demo_recording`, `stop_demo_recording`
+- [x] `start_demo_recording`, `stop_demo_recording` (DemoRec/DemoStop aliases)
 - [ ] `configure_demo_settings`
 - [x] `play_demo`, `pause_demo`, `seek_demo`
 - [x] `set_demo_playback_speed`

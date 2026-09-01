@@ -129,11 +129,13 @@ const ACTION_ALLOWED_PARAMS: Record<string, string[]> = {
   'create_bookmark': ['id', 'description', 'bookmarkName'],
   'jump_to_bookmark': ['id', 'bookmarkName'],
   'start_recording': ['filename', 'name', 'frameRate', 'durationSeconds', 'metadata'],
+  'start_demo_recording': ['filename', 'name', 'frameRate', 'durationSeconds', 'metadata'],
   'play_demo': ['filename', 'name'],
   'pause_demo': [],
   'seek_demo': ['demoTime'],
   'set_demo_playback_speed': ['demoSpeed'],
   'stop_recording': [],
+  'stop_demo_recording': [],
   'set_viewport_realtime': ['enabled', 'realtime'],
   'open_media': ['mediaPlayerPath', 'mediaUrl'],
   'play_media': ['mediaPlayerPath'],
@@ -581,7 +583,8 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       const res = await executeAutomationRequest(tools, 'control_editor', { action: 'set_camera', location: args.location, rotation: args.rotation }) as Record<string, unknown>;
       return cleanObject(res);
     }
-    case 'start_recording': {
+    case 'start_recording':
+    case 'start_demo_recording': {
       // Use console command as fallback if bridge doesn't support it
       const name = typeof args.name === 'string' ? args.name : undefined;
       const filename = args.filename || name || 'TestRecording';
@@ -617,7 +620,8 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
         };
       }
     }
-    case 'stop_recording': {
+    case 'stop_recording':
+    case 'stop_demo_recording': {
       const res = await executeAutomationRequest(tools, 'control_editor', { action: 'stop_recording' }) as Record<string, unknown>;
       return cleanObject(res);
     }

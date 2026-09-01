@@ -5329,9 +5329,9 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
   }
   if (LowerSub == TEXT("step_frame"))
     return HandleControlEditorStepFrame(RequestId, Payload, RequestingSocket);
-  if (LowerSub == TEXT("start_recording"))
+  if (LowerSub == TEXT("start_recording") || LowerSub == TEXT("start_demo_recording"))
     return HandleControlEditorStartRecording(RequestId, Payload, RequestingSocket);
-  if (LowerSub == TEXT("stop_recording"))
+  if (LowerSub == TEXT("stop_recording") || LowerSub == TEXT("stop_demo_recording"))
     return HandleControlEditorStopRecording(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("create_bookmark"))
     return HandleControlEditorCreateBookmark(RequestId, Payload, RequestingSocket);

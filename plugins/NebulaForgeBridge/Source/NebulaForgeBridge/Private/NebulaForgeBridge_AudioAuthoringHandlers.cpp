@@ -1005,7 +1005,10 @@ if (SubAction == TEXT("create_metasound"))
 
 	if (NewNode)
 	{
-		McpSafeAssetSave(MetaSound);
+		if (!McpSafeAssetSave(MetaSound))
+		{
+			return McpHandlerUtils::BuildErrorResponse(TEXT("SAVE_FAILED"), TEXT("MetaSound node added but asset save failed"));
+		}
 
 		FString FullClassName = ActualNamespace.IsEmpty() ? ActualName :
 			(ActualVariant.IsEmpty() ? FString::Printf(TEXT("%s.%s"), *ActualNamespace, *ActualName) :
@@ -1101,7 +1104,10 @@ if (SubAction == TEXT("create_metasound"))
 
 	if (bSuccess && CreatedEdges.Num() > 0)
 	{
-		McpSafeAssetSave(MetaSound);
+		if (!McpSafeAssetSave(MetaSound))
+		{
+			return McpHandlerUtils::BuildErrorResponse(TEXT("SAVE_FAILED"), TEXT("MetaSound connection created but asset save failed"));
+		}
 
 		Response->SetBoolField(TEXT("success"), true);
 		Response->SetStringField(TEXT("message"), TEXT("MetaSound nodes connected"));
@@ -1202,7 +1208,10 @@ if (SubAction == TEXT("create_metasound"))
 
         if (InputNode)
         {
-            McpSafeAssetSave(MetaSound);
+            if (!McpSafeAssetSave(MetaSound))
+            {
+                return McpHandlerUtils::BuildErrorResponse(TEXT("SAVE_FAILED"), TEXT("MetaSound input added but asset save failed"));
+            }
 
             Response->SetStringField(TEXT("inputName"), InputName);
             Response->SetStringField(TEXT("inputType"), InputType);
@@ -1285,7 +1294,10 @@ if (SubAction == TEXT("create_metasound"))
 
         if (OutputNode)
         {
-            McpSafeAssetSave(MetaSound);
+            if (!McpSafeAssetSave(MetaSound))
+            {
+                return McpHandlerUtils::BuildErrorResponse(TEXT("SAVE_FAILED"), TEXT("MetaSound output added but asset save failed"));
+            }
 
             Response->SetStringField(TEXT("outputName"), OutputName);
             Response->SetStringField(TEXT("outputType"), OutputType);
@@ -2359,7 +2371,10 @@ if (SubAction == TEXT("create_metasound"))
             return McpHandlerUtils::BuildErrorResponse(TEXT("CREATE_FAILED"), TEXT("Failed to create source effect chain"));
         }
 
-        McpSafeAssetSave(NewChain);
+        if (!McpSafeAssetSave(NewChain))
+        {
+            return McpHandlerUtils::BuildErrorResponse(TEXT("SAVE_FAILED"), TEXT("Source effect chain created but asset save failed"));
+        }
 
         FString FullPath = NewChain->GetPathName();
         Response->SetStringField(TEXT("assetPath"), FullPath);
@@ -2430,7 +2445,10 @@ if (SubAction == TEXT("create_metasound"))
 			NewEntry.bBypass = McpHandlerUtils::GetOptionalBool(Params, TEXT("bypass"), false);
 			Chain->Chain.Add(NewEntry);
 
-			McpSafeAssetSave(Chain);
+			if (!McpSafeAssetSave(Chain))
+			{
+				return McpHandlerUtils::BuildErrorResponse(TEXT("SAVE_FAILED"), TEXT("Source effect was added but chain save failed"));
+			}
 
 			Response->SetNumberField(TEXT("effectCount"), Chain->Chain.Num());
 			Response->SetBoolField(TEXT("success"), true);
@@ -2493,7 +2511,10 @@ if (SubAction == TEXT("create_metasound"))
         // Since this is asset creation, we skip these deprecated properties.
         // The submix will use default levels which can be adjusted via Blueprint or runtime functions.
 
-        McpSafeAssetSave(NewSubmix);
+        if (!McpSafeAssetSave(NewSubmix))
+        {
+            return McpHandlerUtils::BuildErrorResponse(TEXT("SAVE_FAILED"), TEXT("Submix created but asset save failed"));
+        }
 
         FString FullPath = NewSubmix->GetPathName();
         Response->SetStringField(TEXT("assetPath"), FullPath);

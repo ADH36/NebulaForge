@@ -4608,6 +4608,41 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile read"), Data);
     return true;
   }
+  if (LowerSub == TEXT("resize_paper_tile_map")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    int32 Width = 0;
+    int32 Height = 0;
+    if (!TileMapComponent || !Payload->TryGetNumberField(TEXT("width"), Width) ||
+        !Payload->TryGetNumberField(TEXT("height"), Height) || Width < 1 || Width > 1024 || Height < 1 || Height > 1024) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperTileMapComponent, and width/height between 1 and 1024 are required"), nullptr);
+      return true;
+    }
+    TileMapComponent->ResizeMap(Width, Height);
+    int32 ResultWidth = 0;
+    int32 ResultHeight = 0;
+    int32 NumLayers = 0;
+    TileMapComponent->GetMapSize(ResultWidth, ResultHeight, NumLayers);
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetNumberField(TEXT("width"), ResultWidth);
+    Data->SetNumberField(TEXT("height"), ResultHeight);
+    Data->SetNumberField(TEXT("layers"), NumLayers);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Owned Paper tile-map resized"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("set_paper_tile_map_color")) {
     FString TargetName;
     FString ComponentName;

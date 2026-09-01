@@ -74,6 +74,13 @@
 #include "Blueprint/WidgetTree.h"
 #include "WidgetBlueprint.h"
 
+#if __has_include("CommonActionWidget.h")
+#include "CommonActionWidget.h"
+#define MCP_HAS_COMMON_ACTION_WIDGET 1
+#else
+#define MCP_HAS_COMMON_ACTION_WIDGET 0
+#endif
+
 // Engine
 #include "Engine/Texture2D.h"
 #include "UObject/UObjectIterator.h"
@@ -1378,6 +1385,59 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
     // =========================================================================
     // 19.3 Common Widgets
     // =========================================================================
+
+    if (SubAction.Equals(TEXT("create_common_action_widget"), ESearchCase::IgnoreCase))
+    {
+#if MCP_HAS_COMMON_ACTION_WIDGET
+        FString WidgetPath = GetJsonStringField(Payload, TEXT("widgetPath"));
+        if (WidgetPath.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Missing required parameter: widgetPath"), TEXT("MISSING_PARAMETER"));
+            return true;
+        }
+
+        UWidgetBlueprint* WidgetBP = LoadWidgetBlueprint(WidgetPath);
+        if (!WidgetBP || !WidgetBP->WidgetTree)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Widget blueprint not found"), TEXT("NOT_FOUND"));
+            return true;
+        }
+
+        const FString SlotName = GetJsonStringField(Payload, TEXT("slotName"), TEXT("CommonActionWidget"));
+        UCommonActionWidget* ActionWidget = CreateAndRegisterWidget<UCommonActionWidget>(
+            WidgetBP, WidgetBP->WidgetTree, FName(*SlotName));
+        if (!ActionWidget)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Failed to create CommonUI action widget"), TEXT("CREATION_ERROR"));
+            return true;
+        }
+
+        const FString ParentSlot = GetJsonStringField(Payload, TEXT("parentSlot"));
+        if (!SafeAddWidgetToTree(WidgetBP, ActionWidget, ParentSlot))
+        {
+            UnregisterWidgetGuid(WidgetBP, ActionWidget);
+            WidgetBP->WidgetTree->RemoveWidget(ActionWidget);
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Failed to add CommonUI action widget to widget tree"), TEXT("TREE_ERROR"));
+            return true;
+        }
+
+        FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP))
+        {
+            return true;
+        }
+
+        ResultJson->SetBoolField(TEXT("success"), true);
+        ResultJson->SetStringField(TEXT("message"), TEXT("Added CommonUI action widget"));
+        ResultJson->SetStringField(TEXT("slotName"), SlotName);
+        McpHandlerUtils::AddVerification(ResultJson, WidgetBP);
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Added CommonUI action widget"), ResultJson);
+        return true;
+#else
+        SendAutomationError(RequestingSocket, RequestId, TEXT("CommonUI action widget requires the optional CommonUI plugin"), TEXT("NOT_AVAILABLE"));
+        return true;
+#endif
+    }
 
     if (SubAction.Equals(TEXT("add_text_block"), ESearchCase::IgnoreCase))
     {

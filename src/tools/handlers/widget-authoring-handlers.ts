@@ -104,6 +104,11 @@ export async function handleWidgetAuthoringTools(
       return sendRequest('create_common_tab_list');
     }
 
+    case 'create_common_action_widget': {
+      requireNonEmptyString(argsRecord.widgetPath, 'widgetPath', 'Missing required parameter: widgetPath');
+      return sendRequest('create_common_action_widget');
+    }
+
     case 'configure_analog_cursor': {
       if (argsRecord.enabled !== undefined && typeof argsRecord.enabled !== 'boolean') {
         throw new Error('enabled must be a boolean when provided');

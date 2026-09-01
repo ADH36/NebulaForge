@@ -383,6 +383,11 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
   }
   const FString LowerSub = SubAction.ToLower();
 
+  if (LowerSub == TEXT("create_common_action_widget")) {
+    return HandleManageWidgetAuthoringAction(
+        RequestId, TEXT("manage_widget_authoring"), Payload, RequestingSocket);
+  }
+
   TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
   Resp->SetStringField(TEXT("action"), LowerSub);
 

@@ -1142,6 +1142,50 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             NiComp->SetNiagaraVariableInt(ParamName, static_cast<int32>(NumberValue));
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Vector2"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("Vec2"), ESearchCase::IgnoreCase)) {
+          const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
+          const TSharedPtr<FJsonObject> *ObjValue = nullptr;
+          double VX = 0.0, VY = 0.0;
+          bool bHasVector = false;
+          if (LocalPayload->TryGetArrayField(TEXT("value"), ArrValue) && ArrValue && ArrValue->Num() >= 2) {
+            VX = (*ArrValue)[0]->AsNumber(); VY = (*ArrValue)[1]->AsNumber(); bHasVector = true;
+          } else if (LocalPayload->TryGetObjectField(TEXT("value"), ObjValue) && ObjValue && (*ObjValue).IsValid()) {
+            bHasVector = (*ObjValue)->TryGetNumberField(TEXT("x"), VX) && (*ObjValue)->TryGetNumberField(TEXT("y"), VY);
+          }
+          if (bHasVector && FMath::IsFinite(VX) && FMath::IsFinite(VY)) {
+            NiComp->SetNiagaraVariableVec2(ParamName, FVector2D(static_cast<float>(VX), static_cast<float>(VY)));
+            bApplied = true;
+          }
+        } else if (ParameterType.Equals(TEXT("Vector4"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("Vec4"), ESearchCase::IgnoreCase)) {
+          const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
+          const TSharedPtr<FJsonObject> *ObjValue = nullptr;
+          double VX = 0.0, VY = 0.0, VZ = 0.0, VW = 0.0;
+          bool bHasVector = false;
+          if (LocalPayload->TryGetArrayField(TEXT("value"), ArrValue) && ArrValue && ArrValue->Num() >= 4) {
+            VX = (*ArrValue)[0]->AsNumber(); VY = (*ArrValue)[1]->AsNumber(); VZ = (*ArrValue)[2]->AsNumber(); VW = (*ArrValue)[3]->AsNumber(); bHasVector = true;
+          } else if (LocalPayload->TryGetObjectField(TEXT("value"), ObjValue) && ObjValue && (*ObjValue).IsValid()) {
+            bHasVector = (*ObjValue)->TryGetNumberField(TEXT("x"), VX) && (*ObjValue)->TryGetNumberField(TEXT("y"), VY) && (*ObjValue)->TryGetNumberField(TEXT("z"), VZ) && (*ObjValue)->TryGetNumberField(TEXT("w"), VW);
+          }
+          if (bHasVector && FMath::IsFinite(VX) && FMath::IsFinite(VY) && FMath::IsFinite(VZ) && FMath::IsFinite(VW)) {
+            NiComp->SetNiagaraVariableVec4(ParamName, FVector4(static_cast<float>(VX), static_cast<float>(VY), static_cast<float>(VZ), static_cast<float>(VW)));
+            bApplied = true;
+          }
+        } else if (ParameterType.Equals(TEXT("Position"), ESearchCase::IgnoreCase)) {
+          const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
+          const TSharedPtr<FJsonObject> *ObjValue = nullptr;
+          double PX = 0.0, PY = 0.0, PZ = 0.0;
+          bool bHasPosition = false;
+          if (LocalPayload->TryGetArrayField(TEXT("value"), ArrValue) && ArrValue && ArrValue->Num() >= 3) {
+            PX = (*ArrValue)[0]->AsNumber(); PY = (*ArrValue)[1]->AsNumber(); PZ = (*ArrValue)[2]->AsNumber(); bHasPosition = true;
+          } else if (LocalPayload->TryGetObjectField(TEXT("value"), ObjValue) && ObjValue && (*ObjValue).IsValid()) {
+            bHasPosition = (*ObjValue)->TryGetNumberField(TEXT("x"), PX) && (*ObjValue)->TryGetNumberField(TEXT("y"), PY) && (*ObjValue)->TryGetNumberField(TEXT("z"), PZ);
+          }
+          if (bHasPosition && FMath::IsFinite(PX) && FMath::IsFinite(PY) && FMath::IsFinite(PZ)) {
+            NiComp->SetNiagaraVariablePosition(ParamName, FVector(static_cast<float>(PX), static_cast<float>(PY), static_cast<float>(PZ)));
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Vector"),
                                         ESearchCase::IgnoreCase)) {
           const TSharedPtr<FJsonValue> Val =
@@ -1254,6 +1298,11 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
           // Invalid Type?
           if (!ParameterType.Equals(TEXT("Float"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Vector2"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Vec2"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Vector4"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Vec4"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Position"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Int"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Int32"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Integer"), ESearchCase::IgnoreCase) &&

@@ -484,6 +484,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_parameter_value`, `bind_parameter_to_source`
 - [x] Quaternion runtime parameter values via the official `UNiagaraComponent::SetNiagaraVariableQuat` API (`set_niagara_parameter`, `parameterType: Quaternion` or `Quat`); this is additional UE API coverage beyond the original roadmap list.
 - [x] Integer runtime parameter values via the official `UNiagaraComponent::SetNiagaraVariableInt` API (`set_niagara_parameter`, `parameterType: Int`, `Int32`, or `Integer`); this is additional UE API coverage beyond the original roadmap list.
+- [x] Vector2, Vector4, and Position runtime values via Epic's typed `UNiagaraComponent` setters (`set_niagara_parameter`, `parameterType: Vector2`/`Vec2`, `Vector4`/`Vec4`, or `Position`); this is additional UE API coverage beyond the original roadmap list.
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

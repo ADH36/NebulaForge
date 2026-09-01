@@ -493,6 +493,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Generic UObject runtime parameter values via Epic's `UNiagaraComponent::SetVariableObject` API (`set_niagara_parameter`, `parameterType: Object`, `objectPath`); paths are normalized and restricted to valid Unreal object roots.
 - [x] Skeletal mesh component runtime parameter overrides via Epic's `UNiagaraFunctionLibrary::OverrideSystemUserVariableSkeletalMeshComponent` API (`set_niagara_parameter`, `parameterType: SkeletalMeshComponent` or `SkeletalMesh`, optional `componentName`).
 - [x] Static mesh component runtime parameter overrides via Epic's `UNiagaraFunctionLibrary::OverrideSystemUserVariableStaticMeshComponent` API (`set_niagara_parameter`, `parameterType: StaticMeshComponent`, optional `componentName`).
+- [x] Texture-object, 2D-array texture, and volume-texture runtime overrides via Epic's `UNiagaraFunctionLibrary::SetTextureObject`, `SetTexture2DArrayObject`, and `SetVolumeTextureObject` APIs (`set_niagara_parameter`, `parameterType: TextureObject`, `Texture2DArray`, or `VolumeTexture`, `texturePath`).
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

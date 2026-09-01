@@ -47,7 +47,9 @@
 #include "NebulaForgeBridgeSubsystem.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/Texture.h"
+#include "Engine/Texture2DArray.h"
 #include "Engine/TextureRenderTarget.h"
+#include "Engine/VolumeTexture.h"
 #include "Materials/MaterialInterface.h"
 
 #if WITH_EDITOR
@@ -1316,6 +1318,36 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             NiComp->SetVariableTexture(ParamName, Texture);
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Texture2DArray"), ESearchCase::IgnoreCase)) {
+          FString TexturePath;
+          LocalPayload->TryGetStringField(TEXT("texturePath"), TexturePath);
+          if (TexturePath.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) TexturePath = ValueField->AsString();
+          TexturePath = SanitizeProjectRelativePath(TexturePath);
+          UTexture2DArray *Texture = IsValidAssetPath(TexturePath) ? LoadObject<UTexture2DArray>(nullptr, *TexturePath) : nullptr;
+          if (Texture) {
+            UNiagaraFunctionLibrary::SetTexture2DArrayObject(NiComp, ParameterName, Texture);
+            bApplied = true;
+          }
+        } else if (ParameterType.Equals(TEXT("VolumeTexture"), ESearchCase::IgnoreCase)) {
+          FString TexturePath;
+          LocalPayload->TryGetStringField(TEXT("texturePath"), TexturePath);
+          if (TexturePath.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) TexturePath = ValueField->AsString();
+          TexturePath = SanitizeProjectRelativePath(TexturePath);
+          UVolumeTexture *Texture = IsValidAssetPath(TexturePath) ? LoadObject<UVolumeTexture>(nullptr, *TexturePath) : nullptr;
+          if (Texture) {
+            UNiagaraFunctionLibrary::SetVolumeTextureObject(NiComp, ParameterName, Texture);
+            bApplied = true;
+          }
+        } else if (ParameterType.Equals(TEXT("TextureObject"), ESearchCase::IgnoreCase)) {
+          FString TexturePath;
+          LocalPayload->TryGetStringField(TEXT("texturePath"), TexturePath);
+          if (TexturePath.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) TexturePath = ValueField->AsString();
+          TexturePath = SanitizeProjectRelativePath(TexturePath);
+          UTexture *Texture = IsValidAssetPath(TexturePath) ? LoadObject<UTexture>(nullptr, *TexturePath) : nullptr;
+          if (Texture) {
+            UNiagaraFunctionLibrary::SetTextureObject(NiComp, ParameterName, Texture);
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("StaticMesh"), ESearchCase::IgnoreCase) ||
                    ParameterType.Equals(TEXT("Mesh"), ESearchCase::IgnoreCase)) {
           FString MeshPath;
@@ -1442,6 +1474,9 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Texture"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Texture2DArray"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("VolumeTexture"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("TextureObject"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("StaticMesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Mesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Object"), ESearchCase::IgnoreCase) &&

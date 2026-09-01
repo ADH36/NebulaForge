@@ -1426,6 +1426,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy") || Lower == TEXT("configure_scalability_group");
   const bool bDataValidationAction = Lower == TEXT("run_data_validation") || Lower == TEXT("create_asset_validator");
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
+  const bool bGameplayTagNativeAction = Lower == TEXT("register_native_tag");
   const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project");
   const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
   const bool bCultureAction = Lower == TEXT("set_culture") || Lower == TEXT("set_language_and_locale") || Lower == TEXT("set_locale");
@@ -1457,7 +1458,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
     return false; // Not handled by this function
   }
 
@@ -1480,6 +1481,34 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
 
   if (bProjectFilesAction) {
     SendAutomationError(RequestingSocket, RequestId, TEXT("Project-file generation is owned by the stdio host UBT job runner"), TEXT("HOST_ONLY"));
+    return true;
+  }
+
+  if (bGameplayTagNativeAction) {
+    if (!Payload.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("System control payload missing"), TEXT("INVALID_PAYLOAD"));
+      return true;
+    }
+    FString TagName;
+    FString Comment;
+    Payload->TryGetStringField(TEXT("tag"), TagName);
+    Payload->TryGetStringField(TEXT("comment"), Comment);
+    TagName.TrimStartAndEndInline();
+    Comment.TrimStartAndEndInline();
+    if (TagName.IsEmpty() || TagName.Len() > 256 || !TagName.Contains(TEXT(".")) || TagName.Contains(TEXT(" ")) || TagName.Contains(TEXT("/"))) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("tag must be a dotted Gameplay Tag name without spaces or slashes"), TEXT("INVALID_TAG"));
+      return true;
+    }
+    const FGameplayTag RegisteredTag = UGameplayTagsManager::Get().AddNativeGameplayTag(FName(*TagName), Comment);
+    if (!RegisteredTag.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unreal rejected the native Gameplay Tag"), TEXT("TAG_REGISTRATION_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("tag"), RegisteredTag.ToString());
+    Result->SetStringField(TEXT("comment"), Comment);
+    Result->SetBoolField(TEXT("runtimeOnly"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Native Gameplay Tag registered for this process"), Result, FString());
     return true;
   }
 

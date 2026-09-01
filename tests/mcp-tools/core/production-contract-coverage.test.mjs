@@ -133,6 +133,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'list_gameplay_tags' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'add_gameplay_tag', tag: 'Contract.Test', comment: 'contract', backup: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'create_gameplay_tag', tag: 'Contract.Created', comment: 'contract', backup: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'register_native_tag', tag: 'Contract.Native', comment: 'contract runtime tag' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'create_string_table', stringTableId: 'ContractTable', namespace: 'Contract' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'add_string_entry', stringTableId: 'ContractTable', stringKey: 'Greeting', sourceString: 'Hello', devNotes: 'contract' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_localized_string', stringTableId: 'ContractTable', stringKey: 'Greeting' }, expected: 'success|error' },

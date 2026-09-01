@@ -1390,10 +1390,10 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_tag_container`
 - [x] `add_tag_to_container`, `remove_tag_from_container`
 - [x] `check_tag_match` (any/all and exact variants through UE `FGameplayTagContainer`)
-- [ ] `register_native_tag`
+- [x] `register_native_tag` (runtime `UGameplayTagsManager::AddNativeGameplayTag`)
 - [ ] `create_tag_table`
 
-**Implementation note:** `create_gameplay_tag` safely authors the project `DefaultGameplayTags.ini` dictionary; container actions are transient request-scoped operations over registered tags. Native tag registration and tag-table asset authoring remain separate project/module concerns.
+**Implementation note:** `create_gameplay_tag` safely authors the project `DefaultGameplayTags.ini` dictionary; container actions are transient request-scoped operations over registered tags. `register_native_tag` adds a runtime native tag through `UGameplayTagsManager` and is intentionally process-only; callers needing persistence should use the config action.
 
 ### 31.4 Config System
 - [x] `read_config_value`, `write_config_value`

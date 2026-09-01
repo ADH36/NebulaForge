@@ -4093,6 +4093,83 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       LowerSub == TEXT("set_actor_visibility"))
     return HandleControlActorSetVisibility(RequestId, Payload,
                                            RequestingSocket);
+  if (LowerSub == TEXT("configure_camera_settings")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    AActor* Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    UActorComponent* CameraComponent = nullptr;
+    for (UActorComponent* Component : Found->GetComponents()) {
+      if (Component && Component->GetClass()->GetName().Contains(TEXT("CineCameraComponent"))) {
+        CameraComponent = Component;
+        break;
+      }
+    }
+    if (!CameraComponent) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("CINE_CAMERA_NOT_FOUND"),
+                                TEXT("Actor has no UCineCameraComponent"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> ComponentPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      ComponentPayload->SetField(Pair.Key, Pair.Value);
+    ComponentPayload->SetStringField(TEXT("componentName"), CameraComponent->GetName());
+    TSharedPtr<FJsonObject> Properties = MakeShared<FJsonObject>();
+    const TSharedPtr<FJsonObject>* ExistingProperties = nullptr;
+    if (Payload->TryGetObjectField(TEXT("properties"), ExistingProperties) && ExistingProperties && (*ExistingProperties).IsValid()) {
+      for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*ExistingProperties)->Values)
+        Properties->SetField(Pair.Key, Pair.Value);
+    }
+    auto CopyNumberProperty = [&](const TCHAR* InputName, const TCHAR* PropertyName, double MinValue, double MaxValue) -> bool {
+      double Value = 0.0;
+      if (!Payload->TryGetNumberField(InputName, Value)) return true;
+      if (!FMath::IsFinite(Value) || Value < MinValue || Value > MaxValue) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                  FString::Printf(TEXT("%s is outside the supported range"), InputName), nullptr);
+        return false;
+      }
+      Properties->SetNumberField(PropertyName, Value);
+      return true;
+    };
+    if (!CopyNumberProperty(TEXT("focalLength"), TEXT("CurrentFocalLength"), 1.0, 1000.0) ||
+        !CopyNumberProperty(TEXT("aperture"), TEXT("CurrentAperture"), 0.1, 1000.0)) return true;
+    if (Payload->HasField(TEXT("focusDistance"))) {
+      double FocusDistance = 0.0;
+      if (!Payload->TryGetNumberField(TEXT("focusDistance"), FocusDistance) ||
+          !FMath::IsFinite(FocusDistance) || FocusDistance < 0.0 || FocusDistance > 1000000000.0) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                  TEXT("focusDistance is outside the supported range"), nullptr);
+        return true;
+      }
+      TSharedPtr<FJsonObject> FocusSettings = MakeShared<FJsonObject>();
+      FocusSettings->SetStringField(TEXT("FocusMethod"), TEXT("Manual"));
+      FocusSettings->SetNumberField(TEXT("ManualFocusDistance"), FocusDistance);
+      Properties->SetObjectField(TEXT("FocusSettings"), FocusSettings);
+    }
+    const bool bHasFilmbackWidth = Payload->HasField(TEXT("filmbackSensorWidth"));
+    const bool bHasFilmbackHeight = Payload->HasField(TEXT("filmbackSensorHeight"));
+    if (bHasFilmbackWidth || bHasFilmbackHeight) {
+      TSharedPtr<FJsonObject> Filmback = MakeShared<FJsonObject>();
+      double Width = 0.0;
+      double Height = 0.0;
+      if (bHasFilmbackWidth && (!Payload->TryGetNumberField(TEXT("filmbackSensorWidth"), Width) || Width <= 0.0 || Width > 1000.0)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("filmbackSensorWidth must be between 0 and 1000"), nullptr);
+        return true;
+      }
+      if (bHasFilmbackHeight && (!Payload->TryGetNumberField(TEXT("filmbackSensorHeight"), Height) || Height <= 0.0 || Height > 1000.0)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("filmbackSensorHeight must be between 0 and 1000"), nullptr);
+        return true;
+      }
+      if (bHasFilmbackWidth) Filmback->SetNumberField(TEXT("SensorWidth"), Width);
+      if (bHasFilmbackHeight) Filmback->SetNumberField(TEXT("SensorHeight"), Height);
+      Properties->SetObjectField(TEXT("Filmback"), Filmback);
+    }
+    ComponentPayload->SetObjectField(TEXT("properties"), Properties);
+    return HandleControlActorSetComponentProperties(RequestId, ComponentPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("create_media_sound_component")) {
     TSharedPtr<FJsonObject> ComponentPayload = MakeShared<FJsonObject>();
     for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)

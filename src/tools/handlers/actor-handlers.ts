@@ -172,6 +172,21 @@ const handlers: Record<string, ActorActionHandler> = {
             properties: { MediaPlayer: mediaPlayerPath }
         }) as Record<string, unknown>;
     },
+    configure_camera_settings: async (args, tools) => {
+        const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
+        const actorName = extractString(params, 'actorName');
+        const result = await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'configure_camera_settings',
+            actorName,
+            focalLength: args.focalLength,
+            aperture: args.aperture,
+            focusDistance: args.focusDistance,
+            filmbackSensorWidth: args.filmbackSensorWidth,
+            filmbackSensorHeight: args.filmbackSensorHeight,
+            properties: args.properties
+        }) as Record<string, unknown>;
+        return result;
+    },
     delete: async (args, tools) => {
         if (args.actorNames && Array.isArray(args.actorNames)) {
             return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {

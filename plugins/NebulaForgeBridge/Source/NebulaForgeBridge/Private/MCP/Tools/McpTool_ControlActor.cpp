@@ -42,6 +42,7 @@ public:
 				TEXT("set_actor_visible"),
 				TEXT("add_component"),
 				TEXT("create_media_sound_component"),
+				TEXT("configure_camera_settings"),
 				TEXT("remove_component"),
 				TEXT("set_component_properties"),
 				TEXT("set_component_property"),
@@ -135,6 +136,11 @@ public:
 			.String(TEXT("componentType"), TEXT(""))
 			.String(TEXT("componentName"), TEXT("Name of the component."))
 			.String(TEXT("mediaPlayerPath"), TEXT("UMediaPlayer asset path for media audio output."))
+			.Number(TEXT("focalLength"), TEXT("Cine camera focal length in millimeters."))
+			.Number(TEXT("aperture"), TEXT("Cine camera f-stop."))
+			.Number(TEXT("focusDistance"), TEXT("Cine camera manual focus distance in centimeters."))
+			.Number(TEXT("filmbackSensorWidth"), TEXT("Cine camera filmback sensor width in millimeters."))
+			.Number(TEXT("filmbackSensorHeight"), TEXT("Cine camera filmback sensor height in millimeters."))
 			.FreeformObject(TEXT("properties"), TEXT(""))
 			.String(TEXT("propertyName"), TEXT("Name of the property."))
 			.FreeformObject(TEXT("value"), TEXT("Generic value (any type)."))

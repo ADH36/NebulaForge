@@ -232,6 +232,7 @@ TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedS
 
 #include "Tracks/MovieSceneAudioTrack.h"
 #include "Sections/MovieSceneAudioSection.h"
+#include "Tracks/MovieSceneMaterialTrack.h"
 #include "Tracks/MovieSceneEventTrack.h"
 #include "Sound/SoundBase.h"
 
@@ -2916,6 +2917,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         EffectiveAction = TEXT("sequence_add_camera");
       else if (EffectiveAction == TEXT("add_shot_track") ||
                EffectiveAction == TEXT("add_audio_track") ||
+               EffectiveAction == TEXT("add_material_parameter_track") ||
                EffectiveAction == TEXT("add_camera_cut_track") ||
                EffectiveAction == TEXT("add_camera_shake_track") ||
                EffectiveAction == TEXT("add_fade_track") ||
@@ -2928,6 +2930,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         FString TrackType;
         if (EffectiveAction == TEXT("add_shot_track")) TrackType = TEXT("CinematicShot");
         else if (EffectiveAction == TEXT("add_audio_track")) TrackType = TEXT("Audio");
+        else if (EffectiveAction == TEXT("add_material_parameter_track")) TrackType = TEXT("Material");
         else if (EffectiveAction == TEXT("add_camera_cut_track")) TrackType = TEXT("CameraCut");
         else if (EffectiveAction == TEXT("add_camera_shake_track")) TrackType = TEXT("CameraShake");
         else if (EffectiveAction == TEXT("add_fade_track")) TrackType = TEXT("Fade");
@@ -2941,6 +2944,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
           EffectiveAction = TEXT("sequence_add_camera_shake_track");
         else if (EffectiveAction == TEXT("add_audio_track"))
           EffectiveAction = TEXT("sequence_add_audio_track");
+        else if (EffectiveAction == TEXT("add_material_parameter_track"))
+          EffectiveAction = TEXT("sequence_add_material_parameter_track");
         else
           EffectiveAction = TEXT("sequence_add_track");
       }
@@ -3269,6 +3274,64 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     Result->SetBoolField(TEXT("looping"), bLooping);
     Result->SetBoolField(TEXT("playUntilFinished"), bPlayUntilFinished);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Audio track section added"), Result);
+    return true;
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_material_parameter_track")) {
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    FString ActorName;
+    FString ParameterName;
+    int32 Frame = 0;
+    int32 RowIndex = 0;
+    double Value = 0.0;
+    if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("actorName"), ActorName) || ActorName.IsEmpty() ||
+        !LocalPayload->TryGetStringField(TEXT("parameterName"), ParameterName) || ParameterName.IsEmpty() ||
+        !LocalPayload->TryGetNumberField(TEXT("value"), Value)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("path, actorName, parameterName, and value are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    LocalPayload->TryGetNumberField(TEXT("frame"), Frame);
+    LocalPayload->TryGetNumberField(TEXT("rowIndex"), RowIndex);
+    if (Frame < -1000000000 || Frame > 1000000000 || RowIndex < 0 || RowIndex > 100000 || !FMath::IsFinite(Value)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("frame, rowIndex, and value are outside the supported range"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    ULevelSequence* Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    FGuid BindingGuid;
+    for (const FMovieSceneBinding& Binding : Sequence->GetMovieScene()->GetBindings()) {
+      FString BindingName;
+      if (const FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(Binding.GetObjectGuid())) BindingName = Possessable->GetName();
+      else if (const FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(Binding.GetObjectGuid())) BindingName = Spawnable->GetName();
+      if (BindingName.Equals(ActorName, ESearchCase::IgnoreCase) || BindingName.Contains(ActorName)) { BindingGuid = Binding.GetObjectGuid(); break; }
+    }
+    if (!BindingGuid.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Binding not found for actor"), TEXT("BINDING_NOT_FOUND"));
+      return true;
+    }
+    UMovieSceneMaterialTrack* MaterialTrack = nullptr;
+    for (UMovieSceneTrack* Track : Sequence->GetMovieScene()->FindTracks(UMovieSceneMaterialTrack::StaticClass(), BindingGuid)) {
+      MaterialTrack = Cast<UMovieSceneMaterialTrack>(Track);
+      if (MaterialTrack) break;
+    }
+    if (!MaterialTrack) MaterialTrack = Cast<UMovieSceneMaterialTrack>(Sequence->GetMovieScene()->AddTrack(UMovieSceneComponentMaterialTrack::StaticClass(), BindingGuid));
+    if (!MaterialTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create component material track"), TEXT("TRACK_CREATION_FAILED"));
+      return true;
+    }
+    MaterialTrack->AddScalarParameterKey(FName(*ParameterName), FFrameNumber(Frame), RowIndex, static_cast<float>(Value), RCIM_Linear);
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), SeqPath);
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetStringField(TEXT("parameterName"), ParameterName);
+    Result->SetNumberField(TEXT("frame"), Frame);
+    Result->SetNumberField(TEXT("value"), Value);
+    Result->SetNumberField(TEXT("rowIndex"), RowIndex);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Material parameter key added"), Result);
     return true;
   }
 

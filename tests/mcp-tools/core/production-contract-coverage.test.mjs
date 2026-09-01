@@ -152,6 +152,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_networking', arguments: { action: 'destroy_online_session', sessionName: 'ContractSession', localUserNum: 0 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'render_sequence_mrq', path: '/Game/Contract/ContractSequence', outputPath: 'Saved/MCP/MRQ/Contract' }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'render_sequence_mrq', path: '/Game/Contract/ContractSequence', outputPath: 'Saved/MCP/MRQ/Contract', outputFormat: 'png', resolution: '1280x720', startFrame: 0, endFrame: 10 }, expected: 'success|error' },
+  { toolName: 'manage_sequence', arguments: { action: 'render_sequence_mrq', path: '/Game/Contract/ContractSequence', outputPath: 'Saved/MCP/MRQ/Contract', spatialSampleCount: 4, temporalSampleCount: 8 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'render_sequence_mrq', path: '/Game/Contract/ContractSequence', outputPath: 'Saved/MCP/MRQ/Contract', mrqPresetPath: '/Game/Contract/MRQ/DefaultConfig' }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'create_master_sequence', name: 'ContractMaster', path: '/Game/Contract' }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'create_cine_camera_actor', path: '/Game/Contract/ContractMaster', spawnable: true }, expected: 'success|error' },

@@ -1324,7 +1324,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_render_job` (implemented as `manage_sequence.render_sequence_mrq`)
 - [x] `configure_output_settings` (MRQ preset, project-relative output path, resolution, frame range, and image format)
 - [ ] `add_render_pass` (beauty, depth, normal, motion_vector, object_id, custom_stencil)
-- [ ] `configure_anti_aliasing` (spatial, temporal)
+- [x] `configure_anti_aliasing` (spatial and temporal sample counts on the transient MRQ job)
 - [x] `configure_console_variables` (validated batch updates via UE `IConsoleManager`/`IConsoleVariable`)
 - [ ] `configure_burn_ins`
 - [x] `queue_render`, `start_render` (implemented as `manage_sequence.render_sequence_mrq` and `render_sequence_queue`)

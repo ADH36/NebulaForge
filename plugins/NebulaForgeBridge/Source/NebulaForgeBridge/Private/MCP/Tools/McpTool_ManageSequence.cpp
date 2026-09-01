@@ -95,6 +95,8 @@ public:
 			.Number(TEXT("startFrame"), TEXT(""))
 			.Number(TEXT("endFrame"), TEXT(""))
 			.StringEnum(TEXT("outputFormat"), { TEXT("png"), TEXT("jpg"), TEXT("jpeg"), TEXT("bmp"), TEXT("exr") }, TEXT("MRQ image-sequence output format."))
+			.Integer(TEXT("spatialSampleCount"), TEXT("MRQ spatial anti-aliasing sample count."))
+			.Integer(TEXT("temporalSampleCount"), TEXT("MRQ temporal anti-aliasing sample count."))
 			.String(TEXT("mrqPresetPath"), TEXT("Optional /Game UMoviePipelinePrimaryConfig asset copied into the transient MRQ job."))
 			.String(TEXT("frameRate"), TEXT(""))
 			.String(TEXT("resolution"), TEXT(""))

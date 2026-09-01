@@ -718,6 +718,11 @@ export async function handleSequenceTools(action: string, args: Record<string, u
 		if (outputPath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(outputPath) || outputPath.includes('..')) {
 			throw new Error('outputPath must be a project-relative directory');
 		}
+		for (const field of ['spatialSampleCount', 'temporalSampleCount']) {
+			if (args[field] !== undefined && (!Number.isInteger(Number(args[field])) || Number(args[field]) < 1 || Number(args[field]) > 256)) {
+				throw new Error(`${field} must be an integer between 1 and 256`);
+			}
+		}
 		return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
 			...args, path, outputPath, subAction: 'render_sequence_mrq'
 		}));

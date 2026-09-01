@@ -99,6 +99,12 @@
 #include "MoviePipelineConfigBase.h"
 #include "MoviePipelinePrimaryConfig.h"
 #include "MoviePipelineOutputSetting.h"
+#if __has_include("MoviePipelineAntiAliasingSetting.h")
+#include "MoviePipelineAntiAliasingSetting.h"
+#define MCP_HAS_MRQ_AA 1
+#else
+#define MCP_HAS_MRQ_AA 0
+#endif
 #include "MoviePipelineImageSequenceOutput.h"
 #if __has_include("MoviePipelineEXROutput.h") && __has_include("Imath/ImathBox.h")
 #include "MoviePipelineEXROutput.h"
@@ -2687,6 +2693,38 @@ static bool HandleMovieRenderQueueAction(
     OutputSetting->bUseCustomPlaybackRange = true;
     OutputSetting->CustomStartFrame = FMath::RoundToInt(StartFrameValue);
     OutputSetting->CustomEndFrame = FMath::RoundToInt(EndFrameValue);
+  }
+
+  double SpatialSampleValue = 0.0;
+  double TemporalSampleValue = 0.0;
+  const bool bHasSpatialSamples = Payload->TryGetNumberField(TEXT("spatialSampleCount"), SpatialSampleValue);
+  const bool bHasTemporalSamples = Payload->TryGetNumberField(TEXT("temporalSampleCount"), TemporalSampleValue);
+  if (bHasSpatialSamples || bHasTemporalSamples) {
+#if MCP_HAS_MRQ_AA
+    if ((bHasSpatialSamples && (!FMath::IsFinite(SpatialSampleValue) || SpatialSampleValue < 1.0 || SpatialSampleValue > 256.0 || SpatialSampleValue != FMath::RoundToDouble(SpatialSampleValue))) ||
+        (bHasTemporalSamples && (!FMath::IsFinite(TemporalSampleValue) || TemporalSampleValue < 1.0 || TemporalSampleValue > 256.0 || TemporalSampleValue != FMath::RoundToDouble(TemporalSampleValue)))) {
+      Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+          TEXT("spatialSampleCount and temporalSampleCount must be integers between 1 and 256"), nullptr,
+          TEXT("INVALID_ANTI_ALIASING"));
+      return true;
+    }
+    UMoviePipelineAntiAliasingSetting *AntiAliasing =
+        Cast<UMoviePipelineAntiAliasingSetting>(Job->GetConfiguration()->FindOrAddSettingByClass(
+            UMoviePipelineAntiAliasingSetting::StaticClass()));
+    if (!AntiAliasing) {
+      Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+          TEXT("Unable to configure Movie Render Queue anti-aliasing"), nullptr,
+          TEXT("MRQ_AA_CONFIGURATION_FAILED"));
+      return true;
+    }
+    if (bHasSpatialSamples) AntiAliasing->SpatialSampleCount = FMath::RoundToInt(SpatialSampleValue);
+    if (bHasTemporalSamples) AntiAliasing->TemporalSampleCount = FMath::RoundToInt(TemporalSampleValue);
+#else
+    Owner->SendAutomationResponse(RequestingSocket, RequestId, false,
+        TEXT("Movie Render Queue anti-aliasing is unavailable in this build"), nullptr,
+        TEXT("MRQ_AA_NOT_AVAILABLE"));
+    return true;
+#endif
   }
   FString OutputFormat = TEXT("png");
   Payload->TryGetStringField(TEXT("outputFormat"), OutputFormat);

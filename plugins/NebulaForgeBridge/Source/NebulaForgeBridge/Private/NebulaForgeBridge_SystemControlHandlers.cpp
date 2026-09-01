@@ -1428,7 +1428,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
   const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project");
   const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
-  const bool bCultureAction = Lower == TEXT("set_culture");
+  const bool bCultureAction = Lower == TEXT("set_culture") || Lower == TEXT("set_language_and_locale") || Lower == TEXT("set_locale");
   const bool bQualityLevelAction = Lower == TEXT("set_quality_level");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
@@ -1518,12 +1518,22 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       return true;
     }
     FInternationalization& Internationalization = FInternationalization::Get();
-    if (!Internationalization.SetCurrentCulture(Culture)) {
+    bool bSet = false;
+    if (Lower == TEXT("set_language_and_locale")) {
+      bSet = Internationalization.SetCurrentLanguageAndLocale(Culture);
+    } else if (Lower == TEXT("set_locale")) {
+      bSet = Internationalization.SetCurrentLocale(Culture);
+    } else {
+      bSet = Internationalization.SetCurrentCulture(Culture);
+    }
+    if (!bSet) {
       SendAutomationError(RequestingSocket, RequestId, TEXT("Requested culture is not available"), TEXT("CULTURE_NOT_FOUND"));
       return true;
     }
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("culture"), Internationalization.GetCurrentCulture()->GetName());
+    Result->SetStringField(TEXT("language"), Internationalization.GetCurrentLanguage()->GetName());
+    Result->SetStringField(TEXT("locale"), Internationalization.GetCurrentLocale()->GetName());
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Culture updated"), Result, FString());
     return true;
   }

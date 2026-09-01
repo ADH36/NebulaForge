@@ -1676,6 +1676,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 **Implementation note:** These actions manage transient process-level string tables through UE's `FStringTableRegistry`; `set_culture` uses `FInternationalization::SetCurrentCulture` and returns the active IETF culture name. Persisted String Table assets and localization target commandlets remain project-specific.
 
+**Additional API coverage:** `system_control.set_language_and_locale` and `set_locale` expose Epic's narrower language/locale setters for callers that must avoid changing all active culture state.
+
 ### 35.9 Scalability
 - [ ] `create_device_profile`
 - [x] `configure_scalability_group` (validated group-to-scalability-CVar mapping)

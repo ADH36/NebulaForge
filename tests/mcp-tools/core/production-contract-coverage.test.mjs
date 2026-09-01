@@ -135,6 +135,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'add_string_entry', stringTableId: 'ContractTable', stringKey: 'Greeting', sourceString: 'Hello', devNotes: 'contract' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_localized_string', stringTableId: 'ContractTable', stringKey: 'Greeting' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'set_culture', culture: 'en-US' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'set_language_and_locale', culture: 'en-US' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'set_locale', culture: 'en-US' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'set_quality_level', level: 2 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'configure_scalability_group', group: 'Shadow', level: 2 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'generate_project_files', projectPath: 'Contract.uproject', arguments: '-CurrentPlatform' }, expected: 'success|error' },

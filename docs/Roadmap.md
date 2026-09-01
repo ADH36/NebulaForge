@@ -2126,7 +2126,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Tile Maps: `inspect_tile_map_layer` (additional official `UPaperTileLayer` dimensions, occupancy, collision, visibility, and color readback)
 - [ ] Tile Maps: `add_tile_to_set` (Epic models tiles as texture-derived cells; no public append API is available)
 - [x] Tile Maps: `fill_tile_region` via `set_tile_map_cell` and `fill_tile_map_region` (official `UPaperTileLayer::SetCell`/`FPaperTileInfo` asset editing, including packed transform flags)
-- [x] Tile Maps: `get_tile_map_cell` (additional official `UPaperTileLayer::GetCell`/`FPaperTileInfo` asset readback)
+- [x] Tile Maps: `get_tile_map_cell` (additional official `UPaperTileLayer::GetCell`/`FPaperTileInfo` asset readback, including `GetTileTransform` flag decoding)
 - [x] Tile Maps: `get_tile_map_tile_geometry` (additional official `UPaperTileMap` local-space position, center, and polygon readback)
 - [x] Tile Maps: `paint_paper_tile` (official `UPaperTileMapComponent::SetTile` and `FPaperTileInfo`; owned tile-map component and existing tile set required)
 - [x] Tile Maps: `fill_paper_tile_region` (bounded batch of official `SetTile` calls with optional single collision rebuild)

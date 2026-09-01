@@ -1161,6 +1161,18 @@ static bool HandlePaperTileMapGetCellAction(
   Result->SetNumberField(TEXT("flags"), TileInfo.GetFlagsAsIndex());
   Result->SetStringField(TEXT("tileSetPath"), TileInfo.TileSet ? TileInfo.TileSet->GetPathName() : FString());
   Result->SetBoolField(TEXT("isValid"), TileInfo.IsValid());
+  const FTransform TileTransform = UPaperTileLayer::GetTileTransform(TileInfo.GetFlagsAsIndex());
+  TSharedPtr<FJsonObject> Transform = McpHandlerUtils::CreateResultObject();
+  Transform->SetObjectField(TEXT("location"), McpHandlerUtils::VectorToJson(TileTransform.GetTranslation()));
+  Transform->SetObjectField(TEXT("scale"), McpHandlerUtils::VectorToJson(TileTransform.GetScale3D()));
+  const FQuat Rotation = TileTransform.GetRotation();
+  TSharedPtr<FJsonObject> RotationObject = McpHandlerUtils::CreateResultObject();
+  RotationObject->SetNumberField(TEXT("x"), Rotation.X);
+  RotationObject->SetNumberField(TEXT("y"), Rotation.Y);
+  RotationObject->SetNumberField(TEXT("z"), Rotation.Z);
+  RotationObject->SetNumberField(TEXT("w"), Rotation.W);
+  Transform->SetObjectField(TEXT("rotation"), RotationObject);
+  Result->SetObjectField(TEXT("transform"), Transform);
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map cell read"), Result, FString());
   return true;
 }

@@ -494,6 +494,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Skeletal mesh component runtime parameter overrides via Epic's `UNiagaraFunctionLibrary::OverrideSystemUserVariableSkeletalMeshComponent` API (`set_niagara_parameter`, `parameterType: SkeletalMeshComponent` or `SkeletalMesh`, optional `componentName`).
 - [x] Static mesh component runtime parameter overrides via Epic's `UNiagaraFunctionLibrary::OverrideSystemUserVariableStaticMeshComponent` API (`set_niagara_parameter`, `parameterType: StaticMeshComponent`, optional `componentName`).
 - [x] Texture-object, 2D-array texture, and volume-texture runtime overrides via Epic's `UNiagaraFunctionLibrary::SetTextureObject`, `SetTexture2DArrayObject`, and `SetVolumeTextureObject` APIs (`set_niagara_parameter`, `parameterType: TextureObject`, `Texture2DArray`, or `VolumeTexture`, `texturePath`).
+- [x] Skeletal data-interface filtered bones, filtered sockets, and sampling-region overrides via Epic's `UNiagaraFunctionLibrary` APIs (`set_niagara_parameter`, `parameterType: FilteredBones`, `FilteredSockets`, or `SamplingRegions`, with `boneNames`, `socketNames`, or `samplingRegions`).
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

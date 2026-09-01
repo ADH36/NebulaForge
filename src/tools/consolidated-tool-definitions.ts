@@ -2948,6 +2948,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         objectPath: commonSchemas.assetPath,
         parameterValue: commonSchemas.value,
         value: commonSchemas.value,
+        boneNames: commonSchemas.arrayOfStrings,
+        socketNames: commonSchemas.arrayOfStrings,
+        samplingRegions: commonSchemas.arrayOfStrings,
         sourceBinding: commonSchemas.stringProp,
         // Emitter/module authoring
         spawnRate: commonSchemas.numberProp,

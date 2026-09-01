@@ -1404,6 +1404,30 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                 NiComp, ParameterName, StaticComponent);
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("FilteredBones"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("SkeletalMeshFilteredBones"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("FilteredSockets"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("SkeletalMeshFilteredSockets"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("SamplingRegions"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("SkeletalMeshSamplingRegions"), ESearchCase::IgnoreCase)) {
+          const TCHAR *FieldName =
+              ParameterType.Contains(TEXT("Bone"), ESearchCase::IgnoreCase) ? TEXT("boneNames") :
+              (ParameterType.Contains(TEXT("Socket"), ESearchCase::IgnoreCase) ? TEXT("socketNames") : TEXT("samplingRegions"));
+          const TArray<TSharedPtr<FJsonValue>> *NameValues = nullptr;
+          TArray<FName> Names;
+          if (LocalPayload->TryGetArrayField(FieldName, NameValues) && NameValues) {
+            for (const TSharedPtr<FJsonValue> &NameValue : *NameValues) {
+              if (NameValue.IsValid() && NameValue->Type == EJson::String) Names.Add(FName(*NameValue->AsString()));
+            }
+            if (ParameterType.Contains(TEXT("Bone"), ESearchCase::IgnoreCase)) {
+              UNiagaraFunctionLibrary::SetSkeletalMeshDataInterfaceFilteredBones(NiComp, ParameterName, Names);
+            } else if (ParameterType.Contains(TEXT("Socket"), ESearchCase::IgnoreCase)) {
+              UNiagaraFunctionLibrary::SetSkeletalMeshDataInterfaceFilteredSockets(NiComp, ParameterName, Names);
+            } else {
+              UNiagaraFunctionLibrary::SetSkeletalMeshDataInterfaceSamplingRegions(NiComp, ParameterName, Names);
+            }
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) ||
                    ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase)) {
           const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
@@ -1483,6 +1507,12 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("SkeletalMeshComponent"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("SkeletalMesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("StaticMeshComponent"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("FilteredBones"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("SkeletalMeshFilteredBones"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("FilteredSockets"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("SkeletalMeshFilteredSockets"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("SamplingRegions"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("SkeletalMeshSamplingRegions"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase) &&

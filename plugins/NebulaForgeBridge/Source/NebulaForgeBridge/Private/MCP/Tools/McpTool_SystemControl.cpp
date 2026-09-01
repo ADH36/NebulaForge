@@ -163,6 +163,7 @@ public:
 			.String(TEXT("value"), TEXT(""))
 			.String(TEXT("code"), TEXT("Python code to execute inline"))
 			.String(TEXT("file"), TEXT("Path to .py file to execute"))
+			.Array(TEXT("pythonPaths"), TEXT("Filesystem paths to add to the live Unreal Python interpreter sys.path."))
 			.Number(TEXT("duration"), TEXT("Duration in seconds."))
 			.String(TEXT("outputPath"), TEXT("Output file or directory path."))
 			.Bool(TEXT("detailed"), TEXT("Whether to include detailed output."))

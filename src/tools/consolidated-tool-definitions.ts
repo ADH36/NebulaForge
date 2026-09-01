@@ -1913,7 +1913,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'wait_for_job', 'cook_content', 'package_project', 'create_string_table', 'add_string_entry', 'get_localized_string', 'set_culture', 'set_language_and_locale', 'set_locale', 'create_gameplay_tag', 'create_asset_validator', 'run_data_validation', 'list_plugins', 'enable_plugin', 'disable_plugin', 'get_plugin_status', 'configure_plugin_settings',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
-            'set_project_setting', 'execute_python', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'release_gate'
+            'set_project_setting', 'execute_python', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'configure_python_paths', 'release_gate'
           ,
             'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'configure_plugin_settings', 'configure_windows_build', 'configure_linux_build', 'configure_mac_build', 'configure_ios_build', 'configure_android_build', 'configure_chunking', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'configure_localization_target', 'import_localization', 'export_localization', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
@@ -2061,7 +2061,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         devNotes: commonSchemas.stringProp,
         culture: commonSchemas.stringProp,
         code: { type: 'string', description: 'Python code to execute inline', maxLength: 1048576 }, // 1MB max — prevents resource exhaustion via oversized payloads
-        file: { type: 'string', description: 'Path to .py file to execute', maxLength: 4096 } // Max path length on most OS
+        file: { type: 'string', description: 'Path to .py file to execute', maxLength: 4096 }, // Max path length on most OS
+        pythonPaths: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 4096 }, maxItems: 64, description: 'Filesystem paths to add to the live Unreal Python interpreter sys.path.' }
       ,
         mode: screenshotModeSchema,
         returnBase64: { type: 'boolean', description: 'Return PNG image data as base64 when supported. Defaults to true for full_editor_window and game_viewport screenshot modes.' },

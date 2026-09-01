@@ -1460,6 +1460,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("execute_python_script") &&
       Lower != TEXT("execute_python_string") &&
       Lower != TEXT("execute_python_file") &&
+      Lower != TEXT("configure_python_paths") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
     return false; // Not handled by this function
@@ -3069,12 +3070,38 @@ FMessageLog LogListing{FName(*Category)};
     }
     return true;
   } else if (Lower == TEXT("execute_python") || Lower == TEXT("execute_python_script") ||
-             Lower == TEXT("execute_python_string") || Lower == TEXT("execute_python_file")) {
+             Lower == TEXT("execute_python_string") || Lower == TEXT("execute_python_file") ||
+             Lower == TEXT("configure_python_paths")) {
     // Execute Python code with stdout/stderr capture via temp file wrapper
     FString Code;
     Payload->TryGetStringField(TEXT("code"), Code);
     FString File;
     Payload->TryGetStringField(TEXT("file"), File);
+
+    if (Lower == TEXT("configure_python_paths")) {
+      const TArray<TSharedPtr<FJsonValue>>* PythonPaths = nullptr;
+      if (!Payload->TryGetArrayField(TEXT("pythonPaths"), PythonPaths) || !PythonPaths || PythonPaths->Num() == 0 || PythonPaths->Num() > 64) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("configure_python_paths requires 1 to 64 pythonPaths entries"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+
+      Code = TEXT("import sys\n");
+      for (const TSharedPtr<FJsonValue>& PathValue : *PythonPaths) {
+        FString PythonPath;
+        if (!PathValue.IsValid() || !PathValue->TryGetString(PythonPath) || PythonPath.TrimStartAndEnd().IsEmpty() || PythonPath.Len() > 4096 || PythonPath.Contains(TEXT("\0"))) {
+          SendAutomationError(RequestingSocket, RequestId,
+                              TEXT("Each pythonPaths entry must be a non-empty path of at most 4096 characters"),
+                              TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        PythonPath.TrimStartAndEndInline();
+        PythonPath.ReplaceInline(TEXT("\\"), TEXT("/"));
+        PythonPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+        Code += FString::Printf(TEXT("_mcp_path = '%s'\nif _mcp_path not in sys.path:\n    sys.path.insert(0, _mcp_path)\n"), *PythonPath);
+      }
+    }
 
     const bool bHasCode = !Code.TrimStartAndEnd().IsEmpty();
     const bool bHasFile = !File.TrimStartAndEnd().IsEmpty();

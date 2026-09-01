@@ -4650,6 +4650,52 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile read"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_paper_tile_polygon")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    int32 X = 0;
+    int32 Y = 0;
+    int32 Layer = 0;
+    int32 MapWidth = 0;
+    int32 MapHeight = 0;
+    int32 NumLayers = 0;
+    if (!TileMapComponent || !TileMapComponent->GetTileMap() || !Payload->TryGetNumberField(TEXT("x"), X) ||
+        !Payload->TryGetNumberField(TEXT("y"), Y) || !Payload->TryGetNumberField(TEXT("layer"), Layer)) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperTileMapComponent, and integer x/y/layer are required"), nullptr);
+      return true;
+    }
+    TileMapComponent->GetMapSize(MapWidth, MapHeight, NumLayers);
+    if (X < 0 || X >= MapWidth || Y < 0 || Y >= MapHeight || Layer < 0 || Layer >= NumLayers) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("OUT_OF_BOUNDS"),
+                                TEXT("x, y, and layer must address an existing tile cell"), nullptr);
+      return true;
+    }
+    TArray<FVector> Polygon;
+    TileMapComponent->GetTileMap()->GetTilePolygon(X, Y, Layer, Polygon);
+    TArray<TSharedPtr<FJsonValue>> Points;
+    for (const FVector& Point : Polygon)
+      Points.Add(McpPropertyReflection::VectorToJsonValue(Point));
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetNumberField(TEXT("x"), X);
+    Data->SetNumberField(TEXT("y"), Y);
+    Data->SetNumberField(TEXT("layer"), Layer);
+    Data->SetArrayField(TEXT("points"), Points);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile polygon read"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("set_paper_tile_map_default_collision")) {
     FString TargetName;
     FString ComponentName;

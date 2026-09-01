@@ -26,6 +26,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'get_paper_tile_map_layer_color', actorName: 'ContractPaperTileMap', layer: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_paper_tile_map_info', actorName: 'ContractPaperTileMap' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_paper_tile_map_parameters', actorName: 'ContractPaperTileMap' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'get_paper_tile_polygon', actorName: 'ContractPaperTileMap', x: 0, y: 0, layer: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_paper_tile', actorName: 'ContractPaperTileMap', x: 0, y: 0, layer: 0, worldSpace: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'resize_paper_tile_map', actorName: 'ContractPaperTileMap', width: 32, height: 16 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_paper_tile_map_default_collision', actorName: 'ContractPaperTileMap', collisionThickness: 10, rebuildCollision: true }, expected: 'success|error' },

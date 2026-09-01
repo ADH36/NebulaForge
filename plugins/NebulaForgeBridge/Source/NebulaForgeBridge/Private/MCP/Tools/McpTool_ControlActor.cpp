@@ -60,6 +60,7 @@ public:
 				TEXT("get_paper_tile_map_info"),
 				TEXT("get_paper_tile"),
 				TEXT("get_paper_tile_map_parameters"),
+				TEXT("get_paper_tile_polygon"),
 				TEXT("resize_paper_tile_map"),
 				TEXT("set_paper_tile_map_default_collision"),
 				TEXT("configure_paper_tile_map_layer_collision"),

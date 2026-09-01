@@ -635,6 +635,12 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleManageTextureAction(RequestId, TEXT("manage_texture"), Payload, RequestingSocket);
   if (Lower == TEXT("get_dependencies"))
     return HandleGetDependencies(RequestId, Payload, RequestingSocket);
+  if (Lower == TEXT("reference_viewer")) {
+    if (Payload.IsValid()) {
+      Payload->SetBoolField(TEXT("includeReferencers"), true);
+    }
+    return HandleGetAssetGraph(RequestId, Payload, RequestingSocket);
+  }
   if (Lower == TEXT("get_asset_graph"))
     return HandleGetAssetGraph(RequestId, Payload, RequestingSocket);
   if (Lower == TEXT("set_tags"))
@@ -3091,12 +3097,15 @@ bool UNebulaForgeBridgeSubsystem::HandleGetAssetGraph(
 
   int32 MaxDepth = 3;
   Payload->TryGetNumberField(TEXT("maxDepth"), MaxDepth);
+  bool bIncludeReferencers = false;
+  Payload->TryGetBoolField(TEXT("includeReferencers"), bIncludeReferencers);
 
   FAssetRegistryModule &AssetRegistryModule =
       FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
   IAssetRegistry &AssetRegistry = AssetRegistryModule.Get();
 
   TSharedPtr<FJsonObject> GraphObj = McpHandlerUtils::CreateResultObject();
+  TSharedPtr<FJsonObject> ReverseGraphObj = McpHandlerUtils::CreateResultObject();
 
   TArray<FString> Queue;
   Queue.Add(SafeAssetPath);
@@ -3132,11 +3141,34 @@ bool UNebulaForgeBridgeSubsystem::HandleGetAssetGraph(
       }
     }
     GraphObj->SetArrayField(Current, DepArray);
+
+    if (bIncludeReferencers) {
+      TArray<FAssetIdentifier> Referencers;
+      AssetRegistry.GetReferencers(FAssetIdentifier(FName(*Current)), Referencers);
+      TArray<TSharedPtr<FJsonValue>> RefArray;
+      for (const FAssetIdentifier &Ref : Referencers) {
+        const FString RefStr = Ref.PackageName.ToString();
+        if (!RefStr.StartsWith(TEXT("/Game"))) {
+          continue;
+        }
+        RefArray.Add(MakeShared<FJsonValueString>(RefStr));
+        if (CurrentDepth < MaxDepth && !Visited.Contains(RefStr)) {
+          Visited.Add(RefStr);
+          Depths.Add(RefStr, CurrentDepth + 1);
+          Queue.Add(RefStr);
+        }
+      }
+      ReverseGraphObj->SetArrayField(Current, RefArray);
+    }
   }
 
   TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
   Resp->SetBoolField(TEXT("success"), true);
   Resp->SetObjectField(TEXT("graph"), GraphObj);
+  if (bIncludeReferencers) {
+    Resp->SetObjectField(TEXT("reverseGraph"), ReverseGraphObj);
+    Resp->SetBoolField(TEXT("includeReferencers"), true);
+  }
   SendAutomationResponse(Socket, RequestId, true, TEXT("Asset graph retrieved"),
                          Resp, FString());
   return true;

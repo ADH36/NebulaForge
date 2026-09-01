@@ -44,7 +44,7 @@ const VALID_ASSET_ACTIONS = new Set([
   // Source control
   'source_control_checkout', 'source_control_submit', 'source_control_enable', 'get_source_control_state',
   // Graph analysis
-  'analyze_graph', 'get_asset_graph'
+  'analyze_graph', 'get_asset_graph', 'reference_viewer'
 ]);
 
 /**
@@ -752,6 +752,20 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
           maxDepth
         });
         return ResponseFactory.success(res, 'Graph analysis complete');
+      }
+      case 'reference_viewer': {
+        const params = normalizeArgs(args, [
+          { key: 'assetPath', required: true },
+          { key: 'maxDepth' }
+        ]);
+        const assetPath = extractString(params, 'assetPath');
+        const maxDepth = extractOptionalNumber(params, 'maxDepth');
+        const res = await executeAutomationRequest(tools, 'get_asset_graph', {
+          assetPath,
+          maxDepth,
+          includeReferencers: true
+        });
+        return ResponseFactory.success(res, 'Reference Viewer graph retrieved');
       }
       case 'create_render_target': {
         const params = normalizeArgs(args, [

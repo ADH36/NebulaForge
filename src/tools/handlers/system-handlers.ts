@@ -368,6 +368,19 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         return { success: false, error: 'TARGET_GENERATION_FAILED', message: error instanceof Error ? error.message : String(error) };
       }
     }
+    case 'configure_localization_target': {
+      const record = argsTyped as Record<string, unknown>;
+      const targetName = typeof record.localizationTargetName === 'string' ? record.localizationTargetName.trim() : '';
+      const config = typeof record.localizationConfig === 'string' ? record.localizationConfig : '';
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(targetName) || !config.includes('[CommonSettings]') || !/^\s*NativeCulture\s*=.+$/mi.test(config) || !/^\s*CulturesToGenerate\s*=.+$/mi.test(config)) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'localizationTargetName must be safe and localizationConfig must contain [CommonSettings], NativeCulture, and CulturesToGenerate' };
+      }
+      try {
+        return { ...(await writeProjectFile(argsTyped.projectPath, `Config/Localization/${targetName}_Gather.ini`, config.endsWith('\n') ? config : `${config}\n`, record.backup !== false)), localizationTargetName: targetName };
+      } catch (error) {
+        return { success: false, error: 'LOCALIZATION_CONFIG_WRITE_FAILED', message: error instanceof Error ? error.message : String(error) };
+      }
+    }
     case 'remove_gameplay_tag': {
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
       return removeGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.backup !== false);

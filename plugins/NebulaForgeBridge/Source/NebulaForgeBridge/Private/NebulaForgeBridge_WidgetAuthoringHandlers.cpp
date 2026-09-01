@@ -72,6 +72,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
 #include "Blueprint/WidgetTree.h"
+#include "Blueprint/WidgetNavigation.h"
 #include "WidgetBlueprint.h"
 
 #if __has_include("CommonActionWidget.h")
@@ -1437,6 +1438,80 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         SendAutomationError(RequestingSocket, RequestId, TEXT("CommonUI action widget requires the optional CommonUI plugin"), TEXT("NOT_AVAILABLE"));
         return true;
 #endif
+    }
+
+    if (SubAction.Equals(TEXT("configure_navigation_rules"), ESearchCase::IgnoreCase))
+    {
+        const FString WidgetPath = GetJsonStringField(Payload, TEXT("widgetPath"));
+        const FString SlotName = GetJsonStringField(Payload, TEXT("slotName"));
+        const FString DirectionName = GetJsonStringField(Payload, TEXT("direction")).ToLower();
+        const FString RuleName = GetJsonStringField(Payload, TEXT("rule")).ToLower();
+        if (WidgetPath.IsEmpty() || SlotName.IsEmpty() || DirectionName.IsEmpty() || RuleName.IsEmpty())
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("widgetPath, slotName, direction, and rule are required"), TEXT("MISSING_PARAMETER"));
+            return true;
+        }
+
+        UWidgetBlueprint* WidgetBP = LoadWidgetBlueprint(WidgetPath);
+        UWidget* Widget = WidgetBP && WidgetBP->WidgetTree
+            ? WidgetBP->WidgetTree->FindWidget(FName(*SlotName))
+            : nullptr;
+        if (!Widget)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Widget blueprint or slot not found"), TEXT("NOT_FOUND"));
+            return true;
+        }
+
+        EUINavigation Direction = EUINavigation::Invalid;
+        if (DirectionName == TEXT("up")) Direction = EUINavigation::Up;
+        else if (DirectionName == TEXT("down")) Direction = EUINavigation::Down;
+        else if (DirectionName == TEXT("left")) Direction = EUINavigation::Left;
+        else if (DirectionName == TEXT("right")) Direction = EUINavigation::Right;
+        else if (DirectionName == TEXT("next")) Direction = EUINavigation::Next;
+        else if (DirectionName == TEXT("previous")) Direction = EUINavigation::Previous;
+        if (Direction == EUINavigation::Invalid)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("direction must be up, down, left, right, next, or previous"), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+
+        if (RuleName == TEXT("explicit"))
+        {
+            const FString TargetName = GetJsonStringField(Payload, TEXT("targetWidget"));
+            UWidget* TargetWidget = WidgetBP->WidgetTree->FindWidget(FName(*TargetName));
+            if (!TargetWidget)
+            {
+                SendAutomationError(RequestingSocket, RequestId, TEXT("targetWidget is required and must name an existing widget for explicit navigation"), TEXT("INVALID_ARGUMENT"));
+                return true;
+            }
+            Widget->SetNavigationRuleExplicit(Direction, TargetWidget);
+        }
+        else
+        {
+            EUINavigationRule Rule = EUINavigationRule::Escape;
+            if (RuleName == TEXT("wrap")) Rule = EUINavigationRule::Wrap;
+            else if (RuleName == TEXT("stop")) Rule = EUINavigationRule::Stop;
+            else if (RuleName != TEXT("escape"))
+            {
+                SendAutomationError(RequestingSocket, RequestId, TEXT("rule must be escape, explicit, wrap, or stop"), TEXT("INVALID_ARGUMENT"));
+                return true;
+            }
+            Widget->SetNavigationRuleBase(Direction, Rule);
+        }
+
+        FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBP);
+        if (!SaveWidgetAsset(WidgetBP))
+        {
+            return true;
+        }
+        ResultJson->SetBoolField(TEXT("success"), true);
+        ResultJson->SetStringField(TEXT("message"), TEXT("Configured widget navigation rule"));
+        ResultJson->SetStringField(TEXT("slotName"), SlotName);
+        ResultJson->SetStringField(TEXT("direction"), DirectionName);
+        ResultJson->SetStringField(TEXT("rule"), RuleName);
+        McpHandlerUtils::AddVerification(ResultJson, WidgetBP);
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Configured widget navigation rule"), ResultJson);
+        return true;
     }
 
     if (SubAction.Equals(TEXT("add_text_block"), ESearchCase::IgnoreCase))

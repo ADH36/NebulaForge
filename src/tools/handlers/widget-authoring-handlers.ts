@@ -109,6 +109,14 @@ export async function handleWidgetAuthoringTools(
       return sendRequest('create_common_action_widget');
     }
 
+    case 'configure_navigation_rules': {
+      requireNonEmptyString(argsRecord.widgetPath, 'widgetPath', 'Missing required parameter: widgetPath');
+      requireNonEmptyString(argsRecord.slotName, 'slotName', 'Missing required parameter: slotName');
+      requireNonEmptyString(argsRecord.direction, 'direction', 'Missing required parameter: direction');
+      requireNonEmptyString(argsRecord.rule, 'rule', 'Missing required parameter: rule');
+      return sendRequest('configure_navigation_rules');
+    }
+
     case 'configure_analog_cursor': {
       if (argsRecord.enabled !== undefined && typeof argsRecord.enabled !== 'boolean') {
         throw new Error('enabled must be a boolean when provided');

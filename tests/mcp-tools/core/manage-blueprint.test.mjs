@@ -294,6 +294,7 @@ const testCases = [
     { scenario: 'CREATE: create_common_button_base', toolName: 'manage_blueprint', arguments: { action: 'create_common_button_base', name: `WBP_CommonButton_${ts}`, folder: TEST_FOLDER }, expected: 'success|already exists|not available|NOT_AVAILABLE' },
     { scenario: 'CREATE: create_common_tab_list', toolName: 'manage_blueprint', arguments: { action: 'create_common_tab_list', name: `WBP_CommonTabList_${ts}`, folder: TEST_FOLDER }, expected: 'success|already exists|not available|NOT_AVAILABLE' },
     { scenario: 'ADD: create_common_action_widget', toolName: 'manage_blueprint', arguments: widgetArgs('create_common_action_widget', { slotName: 'CommonActionWidget', parentSlot: 'HUDCanvas' }), expected: 'success|already exists|not available|NOT_AVAILABLE' },
+    { scenario: 'CONFIG: configure_navigation_rules', toolName: 'manage_blueprint', arguments: widgetArgs('configure_navigation_rules', { slotName: 'HUDCanvas', direction: 'right', rule: 'wrap' }), expected: 'success' },
     { scenario: 'CONFIG: configure_analog_cursor', toolName: 'manage_blueprint', arguments: { action: 'configure_analog_cursor', enabled: false }, expected: 'success|not available|NOT_AVAILABLE' },
     { scenario: 'CONFIG: set_widget_parent_class', toolName: 'manage_blueprint', arguments: widgetArgs('set_widget_parent_class', { parentClass: 'UserWidget' }), expected: 'success' },
 

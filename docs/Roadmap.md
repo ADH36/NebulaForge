@@ -2123,7 +2123,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_common_activatable_widget`, `create_common_button_base` (CommonUI widget blueprint factories; optional CommonUI plugin)
 - [x] `create_common_tab_list` (CommonUI tab-list widget blueprint factory; optional CommonUI plugin)
 - [x] `create_common_action_widget` (adds Epic's `UCommonActionWidget` as a child in an existing widget blueprint; optional CommonUI plugin)
-- [ ] `configure_navigation_rules`, `set_focus_widget`, `configure_back_action`
+- [x] `configure_navigation_rules` (official UWidget navigation rule setters with validated directions and explicit targets)
+- [ ] `set_focus_widget`, `configure_back_action`
 - [ ] `register_ui_action`, `bind_ui_action_to_input`
 
 ### 45.5 Paper2D

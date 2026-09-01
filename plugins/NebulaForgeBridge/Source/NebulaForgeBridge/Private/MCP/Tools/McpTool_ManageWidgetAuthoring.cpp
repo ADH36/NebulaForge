@@ -27,6 +27,7 @@ public:
 				TEXT("create_common_button_base"),
 				TEXT("create_common_tab_list"),
 				TEXT("create_common_action_widget"),
+				TEXT("configure_navigation_rules"),
 				TEXT("configure_analog_cursor"),
 				TEXT("set_widget_parent_class"),
 				TEXT("add_canvas_panel"),
@@ -99,6 +100,9 @@ public:
 			.String(TEXT("slotName"), TEXT("Name of the slot."))
 			.String(TEXT("parentSlot"), TEXT("Parent slot to add widget to."))
 			.String(TEXT("parentClass"), TEXT("Path or name of the parent class."))
+			.String(TEXT("direction"), TEXT("Navigation direction: up, down, left, right, next, or previous."))
+			.String(TEXT("rule"), TEXT("Navigation rule: escape, explicit, wrap, or stop."))
+			.String(TEXT("targetWidget"), TEXT("Target widget slot name for an explicit rule."))
 			.Object(TEXT("anchorMin"), TEXT("Minimum anchor point (0-1)."),
 				[](FMcpSchemaBuilder& S) {
 				S.Number(TEXT("x")).Number(TEXT("y"));

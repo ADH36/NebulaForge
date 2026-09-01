@@ -383,7 +383,8 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
   }
   const FString LowerSub = SubAction.ToLower();
 
-  if (LowerSub == TEXT("create_common_action_widget")) {
+  if (LowerSub == TEXT("create_common_action_widget") ||
+      LowerSub == TEXT("configure_navigation_rules")) {
     return HandleManageWidgetAuthoringAction(
         RequestId, TEXT("manage_widget_authoring"), Payload, RequestingSocket);
   }

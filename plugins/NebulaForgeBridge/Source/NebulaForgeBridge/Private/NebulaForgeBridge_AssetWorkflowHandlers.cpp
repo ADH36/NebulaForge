@@ -1730,6 +1730,34 @@ static bool HandlePaperSpriteSocketNamesValidateAction(
   return true;
 }
 
+static bool HandlePaperSpriteTextureBoundsAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString SpritePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+  double AlphaThreshold = 0.0;
+  if (!Sprite || !Payload->TryGetNumberField(TEXT("alphaThreshold"), AlphaThreshold) ||
+      !FMath::IsFinite(AlphaThreshold) || AlphaThreshold < 0.0 || AlphaThreshold > 1.0) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath and alphaThreshold between 0 and 1 are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  FVector2D BoundsPosition = FVector2D::ZeroVector;
+  FVector2D BoundsSize = FVector2D::ZeroVector;
+  Sprite->FindTextureBoundingBox(static_cast<float>(AlphaThreshold), BoundsPosition, BoundsSize);
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Sprite->GetPathName());
+  Result->SetNumberField(TEXT("alphaThreshold"), AlphaThreshold);
+  Result->SetNumberField(TEXT("originX"), BoundsPosition.X);
+  Result->SetNumberField(TEXT("originY"), BoundsPosition.Y);
+  Result->SetNumberField(TEXT("width"), BoundsSize.X);
+  Result->SetNumberField(TEXT("height"), BoundsSize.Y);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite texture bounds calculated"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperSpritePivotAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -2335,6 +2363,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("validate_sprite_socket_names")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperSpriteSocketNamesValidateAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("find_sprite_texture_bounding_box")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperSpriteTextureBoundsAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

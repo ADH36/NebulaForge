@@ -206,6 +206,7 @@ public:
 			.Number(TEXT("tileY"), TEXT("PaperTileMap cell Y coordinate for geometry readback."))
 			.FreeformObject(TEXT("position"), TEXT("PaperTileMap local-space position as {x,y,z}."))
 			.String(TEXT("socketName"), TEXT("PaperSprite socket name."))
+			.Number(TEXT("alphaThreshold"), TEXT("PaperSprite alpha threshold for tight texture bounds."))
 			.Number(TEXT("flags"), TEXT("Packed PaperTileInfo transform flags (0-7)."))
 			.String(TEXT("expressionClass"), TEXT(""))
 			.Number(TEXT("coordinateIndex"), TEXT(""))

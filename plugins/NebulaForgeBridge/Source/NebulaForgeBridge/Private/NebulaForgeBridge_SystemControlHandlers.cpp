@@ -1466,6 +1466,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("create_editor_utility_blueprint") &&
       Lower != TEXT("create_python_editor_utility") &&
       Lower != TEXT("create_geometry_collection") &&
+      Lower != TEXT("configure_geometry_collection") &&
       Lower != TEXT("register_python_command") &&
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
@@ -3084,6 +3085,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("create_editor_utility_widget") || Lower == TEXT("create_editor_utility_blueprint") ||
              Lower == TEXT("create_python_editor_utility") || Lower == TEXT("register_python_command") ||
              Lower == TEXT("create_geometry_collection") ||
+             Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("unregister_python_command") ||
              Lower == TEXT("run_editor_utility") || Lower == TEXT("inspect_editor_utility")) {
     // Execute Python code with stdout/stderr capture via temp file wrapper
@@ -3200,6 +3202,88 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_asset.get_path_name())\n"
           "print(_asset.get_path_name())\n"),
           *AssetName, *PythonPackagePath);
+    }
+
+    if (Lower == TEXT("configure_geometry_collection")) {
+      FString AssetPath;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("configure_geometry_collection requires a valid /Game asset path"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+
+      FString PythonAssetPath = SafeAssetPath;
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      FString Updates;
+      FString UpdatedNames;
+      auto AddUpdate = [&Updates, &UpdatedNames](const TCHAR* PropertyName, const FString& PythonValue, const TCHAR* OutputName) {
+        Updates += FString::Printf(TEXT("_updates['%s'] = %s\n"), PropertyName, *PythonValue);
+        if (!UpdatedNames.IsEmpty()) UpdatedNames += TEXT(", ");
+        UpdatedNames += FString::Printf(TEXT("'%s'"), OutputName);
+      };
+
+      double Mass = 0.0;
+      bool bMassAsDensity = false;
+      bool bEnableClustering = false;
+      bool bEnableNanite = false;
+      bool bSupportRayTracing = false;
+      int32 MaxClusterLevel = 0;
+      bool bRemoveOnMaxSleep = false;
+      bool bMassSet = Payload->TryGetNumberField(TEXT("mass"), Mass);
+      bool bMassAsDensitySet = Payload->TryGetBoolField(TEXT("massAsDensity"), bMassAsDensity);
+      bool bEnableClusteringSet = Payload->TryGetBoolField(TEXT("enableClustering"), bEnableClustering);
+      bool bEnableNaniteSet = Payload->TryGetBoolField(TEXT("enableNanite"), bEnableNanite);
+      bool bSupportRayTracingSet = Payload->TryGetBoolField(TEXT("supportRayTracing"), bSupportRayTracing);
+      bool bMaxClusterLevelSet = Payload->TryGetNumberField(TEXT("maxClusterLevel"), MaxClusterLevel);
+      bool bRemoveOnMaxSleepSet = Payload->TryGetBoolField(TEXT("removeOnMaxSleep"), bRemoveOnMaxSleep);
+      const TArray<TSharedPtr<FJsonValue>>* DamageThresholds = nullptr;
+      bool bDamageThresholdsSet = Payload->TryGetArrayField(TEXT("damageThresholds"), DamageThresholds) && DamageThresholds && DamageThresholds->Num() > 0;
+      if (!bMassSet && !bMassAsDensitySet && !bEnableClusteringSet && !bEnableNaniteSet && !bSupportRayTracingSet &&
+          !bMaxClusterLevelSet && !bRemoveOnMaxSleepSet && !bDamageThresholdsSet) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("configure_geometry_collection requires at least one supported setting"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (bMassSet) AddUpdate(TEXT("mass"), LexToString(Mass), TEXT("mass"));
+      if (bMassAsDensitySet) AddUpdate(TEXT("mass_as_density"), bMassAsDensity ? TEXT("True") : TEXT("False"), TEXT("massAsDensity"));
+      if (bEnableClusteringSet) AddUpdate(TEXT("enable_clustering"), bEnableClustering ? TEXT("True") : TEXT("False"), TEXT("enableClustering"));
+      if (bEnableNaniteSet) AddUpdate(TEXT("enable_nanite"), bEnableNanite ? TEXT("True") : TEXT("False"), TEXT("enableNanite"));
+      if (bSupportRayTracingSet) AddUpdate(TEXT("support_ray_tracing"), bSupportRayTracing ? TEXT("True") : TEXT("False"), TEXT("supportRayTracing"));
+      if (bMaxClusterLevelSet) AddUpdate(TEXT("max_cluster_level"), LexToString(MaxClusterLevel), TEXT("maxClusterLevel"));
+      if (bRemoveOnMaxSleepSet) AddUpdate(TEXT("remove_on_max_sleep"), bRemoveOnMaxSleep ? TEXT("True") : TEXT("False"), TEXT("removeOnMaxSleep"));
+      if (bDamageThresholdsSet) {
+        FString Values = TEXT("[");
+        for (int32 Index = 0; Index < DamageThresholds->Num(); ++Index) {
+          double Threshold = 0.0;
+          if (!(*DamageThresholds)[Index].IsValid() || !(*DamageThresholds)[Index]->TryGetNumber(Threshold) || Threshold < 0.0) {
+            SendAutomationError(RequestingSocket, RequestId,
+                                TEXT("damageThresholds must contain non-negative numbers"),
+                                TEXT("INVALID_ARGUMENT"));
+            return true;
+          }
+          if (Index > 0) Values += TEXT(", ");
+          Values += LexToString(Threshold);
+        }
+        Values += TEXT("]");
+        AddUpdate(TEXT("damage_threshold"), Values, TEXT("damageThresholds"));
+      }
+      Code = FString::Printf(TEXT(
+          "import json\n"
+          "import unreal\n"
+          "_asset = unreal.load_asset('%s')\n"
+          "if not _asset or not isinstance(_asset, unreal.GeometryCollection):\n"
+          "    raise RuntimeError('Geometry Collection asset was not found')\n"
+          "_updates = {}\n"
+          "%s"
+          "for _property, _value in _updates.items():\n"
+          "    _asset.set_editor_property(_property, _value)\n"
+          "unreal.EditorAssetLibrary.save_asset(_asset.get_path_name())\n"
+          "print(json.dumps({'assetPath': _asset.get_path_name(), 'updatedProperties': [%s]}))\n"),
+          *PythonAssetPath, *Updates, *UpdatedNames);
     }
 
     if (Lower == TEXT("register_python_command")) {

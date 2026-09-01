@@ -1664,6 +1664,15 @@ void UNebulaForgeBridgeSubsystem::InitializeHandlers() {
                   [this](const FString &R, const FString &A,
                          const TSharedPtr<FJsonObject> &P,
                          TSharedPtr<FMcpBridgeWebSocket> S) {
+                    const FString SubAction = McpConsolidatedActions::GetPayloadSubAction(P);
+                    if (SubAction.Equals(TEXT("create_common_activatable_widget"), ESearchCase::IgnoreCase) ||
+                        SubAction.Equals(TEXT("create_common_button_base"), ESearchCase::IgnoreCase) ||
+                        SubAction.Equals(TEXT("create_common_tab_list"), ESearchCase::IgnoreCase) ||
+                        SubAction.Equals(TEXT("configure_analog_cursor"), ESearchCase::IgnoreCase)) {
+                      const TSharedPtr<FJsonObject> RoutedPayload =
+                          McpConsolidatedActions::WithPayloadSubAction(P, SubAction);
+                      return HandleUiAction(R, TEXT("manage_ui"), RoutedPayload, S);
+                    }
                     return HandleManageWidgetAuthoringAction(R, A, P, S);
                   });
 

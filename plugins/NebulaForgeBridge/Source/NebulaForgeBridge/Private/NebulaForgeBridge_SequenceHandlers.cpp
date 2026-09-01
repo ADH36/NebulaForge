@@ -52,6 +52,13 @@
 #include "MovieSceneTrack.h"
 #include "Tracks/MovieSceneSubTrack.h"
 #include "Sections/MovieSceneSubSection.h"
+#if __has_include("Tracks/MovieSceneCinematicShotTrack.h") && __has_include("Sections/MovieSceneCinematicShotSection.h")
+#include "Tracks/MovieSceneCinematicShotTrack.h"
+#include "Sections/MovieSceneCinematicShotSection.h"
+#define MCP_HAS_CINEMATIC_SHOT_SECTION 1
+#else
+#define MCP_HAS_CINEMATIC_SHOT_SECTION 0
+#endif
 #include "UObject/UObjectIterator.h"
 
 #if __has_include("Tracks/MovieSceneCameraShakeTrack.h") && __has_include("Camera/CameraShakeBase.h")
@@ -3194,6 +3201,75 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
           nullptr, TEXT("TRACK_CREATION_FAILED"));
     }
     return true;
+  }
+
+  if (EffectiveAction == TEXT("sequence_configure_shot_settings")) {
+#if MCP_HAS_CINEMATIC_SHOT_SECTION
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    ULevelSequence* Sequence = SeqPath.IsEmpty() ? nullptr : LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    int32 ShotIndex = 0;
+    LocalPayload->TryGetNumberField(TEXT("shotIndex"), ShotIndex);
+    if (ShotIndex < 0 || ShotIndex > 100000) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("shotIndex must be a non-negative integer"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+
+    UMovieSceneCinematicShotSection* ShotSection = nullptr;
+    for (UMovieSceneTrack* Track : MCP_GET_MOVIESCENE_TRACKS(Sequence->GetMovieScene())) {
+      UMovieSceneCinematicShotTrack* ShotTrack = Cast<UMovieSceneCinematicShotTrack>(Track);
+      if (!ShotTrack || !ShotTrack->GetAllSections().IsValidIndex(ShotIndex)) continue;
+      ShotSection = Cast<UMovieSceneCinematicShotSection>(ShotTrack->GetAllSections()[ShotIndex]);
+      if (ShotSection) break;
+    }
+    if (!ShotSection) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Cinematic shot section not found"), TEXT("SHOT_NOT_FOUND"));
+      return true;
+    }
+
+    FString DisplayName;
+    if (LocalPayload->TryGetStringField(TEXT("shotDisplayName"), DisplayName)) {
+      ShotSection->SetShotDisplayName(DisplayName);
+    }
+    double ThumbnailOffset = 0.0;
+    if (LocalPayload->TryGetNumberField(TEXT("thumbnailReferenceOffset"), ThumbnailOffset)) {
+      if (!FMath::IsFinite(ThumbnailOffset)) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("thumbnailReferenceOffset must be finite"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      ShotSection->SetThumbnailReferenceOffset(static_cast<float>(ThumbnailOffset));
+    }
+    int32 StartFrame = 0;
+    int32 EndFrame = 0;
+    const bool bHasStart = LocalPayload->TryGetNumberField(TEXT("startFrame"), StartFrame);
+    const bool bHasEnd = LocalPayload->TryGetNumberField(TEXT("endFrame"), EndFrame);
+    if (bHasStart != bHasEnd || (bHasStart && EndFrame <= StartFrame)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("startFrame and endFrame must be provided together with endFrame greater than startFrame"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (bHasStart) {
+      ShotSection->SetRange(TRange<FFrameNumber>(FFrameNumber(StartFrame), FFrameNumber(EndFrame)));
+    }
+
+    Sequence->MarkPackageDirty();
+    const bool bPersisted = McpSafeAssetSave(Sequence);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), Sequence->GetPathName());
+    Result->SetNumberField(TEXT("shotIndex"), ShotIndex);
+    Result->SetStringField(TEXT("shotDisplayName"), ShotSection->GetShotDisplayName());
+    Result->SetNumberField(TEXT("thumbnailReferenceOffset"), ShotSection->GetThumbnailReferenceOffset());
+    Result->SetBoolField(TEXT("persisted"), bPersisted);
+    SendAutomationResponse(RequestingSocket, RequestId, bPersisted,
+                           bPersisted ? TEXT("Cinematic shot settings configured") : TEXT("Cinematic shot settings changed but save failed"),
+                           Result, bPersisted ? FString() : TEXT("SAVE_FAILED"));
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Cinematic shot section API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
+    return true;
+#endif
   }
 
   if (EffectiveAction == TEXT("sequence_add_subsequence")) {

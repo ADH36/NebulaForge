@@ -187,6 +187,7 @@ export async function handleSequenceTools(action: string, args: Record<string, u
       return cleanObject(res);
     }
     case 'add_shot_track':
+    case 'configure_shot_settings':
     case 'add_camera_cut_track':
     case 'add_camera_shake_track':
     case 'add_fade_track':
@@ -196,6 +197,18 @@ export async function handleSequenceTools(action: string, args: Record<string, u
     case 'add_event_track':
     case 'add_property_track': {
       const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      if (seqAction === 'configure_shot_settings') {
+        const shotIndex = Number(args.shotIndex ?? 0);
+        if (!Number.isInteger(shotIndex) || shotIndex < 0 || shotIndex > 100000) {
+          throw new Error('shotIndex must be a non-negative integer');
+        }
+        const settings = ['shotDisplayName', 'thumbnailReferenceOffset', 'startFrame', 'endFrame']
+          .filter((field) => args[field] !== undefined);
+        if (settings.length === 0) throw new Error('At least one shot setting must be provided');
+        return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+          ...args, path, shotIndex, subAction: 'configure_shot_settings'
+        }) as SequenceActionResponse);
+      }
       const trackTypes: Record<string, string> = {
         add_shot_track: 'CinematicShot',
         add_camera_cut_track: 'CameraCut',

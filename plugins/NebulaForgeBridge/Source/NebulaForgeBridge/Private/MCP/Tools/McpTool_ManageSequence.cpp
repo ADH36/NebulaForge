@@ -29,6 +29,7 @@ public:
 				TEXT("create_cine_camera_actor"),
 				TEXT("add_subsequence"),
 				TEXT("add_shot_track"),
+				TEXT("configure_shot_settings"),
 				TEXT("add_camera_cut_track"),
 				TEXT("add_camera_shake_track"),
 				TEXT("add_fade_track"),
@@ -112,6 +113,9 @@ public:
 			.String(TEXT("subsequencePath"), TEXT("Child sequence asset path."))
 			.String(TEXT("childSequencePath"), TEXT("Alias for subsequencePath."))
 			.Number(TEXT("durationFrames"), TEXT("Subsequence duration in frames."))
+			.Integer(TEXT("shotIndex"), TEXT("Zero-based cinematic shot section index."))
+			.String(TEXT("shotDisplayName"), TEXT("Cinematic shot display name."))
+			.Number(TEXT("thumbnailReferenceOffset"), TEXT("Shot thumbnail reference offset."))
 			.Number(TEXT("rowIndex"), TEXT("Optional subsequence track row."))
 			.String(TEXT("outputPath"), TEXT("Project-relative Movie Render Queue output directory."))
 			.String(TEXT("mrqJobId"), TEXT("Movie Render Queue job identifier."))

@@ -80,6 +80,7 @@ const ACTION_REQUIRED_PARAMS: Record<string, string[]> = {
   'pause_media': ['mediaPlayerPath'],
   'seek_media': ['mediaPlayerPath', 'mediaTime'],
   'start_take_recording': [],
+  'create_take_recorder_panel': [],
   'stop_take_recording': [],
   'configure_take_sources': ['actorNames'],
   'get_take_recording_status': [],
@@ -147,6 +148,7 @@ const ACTION_ALLOWED_PARAMS: Record<string, string[]> = {
   'pause_media': ['mediaPlayerPath'],
   'seek_media': ['mediaPlayerPath', 'mediaTime'],
   'start_take_recording': ['sequencePath', 'openSequencer', 'showErrorMessage'],
+  'create_take_recorder_panel': [],
   'stop_take_recording': [],
   'configure_take_sources': ['actorNames', 'reduceKeys', 'showProgress'],
   'configure_recorded_tracks': ['recordToPossessable', 'removeRedundantTracks', 'saveRecordedAssets', 'recordIntoSubSequences', 'autoLock', 'startAtCurrentTimecode'],
@@ -688,6 +690,8 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
         showErrorMessage: args.showErrorMessage === true
       }) as Record<string, unknown>);
     }
+    case 'create_take_recorder_panel':
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'create_take_recorder_panel' }) as Record<string, unknown>);
     case 'stop_take_recording':
       return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'stop_take_recording' }) as Record<string, unknown>);
     case 'get_take_recording_status':

@@ -1083,7 +1083,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'screenshot', 'take_screenshot', 'step_frame', 'single_frame_step',
             'start_recording', 'stop_recording', 'start_demo_recording', 'stop_demo_recording', 'play_demo', 'pause_demo', 'seek_demo', 'set_demo_playback_speed', 'configure_killcam_duration', 'start_killcam',
             'open_media', 'play_media', 'pause_media', 'seek_media',
-            'start_take_recording', 'stop_take_recording', 'configure_take_sources', 'configure_recorded_tracks', 'get_take_recording_status',
+            'create_take_recorder_panel', 'start_take_recording', 'stop_take_recording', 'configure_take_sources', 'configure_recorded_tracks', 'get_take_recording_status',
             'create_bookmark', 'jump_to_bookmark',
             'set_preferences', 'set_viewport_realtime',
             'open_asset', 'close_asset', 'simulate_input',

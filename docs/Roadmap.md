@@ -1354,7 +1354,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Implementation note:** Media asset creation is guarded by Media Framework availability and uses the native `UMediaPlayer`, `UMediaSource`, `UMediaTexture`, `UMediaPlaylist`, and `UMediaSoundComponent` asset/component types. Platform-specific capture sources remain conditional.
 
 ### 30.4 Take Recorder
-- [ ] `create_take_recorder_panel`
+- [x] `create_take_recorder_panel` (opens Epic's registered Take Recorder tab through ITakeRecorderModule::TakeRecorderTabName; optional plugin)
 - [x] `configure_take_sources` (UE Take Recorder actor sources)
 - [x] `start_recording`, `stop_recording` (Take Recorder lifecycle via `control_editor.start_take_recording` / `stop_take_recording`)
 - [x] `configure_recorded_tracks` (UTakeRecorderSources settings)

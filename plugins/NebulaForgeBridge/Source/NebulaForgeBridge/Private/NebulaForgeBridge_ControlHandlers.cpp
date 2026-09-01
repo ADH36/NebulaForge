@@ -110,9 +110,16 @@
 #include "Recorder/TakeRecorder.h"
 #include "Recorder/TakeRecorderSubsystem.h"
 #include "TakeRecorderSources.h"
+#if __has_include("ITakeRecorderModule.h")
+#include "ITakeRecorderModule.h"
+#define MCP_HAS_TAKE_RECORDER_MODULE 1
+#else
+#define MCP_HAS_TAKE_RECORDER_MODULE 0
+#endif
 #define MCP_HAS_TAKE_RECORDER 1
 #else
 #define MCP_HAS_TAKE_RECORDER 0
+#define MCP_HAS_TAKE_RECORDER_MODULE 0
 #endif
 #if __has_include("PaperSpriteActor.h") && __has_include("PaperFlipbookActor.h") && __has_include("PaperCharacter.h") && __has_include("PaperSpriteComponent.h") && __has_include("PaperFlipbookComponent.h")
 #include "PaperSpriteActor.h"
@@ -6156,6 +6163,36 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
     SendStandardErrorResponse(this, RequestingSocket, RequestId,
                               TEXT("MEDIA_ASSETS_NOT_AVAILABLE"),
                               TEXT("Media Framework is not available in this build"), nullptr);
+    return true;
+#endif
+  }
+  if (LowerSub == TEXT("create_take_recorder_panel")) {
+#if MCP_HAS_TAKE_RECORDER && MCP_HAS_TAKE_RECORDER_MODULE
+    ITakeRecorderModule *TakeModule = FModuleManager::LoadModulePtr<ITakeRecorderModule>(TEXT("TakeRecorder"));
+    if (!TakeModule) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("TAKE_RECORDER_NOT_AVAILABLE"),
+                                TEXT("Take Recorder module is unavailable"), nullptr);
+      return true;
+    }
+    const TSharedPtr<SDockTab> Tab = FGlobalTabmanager::Get()->TryInvokeTab(
+        FTabId(ITakeRecorderModule::TakeRecorderTabName));
+    if (!Tab.IsValid()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                                TEXT("TAKE_RECORDER_PANEL_UNAVAILABLE"),
+                                TEXT("Take Recorder panel tab could not be opened"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetStringField(TEXT("tabName"), ITakeRecorderModule::TakeRecorderTabName.ToString());
+    Response->SetBoolField(TEXT("opened"), true);
+    SendAutomationResponse(RequestingSocket, RequestId, true,
+                           TEXT("Take Recorder panel opened"), Response, FString());
+    return true;
+#else
+    SendStandardErrorResponse(this, RequestingSocket, RequestId,
+                              TEXT("TAKE_RECORDER_NOT_AVAILABLE"),
+                              TEXT("Take Recorder module is unavailable in this editor build"), nullptr);
     return true;
 #endif
   }

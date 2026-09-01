@@ -53,6 +53,7 @@ public:
 				TEXT("pause_media"),
 				TEXT("seek_media"),
 				TEXT("start_take_recording"),
+				TEXT("create_take_recorder_panel"),
 				TEXT("configure_take_sources"),
 				TEXT("configure_recorded_tracks"),
 				TEXT("stop_take_recording"),

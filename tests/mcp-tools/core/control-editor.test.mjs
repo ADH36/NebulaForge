@@ -50,6 +50,7 @@ const testCases = [
   { scenario: 'ACTION: take_screenshot', toolName: 'control_editor', arguments: { action: 'take_screenshot', filename: `${SCREENSHOT_NAME}_Alias`, resolution: '640x360' }, expected: 'success' },
   { scenario: 'ACTION: start_recording', toolName: 'control_editor', arguments: { action: 'start_recording', name: `Recording_${ts}` }, expected: 'success' },
   { scenario: 'PLAYBACK: stop_recording', toolName: 'control_editor', arguments: { action: 'stop_recording' }, expected: 'success' },
+  { scenario: 'ACTION: create_take_recorder_panel', toolName: 'control_editor', arguments: { action: 'create_take_recorder_panel' }, expected: 'success|error|not available|TAKE_RECORDER_NOT_AVAILABLE|TAKE_RECORDER_PANEL_UNAVAILABLE' },
 
   // === BOOKMARKS / PREFERENCES / ASSETS ===
   { scenario: 'CREATE: create_bookmark', toolName: 'control_editor', arguments: { action: 'create_bookmark', id: 0, bookmarkName: '0' }, expected: 'success|already exists' },

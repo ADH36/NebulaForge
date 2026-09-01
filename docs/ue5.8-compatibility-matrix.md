@@ -2,7 +2,7 @@
 
 Audit date: 2026-08-28  
 Target: Unreal Engine 5.8 Editor and UE 5.8 projects  
-Scope: the 23 consolidated MCP tools, their exposed feature groups, and the
+Scope: the 28 consolidated MCP tools, their exposed feature groups, and the
 Landscape/PIE/screenshot capabilities recently added to the bridge.
 
 ## Status meanings

@@ -23,7 +23,7 @@ An Unreal Engine editor plugin that enables AI assistants (Claude, Cursor, Winds
 | **Audio** | Sound cues, audio components, MetaSounds |
 | **System** | Console commands, UBT, tests, logs, project settings, Python execution |
 
-**200+ automation actions** across 23 MCP tools.
+**200+ automation actions** across 28 MCP tools.
 
 ---
 
@@ -191,7 +191,7 @@ Configure in **Edit → Project Settings → Plugins → NebulaForge Bridge**:
 - **Enable Native MCP**: Enable built-in HTTP/SSE MCP server (default: off)
 - **Native MCP Port**: HTTP port for native MCP transport (default: 3000)
 - **Listen Host**: Bind address (default: 127.0.0.1)
-- **Load All Tools on Start**: Load all 23 canonical tools at startup (default: on)
+- **Load All Tools on Start**: Load all 28 canonical tools at startup (default: on)
 - **Native MCP Instructions**: Custom instructions for AI clients
 - **Require Capability Token**: Enforce token authentication on WS and HTTP transports
 

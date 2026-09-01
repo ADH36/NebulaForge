@@ -22,7 +22,7 @@ MCP/
 | Add native tool metadata | `Tools/McpTool_*.cpp` | Subclass `FMcpToolDefinition` and use `MCP_REGISTER_TOOL` |
 | Change schema construction | `McpSchemaBuilder.*` | Keep schema JSON generated through builder helpers |
 | Change tool filtering | `McpDynamicToolManager.*` | Core-only/default-all behavior, protected tools/categories |
-| Change canonical list | `McpToolRegistry.cpp` | Only 23 parent tool names are accepted |
+| Change canonical list | `McpToolRegistry.cpp` | Only the canonical parent tool names are accepted |
 
 ## TRANSPORT CONVENTIONS
 - `GET /mcp` opens a persistent SSE notification stream.

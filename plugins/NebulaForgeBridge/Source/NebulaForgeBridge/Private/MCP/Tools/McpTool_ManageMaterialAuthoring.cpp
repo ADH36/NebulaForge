@@ -1,4 +1,4 @@
-// McpTool_ManageMaterialAuthoring.cpp — manage_material_authoring tool definition (38 actions)
+// McpTool_ManageMaterialAuthoring.cpp — manage_materials tool definition (38 actions)
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -8,7 +8,7 @@
 class FMcpTool_ManageMaterialAuthoring : public FMcpToolDefinition
 {
 public:
-	FString GetName() const override { return TEXT("manage_material_authoring"); }
+	FString GetName() const override { return TEXT("manage_materials"); }
 
 	FString GetDescription() const override
 	{

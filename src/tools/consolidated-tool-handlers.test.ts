@@ -34,6 +34,47 @@ function createConnectedTools() {
 }
 
 describe('consolidated action params compatibility', () => {
+  it('exposes the five focused domain parent tools with their action groups', () => {
+    const expectedActions: Record<string, string> = {
+      manage_materials: 'create_material',
+      manage_lighting: 'spawn_light',
+      manage_input: 'create_input_action',
+      manage_ui: 'create_widget_blueprint',
+      manage_navigation: 'query_navigation_path'
+    };
+
+    for (const [toolName, actionName] of Object.entries(expectedActions)) {
+      const tool = consolidatedToolDefinitions.find((definition) => definition.name === toolName);
+      const inputSchema = tool?.inputSchema as { properties?: Record<string, unknown> } | undefined;
+      const action = inputSchema?.properties?.action as { enum?: string[] } | undefined;
+
+      expect(tool).toBeDefined();
+      expect(action?.enum).toContain(actionName);
+      expect(inputSchema?.properties).toHaveProperty('params');
+    }
+    expect(consolidatedToolDefinitions).toHaveLength(28);
+  });
+
+  it.each([
+    ['manage_materials', 'create_material', 'manage_material_authoring', { name: 'MCP_Test', path: '/Game/Materials' }],
+    ['manage_lighting', 'spawn_light', 'manage_lighting', { name: 'MCP_Test' }],
+    ['manage_input', 'create_input_action', 'manage_input', { name: 'MCP_Test', path: '/Game/Input' }],
+    ['manage_ui', 'create_widget_blueprint', 'manage_widget_authoring', { name: 'MCP_Test', folder: '/Game/UI' }],
+    ['manage_navigation', 'query_navigation_path', 'manage_navigation', { start: { x: 0, y: 0, z: 0 }, end: { x: 100, y: 100, z: 0 } }]
+  ])('routes %s directly to the focused domain handler', async (toolName, action, bridgeTool, domainArgs) => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+
+    await handleConsolidatedToolCall(toolName, { action, params: domainArgs }, tools);
+
+    if (toolName === 'manage_lighting') {
+      expect(sendAutomationRequest).toHaveBeenCalledWith(action, expect.any(Object), expect.any(Object));
+    } else {
+      expect(sendAutomationRequest).toHaveBeenCalledWith(bridgeTool, expect.objectContaining({
+        subAction: action
+      }), expect.any(Object));
+    }
+  });
+
   it('advertises pattern texture parameters on the consolidated asset schema', () => {
     const tool = consolidatedToolDefinitions.find((definition) => definition.name === 'manage_asset');
     const inputSchema = tool?.inputSchema as Record<string, unknown> | undefined;

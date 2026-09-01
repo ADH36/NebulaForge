@@ -2,7 +2,10 @@
 
 This document maps the TypeScript tool definitions to their corresponding C++ handlers in the Unreal Engine plugin.
 
-> **Note:** The TypeScript bridge exposes 23 canonical MCP tools. Former child tool names are not exposed or accepted as direct MCP tool names; their actions live on the canonical parent tools shown below.
+> **Note:** The TypeScript bridge exposes 28 canonical MCP tools. Former child tool names are not exposed or accepted as direct MCP tool names; their actions live on the canonical parent tools shown below.
+
+The focused domain parents `manage_materials`, `manage_lighting`, `manage_input`, `manage_ui`, and
+`manage_navigation` reuse the existing material, lighting, input, widget, and navigation handlers.
 
 ## Asset Manager (`manage_asset`)
 

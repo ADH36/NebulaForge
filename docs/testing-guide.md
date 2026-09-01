@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project uses consolidated integration test suites covering the 23 canonical MCP tools:
+This project uses consolidated integration test suites covering the 28 canonical MCP tools:
 - **Canonical Integration Suite** (`tests/integration.mjs`) for cross-tool workflows
 - **Per-Tool MCP Suites** (`tests/mcp-tools/**/*.test.mjs`) for every exposed parent tool
 
@@ -31,7 +31,7 @@ for f in tests/mcp-tools/{core,gameplay,utility,world}/*.test.mjs; do node "$f";
 
 ### Canonical Integration Suite (`tests/integration.mjs`)
 
-Covers cross-tool workflows across the 23 canonical MCP tools:
+Covers cross-tool workflows across the 28 canonical MCP tools:
 - Infrastructure & Discovery
 - Asset & Material Lifecycle
 - Actor Control & Introspection

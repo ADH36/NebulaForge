@@ -1,4 +1,4 @@
-// McpTool_ManageWidgetAuthoring.cpp — manage_widget_authoring tool definition (64 actions)
+// McpTool_ManageWidgetAuthoring.cpp — manage_ui tool definition (64 actions)
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -8,7 +8,7 @@
 class FMcpTool_ManageWidgetAuthoring : public FMcpToolDefinition
 {
 public:
-	FString GetName() const override { return TEXT("manage_widget_authoring"); }
+	FString GetName() const override { return TEXT("manage_ui"); }
 
 	FString GetDescription() const override
 	{

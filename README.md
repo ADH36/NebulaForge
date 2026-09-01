@@ -17,7 +17,7 @@ Turn natural-language intent into validated Unreal Editor work: inspect, author,
 
 [![Unreal Engine](https://img.shields.io/badge/Unreal%20Engine-5.0--5.8-0E1128?style=for-the-badge&logo=unrealengine)](https://www.unrealengine.com/)
 [![MCP](https://img.shields.io/badge/MCP-HTTP%20%2B%20SSE%20%7C%20stdio-6E56CF?style=for-the-badge)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/Tools-23%20canonical-22C55E?style=for-the-badge)](#-the-tool-surface)
+[![Tools](https://img.shields.io/badge/Tools-28%20canonical-22C55E?style=for-the-badge)](#-the-tool-surface)
 [![License](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 
 </div>
@@ -238,7 +238,7 @@ The TypeScript host owns MCP registration, schemas, validation, connection polic
 
 ## ⌘ The tool surface
 
-23 canonical parent tools keep the MCP context compact while exposing hundreds of focused actions.
+28 canonical parent tools keep the MCP context compact while exposing hundreds of focused actions.
 
 <table>
 <tr>

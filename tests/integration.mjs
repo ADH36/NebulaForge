@@ -2,7 +2,7 @@
 /**
  * Canonical Integration Test Suite
  *
- * Covers the 23 exposed MCP tools, with advanced capabilities routed as
+ * Covers the 28 exposed MCP tools, with advanced capabilities routed as
  * parent-tool actions instead of separate child tools.
  *
  * Usage:

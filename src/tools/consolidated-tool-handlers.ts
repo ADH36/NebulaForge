@@ -217,6 +217,9 @@ function registerDefaultHandlers() {
     return await handleAssetTools(action, args, tools);
   });
 
+  toolRegistry.register('manage_materials', async (args, tools) =>
+    await handleMaterialAuthoringTools(getToolAction(args), args, tools));
+
   toolRegistry.register('manage_blueprint', async (args, tools) => {
     const action = getToolAction(args);
     if (action === 'create_blueprint') return await handleBlueprintTools('create', args, tools);
@@ -225,6 +228,9 @@ function registerDefaultHandlers() {
     if (blueprintGraphActionSet.has(action)) return await handleGraphTools('manage_blueprint', action, args, tools);
     return await handleBlueprintTools(action, args, tools);
   });
+
+  toolRegistry.register('manage_ui', async (args, tools) =>
+    await handleWidgetAuthoringTools(getToolAction(args), args, tools));
 
   toolRegistry.register('control_actor', async (args, tools) => await handleActorTools(getToolAction(args), args, tools));
   toolRegistry.register('control_editor', async (args, tools) => await handleEditorTools(getToolAction(args), args, tools));
@@ -249,6 +255,9 @@ function registerDefaultHandlers() {
     if (splineActionSet.has(action)) return await handleSplineTools(action, args, tools);
     return await handleEnvironmentTools(action, args, tools);
   });
+
+  toolRegistry.register('manage_lighting', async (args, tools) =>
+    await handleLightingTools(getToolAction(args), args, tools));
 
   toolRegistry.register('system_control', async (args, tools) => {
     const action = getToolAction(args);
@@ -312,6 +321,8 @@ function registerDefaultHandlers() {
     if (navigationActionSet.has(action)) return await handleNavigationTools(action, args, tools);
     return await handleAITools(action, args, tools);
   });
+  toolRegistry.register('manage_navigation', async (args, tools) =>
+    await handleNavigationTools(getToolAction(args), args, tools));
   toolRegistry.register('manage_inventory', async (args, tools) => await handleInventoryTools(getToolAction(args), args, tools));
   toolRegistry.register('manage_interaction', async (args, tools) => await handleInteractionTools(getToolAction(args), args, tools));
   toolRegistry.register('manage_networking', async (args, tools) => {
@@ -321,6 +332,8 @@ function registerDefaultHandlers() {
     if (inputActionSet.has(action)) return await handleInputTools(action, args, tools);
     return await handleNetworkingTools(action, args, tools);
   });
+  toolRegistry.register('manage_input', async (args, tools) =>
+    await handleInputTools(getToolAction(args), args, tools));
   toolRegistry.register('manage_level_structure', async (args, tools) => {
     const action = getToolAction(args);
     if (volumeActionSet.has(action)) return await handleVolumeTools(action, args, tools);

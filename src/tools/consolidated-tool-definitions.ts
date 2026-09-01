@@ -4510,4 +4510,83 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
 
 ];
 
+/**
+ * Expose mature domain action groups as focused parent tools while preserving
+ * the existing schemas and validation fields used by their original parents.
+ */
+function createFocusedDomainTool(
+  sourceName: string,
+  name: string,
+  category: ToolDefinition['category'],
+  description: string,
+  actions: readonly string[]
+): ToolDefinition {
+  const source = consolidatedToolDefinitions.find((definition) => definition.name === sourceName);
+  if (!source) {
+    throw new Error(`Missing source definition for focused tool: ${sourceName}`);
+  }
+
+  const sourceSchema = source.inputSchema as {
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+
+  return {
+    ...source,
+    name,
+    category,
+    description,
+    inputSchema: {
+      ...source.inputSchema,
+      properties: {
+        ...(sourceSchema.properties ?? {}),
+        action: {
+          type: 'string',
+          enum: actions,
+          description: `Action to perform on ${name}`
+        }
+      },
+      required: sourceSchema.required ?? ['action']
+    }
+  };
+}
+
+consolidatedToolDefinitions.push(
+  createFocusedDomainTool(
+    'manage_asset',
+    'manage_materials',
+    'core',
+    'Create, author, configure, compile, and inspect Unreal materials and material instances.',
+    MATERIAL_AUTHORING_ACTIONS
+  ),
+  createFocusedDomainTool(
+    'build_environment',
+    'manage_lighting',
+    'world',
+    'Create and configure Unreal lights, illumination, reflection captures, post-process settings, and scene captures.',
+    LIGHTING_ACTIONS
+  ),
+  createFocusedDomainTool(
+    'manage_networking',
+    'manage_input',
+    'utility',
+    'Create and configure Enhanced Input actions, mapping contexts, mappings, triggers, and modifiers.',
+    INPUT_ACTIONS
+  ),
+  createFocusedDomainTool(
+    'manage_blueprint',
+    'manage_ui',
+    'core',
+    'Create and author UMG widgets, layouts, bindings, animations, HUDs, and menus.',
+    WIDGET_AUTHORING_ACTIONS
+  ),
+  createFocusedDomainTool(
+    'manage_ai',
+    'manage_navigation',
+    'gameplay',
+    'Configure navigation meshes, agents, modifiers, links, path queries, and navigation validation.',
+    NAVIGATION_ACTIONS
+  )
+);
+
 addActionParamsSchema(consolidatedToolDefinitions);

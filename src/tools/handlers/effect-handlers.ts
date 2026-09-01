@@ -186,6 +186,7 @@ function sanitizeEffectPaths(args: Record<string, unknown>): void {
     'materialPath',
     'mesh',
     'meshPath',
+    'texturePath',
     'skeletalMeshPath',
     'staticMeshPath',
     'preset',

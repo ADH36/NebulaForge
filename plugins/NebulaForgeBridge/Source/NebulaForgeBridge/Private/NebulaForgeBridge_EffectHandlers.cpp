@@ -45,6 +45,8 @@
 #include "NebulaForgeBridgeGlobals.h"
 #include "NebulaForgeBridgeHelpers.h"
 #include "NebulaForgeBridgeSubsystem.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/Texture.h"
 
 #if WITH_EDITOR
 #include "EditorAssetLibrary.h"
@@ -1240,6 +1242,27 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                            FLinearColor(R, G, B, Alpha));
             bApplied = true;
           }
+        } else if (ParameterType.Equals(TEXT("Texture"), ESearchCase::IgnoreCase)) {
+          FString TexturePath;
+          LocalPayload->TryGetStringField(TEXT("texturePath"), TexturePath);
+          if (TexturePath.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) TexturePath = ValueField->AsString();
+          TexturePath = SanitizeProjectRelativePath(TexturePath);
+          UTexture *Texture = IsValidAssetPath(TexturePath) ? LoadObject<UTexture>(nullptr, *TexturePath) : nullptr;
+          if (Texture) {
+            NiComp->SetVariableTexture(ParamName, Texture);
+            bApplied = true;
+          }
+        } else if (ParameterType.Equals(TEXT("StaticMesh"), ESearchCase::IgnoreCase) ||
+                   ParameterType.Equals(TEXT("Mesh"), ESearchCase::IgnoreCase)) {
+          FString MeshPath;
+          LocalPayload->TryGetStringField(TEXT("meshPath"), MeshPath);
+          if (MeshPath.IsEmpty() && ValueField.IsValid() && ValueField->Type == EJson::String) MeshPath = ValueField->AsString();
+          MeshPath = SanitizeProjectRelativePath(MeshPath);
+          UStaticMesh *Mesh = IsValidAssetPath(MeshPath) ? LoadObject<UStaticMesh>(nullptr, *MeshPath) : nullptr;
+          if (Mesh) {
+            NiComp->SetVariableStaticMesh(ParamName, Mesh);
+            bApplied = true;
+          }
         } else if (ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) ||
                    ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase)) {
           const TArray<TSharedPtr<FJsonValue>> *ArrValue = nullptr;
@@ -1309,6 +1332,9 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Color"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Quaternion"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Quat"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Texture"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("StaticMesh"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Mesh"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Bool"), ESearchCase::IgnoreCase)) {
             ErrMsg = FString::Printf(TEXT("Invalid parameter type: %s"),
                                      *ParameterType);

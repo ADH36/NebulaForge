@@ -138,7 +138,10 @@
 // -----------------------------------------------------------------------------
 #include "EngineUtils.h"
 #include "GameFramework/WorldSettings.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformFileManager.h"
 #include "Misc/OutputDeviceNull.h"
+#include "Misc/Paths.h"
 
 #endif // WITH_EDITOR
 
@@ -1177,12 +1180,61 @@ bool UNebulaForgeBridgeSubsystem::HandleExecuteEditorFunction(
     GEditor->Exec(nullptr, *MemReportCmd);
 
     TSharedPtr<FJsonObject> Out = McpHandlerUtils::CreateResultObject();
+    const FString ReportDirectory = FPaths::ProjectSavedDir() / TEXT("Profiling/MemReports");
+    FString LatestReport;
+    TArray<FString> ReportFiles;
+    IFileManager::Get().FindFiles(ReportFiles, *(ReportDirectory / TEXT("*")), true, false);
+    FDateTime LatestTimestamp;
+    bool bFoundReport = false;
+    for (const FString &ReportFile : ReportFiles)
+    {
+      const FString Candidate = ReportDirectory / ReportFile;
+      const FDateTime Timestamp = IFileManager::Get().GetTimeStamp(*Candidate);
+      if (!bFoundReport || Timestamp > LatestTimestamp)
+      {
+        bFoundReport = true;
+        LatestTimestamp = Timestamp;
+        LatestReport = Candidate;
+      }
+    }
+
+    if (!OutputPath.IsEmpty())
+    {
+      const FString SafeOutputPath = SanitizeProjectFilePath(OutputPath);
+      if (SafeOutputPath.IsEmpty())
+      {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Invalid outputPath"), nullptr,
+                               TEXT("SECURITY_VIOLATION"));
+        return true;
+      }
+      if (!bFoundReport)
+      {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Memory report command completed but no report file was produced"), nullptr,
+                               TEXT("REPORT_NOT_FOUND"));
+        return true;
+      }
+
+      const FString Destination = FPaths::ConvertRelativePathToFull(
+          FPaths::ProjectDir(), SafeOutputPath.Mid(1));
+      IFileManager::Get().MakeDirectory(*FPaths::GetPath(Destination), true);
+      IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+      if (!PlatformFile.CopyFile(*Destination, *LatestReport))
+      {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Memory report was generated but could not be copied to outputPath"), nullptr,
+                               TEXT("OUTPUT_COPY_FAILED"));
+        return true;
+      }
+      Out->SetStringField(TEXT("outputPath"), SafeOutputPath);
+    }
+
     Out->SetBoolField(TEXT("success"), true);
-    // Note: OutputPath is not fully supported by the native memreport command
-    // (it auto-generates filenames), but we acknowledge the request.
-    Out->SetStringField(
-        TEXT("message"),
-        TEXT("Memory report generated (check Saved/Profiling/MemReports)"));
+    Out->SetStringField(TEXT("reportPath"), LatestReport);
+    Out->SetStringField(TEXT("message"), OutputPath.IsEmpty()
+        ? TEXT("Memory report generated")
+        : TEXT("Memory report generated and copied to outputPath"));
 
     SendAutomationResponse(RequestingSocket, RequestId, true,
                            TEXT("Memory report generated"), Out, FString());

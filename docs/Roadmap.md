@@ -2113,6 +2113,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Flipbooks: `configure_flipbook_loop` (explicit alias to the validated `UPaperFlipbookComponent::SetLooping` handler)
 - [x] Tile Maps: `create_tile_map` (official `UPaperTileMapFactory`; optional existing `UPaperTileSet` seed and safe persistence)
 - [x] Tile Maps: `create_tile_set` (official `UPaperTileSetFactory`; optional initial texture and safe persistence)
+- [x] Tile Maps: `inspect_tile_set` (additional official `UPaperTileSet` metadata readback)
 - [ ] Tile Maps: `add_tile_to_set`, `fill_tile_region`
 - [x] Tile Maps: `paint_paper_tile` (official `UPaperTileMapComponent::SetTile` and `FPaperTileInfo`; owned tile-map component and existing tile set required)
 - [x] Tile Maps: `fill_paper_tile_region` (bounded batch of official `SetTile` calls with optional single collision rebuild)

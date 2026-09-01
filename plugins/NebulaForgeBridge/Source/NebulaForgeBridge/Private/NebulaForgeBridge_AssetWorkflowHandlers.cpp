@@ -488,6 +488,45 @@ static bool HandlePaperFlipbookAssetAction(
 #endif
 
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+static bool HandlePaperTileSetInspectAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  if (!TileSet) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileSet"), TEXT("TILESET_NOT_FOUND"));
+    return true;
+  }
+  const FIntPoint TileSize = TileSet->GetTileSize();
+  const FIntPoint TileSpacing = TileSet->GetPerTileSpacing();
+  const FIntPoint DrawingOffset = TileSet->GetDrawingOffset();
+  const FIntMargin Margin = TileSet->GetMargin();
+  const FIntPoint AuthoredSize = TileSet->GetTileSheetAuthoredSize();
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileSet->GetPathName());
+  Result->SetStringField(TEXT("tileSheetPath"), TileSet->GetTileSheetTexture() ? TileSet->GetTileSheetTexture()->GetPathName() : FString());
+  Result->SetNumberField(TEXT("tileCount"), TileSet->GetTileCount());
+  Result->SetNumberField(TEXT("tileCountX"), TileSet->GetTileCountX());
+  Result->SetNumberField(TEXT("tileCountY"), TileSet->GetTileCountY());
+  Result->SetNumberField(TEXT("tileWidth"), TileSize.X);
+  Result->SetNumberField(TEXT("tileHeight"), TileSize.Y);
+  Result->SetNumberField(TEXT("spacingX"), TileSpacing.X);
+  Result->SetNumberField(TEXT("spacingY"), TileSpacing.Y);
+  Result->SetNumberField(TEXT("drawingOffsetX"), DrawingOffset.X);
+  Result->SetNumberField(TEXT("drawingOffsetY"), DrawingOffset.Y);
+  Result->SetNumberField(TEXT("marginLeft"), Margin.Left);
+  Result->SetNumberField(TEXT("marginTop"), Margin.Top);
+  Result->SetNumberField(TEXT("marginRight"), Margin.Right);
+  Result->SetNumberField(TEXT("marginBottom"), Margin.Bottom);
+  Result->SetNumberField(TEXT("authoredWidth"), AuthoredSize.X);
+  Result->SetNumberField(TEXT("authoredHeight"), AuthoredSize.Y);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-set inspected"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileSetAssetAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1162,6 +1201,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("create_tile_set")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileSetAssetAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("inspect_tile_set")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileSetInspectAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

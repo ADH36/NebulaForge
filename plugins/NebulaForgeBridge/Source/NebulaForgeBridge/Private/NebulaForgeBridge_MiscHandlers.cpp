@@ -703,7 +703,12 @@ static bool HandleSetReplication(
 
     Blueprint->Modify();
     FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!McpSafeAssetSave(Blueprint))
+    {
+        Subsystem->SendAutomationResponse(Socket, RequestId, false,
+            TEXT("Replication settings changed but Blueprint save failed"), nullptr, TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     TSharedPtr<FJsonObject> ResponseJson = McpHandlerUtils::CreateResultObject();
     ResponseJson->SetStringField(TEXT("blueprintPath"), BlueprintPath);
@@ -789,7 +794,12 @@ static bool HandleCreateReplicatedVariable(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            Subsystem->SendAutomationResponse(Socket, RequestId, false,
+                TEXT("Replicated variable was created but Blueprint save failed"), nullptr, TEXT("SAVE_FAILED"));
+            return true;
+        }
     }
 
     TSharedPtr<FJsonObject> ResponseJson = McpHandlerUtils::CreateResultObject();
@@ -863,7 +873,12 @@ static bool HandleSetNetUpdateFrequency(
 
     Blueprint->Modify();
     FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!McpSafeAssetSave(Blueprint))
+    {
+        Subsystem->SendAutomationResponse(Socket, RequestId, false,
+            TEXT("Net update frequency changed but Blueprint save failed"), nullptr, TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     TSharedPtr<FJsonObject> ResponseJson = McpHandlerUtils::CreateResultObject();
     ResponseJson->SetStringField(TEXT("blueprintPath"), BlueprintPath);
@@ -957,7 +972,12 @@ static bool HandleCreateRPC(
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!McpSafeAssetSave(Blueprint))
+        {
+            Subsystem->SendAutomationResponse(Socket, RequestId, false,
+                TEXT("RPC graph was created but Blueprint save failed"), nullptr, TEXT("SAVE_FAILED"));
+            return true;
+        }
     }
 
     TSharedPtr<FJsonObject> ResponseJson = McpHandlerUtils::CreateResultObject();
@@ -1029,7 +1049,12 @@ static bool HandleConfigureNetCullDistance(
 
     Blueprint->Modify();
     FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-    McpSafeAssetSave(Blueprint);
+    if (!McpSafeAssetSave(Blueprint))
+    {
+        Subsystem->SendAutomationResponse(Socket, RequestId, false,
+            TEXT("Net cull distance changed but Blueprint save failed"), nullptr, TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     TSharedPtr<FJsonObject> ResponseJson = McpHandlerUtils::CreateResultObject();
     ResponseJson->SetStringField(TEXT("blueprintPath"), BlueprintPath);

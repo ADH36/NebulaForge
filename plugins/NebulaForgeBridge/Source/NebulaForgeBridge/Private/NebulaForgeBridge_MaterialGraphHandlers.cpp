@@ -894,7 +894,13 @@ bool UNebulaForgeBridgeSubsystem::HandleAddMaterialTextureSample(
 
     Material->PreEditChange(nullptr);
     Material->PostEditChange();
-    McpSafeAssetSave(Material);
+    if (!McpSafeAssetSave(Material))
+    {
+        SendAutomationError(Socket, RequestId,
+            TEXT("TextureSample expression added but material save failed."),
+            TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     McpHandlerUtils::AddVerification(Result, Material);
@@ -1051,7 +1057,13 @@ bool UNebulaForgeBridgeSubsystem::HandleAddMaterialExpression(
 
     Material->PreEditChange(nullptr);
     Material->PostEditChange();
-    McpSafeAssetSave(Material);
+    if (!McpSafeAssetSave(Material))
+    {
+        SendAutomationError(Socket, RequestId,
+            TEXT("Material expression added but material save failed."),
+            TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     McpHandlerUtils::AddVerification(Result, Material);
@@ -1279,7 +1291,13 @@ bool UNebulaForgeBridgeSubsystem::HandleCreateMaterialNodes(
 
     Material->PreEditChange(nullptr);
     Material->PostEditChange();
-    McpSafeAssetSave(Material);
+    if (!McpSafeAssetSave(Material))
+    {
+        SendAutomationError(Socket, RequestId,
+            TEXT("Material nodes changed but material save failed."),
+            TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     McpHandlerUtils::AddVerification(Result, Material);

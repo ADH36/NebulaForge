@@ -383,7 +383,12 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNiagaraAuthoringAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(NewSystem);
+            if (!McpSafeAssetSave(NewSystem))
+            {
+                SendAutomationError(RequestingSocket, RequestId,
+                    TEXT("Niagara System created but save failed."), TEXT("SAVE_FAILED"));
+                return true;
+            }
         }
 
         McpHandlerUtils::AddVerification(Result, NewSystem);
@@ -433,7 +438,12 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNiagaraAuthoringAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(NewEmitter);
+            if (!McpSafeAssetSave(NewEmitter))
+            {
+                SendAutomationError(RequestingSocket, RequestId,
+                    TEXT("Niagara Emitter created but save failed."), TEXT("SAVE_FAILED"));
+                return true;
+            }
         }
 
         McpHandlerUtils::AddVerification(Result, NewEmitter);

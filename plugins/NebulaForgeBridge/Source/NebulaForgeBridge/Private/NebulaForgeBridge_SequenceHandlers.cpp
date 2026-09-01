@@ -334,7 +334,12 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceCreate(
     UObject *NewObj = AssetToolsModule.Get().CreateAsset(
         Name, DestFolder, ULevelSequence::StaticClass(), Factory);
 if (NewObj) {
-      McpSafeAssetSave(NewObj);
+      if (!McpSafeAssetSave(NewObj)) {
+        Subsystem->SendAutomationResponse(Socket, RequestIdArg, false,
+                                          TEXT("Sequence created but save failed"), nullptr,
+                                          TEXT("SAVE_FAILED"));
+        return true;
+      }
       GCurrentSequencePath = FullPath;
       TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
       McpHandlerUtils::AddVerification(Resp, NewObj);

@@ -757,7 +757,10 @@ static bool HandleCreateSublevel(
     // Save parent world if requested (to persist streaming level reference)
     if (bSave && StreamingLevel)
     {
-        McpSafeAssetSave(World);
+        if (!McpSafeAssetSave(World))
+        {
+            bSaveSucceeded = false;
+        }
     }
 
     // CRITICAL: Clean up the created sublevel world from memory to prevent "World Memory Leaks" crash
@@ -1797,7 +1800,12 @@ static bool HandleCreateDataLayer(
     FAssetRegistryModule::AssetCreated(NewDataLayerAsset);
 
     // Save the asset
-    McpSafeAssetSave(NewDataLayerAsset);
+    if (!McpSafeAssetSave(NewDataLayerAsset))
+    {
+        Subsystem->SendAutomationResponse(Socket, RequestId, false,
+            FString::Printf(TEXT("DataLayerAsset created but save failed: %s"), *FullAssetPath), nullptr, TEXT("SAVE_FAILED"));
+        return true;
+    }
 
     // Step 2: Create a UDataLayerInstance using the asset
     FDataLayerCreationParameters CreationParams;

@@ -1068,7 +1068,12 @@ static bool McpConfigureFoliageType(const TSharedPtr<FJsonObject> &Payload, TSha
     TArray<FString> Failed;
     const int32 ReflectedCount = McpApplyPayloadSettings(FoliageType, Payload, Applied, Failed);
     FoliageType->MarkPackageDirty();
-    McpSafeAssetSave(FoliageType);
+    if (!McpSafeAssetSave(FoliageType))
+    {
+        OutMessage = FString::Printf(TEXT("Foliage type changed but save failed: %s"), *FoliagePath);
+        OutErrorCode = TEXT("SAVE_FAILED");
+        return false;
+    }
 
     Resp->SetStringField(TEXT("foliageTypePath"), FoliagePath);
     Resp->SetNumberField(TEXT("configuredPropertyCount"), ReflectedCount);
@@ -1214,7 +1219,12 @@ static bool McpCreateLinearColorCurve(const TSharedPtr<FJsonObject> &Payload, co
     Curve->FloatCurves[3].UpdateOrAddKey(0.0f, 1.0f);
     FAssetRegistryModule::AssetCreated(Curve);
     Curve->MarkPackageDirty();
-    McpSafeAssetSave(Curve);
+    if (!McpSafeAssetSave(Curve))
+    {
+        OutMessage = FString::Printf(TEXT("Color curve created but save failed: %s"), *Curve->GetPathName());
+        OutErrorCode = TEXT("SAVE_FAILED");
+        return false;
+    }
 
     Resp->SetStringField(TEXT("curvePath"), Curve->GetPathName());
     McpHandlerUtils::AddVerification(Resp, Curve);
@@ -2967,11 +2977,18 @@ bool UNebulaForgeBridgeSubsystem::HandleBuildEnvironmentAction(
                 McpAddStringArrayField(Resp, TEXT("configurationErrors"), ConfigurationErrors);
             }
             FoliageType->MarkPackageDirty();
-            McpSafeAssetSave(FoliageType);
-            bSuccess = true;
-            Message = TEXT("Foliage type configuration updated");
-            Resp->SetStringField(TEXT("foliageTypePath"), FoliageType->GetOutermost()->GetName());
-            McpHandlerUtils::AddVerification(Resp, FoliageType);
+            if (!McpSafeAssetSave(FoliageType))
+            {
+                Message = TEXT("Foliage type changed but save failed");
+                ErrorCode = TEXT("SAVE_FAILED");
+            }
+            else
+            {
+                bSuccess = true;
+                Message = TEXT("Foliage type configuration updated");
+                Resp->SetStringField(TEXT("foliageTypePath"), FoliageType->GetOutermost()->GetName());
+                McpHandlerUtils::AddVerification(Resp, FoliageType);
+            }
         }
     }
     // -------------------------------------------------------------------------

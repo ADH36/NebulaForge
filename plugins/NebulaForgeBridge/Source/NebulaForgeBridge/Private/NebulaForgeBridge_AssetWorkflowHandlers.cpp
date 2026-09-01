@@ -53,6 +53,7 @@
 #include "Misc/Paths.h"
 #include "NebulaForgeBridgeGlobals.h"
 #include "NebulaForgeBridgeHelpers.h"
+#include "McpPropertyReflection.h"
 #include "McpSafeOperations.h"
 
 // -----------------------------------------------------------------------------
@@ -1505,6 +1506,70 @@ static bool HandlePaperSpriteSourceAction(
   return true;
 }
 
+static bool HandlePaperSpriteCollisionAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString SpritePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+  if (!Sprite) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperSprite"), TEXT("SPRITE_NOT_FOUND"));
+    return true;
+  }
+  FString CollisionDomain;
+  Payload->TryGetStringField(TEXT("collisionDomain"), CollisionDomain);
+  CollisionDomain = CollisionDomain.ToLower().Replace(TEXT("-"), TEXT("")).Replace(TEXT("_"), TEXT(""));
+  int32 DomainValue = -1;
+  if (!CollisionDomain.IsEmpty()) {
+    if (CollisionDomain == TEXT("none")) DomainValue = 0;
+    else if (CollisionDomain == TEXT("2d") || CollisionDomain == TEXT("use2dphysics")) DomainValue = 1;
+    else if (CollisionDomain == TEXT("3d") || CollisionDomain == TEXT("use3dphysics")) DomainValue = 2;
+    else {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("collisionDomain must be none, 2d/use2dphysics, or 3d/use3dphysics"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+  }
+  double Thickness = 0.0;
+  const bool bHasThickness = Payload->HasField(TEXT("collisionThickness"));
+  if (bHasThickness && (!Payload->TryGetNumberField(TEXT("collisionThickness"), Thickness) || !FMath::IsFinite(Thickness) || Thickness <= 0.0 || Thickness > 100000.0)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("collisionThickness must be finite and between 0 and 100000"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  if (DomainValue < 0 && !bHasThickness) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("collisionDomain or collisionThickness is required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  Sprite->Modify();
+  TMap<FName, TSharedPtr<FJsonValue>> Values;
+  if (DomainValue >= 0) Values.Add(FName(TEXT("SpriteCollisionDomain")), MakeShared<FJsonValueNumber>(DomainValue));
+  if (bHasThickness) Values.Add(FName(TEXT("CollisionThickness")), MakeShared<FJsonValueNumber>(Thickness));
+  TMap<FName, FString> Errors;
+  if (McpPropertyReflection::ApplyJsonValuesToObject(Sprite, Values, &Errors) != Values.Num()) {
+    const FString ErrorText = Errors.Num() > 0 ? Errors.CreateConstIterator()->Value : TEXT("Unable to update PaperSprite collision properties");
+    Owner->SendAutomationError(Socket, RequestId, ErrorText, TEXT("UPDATE_FAILED"));
+    return true;
+  }
+  bool bRebuildData = true;
+  Payload->TryGetBoolField(TEXT("rebuildData"), bRebuildData);
+  if (bRebuildData) Sprite->RebuildData();
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(Sprite)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper sprite collision updated but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Sprite->GetPathName());
+  Result->SetNumberField(TEXT("collisionDomainValue"), static_cast<int32>(Sprite->GetSpriteCollisionDomain()));
+  Result->SetNumberField(TEXT("collisionThickness"), Sprite->GetCollisionThickness());
+  Result->SetBoolField(TEXT("rebuiltData"), bRebuildData);
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite collision updated"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperSpriteInspectAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -2087,6 +2152,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("configure_sprite_source")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperSpriteSourceAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("configure_sprite_collision")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperSpriteCollisionAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

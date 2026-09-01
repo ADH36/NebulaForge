@@ -2104,7 +2104,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 45.5 Paper2D
 - [x] Sprites: `create_sprite` (official `UPaperSpriteFactory`; requires Paper2DEditor and an existing `UTexture2D`)
-- [ ] Sprites: `configure_sprite_collision`
+- [x] Sprites: `configure_sprite_collision` (official `UPaperSprite` collision properties plus `RebuildData`; reflection is used because Epic exposes no public collision-domain setter)
 - [x] Sprites: `configure_sprite_source` (official `UPaperSprite::SetTrim` source-region editing with safe persistence)
 - [x] Sprites: `set_sprite_pivot` (official `UPaperSprite::SetPivotMode` with documented modes and safe persistence)
 - [x] Sprites: `inspect_sprite` (official source, UV, pivot, and collision metadata readback)

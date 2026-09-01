@@ -901,6 +901,14 @@ function evaluateAssertions(testCase, response, capturedValues = {}) {
     const label = assertion.label || assertion.path || 'assertion';
     const actual = getValueAtPath(response, assertion.path);
 
+    if (assertion.type) {
+      const expectedType = String(assertion.type);
+      const actualType = Array.isArray(actual) ? 'array' : (actual === null ? 'null' : typeof actual);
+      if (actualType !== expectedType) {
+        return { passed: false, reason: `${label}: expected type ${expectedType}, got ${actualType}` };
+      }
+    }
+
     if (Object.prototype.hasOwnProperty.call(assertion, 'equals') && actual !== assertion.equals) {
       return { passed: false, reason: `${label}: expected ${JSON.stringify(assertion.equals)}, got ${JSON.stringify(actual)}` };
     }

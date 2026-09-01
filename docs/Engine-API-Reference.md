@@ -176,6 +176,8 @@ The UV bounds readback also includes the UV-space triangle area and count of tri
 
 `manage_geometry.get_mesh_info` also uses Epic's `GetMeshVolumeArea` query to return surface area and volume for the dynamic mesh.
 
+The mesh-info query uses Epic's [`GetMeshVolumeAreaCenter`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/GeometryScript/UGeometryScriptL-_18/GetMeshVolumeAre-_1) API to return the local-space center of mass with those measurements on UE 5.4+; UE 5.1–5.3 retain the area/volume query and return a zero center-of-mass fallback because the center overload is not available there.
+
 `manage_geometry.get_num_uv_islands` uses Epic's [`Get Num UV Islands`](https://dev.epicgames.com/documentation/en-us/unreal-engine/geometry-scripting-reference-in-unreal-engine) query when running UE 5.5 or newer; older supported engine versions return `NOT_SUPPORTED` because Epic added this UV-stat method in UE 5.5.
 
 ### Core Types

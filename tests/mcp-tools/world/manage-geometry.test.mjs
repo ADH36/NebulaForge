@@ -146,7 +146,7 @@ const testCases = [
   { scenario: 'ACTION: convert_to_nanite', toolName: 'manage_geometry', arguments: {"action": "convert_to_nanite", "actorName": EDIT_ACTOR, "outputPath": `Game/GeneratedMeshes/TestBox_Nanite_${ts}`}, expected: 'success' },
   { scenario: 'ACTION: convert_to_static_mesh', toolName: 'manage_geometry', arguments: {"action": "convert_to_static_mesh", "actorName": EDIT_ACTOR, "outputPath": `Game/GeneratedMeshes/TestBox_Static_${ts}`}, expected: 'success' },
   // === INFO ===
-  { scenario: 'INFO: get_mesh_info', toolName: 'manage_geometry', arguments: {"action": "get_mesh_info", "actorName": EDIT_ACTOR}, expected: 'success' },
+  { scenario: 'INFO: get_mesh_info', toolName: 'manage_geometry', arguments: {"action": "get_mesh_info", "actorName": EDIT_ACTOR}, expected: 'success', assertions: [{ path: 'structuredContent.result.surfaceArea', greaterThan: 0, label: 'mesh info reports positive surface area' }, { path: 'structuredContent.result.centerOfMass', type: 'object', label: 'mesh info reports center of mass' }] },
 
   // === CLEANUP ===
   { scenario: 'Cleanup: delete test actor', toolName: 'control_actor', arguments: { action: 'delete', actorName: `TestActor_${ts}` }, expected: 'success|not found' },

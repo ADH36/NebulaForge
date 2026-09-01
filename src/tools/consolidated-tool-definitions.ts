@@ -2610,6 +2610,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         surfaceArea: commonSchemas.numberProp,
         volume: commonSchemas.numberProp,
         uvIslandCount: commonSchemas.numberProp,
+        centerOfMass: commonSchemas.objectProp,
         meshInfo: {
           type: 'object',
           properties: {

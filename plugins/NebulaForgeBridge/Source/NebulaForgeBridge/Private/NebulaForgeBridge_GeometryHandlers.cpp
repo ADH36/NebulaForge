@@ -1179,7 +1179,12 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     bool bHasMaterialIDs = UGeometryScriptLibrary_MeshQueryFunctions::GetHasMaterialIDs(Mesh);
     float SurfaceArea = 0.0f;
     float Volume = 0.0f;
+    FVector CenterOfMass = FVector::ZeroVector;
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+    UGeometryScriptLibrary_MeshQueryFunctions::GetMeshVolumeAreaCenter(Mesh, SurfaceArea, Volume, CenterOfMass);
+#else
     UGeometryScriptLibrary_MeshQueryFunctions::GetMeshVolumeArea(Mesh, SurfaceArea, Volume);
+#endif
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("actorName"), ActorName);
@@ -1191,6 +1196,11 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     Result->SetBoolField(TEXT("hasPolygroups"), bHasMaterialIDs);
     Result->SetNumberField(TEXT("surfaceArea"), SurfaceArea);
     Result->SetNumberField(TEXT("volume"), Volume);
+    TSharedPtr<FJsonObject> Center = MakeShared<FJsonObject>();
+    Center->SetNumberField(TEXT("x"), CenterOfMass.X);
+    Center->SetNumberField(TEXT("y"), CenterOfMass.Y);
+    Center->SetNumberField(TEXT("z"), CenterOfMass.Z);
+    Result->SetObjectField(TEXT("centerOfMass"), Center);
 
     Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Mesh info retrieved"), Result);
     return true;

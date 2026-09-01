@@ -2138,7 +2138,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_mesh_section_visibility`, `get_mesh_section_visibility` (newly audited official section visibility APIs; requires the optional Procedural Mesh Component plugin)
 - [x] `set_mesh_section_material` (newly audited `UMeshComponent::SetMaterial` section assignment; requires the optional Procedural Mesh Component plugin)
 - [x] `get_mesh_section_data` (official `UProceduralMeshComponent::GetProcMeshSection` readback of vertices, topology, normals, UV0, colors, visibility, and collision flags)
-- [ ] `set_mesh_vertices`, `set_mesh_triangles`, `set_mesh_normals`, `set_mesh_uvs`, `set_mesh_colors`, `set_mesh_tangents`
+- [x] `set_mesh_vertices` (official `UProceduralMeshComponent::UpdateMeshSection`; exact-count position updates preserve existing attributes)
+- [ ] `set_mesh_triangles`, `set_mesh_normals`, `set_mesh_uvs`, `set_mesh_colors`, `set_mesh_tangents`
 - [x] `set_collision_from_mesh`, `add_collision_convex_mesh`, `clear_collision_convex_meshes` (official `UProceduralMeshComponent` collision configuration and convex APIs; requires the optional Procedural Mesh Component plugin)
 - [x] `convert_to_static_mesh` (shared GeometryScript DynamicMesh-to-StaticMesh conversion; see Phase 6.8)
 

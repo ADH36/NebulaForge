@@ -5696,6 +5696,38 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         return true;
     }
 
+    if (SubAction == TEXT("set_mesh_vertices"))
+    {
+        FProcMeshSection* Section = ProcMesh->GetProcMeshSection(SectionIndex);
+        TArray<FVector> NewVertices;
+        if (!Section || !ReadProcMeshVectorArray(Payload, TEXT("vertices"), NewVertices) || NewVertices.Num() != Section->ProcVertexBuffer.Num())
+        {
+            Self->SendAutomationError(Socket, RequestId, TEXT("vertices must match the existing section vertex count"), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        TArray<FVector> Normals;
+        TArray<FVector2D> UV0;
+        TArray<FColor> Colors;
+        TArray<FProcMeshTangent> Tangents;
+        Normals.Reserve(Section->ProcVertexBuffer.Num());
+        UV0.Reserve(Section->ProcVertexBuffer.Num());
+        Colors.Reserve(Section->ProcVertexBuffer.Num());
+        Tangents.Reserve(Section->ProcVertexBuffer.Num());
+        for (const FProcMeshVertex& Vertex : Section->ProcVertexBuffer)
+        {
+            Normals.Add(Vertex.Normal);
+            UV0.Add(Vertex.UV0);
+            Colors.Add(Vertex.Color);
+            Tangents.Add(Vertex.Tangent);
+        }
+        ProcMesh->UpdateMeshSection(SectionIndex, NewVertices, Normals, UV0, Colors, Tangents);
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+        Result->SetNumberField(TEXT("vertexCount"), NewVertices.Num());
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section vertices updated"), Result);
+        return true;
+    }
+
     TArray<FVector> Vertices;
     TArray<int32> Triangles;
     if (!ReadProcMeshVectorArray(Payload, TEXT("vertices"), Vertices) || Vertices.Num() == 0)
@@ -7731,7 +7763,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
         SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility") ||
-        SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data"))
+        SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data") ||
+        SubAction == TEXT("set_mesh_vertices"))
     {
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
@@ -7744,7 +7777,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
         SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility") ||
-        SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data"))
+        SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data") ||
+        SubAction == TEXT("set_mesh_vertices"))
     {
         SendAutomationError(RequestingSocket, RequestId,
             TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));

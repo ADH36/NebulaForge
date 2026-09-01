@@ -3089,11 +3089,10 @@ Response->SetBoolField(TEXT("success"), true);
             // Try to import from file
             if (FPaths::FileExists(SourcePath))
             {
-                // For file import, we would need AssetTools - return success with note
-                Response->SetBoolField(TEXT("success"), true);
-                Response->SetStringField(TEXT("message"), FString::Printf(TEXT("Texture import queued from '%s' to '%s'"), *SourcePath, *DestinationPath));
-                Response->SetStringField(TEXT("note"), TEXT("Use AssetTools for actual file import in editor"));
-                return Response;
+                // This overload returns a response object and cannot safely
+                // schedule the deferred AssetTools import itself. Report the
+                // capability boundary instead of claiming a queued import.
+                TEXTURE_ERROR_RESPONSE(TEXT("File import requires the asset workflow import path; no texture was created"));
             }
             TEXTURE_ERROR_RESPONSE(FString::Printf(TEXT("Failed to import texture from: %s"), *SourcePath));
         }
@@ -3661,6 +3660,30 @@ bool UNebulaForgeBridgeSubsystem::HandleManageTextureAction(
     if (Action != TEXT("manage_texture"))
     {
         return false; // Not handled
+    }
+
+    // File-based texture imports need the deferred AssetTools path owned by
+    // the asset workflow handler. Route them before the response-object
+    // texture dispatcher, which is intentionally synchronous.
+    if (Payload.IsValid())
+    {
+        const FString SubAction = GetJsonStringField(Payload, TEXT("subAction"),
+                                                     GetJsonStringField(Payload, TEXT("action")));
+        FString SourcePath;
+        Payload->TryGetStringField(TEXT("sourcePath"), SourcePath);
+        if (SubAction.Equals(TEXT("import_texture"), ESearchCase::IgnoreCase) &&
+            FPaths::FileExists(SourcePath))
+        {
+            return HandleImportAsset(RequestId, Payload, RequestingSocket);
+        }
+        if (SubAction.Equals(TEXT("import_texture"), ESearchCase::IgnoreCase) &&
+            SourcePath.StartsWith(TEXT("/")) &&
+            Cast<UTexture2D>(StaticLoadObject(UTexture2D::StaticClass(), nullptr, *SourcePath)))
+        {
+            // Asset-to-asset imports are duplications, not imports from disk.
+            // Reuse the asset workflow's verified duplicate implementation.
+            return HandleDuplicateAsset(RequestId, Payload, RequestingSocket);
+        }
     }
 
     // Call the internal processing function

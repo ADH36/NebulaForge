@@ -1466,6 +1466,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("create_editor_utility_blueprint") &&
       Lower != TEXT("create_python_editor_utility") &&
       Lower != TEXT("create_geometry_collection") &&
+      Lower != TEXT("add_geometry_to_collection") &&
+      Lower != TEXT("remove_geometry_from_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
       Lower != TEXT("inspect_geometry_collection") &&
       Lower != TEXT("register_python_command") &&
@@ -3086,6 +3088,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("create_editor_utility_widget") || Lower == TEXT("create_editor_utility_blueprint") ||
              Lower == TEXT("create_python_editor_utility") || Lower == TEXT("register_python_command") ||
              Lower == TEXT("create_geometry_collection") ||
+             Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("inspect_geometry_collection") ||
              Lower == TEXT("unregister_python_command") ||
@@ -3204,6 +3207,58 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_asset.get_path_name())\n"
           "print(_asset.get_path_name())\n"),
           *AssetName, *PythonPackagePath);
+    }
+
+    if (Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection")) {
+      FString AssetPath;
+      FString SourceAssetPath;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      Payload->TryGetStringField(TEXT("sourceAssetPath"), SourceAssetPath);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      const FString SafeSourceAssetPath = SanitizeProjectRelativePath(SourceAssetPath);
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase) ||
+          SafeSourceAssetPath.IsEmpty() || !SafeSourceAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("Geometry Collection and source assets must be valid /Game paths"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString PythonAssetPath = SafeAssetPath;
+      FString PythonSourceAssetPath = SafeSourceAssetPath;
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      PythonSourceAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      if (Lower == TEXT("add_geometry_to_collection")) {
+        Code = FString::Printf(TEXT(
+            "import unreal\n"
+            "_collection = unreal.load_asset('%s')\n"
+            "if not _collection or not isinstance(_collection, unreal.GeometryCollection):\n"
+            "    raise RuntimeError('Geometry Collection asset was not found')\n"
+            "_source_asset = unreal.load_asset('%s')\n"
+            "if not _source_asset:\n"
+            "    raise RuntimeError('Source geometry asset was not found')\n"
+            "_sources = list(_collection.get_editor_property('geometry_source') or [])\n"
+            "_source = unreal.GeometryCollectionSource(source_geometry_object=unreal.SoftObjectPath(_source_asset.get_path_name()))\n"
+            "_sources.append(_source)\n"
+            "_collection.set_editor_property('geometry_source', _sources)\n"
+            "unreal.EditorAssetLibrary.save_asset(_collection.get_path_name())\n"
+            "print(_collection.get_path_name())\n"),
+            *PythonAssetPath, *PythonSourceAssetPath);
+      } else {
+        Code = FString::Printf(TEXT(
+            "import unreal\n"
+            "_collection = unreal.load_asset('%s')\n"
+            "if not _collection or not isinstance(_collection, unreal.GeometryCollection):\n"
+            "    raise RuntimeError('Geometry Collection asset was not found')\n"
+            "_target = '%s'\n"
+            "_sources = list(_collection.get_editor_property('geometry_source') or [])\n"
+            "_remaining = [s for s in _sources if str(s.get_editor_property('source_geometry_object')) != _target]\n"
+            "if len(_remaining) == len(_sources):\n"
+            "    raise RuntimeError('Source geometry asset is not present in the Geometry Collection')\n"
+            "_collection.set_editor_property('geometry_source', _remaining)\n"
+            "unreal.EditorAssetLibrary.save_asset(_collection.get_path_name())\n"
+            "print(_collection.get_path_name())\n"),
+            *PythonAssetPath, *PythonSourceAssetPath);
+      }
     }
 
     if (Lower == TEXT("configure_geometry_collection")) {

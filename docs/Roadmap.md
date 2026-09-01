@@ -2207,7 +2207,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Collection: `create_geometry_collection` (official `GeometryCollectionFactory` creates a new Geometry Collection asset; source geometry composition remains dependent on the Fracture Editor/Dataflow workflow)
 - [x] Collection: `configure_geometry_collection` (constrained official asset-property configuration for mass, clustering, Nanite, ray tracing, removal, and damage thresholds)
 - [x] Collection: `inspect_geometry_collection` (readback of official Geometry Collection asset properties)
-- [ ] Collection: `add_geometry_to_collection`, `remove_geometry_from_collection`
+- [x] Collection: `add_geometry_to_collection`, `remove_geometry_from_collection` (official `GeometryCollection.geometry_source` / `GeometryCollectionSource` composition path)
 - [ ] Fracturing: `apply_uniform_fracture`, `apply_clustered_fracture`, `apply_radial_fracture`, `apply_planar_fracture`, `apply_brick_fracture`, `apply_mesh_fracture`, `configure_fracture_settings`
 - [ ] Clustering: `set_cluster_group`, `configure_cluster_level`, `auto_cluster`
 - [ ] Damage: `configure_damage_threshold`, `enable_strain_damage`

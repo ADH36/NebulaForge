@@ -1479,11 +1479,13 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 33.3 Validation
 - [ ] `create_asset_validator`
-- [ ] `run_data_validation`
+- [x] `run_data_validation`
 - [x] `check_for_errors` (bounded message-log category error gate)
 - [x] `fix_redirectors`
 - [x] `check_map_errors`
 - [x] `validate_blueprints` (bounded project or path sweep with compiler diagnostics)
+
+**Implementation note:** `run_data_validation` is a dedicated alias for the managed `UnrealEditor-Cmd.exe -run=DataValidation` path; custom validator authoring remains project-specific.
 
 ---
 

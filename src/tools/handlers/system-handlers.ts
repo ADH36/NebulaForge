@@ -170,6 +170,17 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
         timeoutMs: typeof record.timeoutMs === 'number' ? record.timeoutMs : undefined
       });
     }
+    case 'run_data_validation': {
+      const record = argsTyped as Record<string, unknown>;
+      return validateProject({
+        projectPath: argsTyped.projectPath,
+        includeInventory: false,
+        validationMode: 'data_validation',
+        enginePath: typeof record.enginePath === 'string' ? record.enginePath : undefined,
+        validationArguments: Array.isArray(record.validationArguments) ? record.validationArguments.filter((entry): entry is string => typeof entry === 'string') : undefined,
+        timeoutMs: typeof record.timeoutMs === 'number' ? record.timeoutMs : undefined
+      });
+    }
     case 'create_game_architecture_manifest': {
       const record = argsTyped as Record<string, unknown>;
       return createGameArchitectureManifest({

@@ -7,6 +7,7 @@
 // ---------------------
 // system_control / manage_ui:
 //   - create_widget: Create UMG widget blueprint
+//   - create_common_activatable_widget / create_common_button_base: CommonUI blueprints
 //   - add_widget_child: Add child widget to widget tree
 //   - screenshot: Capture viewport screenshot with base64 encoding
 //   - play_in_editor: Start PIE session
@@ -58,6 +59,13 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Blueprint/WidgetTree.h"
+#if __has_include("CommonActivatableWidget.h") && __has_include("CommonButtonBase.h")
+#include "CommonActivatableWidget.h"
+#include "CommonButtonBase.h"
+#define MCP_HAS_COMMON_UI 1
+#else
+#define MCP_HAS_COMMON_UI 0
+#endif
 #include "Camera/PlayerCameraManager.h"
 #include "Components/Image.h"
 #include "Components/PanelWidget.h"
@@ -464,6 +472,70 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
 #else
     Message =
         TEXT("create_widget requires editor build with widget factory support");
+    ErrorCode = TEXT("NOT_AVAILABLE");
+    Resp->SetStringField(TEXT("error"), Message);
+#endif
+  }
+  // ===========================================================================
+  // SubActions: CommonUI widget blueprint factories
+  // ===========================================================================
+  else if (LowerSub == TEXT("create_common_activatable_widget") ||
+           LowerSub == TEXT("create_common_button_base")) {
+#if WITH_EDITOR && MCP_HAS_WIDGET_FACTORY && MCP_HAS_COMMON_UI
+    FString WidgetName;
+    if (!Payload->TryGetStringField(TEXT("name"), WidgetName) || WidgetName.IsEmpty()) {
+      Message = TEXT("name field required for CommonUI widget creation");
+      ErrorCode = TEXT("INVALID_ARGUMENT");
+      Resp->SetStringField(TEXT("error"), Message);
+    } else {
+      FString Folder;
+      Payload->TryGetStringField(TEXT("folder"), Folder);
+      if (Folder.IsEmpty()) {
+        Folder = TEXT("/Game/UI/Widgets");
+      }
+      const FString TargetPath = FString::Printf(TEXT("%s/%s"), *Folder.TrimStartAndEnd(), *WidgetName);
+      if (UEditorAssetLibrary::DoesAssetExist(TargetPath)) {
+        bSuccess = true;
+        Message = FString::Printf(TEXT("CommonUI widget blueprint already exists at %s"), *TargetPath);
+        Resp->SetStringField(TEXT("widgetPath"), TargetPath);
+        Resp->SetBoolField(TEXT("exists"), true);
+      } else {
+        UWidgetBlueprintFactory *Factory = NewObject<UWidgetBlueprintFactory>();
+        if (!Factory) {
+          Message = TEXT("Failed to create CommonUI widget blueprint factory");
+          ErrorCode = TEXT("FACTORY_CREATION_FAILED");
+          Resp->SetStringField(TEXT("error"), Message);
+        } else {
+          Factory->ParentClass = LowerSub == TEXT("create_common_button_base")
+              ? UCommonButtonBase::StaticClass()
+              : UCommonActivatableWidget::StaticClass();
+          UObject *NewAsset = Factory->FactoryCreateNew(
+              UWidgetBlueprint::StaticClass(),
+              UEditorAssetLibrary::DoesAssetExist(Folder)
+                  ? UEditorAssetLibrary::LoadAsset(Folder)
+                  : nullptr,
+              FName(*WidgetName), RF_Standalone, nullptr, GWarn);
+          UWidgetBlueprint *WidgetBlueprint = Cast<UWidgetBlueprint>(NewAsset);
+          if (!WidgetBlueprint) {
+            Message = TEXT("Failed to create CommonUI widget blueprint asset");
+            ErrorCode = TEXT("ASSET_CREATION_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          } else if (!SaveLoadedAssetThrottled(WidgetBlueprint, -1.0, true)) {
+            Message = TEXT("CommonUI widget blueprint was created but save failed");
+            ErrorCode = TEXT("SAVE_FAILED");
+            Resp->SetStringField(TEXT("error"), Message);
+          } else {
+            ScanPathSynchronous(WidgetBlueprint->GetOutermost()->GetName());
+            bSuccess = true;
+            Message = FString::Printf(TEXT("CommonUI widget blueprint created at %s"), *WidgetBlueprint->GetPathName());
+            Resp->SetStringField(TEXT("widgetPath"), WidgetBlueprint->GetPathName());
+            Resp->SetStringField(TEXT("parentClass"), Factory->ParentClass->GetPathName());
+          }
+        }
+      }
+    }
+#else
+    Message = TEXT("CommonUI widget creation requires the optional CommonUI plugin and editor widget factory support");
     ErrorCode = TEXT("NOT_AVAILABLE");
     Resp->SetStringField(TEXT("error"), Message);
 #endif

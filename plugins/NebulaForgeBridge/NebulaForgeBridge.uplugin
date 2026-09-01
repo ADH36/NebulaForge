@@ -171,6 +171,11 @@
       "Name": "PCG",
       "Enabled": true,
       "Optional": true
+    },
+    {
+      "Name": "CommonUI",
+      "Enabled": true,
+      "Optional": true
     }
   ]
 }

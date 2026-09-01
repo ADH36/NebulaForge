@@ -278,6 +278,9 @@ public class NebulaForgeBridge : ModuleRules
             AddOptionalDynamicModule(Target, EngineDir, "ChaosVehicles", "ChaosVehicles");
             AddOptionalDynamicModule(Target, EngineDir, "AnimationData", "AnimationData");
 
+            // CommonUI widget blueprint parents (optional plugin).
+            AddOptionalDynamicModule(Target, EngineDir, "CommonUI", "CommonUI");
+
             // Ensure editor builds expose full Blueprint graph editing APIs.
             PublicDefinitions.Add("MCP_HAS_K2NODE_HEADERS=1");
             PublicDefinitions.Add("MCP_HAS_EDGRAPH_SCHEMA_K2=1");

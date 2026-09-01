@@ -1,4 +1,4 @@
-// McpTool_ManageWidgetAuthoring.cpp — manage_ui tool definition (64 actions)
+// McpTool_ManageWidgetAuthoring.cpp — manage_ui tool definition (66 actions)
 
 #include "McpVersionCompatibility.h"
 #include "MCP/McpToolDefinition.h"
@@ -23,6 +23,8 @@ public:
 		return FMcpSchemaBuilder()
 			.StringEnum(TEXT("action"), {
 				TEXT("create_widget_blueprint"),
+				TEXT("create_common_activatable_widget"),
+				TEXT("create_common_button_base"),
 				TEXT("set_widget_parent_class"),
 				TEXT("add_canvas_panel"),
 				TEXT("add_horizontal_box"),

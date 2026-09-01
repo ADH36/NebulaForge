@@ -2497,7 +2497,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'recalculate_normals', 'flip_normals', 'recompute_tangents',
             'generate_collision', 'generate_complex_collision', 'simplify_collision',
             'generate_lods', 'set_lod_settings', 'set_lod_screen_sizes', 'convert_to_nanite',
-            'convert_to_static_mesh',
+            'convert_to_static_mesh', 'activate_modeling_tool', 'deactivate_modeling_tool',
             'get_mesh_info'
           ],
           description: 'Geometry action to perform'

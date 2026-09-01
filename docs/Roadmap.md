@@ -2093,7 +2093,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Commands: `register_editor_command`, `bind_command_to_action`, `execute_editor_command`
 
 ### 45.3 Modeling Tools Editor Mode
-- [ ] `activate_modeling_tool`, `deactivate_modeling_tool`
+- [x] `activate_modeling_tool`, `deactivate_modeling_tool` (official `FEditorModeTools` lifecycle calls for `EM_ModelingToolsEditorMode`; requires the optional Modeling Tools Editor Mode plugin)
 - [ ] PolyEdit: `select_mesh_elements`, `transform_selection`, `extrude_selection`, `inset_selection`, `bevel_selection`, `bridge_edges`, `fill_hole`, `weld_edges`, `split_edges`
 - [x] PolyEdit: `triangulate`, `flip_normals` (shared GeometryScript mesh operations)
 - [ ] Sculpt: `set_sculpt_brush`, `set_brush_size`, `set_brush_strength`, `set_brush_falloff`, `sculpt_stroke`

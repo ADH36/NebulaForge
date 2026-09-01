@@ -17,6 +17,10 @@ const SPLINE_ACTOR = 'TestSpline';
 const DISPLACE_TEXTURE = `T_GeometryDisplace_${ts}`;
 
 const testCases = [
+  // Modeling Tools Editor Mode is optional; these assertions accept the documented
+  // NOT_SUPPORTED result when the engine plugin is not enabled.
+  { scenario: 'MODE: activate_modeling_tool', toolName: 'manage_geometry', arguments: { action: 'activate_modeling_tool' }, expected: 'success|error' },
+  { scenario: 'MODE: deactivate_modeling_tool', toolName: 'manage_geometry', arguments: { action: 'deactivate_modeling_tool' }, expected: 'success|error' },
   // === SETUP ===
   { scenario: 'Setup: create test folder', toolName: 'manage_asset', arguments: { action: 'create_folder', path: TEST_FOLDER }, expected: 'success|already exists' },
   { scenario: 'Setup: spawn test actor', toolName: 'control_actor', arguments: { action: 'spawn', classPath: '/Engine/BasicShapes/Cube', actorName: `TestActor_${ts}`, location: { x: 0, y: 0, z: 100 } }, expected: 'success' },

@@ -60,6 +60,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogMcpGeometryHandlers, Log, All);
 #include "Materials/MaterialInterface.h"
 #include "EngineUtils.h"
 #include "Misc/PackageName.h"
+#include "EditorModeManager.h"
 
 // GeometryCore includes for low-level mesh operations (FMeshBoundaryLoops, FEdgeLoop)
 // Required for bridge operations in UE 5.5+
@@ -7850,6 +7851,44 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         SendAutomationError(RequestingSocket, RequestId, TEXT("Missing 'subAction' in payload"), TEXT("INVALID_ARGUMENT"));
         return true;
     }
+
+#if WITH_EDITOR
+    if (SubAction == TEXT("activate_modeling_tool") || SubAction == TEXT("deactivate_modeling_tool"))
+    {
+        if (!GEditor)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Editor is not available"), TEXT("EDITOR_NOT_AVAILABLE"));
+            return true;
+        }
+
+        const FEditorModeID ModelingModeId(TEXT("EM_ModelingToolsEditorMode"));
+        if (SubAction == TEXT("activate_modeling_tool"))
+        {
+            GLevelEditorModeTools().ActivateMode(ModelingModeId, false);
+        }
+        else
+        {
+            GLevelEditorModeTools().DeactivateMode(ModelingModeId);
+        }
+
+        const bool bActive = GLevelEditorModeTools().GetActiveMode(ModelingModeId) != nullptr;
+        if (SubAction == TEXT("activate_modeling_tool") && !bActive)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                                 TEXT("Modeling Tools Editor Mode is unavailable; enable the optional Modeling Tools Editor Mode plugin"),
+                                 TEXT("NOT_SUPPORTED"));
+            return true;
+        }
+
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetStringField(TEXT("modeId"), ModelingModeId.ToString());
+        Result->SetBoolField(TEXT("active"), bActive);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+                               SubAction == TEXT("activate_modeling_tool") ? TEXT("Modeling Tools Editor Mode activated") : TEXT("Modeling Tools Editor Mode deactivated"),
+                               Result, FString());
+        return true;
+    }
+#endif
 
     // Primitives
     if (SubAction == TEXT("create_box")) return HandleCreateBox(this, RequestId, Payload, RequestingSocket);

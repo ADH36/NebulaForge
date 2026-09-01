@@ -164,6 +164,8 @@ NebulaForge exposes the second path through `system_control.configure_console_va
 
 `manage_geometry.transform_uvs` uses Epic's `UGeometryScriptLibrary_MeshUVFunctions` UV operations for mesh UV translation, scale, and rotation. This is the GeometryScript mesh equivalent; it does not claim to automate the Modeling Mode UV editor's interactive island selection or packing tools.
 
+`manage_geometry.activate_modeling_tool` and `deactivate_modeling_tool` use Epic's `FEditorModeTools::ActivateMode`/`DeactivateMode` with `EM_ModelingToolsEditorMode`, and verify the resulting active mode. They require the optional Modeling Tools Editor Mode plugin.
+
 ### Core Types
 ```cpp
 // Dynamic mesh container

@@ -99,6 +99,13 @@ export async function handleWidgetAuthoringTools(
       return sendRequest(action);
     }
 
+    case 'configure_analog_cursor': {
+      if (argsRecord.enabled !== undefined && typeof argsRecord.enabled !== 'boolean') {
+        throw new Error('enabled must be a boolean when provided');
+      }
+      return sendRequest('configure_analog_cursor');
+    }
+
     // =========================================================================
     // 19.2 Layout Panels (11 actions)
     // =========================================================================

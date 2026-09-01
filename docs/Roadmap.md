@@ -2118,7 +2118,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Mesh Ops: `merge_meshes_tool`, `separate_meshes_tool` (editor-mode topology behavior remains plugin/API dependent)
 
 ### 45.4 Common UI Plugin
-- [ ] `configure_ui_input_config`, `set_input_mode`, `configure_analog_cursor`
+- [ ] `configure_ui_input_config`, `set_input_mode`
+- [x] `configure_analog_cursor` (CommonInput gamepad platform cursor CVar; optional CommonUI plugin)
 - [x] `create_common_activatable_widget`, `create_common_button_base` (CommonUI widget blueprint factories; optional CommonUI plugin)
 - [ ] `create_common_tab_list`, `create_common_action_widget` (tab-list factory/version behavior and action-widget ownership need further validation; `UCommonActionWidget` is not a `UUserWidget` blueprint parent)
 - [ ] `configure_navigation_rules`, `set_focus_widget`, `configure_back_action`

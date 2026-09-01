@@ -79,6 +79,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Slate/SceneViewport.h"
 #include "HAL/FileManager.h"
+#include "HAL/IConsoleManager.h"
 #include "Misc/ConfigCacheIni.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
@@ -536,6 +537,32 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
     }
 #else
     Message = TEXT("CommonUI widget creation requires the optional CommonUI plugin and editor widget factory support");
+    ErrorCode = TEXT("NOT_AVAILABLE");
+    Resp->SetStringField(TEXT("error"), Message);
+#endif
+  }
+  // ===========================================================================
+  // SubAction: configure_analog_cursor
+  // ===========================================================================
+  else if (LowerSub == TEXT("configure_analog_cursor")) {
+#if WITH_EDITOR && MCP_HAS_COMMON_UI
+    bool bEnabled = true;
+    Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+    IConsoleVariable *AnalogCursorCVar = IConsoleManager::Get().FindConsoleVariable(
+        TEXT("CommonInput.EnableGamepadPlatformCursor"));
+    if (!AnalogCursorCVar) {
+      Message = TEXT("CommonUI analog cursor console variable is unavailable");
+      ErrorCode = TEXT("NOT_AVAILABLE");
+      Resp->SetStringField(TEXT("error"), Message);
+    } else {
+      AnalogCursorCVar->Set(bEnabled ? 1 : 0, ECVF_SetByCode);
+      bSuccess = true;
+      Message = FString::Printf(TEXT("CommonUI analog cursor %s"), bEnabled ? TEXT("enabled") : TEXT("disabled"));
+      Resp->SetBoolField(TEXT("enabled"), bEnabled);
+      Resp->SetStringField(TEXT("cvar"), TEXT("CommonInput.EnableGamepadPlatformCursor"));
+    }
+#else
+    Message = TEXT("Analog cursor configuration requires the optional CommonUI plugin");
     ErrorCode = TEXT("NOT_AVAILABLE");
     Resp->SetStringField(TEXT("error"), Message);
 #endif

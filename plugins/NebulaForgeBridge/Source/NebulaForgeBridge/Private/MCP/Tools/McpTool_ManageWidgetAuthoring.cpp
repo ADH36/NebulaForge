@@ -25,6 +25,7 @@ public:
 				TEXT("create_widget_blueprint"),
 				TEXT("create_common_activatable_widget"),
 				TEXT("create_common_button_base"),
+				TEXT("configure_analog_cursor"),
 				TEXT("set_widget_parent_class"),
 				TEXT("add_canvas_panel"),
 				TEXT("add_horizontal_box"),
@@ -159,6 +160,7 @@ public:
 				S.Number(TEXT("x")).Number(TEXT("y"));
 			})
 			.Bool(TEXT("isEnabled"), TEXT("Widget enabled state."))
+			.Bool(TEXT("enabled"), TEXT("Enable or disable the CommonUI analog cursor."))
 			.Bool(TEXT("isChecked"), TEXT("Checkbox checked state."))
 			.Number(TEXT("value"), TEXT("Slider/spinbox value."))
 			.Number(TEXT("minValue"), TEXT("Minimum value."))

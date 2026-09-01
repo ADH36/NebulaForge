@@ -292,6 +292,7 @@ const testCases = [
     { scenario: 'CREATE: create_widget_blueprint', toolName: 'manage_blueprint', arguments: { action: 'create_widget_blueprint', name: `WBP_CreateWidget_${ts}`, path: TEST_FOLDER, parentClass: 'UserWidget' }, expected: 'success|already exists' },
     { scenario: 'CREATE: create_common_activatable_widget', toolName: 'manage_blueprint', arguments: { action: 'create_common_activatable_widget', name: `WBP_CommonActivatable_${ts}`, folder: TEST_FOLDER }, expected: 'success|already exists|not available|NOT_AVAILABLE' },
     { scenario: 'CREATE: create_common_button_base', toolName: 'manage_blueprint', arguments: { action: 'create_common_button_base', name: `WBP_CommonButton_${ts}`, folder: TEST_FOLDER }, expected: 'success|already exists|not available|NOT_AVAILABLE' },
+    { scenario: 'CONFIG: configure_analog_cursor', toolName: 'manage_blueprint', arguments: { action: 'configure_analog_cursor', enabled: false }, expected: 'success|not available|NOT_AVAILABLE' },
     { scenario: 'CONFIG: set_widget_parent_class', toolName: 'manage_blueprint', arguments: widgetArgs('set_widget_parent_class', { parentClass: 'UserWidget' }), expected: 'success' },
 
     // === ADD ===

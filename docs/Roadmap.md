@@ -2142,6 +2142,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_mesh_normals`, `set_mesh_uvs` (official `UProceduralMeshComponent::UpdateMeshSection`; exact-count attribute updates preserve other attributes)
 - [x] `set_mesh_colors`, `set_mesh_tangents` (official `UProceduralMeshComponent::UpdateMeshSection`; exact-count color/tangent updates preserve other attributes)
 - [x] `set_mesh_triangles` (official `UProceduralMeshComponent::CreateMeshSection`; bounded index validation preserves vertex attributes, collision, and visibility)
+- [x] `get_mesh_section_bounds` (additional official `FProcMeshSection` vertex-bounds readback)
 - [x] `set_collision_from_mesh`, `add_collision_convex_mesh`, `clear_collision_convex_meshes` (official `UProceduralMeshComponent` collision configuration and convex APIs; requires the optional Procedural Mesh Component plugin)
 - [x] `convert_to_static_mesh` (shared GeometryScript DynamicMesh-to-StaticMesh conversion; see Phase 6.8)
 

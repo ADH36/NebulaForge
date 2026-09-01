@@ -5702,6 +5702,26 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         return true;
     }
 
+    if (SubAction == TEXT("get_mesh_section_bounds"))
+    {
+        FProcMeshSection* Section = ProcMesh->GetProcMeshSection(SectionIndex);
+        if (!Section || Section->ProcVertexBuffer.Num() == 0)
+        {
+            Self->SendAutomationError(Socket, RequestId, TEXT("Procedural mesh section not found or empty"), TEXT("SECTION_NOT_FOUND"));
+            return true;
+        }
+        FBox Bounds(ForceInit);
+        for (const FProcMeshVertex& Vertex : Section->ProcVertexBuffer)
+            Bounds += Vertex.Position;
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+        Result->SetObjectField(TEXT("min"), McpHandlerUtils::VectorToJson(Bounds.Min));
+        Result->SetObjectField(TEXT("max"), McpHandlerUtils::VectorToJson(Bounds.Max));
+        Result->SetObjectField(TEXT("center"), McpHandlerUtils::VectorToJson(Bounds.GetCenter()));
+        Result->SetObjectField(TEXT("extent"), McpHandlerUtils::VectorToJson(Bounds.GetExtent()));
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section bounds read"), Result);
+        return true;
+    }
     if (SubAction == TEXT("set_mesh_triangles"))
     {
         FProcMeshSection* Section = ProcMesh->GetProcMeshSection(SectionIndex);
@@ -7856,7 +7876,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data") ||
         SubAction == TEXT("set_mesh_vertices") || SubAction == TEXT("set_mesh_normals") ||
         SubAction == TEXT("set_mesh_uvs") || SubAction == TEXT("set_mesh_colors") ||
-        SubAction == TEXT("set_mesh_tangents") || SubAction == TEXT("set_mesh_triangles"))
+        SubAction == TEXT("set_mesh_tangents") || SubAction == TEXT("set_mesh_triangles") ||
+        SubAction == TEXT("get_mesh_section_bounds"))
     {
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
@@ -7872,7 +7893,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data") ||
         SubAction == TEXT("set_mesh_vertices") || SubAction == TEXT("set_mesh_normals") ||
         SubAction == TEXT("set_mesh_uvs") || SubAction == TEXT("set_mesh_colors") ||
-        SubAction == TEXT("set_mesh_tangents") || SubAction == TEXT("set_mesh_triangles"))
+        SubAction == TEXT("set_mesh_tangents") || SubAction == TEXT("set_mesh_triangles") ||
+        SubAction == TEXT("get_mesh_section_bounds"))
     {
         SendAutomationError(RequestingSocket, RequestId,
             TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));

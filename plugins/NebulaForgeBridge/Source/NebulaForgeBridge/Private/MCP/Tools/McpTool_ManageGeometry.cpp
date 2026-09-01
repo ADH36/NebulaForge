@@ -50,6 +50,7 @@ public:
 				TEXT("set_mesh_colors"),
 				TEXT("set_mesh_tangents"),
 				TEXT("set_mesh_triangles"),
+				TEXT("get_mesh_section_bounds"),
 				TEXT("set_collision_from_mesh"),
 				TEXT("add_collision_convex_mesh"),
 				TEXT("clear_collision_convex_meshes"),

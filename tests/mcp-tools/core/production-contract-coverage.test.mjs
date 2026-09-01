@@ -23,6 +23,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_geometry', arguments: { action: 'set_mesh_colors', actorName: 'ContractActor', componentName: 'ContractProceduralMesh', sectionIndex: 0, colors: [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255]] }, expected: 'success|error' },
   { toolName: 'manage_geometry', arguments: { action: 'set_mesh_tangents', actorName: 'ContractActor', componentName: 'ContractProceduralMesh', sectionIndex: 0, tangents: [[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]] }, expected: 'success|error' },
   { toolName: 'manage_geometry', arguments: { action: 'set_mesh_triangles', actorName: 'ContractActor', componentName: 'ContractProceduralMesh', sectionIndex: 0, triangles: [0, 1, 2] }, expected: 'success|error' },
+  { toolName: 'manage_geometry', arguments: { action: 'get_mesh_section_bounds', actorName: 'ContractActor', componentName: 'ContractProceduralMesh', sectionIndex: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_sprite_actor', actorName: 'ContractPaperSprite', paperAssetPath: '/Game/Contract/Sprite' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_flipbook_actor', actorName: 'ContractPaperFlipbook', paperAssetPath: '/Game/Contract/Flipbook' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_tile_map_actor', actorName: 'ContractPaperTileMap', paperAssetPath: '/Game/Contract/TileMap' }, expected: 'success|error' },

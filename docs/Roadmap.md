@@ -2108,6 +2108,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Sprites: `inspect_sprite_sockets` (additional official `UPaperSprite::QuerySupportedSockets` discovery)
 - [x] Sprites: `get_sprite_socket_transform` (additional official `UPaperSprite::FindSocket`/`FPaperSpriteSocket` transform readback)
 - [x] Sprites: `remove_sprite_socket` (additional official `UPaperSprite::RemoveSocket` with validated safe persistence)
+- [x] Sprites: `validate_sprite_socket_names` (additional official `UPaperSprite::ValidateSocketNames` normalization with safe persistence)
 - [x] Sprites: `configure_sprite_source` (official `UPaperSprite::SetTrim` source-region editing with safe persistence)
 - [x] Sprites: `set_sprite_pivot` (official `UPaperSprite::SetPivotMode` with documented modes and safe persistence)
 - [x] Sprites: `inspect_sprite` (official source, UV, pivot, and collision metadata readback)

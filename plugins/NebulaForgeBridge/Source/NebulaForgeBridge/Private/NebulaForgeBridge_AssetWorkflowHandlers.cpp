@@ -1603,6 +1603,35 @@ static bool HandlePaperSpriteInspectAction(
   return true;
 }
 
+static bool HandlePaperSpriteSocketsInspectAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString SpritePath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperSprite* Sprite = Cast<UPaperSprite>(UEditorAssetLibrary::LoadAsset(SpritePath));
+  if (!Sprite) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperSprite"), TEXT("SPRITE_NOT_FOUND"));
+    return true;
+  }
+  TArray<FComponentSocketDescription> SocketDescriptions;
+  Sprite->QuerySupportedSockets(SocketDescriptions);
+  TArray<TSharedPtr<FJsonValue>> Sockets;
+  for (const FComponentSocketDescription& Description : SocketDescriptions) {
+    TSharedPtr<FJsonObject> SocketObject = McpHandlerUtils::CreateResultObject();
+    SocketObject->SetStringField(TEXT("name"), Description.Name.ToString());
+    SocketObject->SetNumberField(TEXT("type"), static_cast<int32>(Description.Type));
+    Sockets.Add(MakeShared<FJsonValueObject>(SocketObject));
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), Sprite->GetPathName());
+  Result->SetNumberField(TEXT("socketCount"), Sockets.Num());
+  Result->SetArrayField(TEXT("sockets"), Sockets);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper sprite sockets inspected"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperSpritePivotAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -2176,6 +2205,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("set_sprite_pivot")) {
 #if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
     return HandlePaperSpritePivotAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("inspect_sprite_sockets")) {
+#if WITH_EDITOR && MCP_HAS_PAPER2D_EDITOR
+    return HandlePaperSpriteSocketsInspectAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

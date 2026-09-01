@@ -84,7 +84,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("create_physical_material"), TEXT("set_friction"), TEXT("set_restitution"),
 		TEXT("set_density"), TEXT("configure_surface_type"), TEXT("assign_physical_material"),
 		TEXT("configure_physical_material"), TEXT("get_physical_material"),
-		TEXT("clear_physical_material_override"), TEXT("configure_sprite_collision")
+		TEXT("clear_physical_material_override"), TEXT("configure_sprite_collision"), TEXT("inspect_sprite_sockets")
 	};
 	return Actions;
 }

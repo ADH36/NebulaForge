@@ -2115,6 +2115,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Tile Maps: `create_tile_set` (official `UPaperTileSetFactory`; optional initial texture and safe persistence)
 - [x] Tile Maps: `inspect_tile_set` (additional official `UPaperTileSet` metadata readback)
 - [x] Tile Maps: `configure_tile_set` (official `UPaperTileSet` texture, size, spacing, margin, and drawing-offset setters)
+- [x] Tile Maps: `get_tile_set_tile_uv` (additional official `UPaperTileSet::GetTileUV` readback)
 - [ ] Tile Maps: `add_tile_to_set`, `fill_tile_region`
 - [x] Tile Maps: `paint_paper_tile` (official `UPaperTileMapComponent::SetTile` and `FPaperTileInfo`; owned tile-map component and existing tile set required)
 - [x] Tile Maps: `fill_paper_tile_region` (bounded batch of official `SetTile` calls with optional single collision rebuild)

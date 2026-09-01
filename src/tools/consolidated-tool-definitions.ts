@@ -2616,6 +2616,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         topologyQueriesSupported: commonSchemas.booleanProp,
         isClosed: commonSchemas.booleanProp,
         isDense: commonSchemas.booleanProp,
+        hasVertexIDGaps: commonSchemas.booleanProp,
+        hasTriangleIDGaps: commonSchemas.booleanProp,
         openBorderLoopCount: commonSchemas.numberProp,
         openBorderEdgeCount: commonSchemas.numberProp,
         connectedIslandCount: commonSchemas.numberProp,

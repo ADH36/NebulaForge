@@ -1184,6 +1184,8 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     bool bTopologyQueriesSupported = false;
     bool bIsClosed = false;
     bool bIsDense = false;
+    bool bHasVertexIDGaps = false;
+    bool bHasTriangleIDGaps = false;
     int32 OpenBorderLoopCount = 0;
     int32 OpenBorderEdgeCount = 0;
     int32 ConnectedIslandCount = 0;
@@ -1191,6 +1193,8 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     bTopologyQueriesSupported = true;
     bIsClosed = UGeometryScriptLibrary_MeshQueryFunctions::GetIsClosedMesh(Mesh);
     bIsDense = UGeometryScriptLibrary_MeshQueryFunctions::GetIsDenseMesh(Mesh);
+    bHasVertexIDGaps = UGeometryScriptLibrary_MeshQueryFunctions::GetHasVertexIDGaps(Mesh);
+    bHasTriangleIDGaps = UGeometryScriptLibrary_MeshQueryFunctions::GetHasTriangleIDGaps(Mesh);
     OpenBorderLoopCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumOpenBorderLoops(Mesh);
     OpenBorderEdgeCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumOpenBorderEdges(Mesh);
     ConnectedIslandCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumConnectedIslands(Mesh);
@@ -1215,6 +1219,8 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     Result->SetBoolField(TEXT("topologyQueriesSupported"), bTopologyQueriesSupported);
     Result->SetBoolField(TEXT("isClosed"), bIsClosed);
     Result->SetBoolField(TEXT("isDense"), bIsDense);
+    Result->SetBoolField(TEXT("hasVertexIDGaps"), bHasVertexIDGaps);
+    Result->SetBoolField(TEXT("hasTriangleIDGaps"), bHasTriangleIDGaps);
     Result->SetNumberField(TEXT("openBorderLoopCount"), OpenBorderLoopCount);
     Result->SetNumberField(TEXT("openBorderEdgeCount"), OpenBorderEdgeCount);
     Result->SetNumberField(TEXT("connectedIslandCount"), ConnectedIslandCount);

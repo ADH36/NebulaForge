@@ -193,6 +193,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `get_mesh_info` also reports official GeometryScript diagnostic info string
 - [x] `get_mesh_info` also reports official GeometryScript attribute-set state
 - [x] `get_mesh_info` also reports official GeometryScript topology state and connectivity counts on UE 5.5+ (`isClosed`, `isDense`, open-border loops/edges, connected islands)
+- [x] `get_mesh_info` also reports official GeometryScript vertex/triangle ID-gap diagnostics on UE 5.5+ (`hasVertexIDGaps`, `hasTriangleIDGaps`)
 - [x] `get_uv_set_bounds` (official GeometryScript UV-channel bounds query)
 - [x] `get_uv_set_bounds` also returns `uvArea` and valid UV-triangle count (official GeometryScript UV-area query semantics)
 - [x] `get_num_uv_islands` (official GeometryScript query; requires UE 5.5+)

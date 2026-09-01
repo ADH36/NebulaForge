@@ -184,7 +184,7 @@ The mesh-info query also includes Epic's [`GetMeshInfoString`](https://dev.epicg
 
 The mesh-info response also reports attribute-set availability through Epic's [`GetMeshHasAttributeSet`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/GeometryScript/UGeometryScriptLibrary_MeshQuery-/GetMeshHasAttributeSet).
 
-On UE 5.5+, the mesh-info response also reports official GeometryScript topology queries: [`GetIsClosedMesh`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/GeometryScript/UGeometryScriptL-_18/GetIsClosedMesh), `GetIsDenseMesh`, open-border loop/edge counts, and connected-island count. Older supported engine versions return zero/false values with `topologyQueriesSupported: false` because these query signatures are guarded for the UE 5.5 API surface.
+On UE 5.5+, the mesh-info response also reports official GeometryScript topology queries: [`GetIsClosedMesh`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/GeometryScript/UGeometryScriptL-_18/GetIsClosedMesh), `GetIsDenseMesh`, open-border loop/edge counts, connected-island count, and vertex/triangle ID-gap diagnostics (`GetHasVertexIDGaps` and `GetHasTriangleIDGaps`). Older supported engine versions return zero/false values with `topologyQueriesSupported: false` because these query signatures are guarded for the UE 5.5 API surface.
 
 ### Core Types
 ```cpp

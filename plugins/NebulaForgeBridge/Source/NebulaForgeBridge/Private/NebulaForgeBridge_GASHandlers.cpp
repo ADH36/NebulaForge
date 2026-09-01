@@ -425,6 +425,17 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
     FString BlueprintPath = GetStringFieldGAS(Payload, TEXT("blueprintPath"));
     FString AssetPath = GetStringFieldGAS(Payload, TEXT("assetPath"));
 
+    auto SaveGASAsset = [&](UObject* Asset) -> bool
+    {
+        if (McpSafeAssetSave(Asset))
+        {
+            return true;
+        }
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("GAS asset mutation applied but save failed"), TEXT("SAVE_FAILED"));
+        return false;
+    };
+
     // ============================================================
     // 13.1 COMPONENTS & ATTRIBUTES
     // ============================================================
@@ -461,7 +472,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
         Blueprint->SimpleConstructionScript->AddNode(NewNode);
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveGASAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("componentName"), ComponentName);
@@ -558,7 +569,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
         if (!bReusedExisting)
         {
-            McpSafeAssetSave(Blueprint);
+            if (!SaveGASAsset(Blueprint)) return true;
         }
 
         // Use the actual blueprint name (which may have been sanitized) in the response
@@ -709,7 +720,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveGASAsset(Blueprint)) return true;
         AttrSetCDO->MarkPackageDirty();
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -809,7 +820,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveGASAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), BlueprintPath);
@@ -848,7 +859,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
         if (!bReusedExisting)
         {
-            McpSafeAssetSave(Blueprint);
+            if (!SaveGASAsset(Blueprint)) return true;
         }
 
         // Use the actual blueprint name (which may have been sanitized) in the response
@@ -1224,7 +1235,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveGASAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), BlueprintPath);
@@ -1401,7 +1412,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveGASAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), BlueprintPath);
@@ -1614,7 +1625,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
                 }
             }
 
-            McpSafeAssetSave(Blueprint);
+            if (!SaveGASAsset(Blueprint)) return true;
         }
 
         // Use the actual blueprint name (which may have been sanitized) in the response
@@ -2187,7 +2198,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
         if (!bReusedExisting)
         {
-            McpSafeAssetSave(Blueprint);
+            if (!SaveGASAsset(Blueprint)) return true;
         }
 
         // Use the actual blueprint name (which may have been sanitized) in the response
@@ -2420,7 +2431,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
         FGameplayTag Tag = GetOrRequestTag(TagString);
         const bool bTagIsRegistered = Tag.IsValid();
 
-        auto AddLooseTagVariable = [&TagString](UBlueprint* Blueprint) -> bool
+        auto AddLooseTagVariable = [&TagString, &SaveGASAsset](UBlueprint* Blueprint) -> bool
         {
             if (!Blueprint)
             {
@@ -2460,7 +2471,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
             FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
             McpSafeCompileBlueprint(Blueprint);
-            McpSafeAssetSave(Blueprint);
+            if (!SaveGASAsset(Blueprint)) return true;
             return true;
         };
 
@@ -2499,7 +2510,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
                 AssetType = TEXT("GameplayAbility");
                 bTagAdded = true;
                 FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-                McpSafeAssetSave(Blueprint);
+                if (!SaveGASAsset(Blueprint)) return true;
             }
             // Try GameplayEffect
             else if (UGameplayEffect* EffectCDO = Cast<UGameplayEffect>(CDO))
@@ -2518,7 +2529,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
                 AssetType = TEXT("GameplayEffect");
                 bTagAdded = true;
                 FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-                McpSafeAssetSave(Blueprint);
+                if (!SaveGASAsset(Blueprint)) return true;
             }
             // Try GameplayCue Notify (Static)
             else if (UGameplayCueNotify_Static* CueStaticCDO = Cast<UGameplayCueNotify_Static>(CDO))
@@ -2534,7 +2545,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
                 AssetType = TEXT("GameplayCueNotify_Static");
                 bTagAdded = true;
                 FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-                McpSafeAssetSave(Blueprint);
+                if (!SaveGASAsset(Blueprint)) return true;
             }
             // Try GameplayCue Notify (Actor)
             else if (AGameplayCueNotify_Actor* CueActorCDO = Cast<AGameplayCueNotify_Actor>(CDO))
@@ -2550,7 +2561,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
                 AssetType = TEXT("GameplayCueNotify_Actor");
                 bTagAdded = true;
                 FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-                McpSafeAssetSave(Blueprint);
+                if (!SaveGASAsset(Blueprint)) return true;
             }
             // Try Actor with AbilitySystemComponent
             else if (AActor* ActorCDO = Cast<AActor>(CDO))
@@ -2589,7 +2600,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
                                 AssetType = TEXT("Actor with ASC");
                                 bTagAdded = true;
                                 FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-                                McpSafeAssetSave(Blueprint);
+                                if (!SaveGASAsset(Blueprint)) return true;
                                 break;
                             }
                         }
@@ -2854,7 +2865,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(SetBlueprint);
 
         FAssetRegistryModule::AssetCreated(SetBlueprint);
-        McpSafeAssetSave(SetBlueprint);
+        if (!SaveGASAsset(SetBlueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("setPath"), SetBlueprint->GetPathName());
@@ -2928,7 +2939,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
         // Mark as modified
         FBlueprintEditorUtils::MarkBlueprintAsModified(SetBlueprint);
-        McpSafeAssetSave(SetBlueprint);
+        if (!SaveGASAsset(SetBlueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("setPath"), SetPath);
@@ -3063,7 +3074,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
         int32 InputID = static_cast<int32>(GetNumberFieldGAS(Payload, TEXT("inputID"), -1.0));
 
         FBlueprintEditorUtils::MarkBlueprintAsModified(ActorBlueprint);
-        McpSafeAssetSave(ActorBlueprint);
+        if (!SaveGASAsset(ActorBlueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("actorPath"), ActorPath);
@@ -3139,7 +3150,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGASAction(
 
             FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
             McpSafeCompileBlueprint(Blueprint);
-            McpSafeAssetSave(Blueprint);
+            if (!SaveGASAsset(Blueprint)) return true;
         }
 
         // Use the actual blueprint name (which may have been sanitized) in the response

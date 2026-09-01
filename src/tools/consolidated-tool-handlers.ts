@@ -266,10 +266,10 @@ function registerDefaultHandlers() {
       action === 'run_ubt' || action === 'compile_shaders' || action === 'generate_project_files' || action === 'run_uat' || action === 'validate_release' ||
       action === 'sign_release' || action === 'run_packaged' || action === 'deploy_package' ||
       action === 'run_network_soak' || action === 'analyze_trace' || action === 'release_gate' ||
-      action === 'cook_content' || action === 'package_project'
+      action === 'cook_content' || action === 'package_project' || action === 'create_pak_file' || action === 'configure_compression' || action === 'configure_asset_encryption'
     ) {
-      const pipelineAction = action === 'cook_content' || action === 'package_project' ? 'run_uat' : action;
-      const pipelineArgs = action === 'cook_content' ? { ...args, uatOperation: 'cook' } : action === 'package_project' ? { ...args, uatOperation: 'package' } : args;
+      const pipelineAction = action === 'cook_content' || action === 'package_project' || action === 'create_pak_file' || action === 'configure_compression' || action === 'configure_asset_encryption' ? 'run_uat' : action;
+      const pipelineArgs = action === 'cook_content' ? { ...args, uatOperation: 'cook' } : action === 'package_project' || action === 'create_pak_file' || action === 'configure_compression' || action === 'configure_asset_encryption' ? { ...args, uatOperation: 'package', compressed: action === 'configure_compression' ? true : args.compressed, encryptIniFiles: action === 'configure_asset_encryption' ? true : args.encryptIniFiles, encryptPakIndex: action === 'configure_asset_encryption' ? true : args.encryptPakIndex } : args;
       return await handlePipelineTools(pipelineAction, pipelineArgs, tools);
     }
     if (performanceActionSet.has(action)) return await handlePerformanceTools(action, args, tools);

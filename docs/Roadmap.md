@@ -1439,9 +1439,9 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `size_map_analysis`
 - [ ] `reference_viewer`
 - [ ] `configure_chunking`
-- [ ] `create_pak_file`
-- [ ] `configure_asset_encryption`
-- [ ] `configure_compression`
+- [x] `create_pak_file` (RunUAT package/PAK alias)
+- [x] `configure_asset_encryption` (RunUAT INI/PAK encryption options)
+- [x] `configure_compression` (RunUAT compressed packaging option)
 
 ### 32.4 Plugins
 - [x] `list_plugins`

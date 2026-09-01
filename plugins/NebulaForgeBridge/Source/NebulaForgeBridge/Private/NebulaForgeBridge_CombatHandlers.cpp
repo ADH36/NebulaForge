@@ -129,7 +129,11 @@ static UBlueprint* CreateActorBlueprint(UClass* ParentClass, const FString& Path
         return nullptr;
     }
 
-    McpSafeAssetSave(Blueprint);
+    if (!McpSafeAssetSave(Blueprint))
+    {
+        OutError = TEXT("Combat Blueprint created but save failed");
+        return nullptr;
+    }
     return Blueprint;
 }
 
@@ -305,6 +309,17 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
     FString Path = GetStringFieldCombat(Payload, TEXT("path"), TEXT("/Game"));
     FString BlueprintPath = GetStringFieldCombat(Payload, TEXT("blueprintPath"));
 
+    auto SaveCombatAsset = [&](UObject* Asset) -> bool
+    {
+        if (McpSafeAssetSave(Asset))
+        {
+            return true;
+        }
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("Combat asset mutation applied but save failed"), TEXT("SAVE_FAILED"));
+        return false;
+    };
+
     // ============================================================
     // 15.1 WEAPON BASE
     // ============================================================
@@ -381,7 +396,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         // Build response using standardized helper
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -426,7 +441,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
         }
 
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -479,7 +494,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -545,7 +560,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -611,7 +626,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -666,7 +681,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -731,7 +746,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -792,7 +807,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -864,7 +879,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -939,7 +954,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
         }
 
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -980,7 +995,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
         }
 
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1027,7 +1042,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
         }
 
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1063,7 +1078,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
         }
 
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1135,7 +1150,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
         }
 
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("damageTypePath"), Blueprint->GetPathName());
@@ -1193,7 +1208,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1306,7 +1321,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1393,7 +1408,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1476,7 +1491,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1567,7 +1582,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
 
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1666,7 +1681,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1773,7 +1788,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1834,7 +1849,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1893,7 +1908,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -1958,7 +1973,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2027,7 +2042,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2091,7 +2106,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2149,7 +2164,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2219,7 +2234,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2308,7 +2323,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2386,7 +2401,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2497,7 +2512,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
         }
 
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("damageTypePath"), Blueprint->GetPathName());
@@ -2541,7 +2556,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
         AddBlueprintVariableCombat(Blueprint, TEXT("HitboxDamageMultiplier"), MakeFloatPinType());
         FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2629,7 +2644,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2676,7 +2691,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2725,7 +2740,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2782,7 +2797,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());
@@ -2830,7 +2845,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageCombatAction(
             }
         }
 
-        McpSafeAssetSave(Blueprint);
+        if (!SaveCombatAsset(Blueprint)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("blueprintPath"), Blueprint->GetPathName());

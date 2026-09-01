@@ -483,6 +483,17 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
     FString Path = GetStringField(Payload, TEXT("path"), TEXT("/Game"));
     bool bSave = GetBoolField(Payload, TEXT("save"), false);
 
+    auto SaveGameFrameworkAsset = [&](UObject* Asset) -> bool
+    {
+        if (McpSafeAssetSave(Asset))
+        {
+            return true;
+        }
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("Game framework asset mutation applied but save failed"), TEXT("SAVE_FAILED"));
+        return false;
+    };
+
     // SECURITY: Validate path to prevent traversal attacks
     FString SanitizedPath = SanitizeProjectRelativePath(Path);
     if (SanitizedPath.IsEmpty() && !Path.IsEmpty())
@@ -601,7 +612,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -639,7 +650,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -677,7 +688,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -715,7 +726,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -753,7 +764,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -791,7 +802,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -907,7 +918,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -957,7 +968,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1007,7 +1018,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1057,7 +1068,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1121,7 +1132,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1214,7 +1225,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1313,7 +1324,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1404,7 +1415,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1490,7 +1501,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1594,7 +1605,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1788,7 +1799,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
@@ -1842,7 +1853,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
 
         if (bSave)
         {
-            McpSafeAssetSave(BP);
+            if (!SaveGameFrameworkAsset(BP)) return true;
         }
 
         TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();

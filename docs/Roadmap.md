@@ -188,6 +188,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 6.9 Mesh Query
 - [x] `get_mesh_info` (vertex/triangle count, UV/normal status)
+- [x] `get_mesh_info` also reports official GeometryScript surface area and volume
 - [x] `get_uv_set_bounds` (official GeometryScript UV-channel bounds query)
 - [x] `get_uv_set_bounds` also returns `uvArea` and valid UV-triangle count (official GeometryScript UV-area query semantics)
 

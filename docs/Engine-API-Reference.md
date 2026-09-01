@@ -174,6 +174,8 @@ NebulaForge exposes the second path through `system_control.configure_console_va
 
 The UV bounds readback also includes the UV-space triangle area and count of triangles with valid UVs, matching Epic's documented `Get Mesh UV Area` query semantics.
 
+`manage_geometry.get_mesh_info` also uses Epic's `GetMeshVolumeArea` query to return surface area and volume for the dynamic mesh.
+
 ### Core Types
 ```cpp
 // Dynamic mesh container

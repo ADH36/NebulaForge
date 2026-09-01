@@ -1177,6 +1177,9 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     int32 NumUVSets = UGeometryScriptLibrary_MeshQueryFunctions::GetNumUVSets(Mesh);
     bool bHasVertexColors = UGeometryScriptLibrary_MeshQueryFunctions::GetHasVertexColors(Mesh);
     bool bHasMaterialIDs = UGeometryScriptLibrary_MeshQueryFunctions::GetHasMaterialIDs(Mesh);
+    float SurfaceArea = 0.0f;
+    float Volume = 0.0f;
+    UGeometryScriptLibrary_MeshQueryFunctions::GetMeshVolumeArea(Mesh, SurfaceArea, Volume);
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("actorName"), ActorName);
@@ -1186,6 +1189,8 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     Result->SetBoolField(TEXT("hasUVs"), NumUVSets > 0);
     Result->SetBoolField(TEXT("hasColors"), bHasVertexColors);
     Result->SetBoolField(TEXT("hasPolygroups"), bHasMaterialIDs);
+    Result->SetNumberField(TEXT("surfaceArea"), SurfaceArea);
+    Result->SetNumberField(TEXT("volume"), Volume);
 
     Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Mesh info retrieved"), Result);
     return true;

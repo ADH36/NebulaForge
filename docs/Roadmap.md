@@ -2076,7 +2076,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ## Phase 45: Utility Plugins
 
 ### 45.1 Python Scripting
-- [x] `execute_python_script`, `execute_python_string`, `execute_python_file` (secured aliases over `execute_python`, with explicit code/file mode validation; requires Epic's Python Editor Script Plugin)
+- [x] `execute_python_script`, `execute_python_string`, `execute_python_file` (secured aliases over `execute_python`, with explicit code/file mode validation, project-confined `.py` file checks, and a 1 MB limit; requires Epic's Python Editor Script Plugin)
 - [ ] `configure_python_paths`, `install_python_package`, `list_python_packages`
 - [ ] `create_python_editor_utility`, `register_python_command`, `unregister_python_command`
 

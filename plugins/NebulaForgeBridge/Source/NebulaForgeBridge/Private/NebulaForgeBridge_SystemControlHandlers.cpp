@@ -3142,7 +3142,11 @@ FMessageLog LogListing{FName(*Category)};
 
     // Normalize paths for Python (forward slashes)
     auto NormalizePyPath = [](const FString& Path) -> FString {
-      return Path.Replace(TEXT("\\"), TEXT("/"));
+      FString Normalized = Path.Replace(TEXT("\\"), TEXT("/"));
+      // Paths are embedded in single-quoted Python raw strings below. Keep
+      // project filenames containing apostrophes from breaking the wrapper.
+      Normalized.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      return Normalized;
     };
     FString PyOutputPath = NormalizePyPath(OutputPath);
     FString PyErrorPath  = NormalizePyPath(ErrorPath);
@@ -3223,6 +3227,27 @@ FMessageLog LogListing{FName(*Category)};
           return true;
         }
         AbsoluteFilePath = ResolvedPath;
+      }
+
+      if (!FPaths::GetExtension(AbsoluteFilePath).Equals(TEXT("py"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("Python file execution requires a .py file"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+
+      const int64 FileSize = IFileManager::Get().FileSize(*AbsoluteFilePath);
+      if (FileSize < 0) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            FString::Printf(TEXT("Python file does not exist: %s"), *File),
+                            TEXT("FILE_NOT_FOUND"));
+        return true;
+      }
+      if (FileSize > MaxCodeSize) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            FString::Printf(TEXT("Python file exceeds maximum size (%d bytes)"), MaxCodeSize),
+                            TEXT("CODE_TOO_LARGE"));
+        return true;
       }
 
       // Use absolute path in Python wrapper (forward slashes)

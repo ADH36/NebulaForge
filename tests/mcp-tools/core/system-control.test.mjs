@@ -174,6 +174,8 @@ const testCases = [
   // This result is asserted on the returned MCP response, so it also catches
   // temp wrapper cleanup racing file execution before output/status are written.
   { scenario: 'ACTION: execute_python file', toolName: 'system_control', arguments: { action: 'execute_python', file: PYTHON_FILE_RELATIVE }, expected: 'success', assertions: [{ path: 'structuredContent.result.output', equals: 'system-control-file-ok:sibling-file-ok', label: 'python file has __file__ and synchronous output' }] },
+  { scenario: 'ACTION: execute_python_file rejects missing file', toolName: 'system_control', arguments: { action: 'execute_python_file', file: '/Content/Python/mcp_missing_file.py' }, expected: 'error' },
+  { scenario: 'ACTION: execute_python_file rejects non-Python file', toolName: 'system_control', arguments: { action: 'execute_python_file', file: '/Content/Python/mcp_script.txt' }, expected: 'error' },
 
   // === CLEANUP ===
   { scenario: 'Cleanup: delete execute_python file', toolName: 'system_control', arguments: { action: 'execute_python', code: DELETE_PYTHON_FILE_CODE }, expected: 'success' },

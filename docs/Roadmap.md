@@ -2193,7 +2193,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `convert_to_static_mesh` (shared GeometryScript DynamicMesh-to-StaticMesh conversion; see Phase 6.8)
 
 ### 45.7 Variant Manager
-- [ ] `create_variant_set`, `add_variant`, `configure_variant_properties`
+- [x] `create_variant_set` (official `VariantManagerLibrary.create_level_variant_sets_asset`, `VariantSet`, and `LevelVariantSets.add_variant_set`; requires VariantManagerContent and Python Editor Script Plugin)
+- [ ] `add_variant`, `configure_variant_properties`
 - [ ] `set_variant_dependencies`, `set_exclusive_variants`
 - [ ] `capture_variant_thumbnail`, `set_variant_thumbnail`
 - [ ] `activate_variant`, `get_active_variants`
@@ -2218,6 +2219,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Fields: `add_anchor_field`, `remove_anchor_field`, `create_field_system`, `add_radial_falloff_field`, `add_uniform_vector_field`, `add_radial_vector_field`, `add_plane_falloff_field`, `add_noise_field`, `add_kill_field`
 
 **Implementation note:** Epic exposes the Geometry Collection asset factory through Python, but the current Fracture Editor fracture tools are modal editor tools rather than a stable public factory API. This bridge therefore claims asset creation only until a version-stable Geometry Collection composition/fracture API is available.
+
+**Implementation note:** Epic exposes Variant Manager asset/set creation through the official experimental Python API. Variant property capture and dependency authoring remain separate actions because they require actor bindings and property-path/value semantics.
 
 ### 46.2 Chaos Vehicles
 - [ ] Setup: `create_chaos_wheeled_vehicle`, `create_chaos_hover_vehicle`

@@ -1470,6 +1470,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("create_editor_utility_blueprint") &&
       Lower != TEXT("create_python_editor_utility") &&
       Lower != TEXT("create_geometry_collection") &&
+      Lower != TEXT("create_variant_set") &&
       Lower != TEXT("add_geometry_to_collection") &&
       Lower != TEXT("remove_geometry_from_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
@@ -3261,6 +3262,7 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("create_editor_utility_widget") || Lower == TEXT("create_editor_utility_blueprint") ||
              Lower == TEXT("create_python_editor_utility") || Lower == TEXT("register_python_command") ||
              Lower == TEXT("create_geometry_collection") ||
+             Lower == TEXT("create_variant_set") ||
              Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("inspect_geometry_collection") ||
@@ -3381,6 +3383,59 @@ FMessageLog LogListing{FName(*Category)};
           "unreal.EditorAssetLibrary.save_asset(_asset.get_path_name())\n"
           "print(_asset.get_path_name())\n"),
           *AssetName, *PythonPackagePath);
+    }
+
+    if (Lower == TEXT("create_variant_set")) {
+      FString AssetPath;
+      FString VariantSetName;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      Payload->TryGetStringField(TEXT("variantSetName"), VariantSetName);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase)) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("create_variant_set requires a valid /Game LevelVariantSets asset path"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      VariantSetName = VariantSetName.TrimStartAndEnd();
+      if (VariantSetName.IsEmpty() || VariantSetName.Len() > 128) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("create_variant_set requires a non-empty variantSetName of at most 128 characters"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString AssetName = SanitizeAssetName(FPaths::GetBaseFilename(SafeAssetPath));
+      if (AssetName.IsEmpty()) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("create_variant_set requires an asset name in assetPath"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString PythonAssetPath = SafeAssetPath;
+      FString PythonPackagePath = FPaths::GetPath(SafeAssetPath);
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      PythonPackagePath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      AssetName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantSetName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import unreal\n"
+          "_asset_path = '%s'\n"
+          "_lvs = unreal.EditorAssetLibrary.load_asset(_asset_path)\n"
+          "if not _lvs:\n"
+          "    _lvs = unreal.VariantManagerLibrary.create_level_variant_sets_asset('%s', '%s')\n"
+          "if not _lvs:\n"
+          "    raise RuntimeError('Level Variant Sets creation failed; enable VariantManagerContent')\n"
+          "_name = '%s'\n"
+          "_existing = _lvs.get_variant_set_by_name(_name)\n"
+          "if _existing:\n"
+          "    _variant_set = _existing\n"
+          "else:\n"
+          "    _variant_set = unreal.VariantSet(_lvs)\n"
+          "    _variant_set.set_display_text(unreal.Text(_name))\n"
+          "    _lvs.add_variant_set(_variant_set)\n"
+          "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
+          "print(_lvs.get_path_name() + '|' + _variant_set.get_display_text().to_string())\n"),
+          *PythonAssetPath, *AssetName, *PythonPackagePath, *VariantSetName);
     }
 
     if (Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection")) {

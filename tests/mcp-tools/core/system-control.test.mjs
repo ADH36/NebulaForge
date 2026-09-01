@@ -184,6 +184,7 @@ const testCases = [
   { scenario: 'ACTION: configure_geometry_collection', toolName: 'system_control', arguments: { action: 'configure_geometry_collection', assetPath: `${TEST_FOLDER}/GC_SystemControl_${PYTHON_TEST_ID}`, mass: 25, massAsDensity: false, enableClustering: true, maxClusterLevel: 2, damageThresholds: [10, 25] }, expected: 'success' },
   { scenario: 'ACTION: inspect_geometry_collection', toolName: 'system_control', arguments: { action: 'inspect_geometry_collection', assetPath: `${TEST_FOLDER}/GC_SystemControl_${PYTHON_TEST_ID}` }, expected: 'success' },
   { scenario: 'ACTION: configure_geometry_collection_component validation', toolName: 'system_control', arguments: { action: 'configure_geometry_collection_component', actorName: 'MissingGeometryCollectionActor' }, expected: 'error' },
+  { scenario: 'ACTION: create_variant_set', toolName: 'system_control', arguments: { action: 'create_variant_set', assetPath: `${TEST_FOLDER}/LVS_SystemControl_${PYTHON_TEST_ID}`, variantSetName: 'SystemControlVariants' }, expected: 'success|error' },
   { scenario: 'ACTION: set_ui_scale', toolName: 'system_control', arguments: { action: 'set_ui_scale', uiScale: 1.05 }, expected: 'success' },
   { scenario: 'ACTION: get_ui_scale', toolName: 'system_control', arguments: { action: 'get_ui_scale' }, expected: 'success' },
   { scenario: 'ACTION: configure_screen_reader_support', toolName: 'system_control', arguments: { action: 'configure_screen_reader_support', enabled: true }, expected: 'success|not supported' },

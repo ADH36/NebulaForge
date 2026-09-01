@@ -108,6 +108,7 @@ Epic's [Niagara scalability and pooling guidance](https://dev.epicgames.com/docu
 - `manage_geometry.set_mesh_vertices` uses Epic's [`UProceduralMeshComponent::UpdateMeshSection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/ProceduralMeshComponent/UProceduralMeshComponent/UpdateMeshSection) to replace positions without discarding the section's existing normals, UVs, colors, or tangents.
 - `manage_geometry.set_mesh_normals` and `set_mesh_uvs` use the same official section-update API with exact-count validation and preserve all other existing attributes.
 - `manage_geometry.set_mesh_colors` and `set_mesh_tangents` use the same official section-update API with exact-count validation; colors are bounded to RGBA bytes and tangents accept a handedness flag.
+- `manage_geometry.set_mesh_triangles` uses Epic's [`UProceduralMeshComponent::CreateMeshSection`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/ProceduralMeshComponent/UProceduralMeshComponent/CreateMeshSection) to replace topology while copying the current vertex attributes, collision setting, and visibility.
 
 NebulaForge exposes the second path through `system_control.configure_console_variables`, accepting `{ name, value }` entries and returning per-variable applied/rejected results.
 

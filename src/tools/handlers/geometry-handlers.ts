@@ -26,6 +26,7 @@ const GEOMETRY_ACTIONS = [
   'set_mesh_vertices',
   'set_mesh_normals', 'set_mesh_uvs',
   'set_mesh_colors', 'set_mesh_tangents',
+  'set_mesh_triangles',
   'set_collision_from_mesh', 'add_collision_convex_mesh', 'clear_collision_convex_meshes',
   // Booleans
   'boolean_union', 'boolean_subtract', 'boolean_intersection',

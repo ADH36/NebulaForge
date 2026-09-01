@@ -5696,6 +5696,46 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         return true;
     }
 
+    if (SubAction == TEXT("set_mesh_triangles"))
+    {
+        FProcMeshSection* Section = ProcMesh->GetProcMeshSection(SectionIndex);
+        TArray<int32> NewTriangles;
+        if (!Section || !ReadProcMeshIndexArray(Payload, TEXT("triangles"), NewTriangles) || NewTriangles.Num() == 0 || NewTriangles.Num() % 3 != 0)
+        {
+            Self->SendAutomationError(Socket, RequestId, TEXT("triangles must be non-empty and divisible by three"), TEXT("INVALID_ARGUMENT"));
+            return true;
+        }
+        for (const int32 Index : NewTriangles)
+        {
+            if (Index < 0 || Index >= Section->ProcVertexBuffer.Num())
+            {
+                Self->SendAutomationError(Socket, RequestId, TEXT("Triangle index is outside the existing vertices array"), TEXT("INVALID_ARGUMENT"));
+                return true;
+            }
+        }
+        TArray<FVector> Vertices;
+        TArray<FVector> Normals;
+        TArray<FVector2D> UV0;
+        TArray<FColor> Colors;
+        TArray<FProcMeshTangent> Tangents;
+        for (const FProcMeshVertex& Vertex : Section->ProcVertexBuffer)
+        {
+            Vertices.Add(Vertex.Position);
+            Normals.Add(Vertex.Normal);
+            UV0.Add(Vertex.UV0);
+            Colors.Add(Vertex.Color);
+            Tangents.Add(Vertex.Tangent);
+        }
+        const bool bVisible = Section->bSectionVisible;
+        ProcMesh->CreateMeshSection(SectionIndex, Vertices, NewTriangles, Normals, UV0, Colors, Tangents, Section->bEnableCollision);
+        ProcMesh->SetMeshSectionVisible(SectionIndex, bVisible);
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+        Result->SetNumberField(TEXT("triangleCount"), NewTriangles.Num() / 3);
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section triangles updated"), Result);
+        return true;
+    }
+
     if (SubAction == TEXT("set_mesh_vertices") || SubAction == TEXT("set_mesh_normals") || SubAction == TEXT("set_mesh_uvs"))
     {
         FProcMeshSection* Section = ProcMesh->GetProcMeshSection(SectionIndex);
@@ -7810,7 +7850,7 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data") ||
         SubAction == TEXT("set_mesh_vertices") || SubAction == TEXT("set_mesh_normals") ||
         SubAction == TEXT("set_mesh_uvs") || SubAction == TEXT("set_mesh_colors") ||
-        SubAction == TEXT("set_mesh_tangents"))
+        SubAction == TEXT("set_mesh_tangents") || SubAction == TEXT("set_mesh_triangles"))
     {
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
@@ -7826,7 +7866,7 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data") ||
         SubAction == TEXT("set_mesh_vertices") || SubAction == TEXT("set_mesh_normals") ||
         SubAction == TEXT("set_mesh_uvs") || SubAction == TEXT("set_mesh_colors") ||
-        SubAction == TEXT("set_mesh_tangents"))
+        SubAction == TEXT("set_mesh_tangents") || SubAction == TEXT("set_mesh_triangles"))
     {
         SendAutomationError(RequestingSocket, RequestId,
             TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));

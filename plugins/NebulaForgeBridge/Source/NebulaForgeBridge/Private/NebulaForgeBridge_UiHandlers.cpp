@@ -578,6 +578,57 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
 #endif
   }
   // ===========================================================================
+  // SubAction: set_focus_widget
+  // ===========================================================================
+  else if (LowerSub == TEXT("set_focus_widget")) {
+    FString WidgetName;
+    Payload->TryGetStringField(TEXT("widgetName"), WidgetName);
+    if (WidgetName.IsEmpty()) {
+      Message = TEXT("widgetName field required for set_focus_widget");
+      ErrorCode = TEXT("INVALID_ARGUMENT");
+      Resp->SetStringField(TEXT("error"), Message);
+    } else {
+      TArray<UUserWidget *> LiveWidgets;
+      if (GEditor && GEditor->GetEditorWorldContext().World()) {
+        UWidgetBlueprintLibrary::GetAllWidgetsOfClass(
+            GEditor->GetEditorWorldContext().World(), LiveWidgets,
+            UUserWidget::StaticClass(), true);
+      }
+      if (GEngine && GEngine->GameViewport && GEngine->GameViewport->GetWorld()) {
+        UWidgetBlueprintLibrary::GetAllWidgetsOfClass(
+            GEngine->GameViewport->GetWorld(), LiveWidgets,
+            UUserWidget::StaticClass(), true);
+      }
+
+      UWidget *TargetWidget = nullptr;
+      for (UUserWidget *UserWidget : LiveWidgets) {
+        if (!UserWidget) {
+          continue;
+        }
+        if (UserWidget->GetName().Equals(WidgetName, ESearchCase::IgnoreCase)) {
+          TargetWidget = UserWidget;
+          break;
+        }
+        if (UWidget *Child = UserWidget->GetWidgetFromName(FName(*WidgetName))) {
+          TargetWidget = Child;
+          break;
+        }
+      }
+
+      if (!TargetWidget) {
+        Message = FString::Printf(TEXT("Live widget '%s' was not found"), *WidgetName);
+        ErrorCode = TEXT("WIDGET_NOT_FOUND");
+        Resp->SetStringField(TEXT("error"), Message);
+      } else {
+        TargetWidget->SetKeyboardFocus();
+        bSuccess = true;
+        Message = FString::Printf(TEXT("Keyboard focus set to widget '%s'"), *WidgetName);
+        Resp->SetStringField(TEXT("widgetName"), WidgetName);
+        Resp->SetStringField(TEXT("resolvedWidget"), TargetWidget->GetName());
+      }
+    }
+  }
+  // ===========================================================================
   // SubAction: add_widget_child
   // ===========================================================================
   else if (LowerSub == TEXT("add_widget_child")) {

@@ -1668,7 +1668,8 @@ void UNebulaForgeBridgeSubsystem::InitializeHandlers() {
                     if (SubAction.Equals(TEXT("create_common_activatable_widget"), ESearchCase::IgnoreCase) ||
                         SubAction.Equals(TEXT("create_common_button_base"), ESearchCase::IgnoreCase) ||
                         SubAction.Equals(TEXT("create_common_tab_list"), ESearchCase::IgnoreCase) ||
-                        SubAction.Equals(TEXT("configure_analog_cursor"), ESearchCase::IgnoreCase)) {
+                        SubAction.Equals(TEXT("configure_analog_cursor"), ESearchCase::IgnoreCase) ||
+                        SubAction.Equals(TEXT("set_focus_widget"), ESearchCase::IgnoreCase)) {
                       const TSharedPtr<FJsonObject> RoutedPayload =
                           McpConsolidatedActions::WithPayloadSubAction(P, SubAction);
                       return HandleUiAction(R, TEXT("manage_ui"), RoutedPayload, S);

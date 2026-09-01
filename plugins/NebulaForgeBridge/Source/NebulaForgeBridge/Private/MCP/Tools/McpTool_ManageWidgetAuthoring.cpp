@@ -28,6 +28,7 @@ public:
 				TEXT("create_common_tab_list"),
 				TEXT("create_common_action_widget"),
 				TEXT("configure_navigation_rules"),
+				TEXT("set_focus_widget"),
 				TEXT("configure_analog_cursor"),
 				TEXT("set_widget_parent_class"),
 				TEXT("add_canvas_panel"),
@@ -103,6 +104,7 @@ public:
 			.String(TEXT("direction"), TEXT("Navigation direction: up, down, left, right, next, or previous."))
 			.String(TEXT("rule"), TEXT("Navigation rule: escape, explicit, wrap, or stop."))
 			.String(TEXT("targetWidget"), TEXT("Target widget slot name for an explicit rule."))
+			.String(TEXT("widgetName"), TEXT("Name of a live widget instance to receive keyboard focus."))
 			.Object(TEXT("anchorMin"), TEXT("Minimum anchor point (0-1)."),
 				[](FMcpSchemaBuilder& S) {
 				S.Number(TEXT("x")).Number(TEXT("y"));

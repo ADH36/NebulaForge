@@ -117,6 +117,11 @@ export async function handleWidgetAuthoringTools(
       return sendRequest('configure_navigation_rules');
     }
 
+    case 'set_focus_widget': {
+      requireNonEmptyString(argsRecord.widgetName, 'widgetName', 'Missing required parameter: widgetName');
+      return sendRequest('set_focus_widget');
+    }
+
     case 'configure_analog_cursor': {
       if (argsRecord.enabled !== undefined && typeof argsRecord.enabled !== 'boolean') {
         throw new Error('enabled must be a boolean when provided');

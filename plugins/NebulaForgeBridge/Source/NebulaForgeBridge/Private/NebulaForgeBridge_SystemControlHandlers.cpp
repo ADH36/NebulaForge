@@ -1475,6 +1475,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("configure_geometry_collection") &&
       Lower != TEXT("inspect_geometry_collection") &&
       Lower != TEXT("configure_geometry_collection_component") &&
+      Lower != TEXT("get_ui_scale") &&
       Lower != TEXT("set_ui_scale") &&
       Lower != TEXT("announce_accessible_string") &&
       Lower != TEXT("set_screen_reader_text") &&
@@ -1485,6 +1486,25 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
     return false; // Not handled by this function
+  }
+
+  if (Lower == TEXT("get_ui_scale")) {
+    const UUserInterfaceSettings* Settings = GetDefault<UUserInterfaceSettings>();
+    if (!Settings) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("User interface settings unavailable"), TEXT("NOT_SUPPORTED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("uiScale"), Settings->ApplicationScale);
+    Result->SetBoolField(TEXT("slateInitialized"),
+#if WITH_EDITOR
+                         FSlateApplication::IsInitialized()
+#else
+                         false
+#endif
+    );
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("UI scale inspected"), Result);
+    return true;
   }
 
   if (Lower == TEXT("set_ui_scale")) {

@@ -2299,6 +2299,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 **API-derived addition:** `system_control.announce_accessible_string` uses Unreal's official `UGameplayStatics::AnnounceAccessibleString` API to send a platform accessibility announcement.
 
+**API-derived addition:** `system_control.get_ui_scale` reads the official `UUserInterfaceSettings::ApplicationScale` value and reports whether the editor Slate application is initialized.
+
 **API-derived addition:** `system_control.set_screen_reader_text` configures a live `UWidget` through Epic's public `AccessibleText`, `AccessibleSummaryText`, `AccessibleBehavior`, and `bOverrideAccessibleDefaults` properties. The caller must provide the widget's full UObject path; the bridge does not guess among similarly named widgets.
 
 ---

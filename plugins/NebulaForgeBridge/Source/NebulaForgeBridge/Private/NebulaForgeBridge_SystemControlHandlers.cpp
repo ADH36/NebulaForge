@@ -1417,7 +1417,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("get_test_results") ||
       Lower == TEXT("list_gameplay_tags") || Lower == TEXT("get_runtime_gameplay_tag") || Lower == TEXT("add_gameplay_tag") ||
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") ||
-      Lower == TEXT("get_config_value") || Lower == TEXT("set_config_value") ||
+      Lower == TEXT("get_config_value") || Lower == TEXT("read_config_value") || Lower == TEXT("set_config_value") || Lower == TEXT("write_config_value") ||
+      Lower == TEXT("get_section") || Lower == TEXT("create_config_section") ||
       Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy");
 
   // Check if this handler should process this sub-action

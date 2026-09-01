@@ -50,6 +50,24 @@ function parseIni(content: string, wantedSection?: string, wantedKey?: string): 
   return undefined;
 }
 
+function parseIniSection(content: string, wantedSection: string): Record<string, string> {
+  const values: Record<string, string> = {};
+  let currentSection = '';
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith(';') || line.startsWith('#')) continue;
+    const section = /^\[([^\]]+)\]$/.exec(line);
+    if (section) {
+      currentSection = section[1].trim();
+      continue;
+    }
+    const separator = line.indexOf('=');
+    if (separator < 1 || currentSection !== wantedSection) continue;
+    values[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+  }
+  return values;
+}
+
 function summarizeIni(content: string): { sections: Array<{ name: string; keys: string[] }>; keyCount: number } {
   const sections: Array<{ name: string; keys: string[] }> = [];
   let current: { name: string; keys: string[] } | undefined;
@@ -140,6 +158,16 @@ export async function getConfigValue(projectPath: string | undefined, configName
   return { success: true, configName: validName, section: validSectionKey.section, key: validSectionKey.key, value, found: value !== undefined };
 }
 
+export async function getConfigSection(projectPath: string | undefined, configName: string, section: string): Promise<Record<string, unknown>> {
+  const validName = validateConfigName(configName);
+  const normalizedSection = section.trim();
+  if (!validName || !SECTION_NAME.test(normalizedSection)) return { success: false, error: 'INVALID_ARGUMENT', message: 'configName and section are invalid' };
+  const result = await readProjectFile(projectPath, configRelativePath(validName));
+  if (result.success !== true) return result;
+  const values = parseIniSection(String(result.content ?? ''), normalizedSection);
+  return { success: true, configName: validName, section: normalizedSection, values, keys: Object.keys(values), keyCount: Object.keys(values).length, found: Object.keys(values).length > 0 };
+}
+
 export async function setConfigValue(projectPath: string | undefined, configName: string, section: string, key: string, value: string, backup = true): Promise<Record<string, unknown>> {
   const validName = validateConfigName(configName);
   const validSectionKey = validateSectionKey(section, key);
@@ -158,6 +186,25 @@ export async function setConfigValue(projectPath: string | undefined, configName
   if (!updated.changed) return { success: true, changed: false, configName: validName, section: validSectionKey.section, key: validSectionKey.key, value };
   const written = await writeProjectFile(projectPath, configRelativePath(validName), updated.content, backup);
   return { ...written, configName: validName, section: validSectionKey.section, key: validSectionKey.key, value, changed: true };
+}
+
+export async function createConfigSection(projectPath: string | undefined, configName: string, section: string, backup = true): Promise<Record<string, unknown>> {
+  const validName = validateConfigName(configName);
+  const normalizedSection = section.trim();
+  if (!validName || !SECTION_NAME.test(normalizedSection)) return { success: false, error: 'INVALID_ARGUMENT', message: 'configName and section are invalid' };
+  let existingContent = '';
+  try {
+    const existing = await readProjectFile(projectPath, configRelativePath(validName));
+    if (existing.success === true) existingContent = String(existing.content ?? '');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/ENOENT|not found|does not exist/i.test(message)) return { success: false, error: 'CONFIG_READ_FAILED', message };
+  }
+  const alreadyExists = new RegExp(`^\\s*\\[${normalizedSection.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\]\\s*$`, 'm').test(existingContent);
+  if (alreadyExists) return { success: true, configName: validName, section: normalizedSection, created: false };
+  const prefix = existingContent.length > 0 && !existingContent.endsWith('\n') ? '\n' : '';
+  const written = await writeProjectFile(projectPath, configRelativePath(validName), `${existingContent}${prefix}[${normalizedSection}]\n`, backup);
+  return { ...written, configName: validName, section: normalizedSection, created: true };
 }
 
 export async function reloadConfig(projectPath: string | undefined, configName: string): Promise<Record<string, unknown>> {

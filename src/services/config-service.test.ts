@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { flushConfig, getConfigHierarchy, getConfigValue, listConfigLayers, reloadConfig, setConfigValue } from './config-service.js';
+import { createConfigSection, flushConfig, getConfigHierarchy, getConfigSection, getConfigValue, listConfigLayers, reloadConfig, setConfigValue } from './config-service.js';
 
 describe('config service', () => {
   let root = '';
@@ -39,5 +39,14 @@ describe('config service', () => {
     const flushed = await flushConfig(root, 'DefaultGame.ini');
     expect(flushed).toMatchObject({ success: true, flushed: true });
     expect(Number(flushed.bytes)).toBeGreaterThan(0);
+  });
+
+  it('creates sections and reads all section values', async () => {
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'nebula-config-section-'));
+    await fs.mkdir(path.join(root, 'Config'), { recursive: true });
+    await fs.writeFile(path.join(root, 'Config', 'DefaultGame.ini'), '[Game]\nMaxPlayers=4\n', 'utf8');
+    expect(await createConfigSection(root, 'DefaultGame.ini', 'Runtime')).toMatchObject({ success: true, created: true });
+    expect(await createConfigSection(root, 'DefaultGame.ini', 'Runtime')).toMatchObject({ success: true, created: false });
+    expect(await getConfigSection(root, 'DefaultGame.ini', 'Game')).toMatchObject({ success: true, values: { MaxPlayers: '4' }, keyCount: 1 });
   });
 });

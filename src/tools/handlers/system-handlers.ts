@@ -8,7 +8,7 @@ import { readProjectFile, writeProjectFile } from '../../services/project-file-s
 import { generateSaveGameClass } from '../../services/save-game-generator.js';
 import { generateAutomationTest } from '../../services/automation-test-generator.js';
 import { addGameplayTag, listGameplayTags, removeGameplayTag } from '../../services/gameplay-tags-service.js';
-import { flushConfig, getConfigHierarchy, getConfigValue, listConfigLayers, reloadConfig, setConfigValue } from '../../services/config-service.js';
+import { createConfigSection, flushConfig, getConfigHierarchy, getConfigSection, getConfigValue, listConfigLayers, reloadConfig, setConfigValue } from '../../services/config-service.js';
 import { getAutomationTestResults, runUnrealAutomationTests, validateProject } from '../../services/project-validation-service.js';
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
@@ -289,12 +289,40 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       }
       return getConfigValue(argsTyped.projectPath, record.configName, record.section, record.key);
     }
+    case 'read_config_value': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'configName, section, and key are required' };
+      }
+      return getConfigValue(argsTyped.projectPath, record.configName, record.section, record.key);
+    }
     case 'set_config_value': {
       const record = argsTyped as Record<string, unknown>;
       if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {
         return { success: false, error: 'INVALID_ARGUMENT', message: 'configName, section, key, and value are required' };
       }
       return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
+    }
+    case 'write_config_value': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'configName, section, key, and value are required' };
+      }
+      return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
+    }
+    case 'get_section': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string' || typeof record.section !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'configName and section are required' };
+      }
+      return getConfigSection(argsTyped.projectPath, record.configName, record.section);
+    }
+    case 'create_config_section': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string' || typeof record.section !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'configName and section are required' };
+      }
+      return createConfigSection(argsTyped.projectPath, record.configName, record.section, record.backup !== false);
     }
     case 'reload_config': {
       const record = argsTyped as Record<string, unknown>;

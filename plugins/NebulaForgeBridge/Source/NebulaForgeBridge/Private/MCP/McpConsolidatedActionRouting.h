@@ -513,6 +513,7 @@ inline const TArray<FString>& SystemControlCore()
       TEXT("runtime_health"), TEXT("get_runtime_capabilities"), TEXT("get_runtime_world"), TEXT("get_runtime_actors"), TEXT("get_runtime_actor"),
       TEXT("list_gameplay_tags"), TEXT("get_runtime_gameplay_tag"), TEXT("add_gameplay_tag"), TEXT("remove_gameplay_tag"),
       TEXT("create_tag_container"), TEXT("add_tag_to_container"), TEXT("remove_tag_from_container"), TEXT("check_tag_match"),
+      TEXT("read_config_value"), TEXT("write_config_value"), TEXT("get_section"), TEXT("create_config_section"),
       TEXT("list_config_layers"), TEXT("get_config_value"), TEXT("set_config_value"), TEXT("reload_config"), TEXT("flush_config"), TEXT("get_config_hierarchy"),
       TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("inspect_save_game_schema"), TEXT("delete_save_game_slot"),
       TEXT("check_save_game_slot"), TEXT("list_save_game_slots"),

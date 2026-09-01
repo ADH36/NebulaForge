@@ -1396,10 +1396,12 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Implementation note:** Container actions are transient request-scoped operations over registered tags; project tag dictionary authoring remains handled separately by the project config actions.
 
 ### 31.4 Config System
-- [ ] `read_config_value`, `write_config_value`
-- [ ] `get_section`, `create_config_section`
+- [x] `read_config_value`, `write_config_value`
+- [x] `get_section`, `create_config_section`
 - [x] `flush_config`, `reload_config`
 - [x] `get_config_hierarchy`
+
+**Implementation note:** The roadmap aliases map to the safe project config service, which confines filenames to `Config/*.ini`, rejects unsafe section/key/value input, and preserves optional backups for writes. Unreal's live `FConfigCacheIni` merge behavior remains a separate runtime concern.
 
 ---
 

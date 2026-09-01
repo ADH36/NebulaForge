@@ -1233,16 +1233,7 @@ if (SubAction == TEXT("create_metasound"))
 #endif
         return Response;
 #elif MCP_HAS_METASOUND
-        FString AssetPath = NormalizeAudioPath(McpHandlerUtils::GetOptionalString(Params, TEXT("assetPath"), TEXT("")));
-        FString InputName = McpHandlerUtils::GetOptionalString(Params, TEXT("inputName"), TEXT(""));
-        FString InputType = McpHandlerUtils::GetOptionalString(Params, TEXT("inputType"), TEXT("Float"));
-
-        Response->SetStringField(TEXT("inputName"), InputName);
-        Response->SetStringField(TEXT("inputType"), InputType);
-        Response->SetBoolField(TEXT("success"), true);
-        Response->SetStringField(TEXT("message"), FString::Printf(TEXT("MetaSound input '%s' noted"), *InputName));
-        Response->SetStringField(TEXT("note"), TEXT("MetaSound Frontend Builder not available - upgrade to UE 5.3+ for full support"));
-        return Response;
+        return McpHandlerUtils::BuildErrorResponse(TEXT("METASOUND_FRONTEND_UNAVAILABLE"), TEXT("MetaSound input authoring requires the MetaSound Frontend Builder API (UE 5.3+). No input was created."));
 #else
         return McpHandlerUtils::BuildErrorResponse(TEXT("METASOUND_NOT_AVAILABLE"), TEXT("MetaSound support not available"));
 #endif
@@ -1319,16 +1310,7 @@ if (SubAction == TEXT("create_metasound"))
 #endif
         return Response;
 #elif MCP_HAS_METASOUND
-        FString AssetPath = NormalizeAudioPath(McpHandlerUtils::GetOptionalString(Params, TEXT("assetPath"), TEXT("")));
-        FString OutputName = McpHandlerUtils::GetOptionalString(Params, TEXT("outputName"), TEXT(""));
-        FString OutputType = McpHandlerUtils::GetOptionalString(Params, TEXT("outputType"), TEXT("Audio"));
-
-        Response->SetStringField(TEXT("outputName"), OutputName);
-        Response->SetStringField(TEXT("outputType"), OutputType);
-        Response->SetBoolField(TEXT("success"), true);
-        Response->SetStringField(TEXT("message"), FString::Printf(TEXT("MetaSound output '%s' noted"), *OutputName));
-        Response->SetStringField(TEXT("note"), TEXT("MetaSound Frontend Builder not available - upgrade to UE 5.3+ for full support"));
-        return Response;
+        return McpHandlerUtils::BuildErrorResponse(TEXT("METASOUND_FRONTEND_UNAVAILABLE"), TEXT("MetaSound output authoring requires the MetaSound Frontend Builder API (UE 5.3+). No output was created."));
 #else
         return McpHandlerUtils::BuildErrorResponse(TEXT("METASOUND_NOT_AVAILABLE"), TEXT("MetaSound support not available"));
 #endif
@@ -1429,13 +1411,7 @@ if (SubAction == TEXT("create_metasound"))
 #endif
         return Response;
 #elif MCP_HAS_METASOUND
-        FString AssetPath = NormalizeAudioPath(McpHandlerUtils::GetOptionalString(Params, TEXT("assetPath"), TEXT("")));
-        FString InputName = McpHandlerUtils::GetOptionalString(Params, TEXT("inputName"), TEXT(""));
-
-        Response->SetBoolField(TEXT("success"), true);
-        Response->SetStringField(TEXT("message"), FString::Printf(TEXT("MetaSound default for '%s' noted"), *InputName));
-        Response->SetStringField(TEXT("note"), TEXT("MetaSound Frontend Builder not available - upgrade to UE 5.3+ for full support"));
-        return Response;
+        return McpHandlerUtils::BuildErrorResponse(TEXT("METASOUND_FRONTEND_UNAVAILABLE"), TEXT("MetaSound default authoring requires the MetaSound Frontend Builder API (UE 5.3+). No default was changed."));
 #else
         return McpHandlerUtils::BuildErrorResponse(TEXT("METASOUND_NOT_AVAILABLE"), TEXT("MetaSound support not available"));
 #endif
@@ -2383,20 +2359,7 @@ if (SubAction == TEXT("create_metasound"))
         McpHandlerUtils::AddVerification(Response, NewChain);
         return Response;
 #else
-        // Fallback: create a basic container but note that full effect chain requires AudioMixer
-        FString Name = McpHandlerUtils::GetOptionalString(Params, TEXT("name"), TEXT(""));
-        FString Path = NormalizeAudioPath(McpHandlerUtils::GetOptionalString(Params, TEXT("path"), TEXT("/Game/Audio/Effects")), false);
-
-        if (Name.IsEmpty())
-        {
-            return McpHandlerUtils::BuildErrorResponse(TEXT("MISSING_NAME"), TEXT("Name is required"));
-        }
-
-        Response->SetStringField(TEXT("assetPath"), Path / Name);
-        Response->SetBoolField(TEXT("success"), true);
-        Response->SetStringField(TEXT("message"), FString::Printf(TEXT("Source effect chain '%s' - AudioMixer module not available"), *Name));
-        Response->SetStringField(TEXT("note"), TEXT("Enable AudioMixer plugin for full source effect chain support"));
-        return Response;
+        return McpHandlerUtils::BuildErrorResponse(TEXT("SOURCE_EFFECT_UNAVAILABLE"), TEXT("Source effect chains require the AudioMixer source-effect module. No asset was created."));
 #endif
     }
 
@@ -2465,13 +2428,7 @@ if (SubAction == TEXT("create_metasound"))
 
 		return Response;
 #else
-        FString AssetPath = NormalizeAudioPath(McpHandlerUtils::GetOptionalString(Params, TEXT("assetPath"), TEXT("")));
-        FString EffectType = McpHandlerUtils::GetOptionalString(Params, TEXT("effectType"), TEXT(""));
-
-        Response->SetBoolField(TEXT("success"), true);
-        Response->SetStringField(TEXT("message"), FString::Printf(TEXT("Source effect '%s' noted"), *EffectType));
-        Response->SetStringField(TEXT("note"), TEXT("AudioMixer module not available - enable AudioMixer plugin for full support"));
-        return Response;
+        return McpHandlerUtils::BuildErrorResponse(TEXT("SOURCE_EFFECT_UNAVAILABLE"), TEXT("Source effects require the AudioMixer source-effect module. No effect was added."));
 #endif
     }
 
@@ -2523,19 +2480,7 @@ if (SubAction == TEXT("create_metasound"))
         McpHandlerUtils::AddVerification(Response, NewSubmix);
         return Response;
 #else
-        FString Name = McpHandlerUtils::GetOptionalString(Params, TEXT("name"), TEXT(""));
-        FString Path = NormalizeAudioPath(McpHandlerUtils::GetOptionalString(Params, TEXT("path"), TEXT("/Game/Audio/Effects")), false);
-
-        if (Name.IsEmpty())
-        {
-            return McpHandlerUtils::BuildErrorResponse(TEXT("MISSING_NAME"), TEXT("Name is required"));
-        }
-
-        Response->SetStringField(TEXT("assetPath"), Path / Name);
-        Response->SetBoolField(TEXT("success"), true);
-        Response->SetStringField(TEXT("message"), FString::Printf(TEXT("Submix '%s' noted - AudioMixer module not available"), *Name));
-        Response->SetStringField(TEXT("note"), TEXT("Enable AudioMixer plugin for full submix support"));
-        return Response;
+        return McpHandlerUtils::BuildErrorResponse(TEXT("SUBMIX_EFFECT_UNAVAILABLE"), TEXT("Submix effects require the AudioMixer submix module. No asset was created."));
 #endif
     }
 

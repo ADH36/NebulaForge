@@ -59,6 +59,7 @@ public:
 				TEXT("get_paper_tile_map_info"),
 				TEXT("configure_paper_tile_map_layer_collision"),
 				TEXT("paint_paper_tile"),
+				TEXT("fill_paper_tile_region"),
 				TEXT("configure_paper_flipbook"),
 				TEXT("configure_flipbook_loop"),
 				TEXT("configure_paper_character"),

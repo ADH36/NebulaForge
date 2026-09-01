@@ -4421,6 +4421,60 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
   }
 #endif
 #if MCP_HAS_PAPER_TILEMAP
+  if (LowerSub == TEXT("fill_paper_tile_region")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    AActor* Found = FindActorByName(TargetName);
+    UPaperTileMapComponent* TileMapComponent = nullptr;
+    if (Found) {
+      if (!ComponentName.IsEmpty())
+        TileMapComponent = Cast<UPaperTileMapComponent>(FindComponentByName(Found, ComponentName));
+      else
+        TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
+    }
+    int32 StartX = 0;
+    int32 StartY = 0;
+    int32 Width = 0;
+    int32 Height = 0;
+    int32 Layer = 0;
+    int32 TileIndex = 0;
+    bool bRebuildCollision = false;
+    FString TileSetPath;
+    Payload->TryGetStringField(TEXT("tileSetPath"), TileSetPath);
+    TileSetPath = SanitizeProjectRelativePath(TileSetPath);
+    UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(TileSetPath));
+    if (!TileMapComponent || !Payload->TryGetNumberField(TEXT("x"), StartX) || !Payload->TryGetNumberField(TEXT("y"), StartY) ||
+        !Payload->TryGetNumberField(TEXT("width"), Width) || !Payload->TryGetNumberField(TEXT("height"), Height) ||
+        !Payload->TryGetNumberField(TEXT("layer"), Layer) || Layer < 0 || Width < 1 || Width > 4096 || Height < 1 || Height > 4096 ||
+        !Payload->TryGetNumberField(TEXT("tileIndex"), TileIndex) || TileIndex < 0 || !TileSet) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("actorName, a PaperTileMapComponent, x/y, bounded positive width/height, non-negative layer/tileIndex, and a valid tileSetPath are required"), nullptr);
+      return true;
+    }
+    FPaperTileInfo TileInfo;
+    TileInfo.TileSet = TileSet;
+    TileInfo.PackedTileIndex = TileIndex;
+    for (int32 Y = 0; Y < Height; ++Y)
+      for (int32 X = 0; X < Width; ++X)
+        TileMapComponent->SetTile(StartX + X, StartY + Y, Layer, TileInfo);
+    Payload->TryGetBoolField(TEXT("rebuildCollision"), bRebuildCollision);
+    if (bRebuildCollision)
+      TileMapComponent->RebuildCollision();
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), TargetName);
+    Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
+    Data->SetNumberField(TEXT("x"), StartX);
+    Data->SetNumberField(TEXT("y"), StartY);
+    Data->SetNumberField(TEXT("width"), Width);
+    Data->SetNumberField(TEXT("height"), Height);
+    Data->SetNumberField(TEXT("layer"), Layer);
+    Data->SetNumberField(TEXT("tileIndex"), TileIndex);
+    Data->SetBoolField(TEXT("rebuiltCollision"), bRebuildCollision);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Paper tile region filled"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("paint_paper_tile")) {
     FString TargetName;
     FString ComponentName;

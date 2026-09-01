@@ -2204,7 +2204,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ## Phase 46: Physics & Destruction Plugins
 
 ### 46.1 Chaos Destruction
-- [ ] Collection: `create_geometry_collection`, `add_geometry_to_collection`, `remove_geometry_from_collection`
+- [x] Collection: `create_geometry_collection` (official `GeometryCollectionFactory` creates a new Geometry Collection asset; source geometry composition remains dependent on the Fracture Editor/Dataflow workflow)
+- [ ] Collection: `add_geometry_to_collection`, `remove_geometry_from_collection`
 - [ ] Fracturing: `apply_uniform_fracture`, `apply_clustered_fracture`, `apply_radial_fracture`, `apply_planar_fracture`, `apply_brick_fracture`, `apply_mesh_fracture`, `configure_fracture_settings`
 - [ ] Clustering: `set_cluster_group`, `configure_cluster_level`, `auto_cluster`
 - [ ] Damage: `configure_damage_threshold`, `enable_strain_damage`
@@ -2212,6 +2213,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Materials: `set_interior_material`, `configure_interior_uv_scale`
 - [ ] Physics: `configure_rigid_body_settings`, `set_sleeping_threshold`, `configure_collision_filter`
 - [ ] Fields: `add_anchor_field`, `remove_anchor_field`, `create_field_system`, `add_radial_falloff_field`, `add_uniform_vector_field`, `add_radial_vector_field`, `add_plane_falloff_field`, `add_noise_field`, `add_kill_field`
+
+**Implementation note:** Epic exposes the Geometry Collection asset factory through Python, but the current Fracture Editor fracture tools are modal editor tools rather than a stable public factory API. This bridge therefore claims asset creation only until a version-stable Geometry Collection composition/fracture API is available.
 
 ### 46.2 Chaos Vehicles
 - [ ] Setup: `create_chaos_wheeled_vehicle`, `create_chaos_hover_vehicle`

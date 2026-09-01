@@ -157,6 +157,12 @@ public:
 			.Number(TEXT("timeLimit"), TEXT("Functional Test time limit in seconds (0-3600)."))
 			.Bool(TEXT("saveLevel"), TEXT("Persist the newly created Functional Test actor to the loaded level."))
 			.String(TEXT("widgetPath"), TEXT("Widget blueprint path."))
+			.String(TEXT("accessibleText"), TEXT("Custom screen-reader text for a live UMG widget object."))
+			.String(TEXT("accessibleSummaryText"), TEXT("Optional summary screen-reader text for a live UMG widget object."))
+			.StringEnum(TEXT("accessibleBehavior"), { TEXT("Auto"), TEXT("Summary"), TEXT("Custom"), TEXT("ToolTip"), TEXT("NotAccessible") }, TEXT("Official UMG accessibility behavior."))
+			.StringEnum(TEXT("accessibleSummaryBehavior"), { TEXT("Auto"), TEXT("Summary"), TEXT("Custom"), TEXT("ToolTip"), TEXT("NotAccessible") }, TEXT("Official UMG summary accessibility behavior."))
+			.Bool(TEXT("overrideAccessibleDefaults"), TEXT("Override the widget's default accessibility behavior and text."))
+			.Bool(TEXT("canChildrenBeAccessible"), TEXT("Whether child widgets can appear as distinct accessible widgets."))
 			.String(TEXT("childClass"), TEXT(""))
 			.String(TEXT("parentName"), TEXT(""))
 			// section/key are declared above for config hierarchy actions.

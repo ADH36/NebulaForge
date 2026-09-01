@@ -14,6 +14,8 @@
 #include "Internationalization/StringTableRegistry.h"
 #include "Internationalization/Internationalization.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/Widget.h"
+#include "Components/SlateWrapperTypes.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Misc/Guid.h"
 #include "Misc/AutomationTest.h"
@@ -1475,6 +1477,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("configure_geometry_collection_component") &&
       Lower != TEXT("set_ui_scale") &&
       Lower != TEXT("announce_accessible_string") &&
+      Lower != TEXT("set_screen_reader_text") &&
       Lower != TEXT("register_python_command") &&
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
@@ -1532,6 +1535,77 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("announcement"), Announcement);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Accessibility announcement sent"), Result);
+    return true;
+  }
+
+  if (Lower == TEXT("set_screen_reader_text")) {
+    FString WidgetPath;
+    FString AccessibleText;
+    FString AccessibleSummaryText;
+    FString AccessibleBehavior = TEXT("Custom");
+    FString AccessibleSummaryBehavior = TEXT("Auto");
+    bool bOverrideAccessibleDefaults = true;
+    bool bCanChildrenBeAccessible = false;
+    if (!Payload.IsValid() || !Payload->TryGetStringField(TEXT("widgetPath"), WidgetPath) ||
+        WidgetPath.TrimStartAndEnd().IsEmpty() || !Payload->TryGetStringField(TEXT("accessibleText"), AccessibleText) ||
+        AccessibleText.TrimStartAndEnd().IsEmpty() || AccessibleText.Len() > 4096) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("set_screen_reader_text requires widgetPath and non-empty accessibleText (max 4096 characters)"),
+                          TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    WidgetPath.TrimStartAndEndInline();
+    AccessibleText.TrimStartAndEndInline();
+    Payload->TryGetStringField(TEXT("accessibleSummaryText"), AccessibleSummaryText);
+    Payload->TryGetStringField(TEXT("accessibleBehavior"), AccessibleBehavior);
+    Payload->TryGetStringField(TEXT("accessibleSummaryBehavior"), AccessibleSummaryBehavior);
+    Payload->TryGetBoolField(TEXT("overrideAccessibleDefaults"), bOverrideAccessibleDefaults);
+    Payload->TryGetBoolField(TEXT("canChildrenBeAccessible"), bCanChildrenBeAccessible);
+
+    auto ParseBehavior = [](const FString &Value, ESlateAccessibleBehavior &OutBehavior) -> bool {
+      if (Value.Equals(TEXT("Auto"), ESearchCase::IgnoreCase)) { OutBehavior = ESlateAccessibleBehavior::Auto; return true; }
+      if (Value.Equals(TEXT("Summary"), ESearchCase::IgnoreCase)) { OutBehavior = ESlateAccessibleBehavior::Summary; return true; }
+      if (Value.Equals(TEXT("Custom"), ESearchCase::IgnoreCase)) { OutBehavior = ESlateAccessibleBehavior::Custom; return true; }
+      if (Value.Equals(TEXT("ToolTip"), ESearchCase::IgnoreCase)) { OutBehavior = ESlateAccessibleBehavior::ToolTip; return true; }
+      if (Value.Equals(TEXT("NotAccessible"), ESearchCase::IgnoreCase)) { OutBehavior = ESlateAccessibleBehavior::NotAccessible; return true; }
+      return false;
+    };
+    ESlateAccessibleBehavior Behavior;
+    ESlateAccessibleBehavior SummaryBehavior;
+    if (!ParseBehavior(AccessibleBehavior, Behavior) || !ParseBehavior(AccessibleSummaryBehavior, SummaryBehavior)) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("accessibleBehavior and accessibleSummaryBehavior must be Auto, Summary, Custom, ToolTip, or NotAccessible"),
+                          TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UWidget *Widget = FindObject<UWidget>(nullptr, *WidgetPath);
+    if (!Widget) {
+      SendAutomationError(RequestingSocket, RequestId,
+                          TEXT("widgetPath must resolve to a live UWidget object"), TEXT("OBJECT_NOT_FOUND"));
+      return true;
+    }
+    Widget->bOverrideAccessibleDefaults = bOverrideAccessibleDefaults;
+    Widget->AccessibleBehavior = Behavior;
+    Widget->AccessibleSummaryBehavior = SummaryBehavior;
+    Widget->AccessibleText = FText::FromString(AccessibleText);
+    if (!AccessibleSummaryText.IsEmpty()) {
+      if (AccessibleSummaryText.Len() > 4096) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("accessibleSummaryText must be at most 4096 characters"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      Widget->AccessibleSummaryText = FText::FromString(AccessibleSummaryText);
+    }
+    Widget->bCanChildrenBeAccessible = bCanChildrenBeAccessible;
+
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("widgetPath"), Widget->GetPathName());
+    Result->SetStringField(TEXT("widgetClass"), Widget->GetClass()->GetPathName());
+    Result->SetStringField(TEXT("accessibleText"), Widget->GetAccessibleText().ToString());
+    Result->SetStringField(TEXT("accessibleSummaryText"), Widget->GetAccessibleSummaryText().ToString());
+    Result->SetBoolField(TEXT("overrideAccessibleDefaults"), Widget->bOverrideAccessibleDefaults);
+    Result->SetBoolField(TEXT("canChildrenBeAccessible"), Widget->bCanChildrenBeAccessible);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Screen-reader text updated"), Result);
     return true;
   }
 

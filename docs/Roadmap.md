@@ -2253,7 +2253,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_ui_scale` (official `UUserInterfaceSettings::ApplicationScale` with live `FSlateApplication::SetApplicationScale`)
 - [ ] `set_font_scale` (UE exposes font DPI settings, but not a stable global font-scale setter across supported versions)
 - [ ] `configure_high_contrast_mode`
-- [ ] `set_screen_reader_text` (for UI elements)
+- [x] `set_screen_reader_text` (live UMG widget object path; official `UWidget` accessibility properties)
 - [ ] `configure_text_to_speech`
 - [ ] `set_color_coding_alternatives` (shapes, patterns)
 
@@ -2298,6 +2298,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `configure_accessibility_menu`
 
 **API-derived addition:** `system_control.announce_accessible_string` uses Unreal's official `UGameplayStatics::AnnounceAccessibleString` API to send a platform accessibility announcement.
+
+**API-derived addition:** `system_control.set_screen_reader_text` configures a live `UWidget` through Epic's public `AccessibleText`, `AccessibleSummaryText`, `AccessibleBehavior`, and `bOverrideAccessibleDefaults` properties. The caller must provide the widget's full UObject path; the bridge does not guess among similarly named widgets.
 
 ---
 

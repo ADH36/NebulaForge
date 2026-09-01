@@ -1913,7 +1913,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'wait_for_job', 'cook_content', 'package_project', 'create_string_table', 'add_string_entry', 'get_localized_string', 'set_culture', 'set_language_and_locale', 'set_locale', 'create_gameplay_tag', 'create_asset_validator', 'run_data_validation', 'list_plugins', 'enable_plugin', 'disable_plugin', 'get_plugin_status', 'configure_plugin_settings',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
-            'set_project_setting', 'execute_python', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'configure_python_paths', 'list_python_packages', 'create_editor_utility_widget', 'create_editor_utility_blueprint', 'create_python_editor_utility', 'create_geometry_collection', 'add_geometry_to_collection', 'remove_geometry_from_collection', 'configure_geometry_collection', 'inspect_geometry_collection', 'configure_geometry_collection_component', 'set_ui_scale', 'announce_accessible_string', 'register_python_command', 'unregister_python_command', 'run_editor_utility', 'inspect_editor_utility', 'release_gate'
+            'set_project_setting', 'execute_python', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'configure_python_paths', 'list_python_packages', 'create_editor_utility_widget', 'create_editor_utility_blueprint', 'create_python_editor_utility', 'create_geometry_collection', 'add_geometry_to_collection', 'remove_geometry_from_collection', 'configure_geometry_collection', 'inspect_geometry_collection', 'configure_geometry_collection_component', 'set_ui_scale', 'announce_accessible_string', 'set_screen_reader_text', 'register_python_command', 'unregister_python_command', 'run_editor_utility', 'inspect_editor_utility', 'release_gate'
           ,
             'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'configure_plugin_settings', 'configure_windows_build', 'configure_linux_build', 'configure_mac_build', 'configure_ios_build', 'configure_android_build', 'configure_chunking', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'configure_localization_target', 'import_localization', 'export_localization', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
@@ -2137,6 +2137,12 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         text: commonSchemas.stringProp,
         volume: commonSchemas.numberProp,
         widgetId: commonSchemas.stringProp,
+        accessibleText: { type: 'string', maxLength: 4096, description: 'Custom screen-reader text for a live UMG widget object.' },
+        accessibleSummaryText: { type: 'string', maxLength: 4096, description: 'Optional summary text for the live UMG widget object.' },
+        accessibleBehavior: { type: 'string', enum: ['Auto', 'Summary', 'Custom', 'ToolTip', 'NotAccessible'], description: 'Official UMG accessibility behavior.' },
+        accessibleSummaryBehavior: { type: 'string', enum: ['Auto', 'Summary', 'Custom', 'ToolTip', 'NotAccessible'], description: 'Official UMG summary accessibility behavior.' },
+        overrideAccessibleDefaults: commonSchemas.booleanProp,
+        canChildrenBeAccessible: commonSchemas.booleanProp,
         width: commonSchemas.numberProp,
         windowed: commonSchemas.booleanProp,
         mass: commonSchemas.numberProp,

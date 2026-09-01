@@ -170,6 +170,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_sequence', arguments: { action: 'cancel_mrq', mrqJobId: 'contract-mrq-job' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_media_sound_component', actorName: 'ContractMediaActor', mediaPlayerPath: '/Game/Contract/MediaPlayer' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_camera_settings', actorName: 'ContractCineCamera', focalLength: 50, aperture: 2.8, focusDistance: 1000, filmbackSensorWidth: 36, filmbackSensorHeight: 24 }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'configure_camera_rig_rail', actorName: 'ContractCameraRigRail', currentPositionOnRail: 0.5, lockOrientationToRail: true }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'configure_camera_rig_crane', actorName: 'ContractCameraRigCrane', craneArmLength: 250, cranePitch: -10, craneYaw: 20, lockMountPitch: false, lockMountYaw: true }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'play_demo', filename: 'ContractDemo' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'pause_demo' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'seek_demo', demoTime: 1.5 }, expected: 'success|error' },

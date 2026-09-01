@@ -43,6 +43,8 @@ public:
 				TEXT("add_component"),
 				TEXT("create_media_sound_component"),
 				TEXT("configure_camera_settings"),
+				TEXT("configure_camera_rig_rail"),
+				TEXT("configure_camera_rig_crane"),
 				TEXT("remove_component"),
 				TEXT("set_component_properties"),
 				TEXT("set_component_property"),
@@ -141,6 +143,13 @@ public:
 			.Number(TEXT("focusDistance"), TEXT("Cine camera manual focus distance in centimeters."))
 			.Number(TEXT("filmbackSensorWidth"), TEXT("Cine camera filmback sensor width in millimeters."))
 			.Number(TEXT("filmbackSensorHeight"), TEXT("Cine camera filmback sensor height in millimeters."))
+			.Number(TEXT("currentPositionOnRail"), TEXT("Normalized camera rig rail position from 0 to 1."))
+			.Bool(TEXT("lockOrientationToRail"), TEXT("Orient the rail mount along the rail."))
+			.Number(TEXT("craneArmLength"), TEXT("Camera rig crane arm length in centimeters."))
+			.Number(TEXT("cranePitch"), TEXT("Camera rig crane arm pitch in degrees."))
+			.Number(TEXT("craneYaw"), TEXT("Camera rig crane arm yaw in degrees."))
+			.Bool(TEXT("lockMountPitch"), TEXT("Lock the crane camera mount pitch."))
+			.Bool(TEXT("lockMountYaw"), TEXT("Lock the crane camera mount yaw."))
 			.FreeformObject(TEXT("properties"), TEXT(""))
 			.String(TEXT("propertyName"), TEXT("Name of the property."))
 			.FreeformObject(TEXT("value"), TEXT("Generic value (any type)."))

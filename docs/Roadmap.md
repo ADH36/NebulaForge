@@ -1317,7 +1317,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_cine_camera_actor` (safe alias of camera binding authoring)
 - [x] `configure_camera_settings` (filmback, lens, focus via `control_actor` and reflected `UCineCameraComponent` settings)
 - [x] `add_camera_cut_track`; [x] `add_camera_shake_track` (native `UMovieSceneCameraShakeTrack::AddNewCameraShake` authoring)
-- [ ] `configure_camera_rig_rail`, `configure_camera_rig_crane`
+- [x] `configure_camera_rig_rail`, `configure_camera_rig_crane` (validated actor settings for UE `ACameraRig_Rail` and `ACameraRig_Crane`)
 - [x] Additional generic tracks: `add_fade_track`, `add_level_visibility_track`, `add_skeletal_animation_track`, `add_transform_track`, `add_event_track`, `add_property_track`; [ ] material/particle-specific tracks
 
 ### 30.2 Movie Render Queue

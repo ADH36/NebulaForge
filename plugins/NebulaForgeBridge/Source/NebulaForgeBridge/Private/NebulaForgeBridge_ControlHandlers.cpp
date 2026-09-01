@@ -4186,6 +4186,63 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ComponentPayload->SetObjectField(TEXT("properties"), Properties);
     return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("configure_camera_rig_rail") ||
+      LowerSub == TEXT("configure_camera_rig_crane")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    AActor *Found = TargetName.IsEmpty() ? nullptr : FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"),
+                                TEXT("actorName must resolve to an existing camera rig actor"), nullptr);
+      return true;
+    }
+    const bool bRail = LowerSub == TEXT("configure_camera_rig_rail");
+    const FString ExpectedClass = bRail ? TEXT("/Script/CinematicCamera.CameraRig_Rail") : TEXT("/Script/CinematicCamera.CameraRig_Crane");
+    UClass *RigClass = ResolveUClass(ExpectedClass);
+    if (!RigClass || !Found->IsA(RigClass)) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ACTOR_TYPE"),
+                                FString::Printf(TEXT("actorName must be a %s"), bRail ? TEXT("CameraRig_Rail") : TEXT("CameraRig_Crane")), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Variables = MakeShared<FJsonObject>();
+    const TSharedPtr<FJsonObject> *RequestedProperties = nullptr;
+    if (Payload->TryGetObjectField(TEXT("properties"), RequestedProperties) && RequestedProperties && RequestedProperties->IsValid()) {
+      const TArray<FString> Allowed = bRail
+          ? TArray<FString>{TEXT("CurrentPositionOnRail"), TEXT("bLockOrientationToRail"), TEXT("bShowRailVisualization"), TEXT("PreviewMeshScale")}
+          : TArray<FString>{TEXT("CraneArmLength"), TEXT("CranePitch"), TEXT("CraneYaw"), TEXT("bLockMountPitch"), TEXT("bLockMountYaw")};
+      for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : (*RequestedProperties)->Values) {
+        if (Allowed.Contains(Pair.Key)) Variables->SetField(Pair.Key, Pair.Value);
+      }
+    }
+    auto CopyNumber = [&](const TCHAR *Input, const TCHAR *Output, double Min, double Max) {
+      double Value = 0.0;
+      if (Payload->TryGetNumberField(Input, Value) && FMath::IsFinite(Value) && Value >= Min && Value <= Max)
+        Variables->SetNumberField(Output, Value);
+    };
+    auto CopyBool = [&](const TCHAR *Input, const TCHAR *Output) {
+      bool Value = false;
+      if (Payload->TryGetBoolField(Input, Value)) Variables->SetBoolField(Output, Value);
+    };
+    if (bRail) {
+      CopyNumber(TEXT("currentPositionOnRail"), TEXT("CurrentPositionOnRail"), 0.0, 1.0);
+      CopyBool(TEXT("lockOrientationToRail"), TEXT("bLockOrientationToRail"));
+    } else {
+      CopyNumber(TEXT("craneArmLength"), TEXT("CraneArmLength"), 0.0, 1000000.0);
+      CopyNumber(TEXT("cranePitch"), TEXT("CranePitch"), -3600.0, 3600.0);
+      CopyNumber(TEXT("craneYaw"), TEXT("CraneYaw"), -3600.0, 3600.0);
+      CopyBool(TEXT("lockMountPitch"), TEXT("bLockMountPitch"));
+      CopyBool(TEXT("lockMountYaw"), TEXT("bLockMountYaw"));
+    }
+    if (Variables->Values.Num() == 0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("At least one valid camera rig setting is required"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Forward = MakeShared<FJsonObject>();
+    Forward->SetStringField(TEXT("actorName"), TargetName);
+    Forward->SetObjectField(TEXT("variables"), Variables);
+    return HandleControlActorSetBlueprintVariables(RequestId, Forward, RequestingSocket);
+  }
   if (LowerSub == TEXT("add_component"))
     return HandleControlActorAddComponent(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("set_component_properties") ||

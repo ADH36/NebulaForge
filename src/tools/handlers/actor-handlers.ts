@@ -187,6 +187,29 @@ const handlers: Record<string, ActorActionHandler> = {
         }) as Record<string, unknown>;
         return result;
     },
+    configure_camera_rig_rail: async (args, tools) => {
+        const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'configure_camera_rig_rail',
+            actorName: extractString(params, 'actorName'),
+            currentPositionOnRail: args.currentPositionOnRail,
+            lockOrientationToRail: args.lockOrientationToRail,
+            properties: args.properties
+        }) as Record<string, unknown>;
+    },
+    configure_camera_rig_crane: async (args, tools) => {
+        const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'configure_camera_rig_crane',
+            actorName: extractString(params, 'actorName'),
+            craneArmLength: args.craneArmLength,
+            cranePitch: args.cranePitch,
+            craneYaw: args.craneYaw,
+            lockMountPitch: args.lockMountPitch,
+            lockMountYaw: args.lockMountYaw,
+            properties: args.properties
+        }) as Record<string, unknown>;
+    },
     delete: async (args, tools) => {
         if (args.actorNames && Array.isArray(args.actorNames)) {
             return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {

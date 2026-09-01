@@ -1812,7 +1812,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python', 'release_gate'
           ,
-            'compile_shaders', 'generate_project_files', 'register_native_tag',
+            'compile_shaders', 'create_device_profile', 'generate_project_files', 'register_native_tag',
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
           description: 'Action'
         },
@@ -1823,6 +1823,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         enabled: commonSchemas.enabled,
         resolution: commonSchemas.resolution,
         command: commonSchemas.stringProp,
+        profileName: commonSchemas.name,
+        parentProfileName: commonSchemas.name,
+        cvars: { type: 'object', additionalProperties: { type: ['string', 'number', 'boolean'] } },
         target: commonSchemas.stringProp,
         platform: commonSchemas.stringProp,
         configuration: commonSchemas.stringProp,

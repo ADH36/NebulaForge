@@ -14,6 +14,7 @@ import { getAutomationTestResults, runUnrealAutomationTests, validateProject } f
 import { manageProjectPlugins } from '../../services/project-plugin-service.js';
 import { inspectPlatformCapabilities } from '../../services/platform-capabilities-service.js';
 import { addArchitectureRequirement, createGameArchitectureManifest, validateGameArchitecture } from '../../services/game-architecture-service.js';
+import { createDeviceProfile } from '../../services/device-profile-service.js';
 
 /** Response from various operations */
 interface OperationResponse {
@@ -310,6 +311,17 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
     case 'create_gameplay_tag': {
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };
       return addGameplayTag(argsTyped.projectPath, argsTyped.tag, argsTyped.comment ?? '', argsTyped.backup !== false);
+    }
+    case 'create_device_profile': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.profileName !== 'string' || typeof record.profileType !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'profileName and profileType are required' };
+      }
+      const rawCvars = record.cvars;
+      const cvars = rawCvars && typeof rawCvars === 'object' && !Array.isArray(rawCvars)
+        ? Object.fromEntries(Object.entries(rawCvars).filter((entry): entry is [string, string | number | boolean] => ['string', 'number', 'boolean'].includes(typeof entry[1])))
+        : undefined;
+      return createDeviceProfile({ projectPath: argsTyped.projectPath, profileName: record.profileName, profileType: record.profileType, parentProfileName: typeof record.parentProfileName === 'string' ? record.parentProfileName : undefined, cvars, backup: record.backup !== false });
     }
     case 'remove_gameplay_tag': {
       if (!argsTyped.tag) return { success: false, error: 'INVALID_ARGUMENT', message: 'tag is required' };

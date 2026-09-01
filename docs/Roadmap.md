@@ -1679,7 +1679,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Additional API coverage:** `system_control.set_language_and_locale` and `set_locale` expose Epic's narrower language/locale setters for callers that must avoid changing all active culture state.
 
 ### 35.9 Scalability
-- [ ] `create_device_profile`
+- [x] `create_device_profile` (safe `DefaultDeviceProfiles.ini` authoring)
 - [x] `configure_scalability_group` (validated group-to-scalability-CVar mapping)
 - [ ] `set_cvar_for_profile`
 - [ ] `configure_platform_settings`

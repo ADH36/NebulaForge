@@ -1807,7 +1807,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
           enum: [
             'profile', 'show_fps', 'set_quality', 'screenshot', 'set_resolution', 'set_fullscreen', 'execute_command', 'console_command',
             'run_ubt', 'run_uat', 'validate_release', 'validate_project', 'create_game_architecture_manifest', 'add_architecture_requirement', 'validate_game_architecture', 'validate_blueprints', 'start_memory_report', 'configure_stat_commands', 'configure_console_variables', 'check_for_errors', 'capture_insights_trace', 'analyze_trace', 'start_network_profiler', 'enable_visual_logger', 'add_visual_log_entry', 'inspect_platform_capabilities', 'sign_release', 'run_packaged', 'deploy_package', 'run_network_soak', 'manage_project_plugin', 'get_job_status', 'list_jobs', 'cancel_job', 'read_project_file', 'write_project_file', 'generate_save_game_class', 'create_automation_test', 'get_test_results', 'list_gameplay_tags', 'get_runtime_gameplay_tag', 'add_gameplay_tag', 'remove_gameplay_tag', 'create_tag_container', 'add_tag_to_container', 'remove_tag_from_container', 'check_tag_match', 'list_config_layers', 'get_config_value', 'read_config_value', 'set_config_value', 'write_config_value', 'get_section', 'create_config_section', 'reload_config', 'flush_config', 'get_config_hierarchy', 'save_game_to_slot', 'load_game_from_slot', 'inspect_save_game_schema', 'delete_save_game_slot', 'check_save_game_slot', 'list_save_game_slots', 'run_tests', 'subscribe', 'unsubscribe', 'spawn_category', 'enable_gameplay_debugger', 'start_session', 'stop_session', 'get_session_status', 'check_map_errors', 'create_functional_test', 'runtime_health', 'get_runtime_capabilities', 'get_runtime_world', 'get_runtime_actors', 'get_runtime_actor', 'lumen_update_scene',
-            'wait_for_job', 'cook_content', 'package_project', 'create_string_table', 'add_string_entry', 'get_localized_string', 'create_gameplay_tag', 'create_asset_validator', 'run_data_validation', 'list_plugins', 'enable_plugin', 'disable_plugin', 'get_plugin_status',
+            'wait_for_job', 'cook_content', 'package_project', 'create_string_table', 'add_string_entry', 'get_localized_string', 'set_culture', 'create_gameplay_tag', 'create_asset_validator', 'run_data_validation', 'list_plugins', 'enable_plugin', 'disable_plugin', 'get_plugin_status',
             'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python', 'release_gate'
@@ -1935,6 +1935,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         stringKey: commonSchemas.stringProp,
         sourceString: commonSchemas.stringProp,
         devNotes: commonSchemas.stringProp,
+        culture: commonSchemas.stringProp,
         code: { type: 'string', description: 'Python code to execute inline', maxLength: 1048576 }, // 1MB max — prevents resource exhaustion via oversized payloads
         file: { type: 'string', description: 'Path to .py file to execute', maxLength: 4096 } // Max path length on most OS
       ,

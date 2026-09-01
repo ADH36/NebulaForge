@@ -719,6 +719,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
         stringKey: commonSchemas.stringProp,
         sourceString: commonSchemas.stringProp,
         devNotes: commonSchemas.stringProp,
+        culture: commonSchemas.stringProp,
         configName: commonSchemas.stringProp,
         mode: screenshotModeSchema,
         returnBase64: { type: 'boolean', description: 'Return PNG image data as base64 when supported. Defaults to true for full_editor_window and game_viewport screenshot modes.' },

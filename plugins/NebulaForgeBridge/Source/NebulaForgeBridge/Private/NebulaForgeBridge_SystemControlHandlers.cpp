@@ -12,6 +12,7 @@
 #include "GameplayTagsManager.h"
 #include "Internationalization/StringTableCore.h"
 #include "Internationalization/StringTableRegistry.h"
+#include "Internationalization/Internationalization.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Guid.h"
 #include "Misc/AutomationTest.h"
@@ -1426,6 +1427,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
   const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project");
   const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
+  const bool bCultureAction = Lower == TEXT("set_culture");
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&
@@ -1452,7 +1454,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias && !bStringTableAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction) {
     return false; // Not handled by this function
   }
 
@@ -1472,6 +1474,33 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     return HandleRuntimeSaveGameAction(RequestId, Lower, Payload, RequestingSocket);
   }
 #endif
+
+  if (bCultureAction) {
+    if (!Payload.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("System control payload missing"), TEXT("INVALID_PAYLOAD"));
+      return true;
+    }
+    FString Culture;
+    Payload->TryGetStringField(TEXT("culture"), Culture);
+    Culture.TrimStartAndEndInline();
+    if (Culture.IsEmpty() || Culture.Len() > 64) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("culture is required and must be at most 64 characters"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (!FInternationalization::IsAvailable()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Internationalization is not available"), TEXT("UNAVAILABLE"));
+      return true;
+    }
+    FInternationalization& Internationalization = FInternationalization::Get();
+    if (!Internationalization.SetCurrentCulture(Culture)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Requested culture is not available"), TEXT("CULTURE_NOT_FOUND"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("culture"), Internationalization.GetCurrentCulture()->GetName());
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Culture updated"), Result, FString());
+    return true;
+  }
 
   if (bStringTableAction) {
     if (!Payload.IsValid()) {

@@ -1671,10 +1671,10 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `add_string_entry`
 - [ ] `configure_localization_target`
 - [ ] `import_localization`, `export_localization`
-- [ ] `set_culture`
+- [x] `set_culture`
 - [x] `get_localized_string`
 
-**Implementation note:** These actions manage transient process-level string tables through UE's `FStringTableRegistry`; persisted String Table assets and localization target commandlets remain project-specific.
+**Implementation note:** These actions manage transient process-level string tables through UE's `FStringTableRegistry`; `set_culture` uses `FInternationalization::SetCurrentCulture` and returns the active IETF culture name. Persisted String Table assets and localization target commandlets remain project-specific.
 
 ### 35.9 Scalability
 - [ ] `create_device_profile`

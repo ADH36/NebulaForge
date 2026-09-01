@@ -1369,7 +1369,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Tools**: `manage_data_assets`, `manage_save_system`, `manage_gameplay_tags`, `manage_config`
 
 ### 31.1 Data Assets
-- [x] `create_data_asset`; [ ] `create_primary_data_asset`
+- [x] `create_data_asset`, `create_primary_data_asset` (primary action requires a concrete `UPrimaryDataAsset` subclass)
 - [x] `create_data_table`, `add_data_table_row`, `modify_data_table_row`, `delete_data_table_row`
 - [ ] `import_data_table_csv`, `export_data_table_csv`
 - [x] `create_curve_table`, `create_curve_float`, `create_curve_linear_color`

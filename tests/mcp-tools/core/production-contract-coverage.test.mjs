@@ -5,6 +5,7 @@ import { runToolTests } from '../../test-runner.mjs';
 // represented in the validation matrix even when Unreal is not running.
 await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'create_data_asset', path: '/Game/MCPTest', name: 'ContractDataAsset', classPath: '/Script/Engine.DataAsset', properties: {}, save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'create_primary_data_asset', path: '/Game/MCPTest', name: 'ContractPrimaryDataAsset', classPath: '/Script/Engine.PrimaryAssetLabel', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'get_data_asset_properties', assetPath: '/Game/MCPTest/ContractDataAsset' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_data_asset_properties', assetPath: '/Game/MCPTest/ContractDataAsset', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_data_table', path: '/Game/MCPTest', name: 'ContractDataTable', rowStructPath: '/Script/Engine.TableRowBase', save: false }, expected: 'success|error' },

@@ -25,7 +25,7 @@ const VALID_ASSET_ACTIONS = new Set([
   'inspect_asset_capabilities',
   // Material operations
   'create_material', 'create_material_instance', 'create_render_target',
-  'create_data_asset', 'get_data_asset_properties', 'set_data_asset_properties',
+  'create_data_asset', 'create_primary_data_asset', 'get_data_asset_properties', 'set_data_asset_properties',
   'list_primary_assets', 'get_primary_asset',
   'create_data_table', 'add_data_table_row', 'modify_data_table_row', 'delete_data_table_row', 'get_data_table_rows',
   'create_curve_table', 'create_curve_float', 'create_curve_linear_color', 'replace_curve_keys', 'add_curve_table_row', 'get_curve_table_rows',

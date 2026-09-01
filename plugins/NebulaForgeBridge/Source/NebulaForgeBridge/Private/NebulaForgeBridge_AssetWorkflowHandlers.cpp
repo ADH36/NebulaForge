@@ -4044,6 +4044,31 @@ bool UNebulaForgeBridgeSubsystem::HandleDataAssetAction(
     if (!Path.IsEmpty() && !Name.IsEmpty()) AssetPath = Path + TEXT("/") + Name;
   }
 
+  if (Action == TEXT("create_primary_data_asset")) {
+    TSharedPtr<FJsonObject> PrimaryPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : Payload->Values)
+      PrimaryPayload->SetField(Pair.Key, Pair.Value);
+    FString ClassPath;
+    PrimaryPayload->TryGetStringField(TEXT("classPath"), ClassPath);
+    if (ClassPath.IsEmpty()) {
+      SendAutomationError(Socket, RequestId,
+                          TEXT("classPath must identify a concrete UPrimaryDataAsset subclass"),
+                          TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UClass *PrimaryClass = LoadClass<UPrimaryDataAsset>(nullptr, *ClassPath);
+    if (!PrimaryClass || !PrimaryClass->IsChildOf(UPrimaryDataAsset::StaticClass()) ||
+        PrimaryClass->HasAnyClassFlags(CLASS_Abstract)) {
+      SendAutomationError(Socket, RequestId,
+                          TEXT("classPath must resolve to a concrete UPrimaryDataAsset subclass"),
+                          TEXT("INVALID_CLASS"));
+      return true;
+    }
+    PrimaryPayload->SetStringField(TEXT("action"), TEXT("create_data_asset"));
+    PrimaryPayload->SetStringField(TEXT("classPath"), ClassPath);
+    return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), PrimaryPayload, Socket);
+  }
+
   if (Action == TEXT("create_data_asset")) {
     FString Name;
     FString Path;

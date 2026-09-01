@@ -27,7 +27,7 @@ const VALID_ASSET_ACTIONS = new Set([
   'create_material', 'create_material_instance', 'create_render_target',
   'create_data_asset', 'create_primary_data_asset', 'get_data_asset_properties', 'set_data_asset_properties',
   'list_primary_assets', 'get_primary_asset',
-  'create_data_table', 'add_data_table_row', 'modify_data_table_row', 'delete_data_table_row', 'get_data_table_rows',
+  'create_data_table', 'create_tag_table', 'add_data_table_row', 'modify_data_table_row', 'delete_data_table_row', 'get_data_table_rows',
   'create_curve_table', 'create_curve_float', 'create_curve_linear_color', 'replace_curve_keys', 'add_curve_table_row', 'get_curve_table_rows',
   'import_data_table_csv', 'export_data_table_csv',
   'import_curve_table_csv', 'export_curve_table_csv',
@@ -179,6 +179,14 @@ function automationFailureResponse(
 export async function handleAssetTools(action: string, args: HandlerArgs, tools: ITools): Promise<Record<string, unknown>> {
   try {
     switch (action) {
+      case 'create_tag_table': {
+        const result = await executeAutomationRequest(tools, 'manage_asset', {
+          ...args,
+          subAction: 'create_data_table',
+          rowStructPath: args.rowStructPath || '/Script/GameplayTags.GameplayTagTableRow'
+        });
+        return ResponseFactory.success(result, 'Gameplay Tag table created');
+      }
       case 'list': {
         // Route through C++ HandleListAssets for proper asset enumeration
         const params = normalizeArgs(args, [

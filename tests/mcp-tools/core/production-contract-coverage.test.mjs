@@ -9,6 +9,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'get_data_asset_properties', assetPath: '/Game/MCPTest/ContractDataAsset' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_data_asset_properties', assetPath: '/Game/MCPTest/ContractDataAsset', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_data_table', path: '/Game/MCPTest', name: 'ContractDataTable', rowStructPath: '/Script/Engine.TableRowBase', save: false }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'create_tag_table', path: '/Game/MCPTest', name: 'ContractTagTable', save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'add_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'modify_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'delete_data_table_row', assetPath: '/Game/MCPTest/ContractDataTable', rowName: 'ContractRow', save: false }, expected: 'success|error' },

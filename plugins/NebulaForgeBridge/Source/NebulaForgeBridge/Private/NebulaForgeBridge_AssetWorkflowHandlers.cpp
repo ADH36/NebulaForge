@@ -4226,13 +4226,14 @@ bool UNebulaForgeBridgeSubsystem::HandleDataTableAction(
     if (!Path.IsEmpty() && !Name.IsEmpty()) AssetPath = Path + TEXT("/") + Name;
   }
 
-  if (Action == TEXT("create_data_table")) {
+  if (Action == TEXT("create_data_table") || Action == TEXT("create_tag_table")) {
     FString Name;
     FString Path;
     FString RowStructPath;
     Payload->TryGetStringField(TEXT("name"), Name);
     Payload->TryGetStringField(TEXT("path"), Path);
     Payload->TryGetStringField(TEXT("rowStructPath"), RowStructPath);
+    if (Action == TEXT("create_tag_table") && RowStructPath.IsEmpty()) RowStructPath = TEXT("/Script/GameplayTags.GameplayTagTableRow");
     if (Name.IsEmpty() || Path.IsEmpty() || RowStructPath.IsEmpty()) {
       SendAutomationError(Socket, RequestId, TEXT("name, path, and rowStructPath are required"), TEXT("INVALID_ARGUMENT"));
       return true;

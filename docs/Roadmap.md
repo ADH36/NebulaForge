@@ -1662,9 +1662,9 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_hlod_layer`
 - [x] `configure_hlod_settings` (via `configure_hlod_layer`)
 - [x] `add_actors_to_hlod`, `build_hlod` (via `assign_hlod_layer` and `build_hlods`)
-- [ ] `configure_hlod_transition`
+- [x] `configure_hlod_transition` (HLOD layer loading-range/cell-size alias)
 
-**Implementation note:** World Partition HLOD layer creation, actor assignment, configuration, inspection, and managed rebuild/delete lifecycle are available through `manage_level_structure`; transition tuning remains project-specific.
+**Implementation note:** World Partition HLOD layer creation, actor assignment, configuration, inspection, and managed rebuild/delete lifecycle are available through `manage_level_structure`; `configure_hlod_transition` aliases the layer's engine-backed loading range and cell size settings.
 
 ### 35.8 Localization
 - [x] `create_string_table`

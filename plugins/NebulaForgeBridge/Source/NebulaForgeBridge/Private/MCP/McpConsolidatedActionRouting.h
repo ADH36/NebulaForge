@@ -669,7 +669,7 @@ inline const TArray<FString>& ManageLevelStructureCore()
 		TEXT("configure_level_bounds"), TEXT("enable_world_partition"),
 		TEXT("get_wp_cell_status"), TEXT("load_cells"), TEXT("pin_wp_cells"), TEXT("unpin_wp_cells"), TEXT("unload_cells"),
 		TEXT("configure_grid_size"), TEXT("create_data_layer"),
-		TEXT("assign_actor_to_data_layer"), TEXT("configure_hlod_layer"),
+		TEXT("assign_actor_to_data_layer"), TEXT("configure_hlod_layer"), TEXT("configure_hlod_transition"),
 		TEXT("create_hlod_layer"), TEXT("list_hlod_layers"),
 		TEXT("inspect_hlod_layer"), TEXT("assign_hlod_layer"),
 		TEXT("remove_hlod_layer"), TEXT("report_missing_hlod_assignments"),

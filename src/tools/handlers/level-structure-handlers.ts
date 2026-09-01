@@ -133,7 +133,8 @@ export async function handleLevelStructureTools(
       return sendRequest('assign_actor_to_data_layer');
 
     case 'configure_hlod_layer':
-      return sendRequest('configure_hlod_layer');
+    case 'configure_hlod_transition':
+      return sendRequest('configure_hlod_layer', action === 'configure_hlod_transition' ? { subAction: 'configure_hlod_layer' } : undefined);
 
     case 'create_hlod_layer':
     case 'list_hlod_layers':

@@ -4202,7 +4202,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageLevelStructureAction(
     {
         bHandled = HandleAssignActorToDataLayer(this, RequestId, Payload, Socket);
     }
-    else if (SubAction == TEXT("configure_hlod_layer"))
+    else if (SubAction == TEXT("configure_hlod_layer") || SubAction == TEXT("configure_hlod_transition"))
     {
         bHandled = HandleConfigureHlodLayer(this, RequestId, Payload, Socket);
     }

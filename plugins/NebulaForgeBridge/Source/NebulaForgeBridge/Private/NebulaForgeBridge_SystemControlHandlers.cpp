@@ -1476,6 +1476,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("set_variant_dependencies") &&
       Lower != TEXT("activate_variant") &&
       Lower != TEXT("get_active_variants") &&
+      Lower != TEXT("capture_variant_thumbnail") &&
+      Lower != TEXT("set_variant_thumbnail") &&
       Lower != TEXT("add_geometry_to_collection") &&
       Lower != TEXT("remove_geometry_from_collection") &&
       Lower != TEXT("configure_geometry_collection") &&
@@ -3273,6 +3275,8 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("set_variant_dependencies") ||
              Lower == TEXT("activate_variant") ||
              Lower == TEXT("get_active_variants") ||
+             Lower == TEXT("capture_variant_thumbnail") ||
+             Lower == TEXT("set_variant_thumbnail") ||
              Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection") ||
              Lower == TEXT("configure_geometry_collection") ||
              Lower == TEXT("inspect_geometry_collection") ||
@@ -3687,6 +3691,67 @@ FMessageLog LogListing{FName(*Category)};
           "    _sets.append({'name': _set.get_display_text().to_string(), 'variants': _variants})\n"
           "print(json.dumps({'assetPath': _lvs.get_path_name(), 'variantSets': _sets}, sort_keys=True))\n"),
           *PythonAssetPath);
+    }
+
+    if (Lower == TEXT("capture_variant_thumbnail") || Lower == TEXT("set_variant_thumbnail")) {
+      FString AssetPath;
+      FString VariantSetName;
+      FString VariantName;
+      FString ThumbnailSource = Lower == TEXT("capture_variant_thumbnail") ? TEXT("editor_viewport") : TEXT("");
+      FString ThumbnailPath;
+      Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+      Payload->TryGetStringField(TEXT("variantSetName"), VariantSetName);
+      Payload->TryGetStringField(TEXT("variantName"), VariantName);
+      Payload->TryGetStringField(TEXT("thumbnailSource"), ThumbnailSource);
+      Payload->TryGetStringField(TEXT("thumbnailPath"), ThumbnailPath);
+      const FString SafeAssetPath = SanitizeProjectRelativePath(AssetPath);
+      VariantSetName = VariantSetName.TrimStartAndEnd();
+      VariantName = VariantName.TrimStartAndEnd();
+      if (SafeAssetPath.IsEmpty() || !SafeAssetPath.StartsWith(TEXT("/Game/"), ESearchCase::IgnoreCase) ||
+          VariantSetName.IsEmpty() || VariantName.IsEmpty() || VariantSetName.Len() > 128 || VariantName.Len() > 128) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("Variant thumbnail actions require a valid /Game asset path and named variant set/variant"),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      ThumbnailSource = ThumbnailSource.TrimStartAndEnd().ToLower();
+      if (ThumbnailSource != TEXT("editor_viewport") && ThumbnailSource != TEXT("file")) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("thumbnailSource must be editor_viewport or file"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString AbsoluteThumbnailPath;
+      if (ThumbnailSource == TEXT("file")) {
+        const FString SafeThumbnailPath = SanitizeProjectFilePath(ThumbnailPath);
+        if (SafeThumbnailPath.IsEmpty() || !FPaths::FileExists(FPaths::ProjectDir() / SafeThumbnailPath)) {
+          SendAutomationError(RequestingSocket, RequestId,
+                              TEXT("thumbnailPath must be an existing project-confined image file"), TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        AbsoluteThumbnailPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / SafeThumbnailPath);
+        AbsoluteThumbnailPath.ReplaceInline(TEXT("\\"), TEXT("/"));
+      }
+      FString PythonAssetPath = SafeAssetPath;
+      PythonAssetPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantSetName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      VariantName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      AbsoluteThumbnailPath.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import unreal\n"
+          "_lvs = unreal.EditorAssetLibrary.load_asset('%s')\n"
+          "if not _lvs:\n"
+          "    raise RuntimeError('Level Variant Sets asset not found')\n"
+          "_variant_set = _lvs.get_variant_set_by_name('%s')\n"
+          "_variant = _variant_set.get_variant_by_name('%s') if _variant_set else None\n"
+          "if not _variant:\n"
+          "    raise RuntimeError('Variant set or variant not found')\n"
+          "if '%s' == 'file':\n"
+          "    _variant.set_thumbnail_from_file('%s')\n"
+          "else:\n"
+          "    _variant.set_thumbnail_from_editor_viewport()\n"
+          "unreal.EditorAssetLibrary.save_asset(_lvs.get_path_name())\n"
+          "print(_variant.get_display_text().to_string())\n"),
+          *PythonAssetPath, *VariantSetName, *VariantName, *ThumbnailSource, *AbsoluteThumbnailPath);
     }
 
     if (Lower == TEXT("add_geometry_to_collection") || Lower == TEXT("remove_geometry_from_collection")) {

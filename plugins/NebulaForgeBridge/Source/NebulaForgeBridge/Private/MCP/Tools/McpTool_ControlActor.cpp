@@ -24,6 +24,8 @@ public:
 			.StringEnum(TEXT("action"), {
 				TEXT("spawn"),
 				TEXT("spawn_actor"),
+				TEXT("spawn_paper_sprite_actor"),
+				TEXT("spawn_paper_flipbook_actor"),
 				TEXT("spawn_blueprint"),
 				TEXT("delete"),
 				TEXT("destroy_actor"),
@@ -118,6 +120,7 @@ public:
 			.String(TEXT("actorClass"), TEXT("Actor class alias or path."))
 			.String(TEXT("className"), TEXT("Actor class name."))
 			.String(TEXT("meshPath"), TEXT("Mesh asset path."))
+			.String(TEXT("paperAssetPath"), TEXT("Paper2D sprite or flipbook asset path."))
 			.String(TEXT("materialPath"), TEXT("Material asset path."))
 			.Integer(TEXT("materialSlot"), TEXT("Material slot index."))
 			.Integer(TEXT("materialIndex"), TEXT("Material slot index alias."))

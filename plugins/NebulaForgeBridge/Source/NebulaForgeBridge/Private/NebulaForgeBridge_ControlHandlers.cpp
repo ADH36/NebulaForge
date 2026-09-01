@@ -114,6 +114,15 @@
 #else
 #define MCP_HAS_TAKE_RECORDER 0
 #endif
+#if __has_include("PaperSpriteActor.h") && __has_include("PaperFlipbookActor.h") && __has_include("PaperSpriteComponent.h") && __has_include("PaperFlipbookComponent.h")
+#include "PaperSpriteActor.h"
+#include "PaperFlipbookActor.h"
+#include "PaperSpriteComponent.h"
+#include "PaperFlipbookComponent.h"
+#define MCP_HAS_PAPER2D 1
+#else
+#define MCP_HAS_PAPER2D 0
+#endif
 
 // -----------------------------------------------------------------------------
 // Editor-only Includes: Editor Subsystems (paths vary by UE version)
@@ -1042,6 +1051,15 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorSpawn(
 #if WITH_EDITOR
   FString ClassPath;
   Payload->TryGetStringField(TEXT("classPath"), ClassPath);
+#if MCP_HAS_PAPER2D
+  FString RequestedAction;
+  Payload->TryGetStringField(TEXT("action"), RequestedAction);
+  RequestedAction = RequestedAction.ToLower();
+  if (RequestedAction == TEXT("spawn_paper_sprite_actor"))
+    ClassPath = TEXT("/Script/Paper2D.PaperSpriteActor");
+  else if (RequestedAction == TEXT("spawn_paper_flipbook_actor"))
+    ClassPath = TEXT("/Script/Paper2D.PaperFlipbookActor");
+#endif
   FString ActorName;
   Payload->TryGetStringField(TEXT("actorName"), ActorName);
   FVector Location =
@@ -1218,6 +1236,40 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorSpawn(
     }
     Spawned->SetActorLabel(BaseName);
   }
+
+#if MCP_HAS_PAPER2D
+  const FString PaperAssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("paperAssetPath")));
+  if (!PaperAssetPath.IsEmpty()) {
+    UObject* PaperAsset = UEditorAssetLibrary::LoadAsset(PaperAssetPath);
+    bool bAppliedPaperAsset = false;
+    if (RequestedAction == TEXT("spawn_paper_sprite_actor")) {
+      if (UPaperSprite* Sprite = Cast<UPaperSprite>(PaperAsset)) {
+        for (UActorComponent* Component : Spawned->GetComponents()) {
+          if (UPaperSpriteComponent* SpriteComponent = Cast<UPaperSpriteComponent>(Component)) {
+            SpriteComponent->SetSprite(Sprite);
+            bAppliedPaperAsset = true;
+            break;
+          }
+        }
+      }
+    } else if (RequestedAction == TEXT("spawn_paper_flipbook_actor")) {
+      if (UPaperFlipbook* Flipbook = Cast<UPaperFlipbook>(PaperAsset)) {
+        for (UActorComponent* Component : Spawned->GetComponents()) {
+          if (UPaperFlipbookComponent* FlipbookComponent = Cast<UPaperFlipbookComponent>(Component)) {
+            FlipbookComponent->SetFlipbook(Flipbook);
+            bAppliedPaperAsset = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!bAppliedPaperAsset) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("PAPER_ASSET_NOT_APPLIED"),
+                                TEXT("The Paper2D asset was not found or did not match the requested actor component"));
+      return true;
+    }
+  }
+#endif
 
   // Build response matching the outputWithActor schema:
   // { actor: { id, name, path }, actorPath, classPath?, meshPath? }
@@ -4070,8 +4122,20 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return true;
   }
 
-  if (LowerSub == TEXT("spawn") || LowerSub == TEXT("spawn_actor"))
+  if (LowerSub == TEXT("spawn") || LowerSub == TEXT("spawn_actor") ||
+      LowerSub == TEXT("spawn_paper_sprite_actor") || LowerSub == TEXT("spawn_paper_flipbook_actor"))
+#if MCP_HAS_PAPER2D
     return HandleControlActorSpawn(RequestId, Payload, RequestingSocket);
+#else
+  {
+    if (LowerSub == TEXT("spawn_paper_sprite_actor") || LowerSub == TEXT("spawn_paper_flipbook_actor")) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_SUPPORTED"),
+                                TEXT("Paper2D plugin is required for Paper2D actor spawning"));
+      return true;
+    }
+    return HandleControlActorSpawn(RequestId, Payload, RequestingSocket);
+  }
+#endif
   if (LowerSub == TEXT("spawn_blueprint"))
     return HandleControlActorSpawnBlueprint(RequestId, Payload,
                                             RequestingSocket);

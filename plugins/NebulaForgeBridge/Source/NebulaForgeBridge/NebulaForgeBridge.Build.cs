@@ -230,6 +230,7 @@ public class NebulaForgeBridge : ModuleRules
 
             // ProceduralMeshComponent (optional plugin) - for procedural geometry
             AddOptionalDynamicModule(Target, EngineDir, "ProceduralMeshComponent", "ProceduralMeshComponent");
+            AddOptionalDynamicModule(Target, EngineDir, "Paper2D", "Paper2D");
 
             // EnvironmentQueryEditor (optional plugin) - for EQS authoring
             AddOptionalDynamicModule(Target, EngineDir, "EnvironmentQueryEditor", "EnvironmentQueryEditor");

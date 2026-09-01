@@ -1441,7 +1441,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_ios_build` (safe iOS target-settings INI authoring)
 - [ ] `configure_ios_signing` (provisioning profile, bundle ID; requires Apple signing credentials/SDK)
 - [x] `configure_android_build` (safe Android target-settings INI authoring)
-- [ ] `configure_android_signing` (keystore, package name; requires Android signing credentials/SDK)
+- [x] `configure_android_signing` (writes Epic-documented Android package/signing settings to `AndroidRuntimeSettings`; keystore generation, credentials, and SDK remain external prerequisites)
 
 > **Note**: Console builds (PlayStation, Xbox, Switch) require external SDK installation and platform portal registration BEFORE the project can be opened. Once SDKs are installed, MCP can configure build settings within the project.
 

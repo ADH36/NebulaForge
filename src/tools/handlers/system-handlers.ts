@@ -366,6 +366,32 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       const section = typeof record.section === 'string' && record.section.trim() ? record.section : defaults.section;
       return setConfigValue(argsTyped.projectPath, configName, section, record.key, record.value, record.backup !== false);
     }
+    case 'configure_android_signing': {
+      const record = argsTyped as Record<string, unknown>;
+      const packageName = typeof record.packageName === 'string' ? record.packageName.trim() : '';
+      const keyStore = typeof record.keyStore === 'string' ? record.keyStore.trim() : '';
+      const keyAlias = typeof record.keyAlias === 'string' ? record.keyAlias.trim() : '';
+      const keyStorePassword = typeof record.keyStorePassword === 'string' ? record.keyStorePassword : '';
+      const keyPassword = typeof record.keyPassword === 'string' ? record.keyPassword : '';
+      if (!/^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName) || !keyStore || !keyAlias || !keyStorePassword) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'packageName, keyStore, keyAlias, and keyStorePassword are required; packageName must be a valid Android application ID' };
+      }
+      if (keyStore.includes('\\') || keyStore.includes('/') || keyStore.includes('..')) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'keyStore must be a filename under Build/Android' };
+      }
+      const configName = typeof record.configName === 'string' && record.configName.trim() ? record.configName : 'DefaultEngine.ini';
+      const section = '/Script/AndroidRuntimeSettings.AndroidRuntimeSettings';
+      const backup = record.backup !== false;
+      const settings: Array<[string, string]> = [
+        ['AndroidPackageName', packageName], ['KeyStore', keyStore], ['KeyAlias', keyAlias], ['KeyStorePassword', keyStorePassword]
+      ];
+      if (keyPassword) settings.push(['KeyPassword', keyPassword]);
+      for (const [key, value] of settings) {
+        const result = await setConfigValue(argsTyped.projectPath, configName, section, key, value, backup);
+        if (result.success === false) return result;
+      }
+      return { success: true, message: 'Android signing settings configured', configName, section, packageName, keyStore, keyAlias, keyPasswordConfigured: Boolean(keyPassword) };
+    }
     case 'configure_test_settings': {
       const record = argsTyped as Record<string, unknown>;
       if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {

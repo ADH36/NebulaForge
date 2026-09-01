@@ -325,6 +325,17 @@ bool UNebulaForgeBridgeSubsystem::HandleInputAction(
     }
 
 #if WITH_EDITOR
+    auto SaveInputAsset = [&](UObject* Asset) -> bool
+    {
+        if (SaveLoadedAssetThrottled(Asset, -1.0, true))
+        {
+            return true;
+        }
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("Enhanced Input asset was changed but save failed."), TEXT("SAVE_FAILED"));
+        return false;
+    };
+
     // Validate payload
     if (!Payload.IsValid())
     {
@@ -533,7 +544,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInputAction(
                 NewAction->ValueType = ValueType;
                 NewAction->PostEditChange();
             }
-            SaveLoadedAssetThrottled(NewAsset, -1.0, true);
+            if (!SaveInputAsset(NewAsset)) return true;
 
             TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
             Result->SetStringField(TEXT("assetPath"), NewAsset->GetPathName());
@@ -582,7 +593,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInputAction(
         InAction->Modify();
         InAction->ValueType = ValueType;
         InAction->PostEditChange();
-        SaveLoadedAssetThrottled(InAction, -1.0, true);
+        if (!SaveInputAsset(InAction)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("actionPath"), SanitizedActionPath);
@@ -659,7 +670,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInputAction(
 
         if (NewAsset)
         {
-            SaveLoadedAssetThrottled(NewAsset, -1.0, true);
+            if (!SaveInputAsset(NewAsset)) return true;
 
             TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
             Result->SetStringField(TEXT("assetPath"), NewAsset->GetPathName());
@@ -719,7 +730,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInputAction(
         {
             Context->MapKey(InAction, Key);
         }
-        SaveLoadedAssetThrottled(Context, -1.0, true);
+        if (!SaveInputAsset(Context)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("contextPath"), SanitizedContextPath);
@@ -804,7 +815,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInputAction(
             Context->UnmapKey(InAction, KeyToRemove);
         }
 
-        SaveLoadedAssetThrottled(Context, -1.0, true);
+        if (!SaveInputAsset(Context)) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("contextPath"), SanitizedContextPath);
@@ -997,7 +1008,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInputAction(
             SetNumberIfPresent(Payload, TEXT("tapTime"), TapTrigger->TapReleaseTimeThreshold);
         }
 
-        SaveLoadedAssetThrottled(TargetMapping ? static_cast<UObject*>(TargetContext) : static_cast<UObject*>(InAction), -1.0, true);
+        if (!SaveInputAsset(TargetMapping ? static_cast<UObject*>(TargetContext) : static_cast<UObject*>(InAction))) return true;
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetStringField(TEXT("actionPath"), SanitizedActionPath);
@@ -1164,14 +1175,14 @@ bool UNebulaForgeBridgeSubsystem::HandleInputAction(
             const FScopedTransaction Transaction(FText::FromString(TEXT("Configure Enhanced Input Mapping Modifier")));
             Context->Modify();
             TargetMapping->Modifiers.Add(NewModifier);
-            SaveLoadedAssetThrottled(Context, -1.0, true);
+            if (!SaveInputAsset(Context)) return true;
         }
         else
         {
             const FScopedTransaction Transaction(FText::FromString(TEXT("Configure Enhanced Input Action Modifier")));
             InAction->Modify();
             InAction->Modifiers.Add(NewModifier);
-            SaveLoadedAssetThrottled(InAction, -1.0, true);
+            if (!SaveInputAsset(InAction)) return true;
         }
 
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

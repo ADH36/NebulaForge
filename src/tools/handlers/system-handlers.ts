@@ -392,6 +392,23 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       }
       return { success: true, message: 'Android signing settings configured', configName, section, packageName, keyStore, keyAlias, keyPasswordConfigured: Boolean(keyPassword) };
     }
+    case 'configure_ios_signing': {
+      const record = argsTyped as Record<string, unknown>;
+      const bundleIdentifier = typeof record.bundleIdentifier === 'string' ? record.bundleIdentifier.trim() : '';
+      const mobileProvision = typeof record.mobileProvision === 'string' ? record.mobileProvision.trim() : '';
+      const signingCertificate = typeof record.signingCertificate === 'string' ? record.signingCertificate.trim() : '';
+      if (!/^[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z0-9-]+)+$/.test(bundleIdentifier) || !mobileProvision || !signingCertificate) {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'bundleIdentifier, mobileProvision, and signingCertificate are required; bundleIdentifier must be a valid reverse-domain identifier' };
+      }
+      const configName = typeof record.configName === 'string' && record.configName.trim() ? record.configName : 'DefaultEngine.ini';
+      const section = '/Script/IOSRuntimeSettings.IOSRuntimeSettings';
+      const backup = record.backup !== false;
+      for (const [key, value] of [['BundleIdentifier', bundleIdentifier], ['MobileProvision', mobileProvision], ['SigningCertificate', signingCertificate]] as const) {
+        const result = await setConfigValue(argsTyped.projectPath, configName, section, key, value, backup);
+        if (result.success === false) return result;
+      }
+      return { success: true, message: 'iOS signing settings configured', configName, section, bundleIdentifier, mobileProvision, signingCertificate };
+    }
     case 'configure_test_settings': {
       const record = argsTyped as Record<string, unknown>;
       if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {

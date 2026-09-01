@@ -1917,7 +1917,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'configure_python_paths', 'list_python_packages', 'create_editor_utility_widget', 'create_editor_utility_blueprint', 'create_python_editor_utility', 'create_geometry_collection', 'add_geometry_to_collection', 'remove_geometry_from_collection', 'configure_geometry_collection', 'inspect_geometry_collection', 'configure_geometry_collection_component', 'create_variant_set', 'add_variant', 'configure_variant_properties', 'set_variant_dependencies', 'activate_variant', 'get_active_variants', 'capture_variant_thumbnail', 'set_variant_thumbnail', 'export_variant_configuration', 'get_ui_scale', 'set_ui_scale', 'configure_screen_reader_support', 'announce_accessible_string', 'set_screen_reader_text', 'register_python_command', 'unregister_python_command', 'run_editor_utility', 'inspect_editor_utility', 'release_gate'
           ,
-            'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'configure_plugin_settings', 'configure_windows_build', 'configure_linux_build', 'configure_mac_build', 'configure_ios_build', 'configure_android_build', 'configure_android_signing', 'configure_chunking', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'configure_localization_target', 'import_localization', 'export_localization', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
+            'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'configure_plugin_settings', 'configure_windows_build', 'configure_linux_build', 'configure_mac_build', 'configure_ios_build', 'configure_android_build', 'configure_android_signing', 'configure_ios_signing', 'configure_chunking', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'configure_localization_target', 'import_localization', 'export_localization', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
           description: 'Action'
         },
@@ -2014,6 +2014,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         keyAlias: commonSchemas.stringProp,
         keyStorePassword: { type: 'string', minLength: 1, description: 'Android keystore password; stored in project config.' },
         keyPassword: { type: 'string', minLength: 1, description: 'Optional Android key password; stored in project config.' },
+        bundleIdentifier: { type: 'string', pattern: '^[A-Za-z][A-Za-z0-9-]*(\\.[A-Za-z0-9-]+)+$', description: 'iOS bundle identifier for configure_ios_signing.' },
+        mobileProvision: commonSchemas.stringProp,
+        signingCertificate: commonSchemas.stringProp,
         deviceId: commonSchemas.stringProp,
         maxAssets: commonSchemas.numberProp,
         saveAfterCompile: commonSchemas.booleanProp,

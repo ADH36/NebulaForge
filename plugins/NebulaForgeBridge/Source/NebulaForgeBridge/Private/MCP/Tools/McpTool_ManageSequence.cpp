@@ -33,6 +33,7 @@ public:
 				TEXT("inspect_shot_settings"),
 				TEXT("add_audio_track"),
 				TEXT("add_material_parameter_track"),
+				TEXT("add_material_color_track"),
 				TEXT("add_camera_cut_track"),
 				TEXT("add_camera_shake_track"),
 				TEXT("add_fade_track"),
@@ -123,6 +124,10 @@ public:
 			.Bool(TEXT("looping"), TEXT("Repeat the sound when the section is longer than its natural duration."))
 			.Bool(TEXT("playUntilFinished"), TEXT("Play through the sound's full duration past the section end."))
 			.String(TEXT("parameterName"), TEXT("Scalar material parameter name to key."))
+			.Number(TEXT("colorR"), TEXT("Red channel for a material color key."))
+			.Number(TEXT("colorG"), TEXT("Green channel for a material color key."))
+			.Number(TEXT("colorB"), TEXT("Blue channel for a material color key."))
+			.Number(TEXT("colorA"), TEXT("Alpha channel for a material color key."))
 			.Number(TEXT("rowIndex"), TEXT("Optional subsequence track row."))
 			.String(TEXT("outputPath"), TEXT("Project-relative Movie Render Queue output directory."))
 			.String(TEXT("mrqJobId"), TEXT("Movie Render Queue job identifier."))

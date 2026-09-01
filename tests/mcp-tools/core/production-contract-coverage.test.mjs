@@ -148,6 +148,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_sequence', arguments: { action: 'inspect_shot_settings', path: '/Game/MCPTest/ContractSequence', shotIndex: 0 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'add_audio_track', path: '/Game/MCPTest/ContractSequence', soundPath: '/Game/MCPTest/ContractSound', frame: 0, durationFrames: 60, rowIndex: 0 }, expected: 'success|error' },
   { toolName: 'manage_sequence', arguments: { action: 'add_material_parameter_track', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', parameterName: 'Roughness', frame: 0, value: 0.5, rowIndex: 0 }, expected: 'success|error' },
+  { toolName: 'manage_sequence', arguments: { action: 'add_material_color_track', path: '/Game/MCPTest/ContractSequence', actorName: 'ContractActor', parameterName: 'Tint', frame: 0, colorR: 1, colorG: 0.5, colorB: 0.25, colorA: 1, rowIndex: 0 }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'start_demo_recording', filename: 'ContractDemoAlias' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'stop_demo_recording' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'inspect_asset_capabilities', assetPath: '/Game/MCPTest/ContractDataAsset' }, expected: 'success|error' },

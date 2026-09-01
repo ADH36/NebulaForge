@@ -2918,6 +2918,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
       else if (EffectiveAction == TEXT("add_shot_track") ||
                EffectiveAction == TEXT("add_audio_track") ||
                EffectiveAction == TEXT("add_material_parameter_track") ||
+               EffectiveAction == TEXT("add_material_color_track") ||
                EffectiveAction == TEXT("add_camera_cut_track") ||
                EffectiveAction == TEXT("add_camera_shake_track") ||
                EffectiveAction == TEXT("add_fade_track") ||
@@ -2931,6 +2932,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
         if (EffectiveAction == TEXT("add_shot_track")) TrackType = TEXT("CinematicShot");
         else if (EffectiveAction == TEXT("add_audio_track")) TrackType = TEXT("Audio");
         else if (EffectiveAction == TEXT("add_material_parameter_track")) TrackType = TEXT("Material");
+        else if (EffectiveAction == TEXT("add_material_color_track")) TrackType = TEXT("Material");
         else if (EffectiveAction == TEXT("add_camera_cut_track")) TrackType = TEXT("CameraCut");
         else if (EffectiveAction == TEXT("add_camera_shake_track")) TrackType = TEXT("CameraShake");
         else if (EffectiveAction == TEXT("add_fade_track")) TrackType = TEXT("Fade");
@@ -2946,6 +2948,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
           EffectiveAction = TEXT("sequence_add_audio_track");
         else if (EffectiveAction == TEXT("add_material_parameter_track"))
           EffectiveAction = TEXT("sequence_add_material_parameter_track");
+        else if (EffectiveAction == TEXT("add_material_color_track"))
+          EffectiveAction = TEXT("sequence_add_material_color_track");
         else
           EffectiveAction = TEXT("sequence_add_track");
       }
@@ -3277,21 +3281,33 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     return true;
   }
 
-  if (EffectiveAction == TEXT("sequence_add_material_parameter_track")) {
+  if (EffectiveAction == TEXT("sequence_add_material_parameter_track") ||
+      EffectiveAction == TEXT("sequence_add_material_color_track")) {
     const FString SeqPath = ResolveSequencePath(LocalPayload);
     FString ActorName;
     FString ParameterName;
     int32 Frame = 0;
     int32 RowIndex = 0;
     double Value = 0.0;
+    double ColorR = 0.0, ColorG = 0.0, ColorB = 0.0, ColorA = 1.0;
     if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("actorName"), ActorName) || ActorName.IsEmpty() ||
         !LocalPayload->TryGetStringField(TEXT("parameterName"), ParameterName) || ParameterName.IsEmpty() ||
-        !LocalPayload->TryGetNumberField(TEXT("value"), Value)) {
+        (EffectiveAction == TEXT("sequence_add_material_parameter_track") && !LocalPayload->TryGetNumberField(TEXT("value"), Value))) {
       SendAutomationError(RequestingSocket, RequestId, TEXT("path, actorName, parameterName, and value are required"), TEXT("INVALID_ARGUMENT"));
       return true;
     }
     LocalPayload->TryGetNumberField(TEXT("frame"), Frame);
     LocalPayload->TryGetNumberField(TEXT("rowIndex"), RowIndex);
+    if (EffectiveAction == TEXT("sequence_add_material_color_track")) {
+      LocalPayload->TryGetNumberField(TEXT("colorR"), ColorR);
+      LocalPayload->TryGetNumberField(TEXT("colorG"), ColorG);
+      LocalPayload->TryGetNumberField(TEXT("colorB"), ColorB);
+      LocalPayload->TryGetNumberField(TEXT("colorA"), ColorA);
+      if (!FMath::IsFinite(ColorR) || !FMath::IsFinite(ColorG) || !FMath::IsFinite(ColorB) || !FMath::IsFinite(ColorA)) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("color channels must be finite numbers"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+    }
     if (Frame < -1000000000 || Frame > 1000000000 || RowIndex < 0 || RowIndex > 100000 || !FMath::IsFinite(Value)) {
       SendAutomationError(RequestingSocket, RequestId, TEXT("frame, rowIndex, and value are outside the supported range"), TEXT("INVALID_ARGUMENT"));
       return true;
@@ -3322,7 +3338,12 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
       SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create component material track"), TEXT("TRACK_CREATION_FAILED"));
       return true;
     }
-    MaterialTrack->AddScalarParameterKey(FName(*ParameterName), FFrameNumber(Frame), RowIndex, static_cast<float>(Value), RCIM_Linear);
+    if (EffectiveAction == TEXT("sequence_add_material_color_track")) {
+      MaterialTrack->AddColorParameterKey(FName(*ParameterName), FFrameNumber(Frame), RowIndex,
+          FLinearColor(static_cast<float>(ColorR), static_cast<float>(ColorG), static_cast<float>(ColorB), static_cast<float>(ColorA)), RCIM_Linear);
+    } else {
+      MaterialTrack->AddScalarParameterKey(FName(*ParameterName), FFrameNumber(Frame), RowIndex, static_cast<float>(Value), RCIM_Linear);
+    }
     Sequence->MarkPackageDirty();
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("sequencePath"), SeqPath);
@@ -3330,6 +3351,12 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     Result->SetStringField(TEXT("parameterName"), ParameterName);
     Result->SetNumberField(TEXT("frame"), Frame);
     Result->SetNumberField(TEXT("value"), Value);
+    if (EffectiveAction == TEXT("sequence_add_material_color_track")) {
+      Result->SetNumberField(TEXT("colorR"), ColorR);
+      Result->SetNumberField(TEXT("colorG"), ColorG);
+      Result->SetNumberField(TEXT("colorB"), ColorB);
+      Result->SetNumberField(TEXT("colorA"), ColorA);
+    }
     Result->SetNumberField(TEXT("rowIndex"), RowIndex);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Material parameter key added"), Result);
     return true;

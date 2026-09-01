@@ -338,6 +338,13 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       }
       return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
     }
+    case 'configure_plugin_settings': {
+      const record = argsTyped as Record<string, unknown>;
+      if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {
+        return { success: false, error: 'INVALID_ARGUMENT', message: 'configName, section, key, and string value are required' };
+      }
+      return setConfigValue(argsTyped.projectPath, record.configName, record.section, record.key, record.value, record.backup !== false);
+    }
     case 'configure_test_settings': {
       const record = argsTyped as Record<string, unknown>;
       if (typeof record.configName !== 'string' || typeof record.section !== 'string' || typeof record.key !== 'string' || typeof record.value !== 'string') {

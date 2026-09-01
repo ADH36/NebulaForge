@@ -80,6 +80,9 @@
 #if __has_include("NiagaraDataInterface.h")
 #include "NiagaraDataInterface.h"
 #endif
+#if __has_include("NiagaraDataInterfaceArrayFunctionLibrary.h")
+#include "NiagaraDataInterfaceArrayFunctionLibrary.h"
+#endif
 #if __has_include("NiagaraSimulationStageBase.h")
 #include "NiagaraSimulationStageBase.h"
 #endif
@@ -1118,7 +1121,59 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
         }
         bComponentFound = true;
 
-        if (ParameterType.Equals(TEXT("Float"), ESearchCase::IgnoreCase)) {
+        if (ParameterType.Equals(TEXT("FloatArray"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("ArrayFloat"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("IntArray"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("Int32Array"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("ArrayInt32"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("QuaternionArray"), ESearchCase::IgnoreCase)) {
+          const TArray<TSharedPtr<FJsonValue>> *ArrayValue = nullptr;
+          bool bValidArray = LocalPayload->TryGetArrayField(TEXT("value"), ArrayValue) && ArrayValue;
+          if (bValidArray && ParameterType.Contains(TEXT("Float"), ESearchCase::IgnoreCase)) {
+            TArray<float> Values;
+            for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
+              if (!Entry.IsValid() || Entry->Type != EJson::Number || !FMath::IsFinite(Entry->AsNumber())) { bValidArray = false; break; }
+              Values.Add(static_cast<float>(Entry->AsNumber()));
+            }
+            if (bValidArray) { UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(NiComp, ParamName, Values); bApplied = true; }
+          } else if (bValidArray && ParameterType.Contains(TEXT("Int"), ESearchCase::IgnoreCase)) {
+            TArray<int32> Values;
+            for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
+              const double Number = Entry.IsValid() && Entry->Type == EJson::Number ? Entry->AsNumber() : 0.0;
+              if (!Entry.IsValid() || Entry->Type != EJson::Number || !FMath::IsFinite(Number) || !FMath::IsNearlyEqual(Number, FMath::RoundToDouble(Number)) || Number < MIN_int32 || Number > MAX_int32) { bValidArray = false; break; }
+              Values.Add(static_cast<int32>(Number));
+            }
+            if (bValidArray) { UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayInt32(NiComp, ParamName, Values); bApplied = true; }
+          } else if (bValidArray && (ParameterType.Contains(TEXT("Vector2"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Vector4"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase))) {
+            TArray<FVector> VectorValues;
+            TArray<FVector2D> Vector2Values;
+            TArray<FVector4> Vector4Values;
+            TArray<FQuat> QuatValues;
+            for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
+              const TArray<TSharedPtr<FJsonValue>> *Components = nullptr;
+              if (!Entry.IsValid() || !Entry->TryGetArray(Components) || !Components) { bValidArray = false; break; }
+              const int32 Required = ParameterType.Contains(TEXT("Vector2"), ESearchCase::IgnoreCase) ? 2 : (ParameterType.Contains(TEXT("Vector4"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase) ? 4 : 3);
+              if (Components->Num() < Required) { bValidArray = false; break; }
+              double Values[4] = {0, 0, 0, ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase) ? 1.0 : 0.0};
+              for (int32 Index = 0; Index < Required; ++Index) { if (!(*Components)[Index].IsValid() || (*Components)[Index]->Type != EJson::Number || !FMath::IsFinite((*Components)[Index]->AsNumber())) { bValidArray = false; break; } Values[Index] = (*Components)[Index]->AsNumber(); }
+              if (!bValidArray) break;
+              if (ParameterType.Contains(TEXT("Vector2"), ESearchCase::IgnoreCase)) Vector2Values.Add(FVector2D(static_cast<float>(Values[0]), static_cast<float>(Values[1])));
+              else if (ParameterType.Contains(TEXT("Vector4"), ESearchCase::IgnoreCase)) Vector4Values.Add(FVector4(static_cast<float>(Values[0]), static_cast<float>(Values[1]), static_cast<float>(Values[2]), static_cast<float>(Values[3])));
+              else if (ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase)) QuatValues.Add(FQuat(static_cast<float>(Values[0]), static_cast<float>(Values[1]), static_cast<float>(Values[2]), static_cast<float>(Values[3])));
+              else VectorValues.Add(FVector(static_cast<float>(Values[0]), static_cast<float>(Values[1]), static_cast<float>(Values[2])));
+            }
+            if (bValidArray) {
+              if (ParameterType.Contains(TEXT("Vector2"), ESearchCase::IgnoreCase)) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVector2D(NiComp, ParamName, Vector2Values);
+              else if (ParameterType.Contains(TEXT("Vector4"), ESearchCase::IgnoreCase)) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVector4(NiComp, ParamName, Vector4Values);
+              else if (ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase)) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayQuat(NiComp, ParamName, QuatValues);
+              else UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVector(NiComp, ParamName, VectorValues);
+              bApplied = true;
+            }
+          }
+        } else if (ParameterType.Equals(TEXT("Float"), ESearchCase::IgnoreCase)) {
           double NumberValue = 0.0;
           bool bHasNumber =
               LocalPayload->TryGetNumberField(TEXT("value"), NumberValue);
@@ -1519,6 +1574,15 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("SkeletalMeshSamplingRegions"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("ClearParameterCollectionOverrides"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("ClearCollectionOverrides"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("FloatArray"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("ArrayFloat"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("IntArray"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Int32Array"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("ArrayInt32"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("QuaternionArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Actor"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Matrix"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Material"), ESearchCase::IgnoreCase) &&

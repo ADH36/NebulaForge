@@ -496,6 +496,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Texture-object, 2D-array texture, and volume-texture runtime overrides via Epic's `UNiagaraFunctionLibrary::SetTextureObject`, `SetTexture2DArrayObject`, and `SetVolumeTextureObject` APIs (`set_niagara_parameter`, `parameterType: TextureObject`, `Texture2DArray`, or `VolumeTexture`, `texturePath`).
 - [x] Skeletal data-interface filtered bones, filtered sockets, and sampling-region overrides via Epic's `UNiagaraFunctionLibrary` APIs (`set_niagara_parameter`, `parameterType: FilteredBones`, `FilteredSockets`, or `SamplingRegions`, with `boneNames`, `socketNames`, or `samplingRegions`).
 - [x] Niagara parameter-collection override cleanup via Epic's `UNiagaraComponent::ClearParameterCollectionOverrides` API (`set_niagara_parameter`, `parameterType: ClearParameterCollectionOverrides` or `ClearCollectionOverrides`); this avoids claiming asset-path loading can create a valid collection instance.
+- [x] Niagara float, int32, vector, vector2D, vector4, and quaternion array values via Epic's `UNiagaraDataInterfaceArrayFunctionLibrary` typed setters (`set_niagara_parameter`, `parameterType: FloatArray`, `Int32Array`, `VectorArray`, `Vector2Array`, `Vector4Array`, or `QuaternionArray`); malformed and non-finite entries are rejected.
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

@@ -1276,6 +1276,34 @@ static bool HandlePaperTileMapGeometryAction(
   return true;
 }
 
+static bool HandlePaperTileMapCoordinatesAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  TSharedPtr<FJsonObject> PositionObject;
+  FVector Position = FVector::ZeroVector;
+  if (!TileMap || !Payload->TryGetObjectField(TEXT("position"), PositionObject) ||
+      !McpHandlerUtils::JsonToVector(PositionObject, Position) || !Position.IsFinite()) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileMap and position must be a finite {x,y,z} object"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  int32 TileX = 0;
+  int32 TileY = 0;
+  TileMap->GetTileCoordinatesFromLocalSpacePosition(Position, TileX, TileY);
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetObjectField(TEXT("position"), McpHandlerUtils::VectorToJson(Position));
+  Result->SetNumberField(TEXT("tileX"), TileX);
+  Result->SetNumberField(TEXT("tileY"), TileY);
+  Result->SetBoolField(TEXT("inBounds"), TileX >= 0 && TileX < TileMap->MapWidth && TileY >= 0 && TileY < TileMap->MapHeight);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map tile coordinates read"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileMapResizeAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -2027,6 +2055,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("get_tile_map_tile_geometry")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileMapGeometryAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("get_tile_map_tile_coordinates")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapCoordinatesAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

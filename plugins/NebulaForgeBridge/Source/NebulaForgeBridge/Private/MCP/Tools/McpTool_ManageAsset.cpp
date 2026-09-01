@@ -204,6 +204,7 @@ public:
 			.Number(TEXT("layerIndex"), TEXT("PaperTileMap layer index."))
 			.Number(TEXT("tileX"), TEXT("PaperTileMap cell X coordinate for geometry readback."))
 			.Number(TEXT("tileY"), TEXT("PaperTileMap cell Y coordinate for geometry readback."))
+			.FreeformObject(TEXT("position"), TEXT("PaperTileMap local-space position as {x,y,z}."))
 			.Number(TEXT("flags"), TEXT("Packed PaperTileInfo transform flags (0-7)."))
 			.String(TEXT("expressionClass"), TEXT(""))
 			.Number(TEXT("coordinateIndex"), TEXT(""))

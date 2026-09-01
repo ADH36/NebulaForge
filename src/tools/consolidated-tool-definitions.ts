@@ -2432,7 +2432,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'create_arch', 'create_pipe', 'create_ramp',
             'create_mesh_section', 'update_mesh_section', 'clear_mesh_section', 'clear_all_mesh_sections',
             'set_mesh_section_visibility', 'get_mesh_section_visibility',
-            'set_mesh_section_material',
+            'set_mesh_section_material', 'get_mesh_section_data',
             'set_collision_from_mesh', 'add_collision_convex_mesh', 'clear_collision_convex_meshes',
             'boolean_union', 'boolean_subtract', 'boolean_intersection',
             'boolean_trim', 'self_union',

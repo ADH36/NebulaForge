@@ -5643,6 +5643,59 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         return true;
     }
 
+    if (SubAction == TEXT("get_mesh_section_data"))
+    {
+        FProcMeshSection* Section = ProcMesh->GetProcMeshSection(SectionIndex);
+        if (!Section)
+        {
+            Self->SendAutomationError(Socket, RequestId, TEXT("Procedural mesh section not found"), TEXT("SECTION_NOT_FOUND"));
+            return true;
+        }
+        auto VectorValue = [](const FVector& Value) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            Components.Add(MakeShared<FJsonValueNumber>(Value.X));
+            Components.Add(MakeShared<FJsonValueNumber>(Value.Y));
+            Components.Add(MakeShared<FJsonValueNumber>(Value.Z));
+            return MakeShared<FJsonValueArray>(Components);
+        };
+        auto UVValue = [](const FVector2D& Value) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            Components.Add(MakeShared<FJsonValueNumber>(Value.X));
+            Components.Add(MakeShared<FJsonValueNumber>(Value.Y));
+            return MakeShared<FJsonValueArray>(Components);
+        };
+        TArray<TSharedPtr<FJsonValue>> Vertices;
+        TArray<TSharedPtr<FJsonValue>> Normals;
+        TArray<TSharedPtr<FJsonValue>> UV0;
+        TArray<TSharedPtr<FJsonValue>> Colors;
+        for (const FProcMeshVertex& Vertex : Section->ProcVertexBuffer)
+        {
+            Vertices.Add(VectorValue(Vertex.Position));
+            Normals.Add(VectorValue(Vertex.Normal));
+            UV0.Add(UVValue(Vertex.UV0));
+            TArray<TSharedPtr<FJsonValue>> ColorComponents;
+            ColorComponents.Add(MakeShared<FJsonValueNumber>(Vertex.Color.R));
+            ColorComponents.Add(MakeShared<FJsonValueNumber>(Vertex.Color.G));
+            ColorComponents.Add(MakeShared<FJsonValueNumber>(Vertex.Color.B));
+            ColorComponents.Add(MakeShared<FJsonValueNumber>(Vertex.Color.A));
+            Colors.Add(MakeShared<FJsonValueArray>(ColorComponents));
+        }
+        TArray<TSharedPtr<FJsonValue>> Triangles;
+        for (const uint32 Index : Section->ProcIndexBuffer)
+            Triangles.Add(MakeShared<FJsonValueNumber>(Index));
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+        Result->SetArrayField(TEXT("vertices"), Vertices);
+        Result->SetArrayField(TEXT("triangles"), Triangles);
+        Result->SetArrayField(TEXT("normals"), Normals);
+        Result->SetArrayField(TEXT("uv0"), UV0);
+        Result->SetArrayField(TEXT("colors"), Colors);
+        Result->SetBoolField(TEXT("createCollision"), Section->bEnableCollision);
+        Result->SetBoolField(TEXT("visible"), Section->bSectionVisible);
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section data read"), Result);
+        return true;
+    }
+
     TArray<FVector> Vertices;
     TArray<int32> Triangles;
     if (!ReadProcMeshVectorArray(Payload, TEXT("vertices"), Vertices) || Vertices.Num() == 0)
@@ -7678,7 +7731,7 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
         SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility") ||
-        SubAction == TEXT("set_mesh_section_material"))
+        SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data"))
     {
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
@@ -7691,7 +7744,7 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
         SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
         SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility") ||
-        SubAction == TEXT("set_mesh_section_material"))
+        SubAction == TEXT("set_mesh_section_material") || SubAction == TEXT("get_mesh_section_data"))
     {
         SendAutomationError(RequestingSocket, RequestId,
             TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));

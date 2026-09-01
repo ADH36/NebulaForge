@@ -43,6 +43,7 @@ public:
 				TEXT("set_mesh_section_visibility"),
 				TEXT("get_mesh_section_visibility"),
 				TEXT("set_mesh_section_material"),
+				TEXT("get_mesh_section_data"),
 				TEXT("set_collision_from_mesh"),
 				TEXT("add_collision_convex_mesh"),
 				TEXT("clear_collision_convex_meshes"),

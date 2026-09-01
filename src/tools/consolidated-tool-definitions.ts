@@ -472,6 +472,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         // Material graph operations
         pinName: commonSchemas.pinName,
         materialPath: commonSchemas.materialPath,
+        renderTargetPath: commonSchemas.assetPath,
         physicalMaterialPath: commonSchemas.assetPath,
         actorName: commonSchemas.actorName,
         componentName: commonSchemas.componentName,

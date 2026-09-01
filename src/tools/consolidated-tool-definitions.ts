@@ -2621,6 +2621,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         openBorderLoopCount: commonSchemas.numberProp,
         openBorderEdgeCount: commonSchemas.numberProp,
         connectedIslandCount: commonSchemas.numberProp,
+        bounds: commonSchemas.objectProp,
         meshInfo: {
           type: 'object',
           properties: {

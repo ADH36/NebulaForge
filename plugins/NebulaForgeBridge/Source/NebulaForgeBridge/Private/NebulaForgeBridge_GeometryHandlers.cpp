@@ -1204,6 +1204,7 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
 #else
     UGeometryScriptLibrary_MeshQueryFunctions::GetMeshVolumeArea(Mesh, SurfaceArea, Volume);
 #endif
+    const FBox MeshBounds = UGeometryScriptLibrary_MeshQueryFunctions::GetMeshBoundingBox(Mesh);
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("actorName"), ActorName);
@@ -1224,6 +1225,20 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     Result->SetNumberField(TEXT("openBorderLoopCount"), OpenBorderLoopCount);
     Result->SetNumberField(TEXT("openBorderEdgeCount"), OpenBorderEdgeCount);
     Result->SetNumberField(TEXT("connectedIslandCount"), ConnectedIslandCount);
+    TSharedPtr<FJsonObject> Bounds = MakeShared<FJsonObject>();
+    Bounds->SetBoolField(TEXT("isValid"), MeshBounds.IsValid);
+    auto MakeVectorObject = [](const FVector& Value) {
+        TSharedPtr<FJsonObject> VectorObject = MakeShared<FJsonObject>();
+        VectorObject->SetNumberField(TEXT("x"), Value.X);
+        VectorObject->SetNumberField(TEXT("y"), Value.Y);
+        VectorObject->SetNumberField(TEXT("z"), Value.Z);
+        return VectorObject;
+    };
+    Bounds->SetObjectField(TEXT("min"), MakeVectorObject(MeshBounds.Min));
+    Bounds->SetObjectField(TEXT("max"), MakeVectorObject(MeshBounds.Max));
+    Bounds->SetObjectField(TEXT("center"), MakeVectorObject(MeshBounds.GetCenter()));
+    Bounds->SetObjectField(TEXT("extent"), MakeVectorObject(MeshBounds.GetExtent()));
+    Result->SetObjectField(TEXT("bounds"), Bounds);
     Result->SetStringField(TEXT("info"), UGeometryScriptLibrary_MeshQueryFunctions::GetMeshInfoString(Mesh));
     TSharedPtr<FJsonObject> Center = MakeShared<FJsonObject>();
     Center->SetNumberField(TEXT("x"), CenterOfMass.X);

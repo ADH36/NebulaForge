@@ -41,6 +41,8 @@ public:
 				TEXT("set_visibility"),
 				TEXT("set_actor_visible"),
 				TEXT("add_component"),
+				TEXT("create_instanced_static_mesh_component"),
+				TEXT("create_hierarchical_instanced_static_mesh"),
 				TEXT("create_media_sound_component"),
 				TEXT("configure_camera_settings"),
 				TEXT("configure_camera_rig_rail"),

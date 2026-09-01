@@ -1655,8 +1655,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `play_dialogue`
 
 ### 35.7 Instancing & HLOD
-- [ ] `create_instanced_static_mesh_component`
-- [ ] `create_hierarchical_instanced_static_mesh`
+- [x] `create_instanced_static_mesh_component` (native actor component authoring)
+- [x] `create_hierarchical_instanced_static_mesh` (native actor component authoring)
 - [ ] `add_instance`, `remove_instance`, `update_instance_transform`
 - [ ] `configure_instance_culling`, `configure_instance_lod`
 - [x] `create_hlod_layer`

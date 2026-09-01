@@ -4244,6 +4244,15 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     Forward->SetObjectField(TEXT("variables"), Variables);
     return HandleControlActorSetBlueprintVariables(RequestId, Forward, RequestingSocket);
   }
+  if (LowerSub == TEXT("create_instanced_static_mesh_component") ||
+      LowerSub == TEXT("create_hierarchical_instanced_static_mesh")) {
+    if (Payload.IsValid()) {
+      Payload->SetStringField(TEXT("componentType"), LowerSub == TEXT("create_hierarchical_instanced_static_mesh")
+          ? TEXT("/Script/Engine.HierarchicalInstancedStaticMeshComponent")
+          : TEXT("/Script/Engine.InstancedStaticMeshComponent"));
+    }
+    return HandleControlActorAddComponent(RequestId, Payload, RequestingSocket);
+  }
   if (LowerSub == TEXT("add_component"))
     return HandleControlActorAddComponent(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("set_component_properties") ||

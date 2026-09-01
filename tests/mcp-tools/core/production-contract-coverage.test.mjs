@@ -7,6 +7,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'reference_viewer', assetPath: '/Game/MCPTest/ContractAsset', maxDepth: 2 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'audit_assets', directory: '/Game/MCPTest', outputPath: 'Saved/contract-asset-audit.json' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'configure_chunking', projectPath: 'ContractProject', generateChunks: true, chunkHardReferencesOnly: true, maxChunkSize: 104857600 }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'create_instanced_static_mesh_component', actorName: 'ContractActor', componentName: 'ContractISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'create_hierarchical_instanced_static_mesh', actorName: 'ContractActor', componentName: 'ContractHISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'configure_recorded_tracks', recordToPossessable: true, removeRedundantTracks: true, saveRecordedAssets: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_data_asset', path: '/Game/MCPTest', name: 'ContractDataAsset', classPath: '/Script/Engine.DataAsset', properties: {}, save: false }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_primary_data_asset', path: '/Game/MCPTest', name: 'ContractPrimaryDataAsset', classPath: '/Script/Engine.PrimaryAssetLabel', properties: {}, save: false }, expected: 'success|error' },

@@ -832,7 +832,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_transform', 'teleport_actor', 'set_actor_location', 'set_actor_rotation', 'set_actor_scale', 'set_actor_transform',
             'get_transform', 'get_actor_transform',
             'set_visibility', 'set_actor_visible',
-            'add_component', 'create_media_sound_component', 'configure_camera_settings', 'configure_camera_rig_rail', 'configure_camera_rig_crane', 'remove_component',
+            'add_component', 'create_instanced_static_mesh_component', 'create_hierarchical_instanced_static_mesh', 'create_media_sound_component', 'configure_camera_settings', 'configure_camera_rig_rail', 'configure_camera_rig_crane', 'remove_component',
             'set_component_properties', 'set_component_property', 'get_component_property',
             'set_material', 'set_actor_material', 'apply_material',
             'get_components', 'get_actor_components',

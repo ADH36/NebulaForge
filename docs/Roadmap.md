@@ -2109,7 +2109,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_mesh_section`, `update_mesh_section`, `clear_mesh_section`, `clear_all_mesh_sections`
 - [ ] `set_mesh_vertices`, `set_mesh_triangles`, `set_mesh_normals`, `set_mesh_uvs`, `set_mesh_colors`, `set_mesh_tangents`
 - [ ] `set_collision_from_mesh`, `add_collision_convex_mesh`, `clear_collision_convex_meshes`
-- [ ] `convert_to_static_mesh`
+- [x] `convert_to_static_mesh` (shared GeometryScript DynamicMesh-to-StaticMesh conversion; see Phase 6.8)
 
 ### 45.7 Variant Manager
 - [ ] `create_variant_set`, `add_variant`, `configure_variant_properties`

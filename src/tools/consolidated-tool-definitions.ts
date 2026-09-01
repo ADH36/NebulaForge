@@ -401,6 +401,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         rowName: commonSchemas.name,
         width: commonSchemas.numberProp,
         height: commonSchemas.numberProp,
+        uvArea: commonSchemas.numberProp,
+        validUVTriangleCount: commonSchemas.numberProp,
         depth: commonSchemas.numberProp,
         format: commonSchemas.stringProp,
         mediaUrl: commonSchemas.stringProp,

@@ -1240,6 +1240,8 @@ static bool HandleGetUVSetBounds(UNebulaForgeBridgeSubsystem* Self, const FStrin
     const int32 NumUVSets = UGeometryScriptLibrary_MeshQueryFunctions::GetNumUVSets(Mesh);
     const bool bValidUVChannel = UVChannel < NumUVSets;
     bool bUVChannelEmpty = true;
+    double UVArea = 0.0;
+    int32 ValidUVTriangleCount = 0;
     FBox2D UVBounds(EForceInit::ForceInit);
     if (bValidUVChannel)
     {
@@ -1256,6 +1258,8 @@ static bool HandleGetUVSetBounds(UNebulaForgeBridgeSubsystem* Self, const FStrin
             UVBounds += UV1;
             UVBounds += UV2;
             UVBounds += UV3;
+            UVArea += FMath::Abs((UV2.X - UV1.X) * (UV3.Y - UV1.Y) - (UV3.X - UV1.X) * (UV2.Y - UV1.Y)) * 0.5;
+            ++ValidUVTriangleCount;
             bUVChannelEmpty = false;
         }
     }
@@ -1265,6 +1269,8 @@ static bool HandleGetUVSetBounds(UNebulaForgeBridgeSubsystem* Self, const FStrin
     Result->SetNumberField(TEXT("uvChannel"), UVChannel);
     Result->SetBoolField(TEXT("isValidUVChannel"), bValidUVChannel);
     Result->SetBoolField(TEXT("uvChannelIsEmpty"), bUVChannelEmpty);
+    Result->SetNumberField(TEXT("uvArea"), UVArea);
+    Result->SetNumberField(TEXT("validUVTriangleCount"), ValidUVTriangleCount);
     if (bValidUVChannel && !bUVChannelEmpty)
     {
         TSharedPtr<FJsonObject> Min = MakeShared<FJsonObject>();

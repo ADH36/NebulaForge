@@ -172,6 +172,8 @@ NebulaForge exposes the second path through `system_control.configure_console_va
 
 `manage_geometry.get_uv_set_bounds` reports the bounds of a dynamic mesh UV channel using Epic's [`UGeometryScriptLibrary_MeshQueryFunctions`](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/GeometryScriptingCore/UGeometryScriptLibrary_MeshQuery-), `GetTriangleUVs`, and `FBox2D`. It preserves Epic's documented distinction between an invalid channel and a valid but empty channel.
 
+The UV bounds readback also includes the UV-space triangle area and count of triangles with valid UVs, matching Epic's documented `Get Mesh UV Area` query semantics.
+
 ### Core Types
 ```cpp
 // Dynamic mesh container

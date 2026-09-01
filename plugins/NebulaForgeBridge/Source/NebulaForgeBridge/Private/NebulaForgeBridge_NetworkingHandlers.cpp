@@ -411,6 +411,17 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
     TSharedPtr<FJsonObject> ResultJson = McpHandlerUtils::CreateResultObject();
 
+    auto SaveNetworkingAsset = [&](UObject* Asset) -> bool
+    {
+        if (McpSafeAssetSave(Asset))
+        {
+            return true;
+        }
+        SendAutomationError(RequestingSocket, RequestId,
+            TEXT("Networking Blueprint mutation applied but save failed"), TEXT("SAVE_FAILED"));
+        return false;
+    };
+
     // =========================================================================
     // 20.1 Replication Actions
     // =========================================================================
@@ -470,7 +481,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
         // Mark blueprint modified
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Property %s replication set to %s"), *PropertyName, bReplicated ? TEXT("true") : TEXT("false")));
@@ -529,7 +540,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Replication condition set to %s"), *Condition));
@@ -591,7 +602,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Net update frequency set to %.1f (min: %.1f)"), NetUpdateFrequency, MinNetUpdateFrequency));
@@ -632,7 +643,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Net priority set to %.2f"), NetPriority));
@@ -674,7 +685,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Net dormancy set to %s"), *Dormancy));
@@ -729,7 +740,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetBoolField(TEXT("spatiallyLoaded"), bSpatiallyLoaded);
@@ -821,7 +832,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
             Blueprint->Modify();
             FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
             McpSafeCompileBlueprint(Blueprint);
-            McpSafeAssetSave(Blueprint);
+            if (!SaveNetworkingAsset(Blueprint)) return true;
 
             ResultJson->SetBoolField(TEXT("success"), true);
             ResultJson->SetStringField(TEXT("functionName"), FunctionName);
@@ -908,7 +919,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetBoolField(TEXT("withValidation"), bWithValidation);
@@ -988,7 +999,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetBoolField(TEXT("reliable"), bReliable);
@@ -1096,7 +1107,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
             Blueprint->Modify();
             FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
             McpSafeCompileBlueprint(Blueprint);
-            McpSafeAssetSave(Blueprint);
+            if (!SaveNetworkingAsset(Blueprint)) return true;
         }
 
         ResultJson->SetBoolField(TEXT("success"), true);
@@ -1250,7 +1261,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Net cull distance squared set to %.0f"), NetCullDistanceSquared));
@@ -1291,7 +1302,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Always relevant set to %s"), bAlwaysRelevant ? TEXT("true") : TEXT("false")));
@@ -1332,7 +1343,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Only relevant to owner set to %s"), bOnlyRelevantToOwner ? TEXT("true") : TEXT("false")));
@@ -1383,7 +1394,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetBoolField(TEXT("customSerialization"), bCustomSerialization);
@@ -1445,7 +1456,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("ReplicatedUsing set to %s for property %s"), *RepNotifyFunc, *PropertyName));
@@ -1505,7 +1516,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
             Blueprint->Modify();
             FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
             McpSafeCompileBlueprint(Blueprint);
-            McpSafeAssetSave(Blueprint);
+            if (!SaveNetworkingAsset(Blueprint)) return true;
         }
 
         ResultJson->SetBoolField(TEXT("success"), true);
@@ -1566,7 +1577,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetBoolField(TEXT("enablePrediction"), bEnablePrediction);
@@ -1617,7 +1628,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetNumberField(TEXT("correctionThreshold"), CorrectionThreshold);
@@ -1703,7 +1714,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
         McpSafeCompileBlueprint(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), bSuccess);
         ResultJson->SetStringField(TEXT("variableName"), VarName);
@@ -1751,7 +1762,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), TEXT("Movement prediction configured"));
@@ -1860,7 +1871,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("role"), Role);
@@ -1903,7 +1914,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageNetworkingAction(
 
         Blueprint->Modify();
         FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-        McpSafeAssetSave(Blueprint);
+        if (!SaveNetworkingAsset(Blueprint)) return true;
 
         ResultJson->SetBoolField(TEXT("success"), true);
         ResultJson->SetStringField(TEXT("message"), FString::Printf(TEXT("Replicate movement set to %s"), bReplicateMovement ? TEXT("true") : TEXT("false")));

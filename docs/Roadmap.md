@@ -1371,7 +1371,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 31.1 Data Assets
 - [x] `create_data_asset`, `create_primary_data_asset` (primary action requires a concrete `UPrimaryDataAsset` subclass)
 - [x] `create_data_table`, `add_data_table_row`, `modify_data_table_row`, `delete_data_table_row`
-- [ ] `import_data_table_csv`, `export_data_table_csv`
+- [x] `import_data_table_csv`, `export_data_table_csv` (native `UDataTable` CSV APIs with row-struct validation and import diagnostics)
 - [x] `create_curve_table`, `create_curve_float`, `create_curve_linear_color`
 
 **Implementation note:** `manage_asset` also exposes the unlisted `get_data_asset_properties` and `set_data_asset_properties` actions for reflected `UDataAsset` properties.

@@ -4303,6 +4303,48 @@ bool UNebulaForgeBridgeSubsystem::HandleDataTableAction(
     return true;
   }
 
+  if (Action == TEXT("import_data_table_csv")) {
+    FString Csv;
+    Payload->TryGetStringField(TEXT("csv"), Csv);
+    if (Csv.TrimStartAndEnd().IsEmpty()) {
+      SendAutomationError(Socket, RequestId, TEXT("csv is required and must not be empty"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const TArray<FString> Problems = Table->CreateTableFromCSVString(Csv);
+    if (Problems.Num() > 0) {
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      TArray<TSharedPtr<FJsonValue>> ProblemValues;
+      for (const FString &Problem : Problems) ProblemValues.Add(MakeShared<FJsonValueString>(Problem));
+      Result->SetArrayField(TEXT("problems"), ProblemValues);
+      Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+      SendAutomationResponse(Socket, RequestId, false, TEXT("Data table CSV import reported problems"), Result, TEXT("CSV_IMPORT_FAILED"));
+      return true;
+    }
+    Table->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(Table)) {
+      SendAutomationError(Socket, RequestId, TEXT("Data table CSV imported but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetNumberField(TEXT("rowCount"), Table->GetRowMap().Num());
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Data table CSV imported"), Result, FString());
+    return true;
+  }
+
+  if (Action == TEXT("export_data_table_csv")) {
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Table->GetPathName());
+    Result->SetStringField(TEXT("rowStructPath"), Table->RowStruct->GetPathName());
+    Result->SetNumberField(TEXT("rowCount"), Table->GetRowMap().Num());
+    Result->SetStringField(TEXT("csv"), Table->GetTableAsCSV(EDataTableExportFlags::None));
+    SendAutomationResponse(Socket, RequestId, true, TEXT("Data table CSV exported"), Result, FString());
+    return true;
+  }
+
   if (Action == TEXT("delete_data_table_row")) {
     FString RowNameString;
     Payload->TryGetStringField(TEXT("rowName"), RowNameString);

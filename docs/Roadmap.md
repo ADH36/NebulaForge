@@ -2124,7 +2124,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Tile Maps: `configure_tile_map_visuals` (additional official `UPaperTileMap` visual fields for colors, grid layout, scale, and layer/tile separation)
 - [x] Tile Maps: `configure_tile_map_layer` (additional official `UPaperTileLayer` color, collision override, and editor-visibility setters)
 - [x] Tile Maps: `inspect_tile_map_layer` (additional official `UPaperTileLayer` dimensions, occupancy, collision, visibility, and color readback)
-- [ ] Tile Maps: `add_tile_to_set`, `fill_tile_region`
+- [ ] Tile Maps: `add_tile_to_set` (Epic models tiles as texture-derived cells; no public append API is available)
+- [x] Tile Maps: `fill_tile_region` via `set_tile_map_cell` and `fill_tile_map_region` (official `UPaperTileLayer::SetCell`/`FPaperTileInfo` asset editing)
 - [x] Tile Maps: `paint_paper_tile` (official `UPaperTileMapComponent::SetTile` and `FPaperTileInfo`; owned tile-map component and existing tile set required)
 - [x] Tile Maps: `fill_paper_tile_region` (bounded batch of official `SetTile` calls with optional single collision rebuild)
 - [x] Tile Maps: `configure_paper_tile_map_layer_collision` (official `UPaperTileMapComponent::SetLayerCollision`; requires an owned/editable tile map component and the optional Paper2D plugin)

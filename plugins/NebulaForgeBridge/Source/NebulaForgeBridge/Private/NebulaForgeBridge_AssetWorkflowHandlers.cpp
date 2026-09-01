@@ -1080,6 +1080,113 @@ static bool HandlePaperTileMapLayerInspectAction(
   return true;
 }
 
+static bool HandlePaperTileMapSetCellAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  FString TileSetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("tileSetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(TileSetPath));
+  int32 LayerIndex = 0;
+  int32 X = 0;
+  int32 Y = 0;
+  int32 TileIndex = 0;
+  if (!TileMap || !TileSet || !Payload->TryGetNumberField(TEXT("layerIndex"), LayerIndex) ||
+      !Payload->TryGetNumberField(TEXT("x"), X) || !Payload->TryGetNumberField(TEXT("y"), Y) ||
+      !Payload->TryGetNumberField(TEXT("tileIndex"), TileIndex) || LayerIndex < 0 || LayerIndex >= TileMap->TileLayers.Num() ||
+      TileIndex < 0 || TileIndex >= TileSet->GetTileCount() || !TileMap->TileLayers[LayerIndex].Get() ||
+      !TileMap->TileLayers[LayerIndex]->InBounds(X, Y)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath/tileSetPath, layerIndex, x/y, and tileIndex must identify an in-bounds tile-map cell and valid PaperTileSet tile"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  FPaperTileInfo TileInfo;
+  TileInfo.TileSet = TileSet;
+  TileInfo.PackedTileIndex = TileIndex;
+  TileMap->Modify();
+  TileMap->TileLayers[LayerIndex]->Modify();
+  TileMap->TileLayers[LayerIndex]->SetCell(X, Y, TileInfo);
+  bool bRebuildCollision = false;
+  Payload->TryGetBoolField(TEXT("rebuildCollision"), bRebuildCollision);
+  if (bRebuildCollision) TileMap->RebuildCollision();
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(TileMap)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile-map cell set but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetNumberField(TEXT("layerIndex"), LayerIndex);
+  Result->SetNumberField(TEXT("x"), X);
+  Result->SetNumberField(TEXT("y"), Y);
+  Result->SetNumberField(TEXT("tileIndex"), TileIndex);
+  Result->SetBoolField(TEXT("rebuiltCollision"), bRebuildCollision);
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map cell set"), Result, FString());
+  return true;
+}
+
+static bool HandlePaperTileMapFillRegionAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  FString TileSetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("tileSetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(TileSetPath));
+  int32 LayerIndex = 0;
+  int32 X = 0;
+  int32 Y = 0;
+  int32 Width = 0;
+  int32 Height = 0;
+  int32 TileIndex = 0;
+  if (!TileMap || !TileSet || !Payload->TryGetNumberField(TEXT("layerIndex"), LayerIndex) ||
+      !Payload->TryGetNumberField(TEXT("x"), X) || !Payload->TryGetNumberField(TEXT("y"), Y) ||
+      !Payload->TryGetNumberField(TEXT("width"), Width) || !Payload->TryGetNumberField(TEXT("height"), Height) ||
+      !Payload->TryGetNumberField(TEXT("tileIndex"), TileIndex) || LayerIndex < 0 || LayerIndex >= TileMap->TileLayers.Num() ||
+      Width < 1 || Width > 1024 || Height < 1 || Height > 1024 || TileIndex < 0 || TileIndex >= TileSet->GetTileCount() ||
+      X < 0 || Y < 0 || X + Width > TileMap->MapWidth || Y + Height > TileMap->MapHeight || !TileMap->TileLayers[LayerIndex].Get()) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath/tileSetPath, in-bounds positive region, layerIndex, and tileIndex are required"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  UPaperTileLayer* Layer = TileMap->TileLayers[LayerIndex].Get();
+  FPaperTileInfo TileInfo;
+  TileInfo.TileSet = TileSet;
+  TileInfo.PackedTileIndex = TileIndex;
+  TileMap->Modify();
+  Layer->Modify();
+  for (int32 CellY = Y; CellY < Y + Height; ++CellY)
+    for (int32 CellX = X; CellX < X + Width; ++CellX)
+      Layer->SetCell(CellX, CellY, TileInfo);
+  bool bRebuildCollision = false;
+  Payload->TryGetBoolField(TEXT("rebuildCollision"), bRebuildCollision);
+  if (bRebuildCollision) TileMap->RebuildCollision();
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(TileMap)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile-map region filled but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetNumberField(TEXT("layerIndex"), LayerIndex);
+  Result->SetNumberField(TEXT("x"), X);
+  Result->SetNumberField(TEXT("y"), Y);
+  Result->SetNumberField(TEXT("width"), Width);
+  Result->SetNumberField(TEXT("height"), Height);
+  Result->SetNumberField(TEXT("tileIndex"), TileIndex);
+  Result->SetNumberField(TEXT("cellsWritten"), Width * Height);
+  Result->SetBoolField(TEXT("rebuiltCollision"), bRebuildCollision);
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map region filled"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileMapResizeAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1799,6 +1906,22 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("inspect_tile_map_layer")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileMapLayerInspectAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("set_tile_map_cell")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapSetCellAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("fill_tile_map_region")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapFillRegionAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

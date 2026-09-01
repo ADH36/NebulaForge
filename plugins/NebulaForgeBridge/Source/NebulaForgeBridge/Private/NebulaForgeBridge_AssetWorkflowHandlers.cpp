@@ -560,7 +560,8 @@ static bool HandlePaperTileSetConfigureAction(
   const bool bHasMargin = Payload->HasField(TEXT("marginLeft")) || Payload->HasField(TEXT("marginTop")) ||
       Payload->HasField(TEXT("marginRight")) || Payload->HasField(TEXT("marginBottom"));
   const bool bHasOffset = Payload->HasField(TEXT("drawingOffsetX")) || Payload->HasField(TEXT("drawingOffsetY"));
-  if (!bHasTexture && !bHasTileSize && !bHasSpacing && !bHasMargin && !bHasOffset) {
+  const bool bHasBackground = Payload->HasField(TEXT("backgroundColor"));
+  if (!bHasTexture && !bHasTileSize && !bHasSpacing && !bHasMargin && !bHasOffset && !bHasBackground) {
     Owner->SendAutomationError(Socket, RequestId, TEXT("At least one tile-set property is required"), TEXT("INVALID_ARGUMENT"));
     return true;
   }
@@ -618,6 +619,18 @@ static bool HandlePaperTileSetConfigureAction(
       return true;
     }
     TileSet->SetDrawingOffset(Offset);
+  }
+  if (bHasBackground) {
+    const TSharedPtr<FJsonObject>* ColorObject = nullptr;
+    FLinearColor BackgroundColor;
+    if (!Payload->TryGetObjectField(TEXT("backgroundColor"), ColorObject) || !ColorObject ||
+        !McpHandlerUtils::JsonToLinearColor(*ColorObject, BackgroundColor) ||
+        !FMath::IsFinite(BackgroundColor.R) || !FMath::IsFinite(BackgroundColor.G) ||
+        !FMath::IsFinite(BackgroundColor.B) || !FMath::IsFinite(BackgroundColor.A)) {
+      Owner->SendAutomationError(Socket, RequestId, TEXT("backgroundColor must be an object with finite r, g, b, and a values"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    TileSet->SetBackgroundColor(BackgroundColor);
   }
   bool bSave = true;
   Payload->TryGetBoolField(TEXT("save"), bSave);
@@ -687,6 +700,7 @@ static bool HandlePaperTileSetInspectAction(
   const FIntPoint DrawingOffset = TileSet->GetDrawingOffset();
   const FIntMargin Margin = TileSet->GetMargin();
   const FIntPoint AuthoredSize = TileSet->GetTileSheetAuthoredSize();
+  const FLinearColor BackgroundColor = TileSet->GetBackgroundColor();
   TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
   Result->SetStringField(TEXT("assetPath"), TileSet->GetPathName());
   Result->SetStringField(TEXT("tileSheetPath"), TileSet->GetTileSheetTexture() ? TileSet->GetTileSheetTexture()->GetPathName() : FString());
@@ -705,6 +719,7 @@ static bool HandlePaperTileSetInspectAction(
   Result->SetNumberField(TEXT("marginBottom"), Margin.Bottom);
   Result->SetNumberField(TEXT("authoredWidth"), AuthoredSize.X);
   Result->SetNumberField(TEXT("authoredHeight"), AuthoredSize.Y);
+  Result->SetObjectField(TEXT("backgroundColor"), McpHandlerUtils::LinearColorToJson(BackgroundColor));
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-set inspected"), Result, FString());
   return true;
 }

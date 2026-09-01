@@ -2114,7 +2114,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Tile Maps: `create_tile_map` (official `UPaperTileMapFactory`; optional existing `UPaperTileSet` seed and safe persistence)
 - [x] Tile Maps: `create_tile_set` (official `UPaperTileSetFactory`; optional initial texture and safe persistence)
 - [x] Tile Maps: `inspect_tile_set` (additional official `UPaperTileSet` metadata readback)
-- [x] Tile Maps: `configure_tile_set` (official `UPaperTileSet` texture, size, spacing, margin, and drawing-offset setters)
+- [x] Tile Maps: `configure_tile_set` (official `UPaperTileSet` texture, size, spacing, margin, drawing-offset, and background-color setters)
 - [x] Tile Maps: `get_tile_set_tile_uv` (additional official `UPaperTileSet::GetTileUV` readback)
 - [x] Tile Maps: `configure_tile_set_tile_metadata` (additional official `UPaperTileSet::GetMutableTileMetadata` authoring for public `UserDataName` tags)
 - [x] Tile Maps: `get_tile_set_tile_xy` (additional official `UPaperTileSet::GetTileXYFromTextureUV` coordinate conversion)

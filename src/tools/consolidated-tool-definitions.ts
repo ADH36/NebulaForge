@@ -353,6 +353,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         collisionThickness: commonSchemas.numberProp,
         tileIndex: { type: 'integer', minimum: 0, description: 'Packed tile index within the PaperTileSet.' },
         tileUserData: { type: 'string', maxLength: 128, description: 'Optional PaperTileSet per-tile user-data name; pass an empty string to clear it.' },
+        backgroundColor: commonSchemas.objectProp,
         textureU: { type: 'number', description: 'PaperTileSet texture-space U coordinate in pixels.' },
         textureV: { type: 'number', description: 'PaperTileSet texture-space V coordinate in pixels.' },
         roundUp: { type: 'boolean', description: 'Round texture-space coordinates up when converting to tile coordinates.' },

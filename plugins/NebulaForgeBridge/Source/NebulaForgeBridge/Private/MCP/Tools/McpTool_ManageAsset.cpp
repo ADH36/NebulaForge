@@ -158,6 +158,7 @@ public:
 			.Number(TEXT("drawingOffsetX"), TEXT("PaperTileSet drawing offset X in pixels."))
 			.Number(TEXT("drawingOffsetY"), TEXT("PaperTileSet drawing offset Y in pixels."))
 			.String(TEXT("tileUserData"), TEXT("PaperTileSet per-tile user-data name; empty clears it."))
+			.FreeformObject(TEXT("backgroundColor"), TEXT("PaperTileSet viewer background color as {r,g,b,a}."))
 			.Number(TEXT("textureU"), TEXT("PaperTileSet texture-space U coordinate in pixels."))
 			.Number(TEXT("textureV"), TEXT("PaperTileSet texture-space V coordinate in pixels."))
 			.Bool(TEXT("roundUp"), TEXT("Round up during PaperTileSet texture-to-tile conversion."))

@@ -1887,7 +1887,12 @@ bool UNebulaForgeBridgeSubsystem::HandleBlueprintAction(
                   FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(
                       LocalBP);
                   McpSafeCompileBlueprint(LocalBP);
-                  SaveLoadedAssetThrottled(LocalBP);
+                  if (!SaveLoadedAssetThrottled(LocalBP))
+                  {
+                    SendAutomationError(RequestingSocket, RequestId,
+                        TEXT("Component was added but Blueprint save failed"), TEXT("SAVE_FAILED"));
+                    return true;
+                  }
 #endif
                   bAddedViaSubsystem = true;
                 }
@@ -3611,7 +3616,12 @@ bool UNebulaForgeBridgeSubsystem::HandleBlueprintAction(
           FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(
               RemoveBlueprint);
           McpSafeCompileBlueprint(RemoveBlueprint);
-          SaveLoadedAssetThrottled(RemoveBlueprint);
+          if (!SaveLoadedAssetThrottled(RemoveBlueprint))
+          {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Event was removed but Blueprint save failed"), TEXT("SAVE_FAILED"));
+            return true;
+          }
         }
       }
     }

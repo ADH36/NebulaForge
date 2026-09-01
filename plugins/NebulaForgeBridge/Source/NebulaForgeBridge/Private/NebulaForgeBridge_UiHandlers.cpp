@@ -437,17 +437,25 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
             Resp->SetStringField(TEXT("error"), Message);
           } else {
             // Force immediate save and registry scan
-            SaveLoadedAssetThrottled(WidgetBlueprint, -1.0, true);
-            ScanPathSynchronous(WidgetBlueprint->GetOutermost()->GetName());
+            if (!SaveLoadedAssetThrottled(WidgetBlueprint, -1.0, true))
+            {
+              Message = TEXT("Widget blueprint was created but save failed");
+              ErrorCode = TEXT("SAVE_FAILED");
+              Resp->SetStringField(TEXT("error"), Message);
+            }
+            else
+            {
+              ScanPathSynchronous(WidgetBlueprint->GetOutermost()->GetName());
 
-            bSuccess = true;
-            Message = FString::Printf(TEXT("Widget blueprint created at %s"),
-                                      *WidgetBlueprint->GetPathName());
-            Resp->SetStringField(TEXT("widgetPath"),
-                                 WidgetBlueprint->GetPathName());
-            Resp->SetStringField(TEXT("widgetName"), WidgetName);
-            if (!WidgetType.IsEmpty()) {
-              Resp->SetStringField(TEXT("widgetType"), WidgetType);
+              bSuccess = true;
+              Message = FString::Printf(TEXT("Widget blueprint created at %s"),
+                                        *WidgetBlueprint->GetPathName());
+              Resp->SetStringField(TEXT("widgetPath"),
+                                   WidgetBlueprint->GetPathName());
+              Resp->SetStringField(TEXT("widgetName"), WidgetName);
+              if (!WidgetType.IsEmpty()) {
+                Resp->SetStringField(TEXT("widgetType"), WidgetType);
+              }
             }
           }
         }

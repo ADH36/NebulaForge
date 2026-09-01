@@ -784,6 +784,34 @@ bool FBlueprintCreationHandlers::HandleBlueprintCreate(
           TEXT("AssetRegistry"));
   AssetRegistryModule.AssetCreated(CreatedBlueprint);
 
+#if WITH_EDITOR
+  // Do not acknowledge creation until the asset is durable. This request is
+  // coalesced, so report the same failure to every waiting caller.
+  if (!SaveLoadedAssetThrottled(CreatedBlueprint, -1.0, true))
+  {
+    const FString SaveError = TEXT("Blueprint was created but save failed");
+    FScopeLock SaveLock(&GBlueprintCreateMutex);
+    if (TArray<TPair<FString, TSharedPtr<FMcpBridgeWebSocket>>> *Subs =
+            GBlueprintCreateInflight.Find(CreateKey))
+    {
+      for (const TPair<FString, TSharedPtr<FMcpBridgeWebSocket>> &Pair : *Subs)
+      {
+        Self->SendAutomationResponse(Pair.Value, Pair.Key, false, SaveError,
+                                     nullptr, TEXT("SAVE_FAILED"));
+      }
+      GBlueprintCreateInflight.Remove(CreateKey);
+      GBlueprintCreateInflightTs.Remove(CreateKey);
+    }
+    else
+    {
+      Self->SendAutomationResponse(RequestingSocket, RequestId, false,
+                                   SaveError, nullptr, TEXT("SAVE_FAILED"));
+    }
+    return true;
+  }
+  ScanPathSynchronous(CreatedBlueprint->GetOutermost()->GetName());
+#endif
+
   TSharedPtr<FJsonObject> ResultPayload = McpHandlerUtils::CreateResultObject();
   ResultPayload->SetStringField(TEXT("path"), CreatedNormalizedPath);
   ResultPayload->SetStringField(TEXT("assetPath"),
@@ -808,19 +836,6 @@ bool FBlueprintCreationHandlers::HandleBlueprintCreate(
     Self->SendAutomationResponse(RequestingSocket, RequestId, true,
                                  TEXT("Blueprint created"), ResultPayload,
                                  FString());
-  }
-
-  // -------------------------------------------------------------------------
-  // Force Save and Scan for Availability
-  // -------------------------------------------------------------------------
-  TWeakObjectPtr<UBlueprint> WeakCreatedBp = CreatedBlueprint;
-  if (WeakCreatedBp.IsValid()) {
-    UBlueprint *BP = WeakCreatedBp.Get();
-#if WITH_EDITOR
-    // Force immediate save and registry scan to ensure availability
-    SaveLoadedAssetThrottled(BP, -1.0, true);
-    ScanPathSynchronous(BP->GetOutermost()->GetName());
-#endif
   }
 
   UE_LOG(LogNebulaForgeBridgeSubsystem, Log,

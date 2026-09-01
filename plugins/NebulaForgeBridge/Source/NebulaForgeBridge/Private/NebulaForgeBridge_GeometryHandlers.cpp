@@ -5602,6 +5602,24 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         Self->SendAutomationResponse(Socket, RequestId, true, TEXT("All procedural mesh sections cleared"), McpHandlerUtils::CreateResultObject());
         return true;
     }
+    if (SubAction == TEXT("set_mesh_section_visibility"))
+    {
+        const bool bVisible = GetBoolFieldGeom(Payload, TEXT("visible"), true);
+        ProcMesh->SetMeshSectionVisible(SectionIndex, bVisible);
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+        Result->SetBoolField(TEXT("visible"), ProcMesh->IsMeshSectionVisible(SectionIndex));
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section visibility updated"), Result);
+        return true;
+    }
+    if (SubAction == TEXT("get_mesh_section_visibility"))
+    {
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
+        Result->SetBoolField(TEXT("visible"), ProcMesh->IsMeshSectionVisible(SectionIndex));
+        Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section visibility read"), Result);
+        return true;
+    }
 
     TArray<FVector> Vertices;
     TArray<int32> Triangles;
@@ -7636,7 +7654,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     if (SubAction == TEXT("append_triangle")) return HandleAppendTriangle(this, RequestId, Payload, RequestingSocket);
 #if MCP_HAS_PROCEDURAL_MESH_COMPONENT
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
-        SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections"))
+        SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
+        SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility"))
     {
         return HandleProceduralMeshSection(this, RequestId, SubAction, Payload, RequestingSocket);
     }
@@ -7647,7 +7666,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     }
 #endif
     if (SubAction == TEXT("create_mesh_section") || SubAction == TEXT("update_mesh_section") ||
-        SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections"))
+        SubAction == TEXT("clear_mesh_section") || SubAction == TEXT("clear_all_mesh_sections") ||
+        SubAction == TEXT("set_mesh_section_visibility") || SubAction == TEXT("get_mesh_section_visibility"))
     {
         SendAutomationError(RequestingSocket, RequestId,
             TEXT("ProceduralMeshComponent plugin is required for procedural mesh section operations"), TEXT("NOT_SUPPORTED"));

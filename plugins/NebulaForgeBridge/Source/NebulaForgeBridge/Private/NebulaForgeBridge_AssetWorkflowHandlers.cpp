@@ -3147,9 +3147,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGetAssetGraph(
 }
 
 /**
- * Handles requests to set asset tags. NOTE: Asset Registry tags are distinct
- * from Actor tags. This function currently returns NOT_IMPLEMENTED as generic
- * asset tagging is ambiguous (metadata vs registry tags).
+ * Handles requests to set asset tags. Asset Registry tags are distinct from
+ * Actor tags; this action persists the requested values as package metadata.
  *
  * @param RequestId Unique request identifier.
  * @param Payload JSON payload.
@@ -3236,9 +3235,17 @@ bool UNebulaForgeBridgeSubsystem::HandleSetTags(
     // Mark dirty so the asset can be saved later
     Asset->MarkPackageDirty();
 
+    if (!McpSafeAssetSave(Asset))
+    {
+      StrongThis->SendAutomationResponse(Socket, RequestId, false,
+                             TEXT("Tags were applied but asset save failed"),
+                             nullptr, TEXT("SAVE_FAILED"));
+      return;
+    }
+
     TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
     Resp->SetBoolField(TEXT("success"), true);
-    Resp->SetBoolField(TEXT("markedDirty"), true);
+    Resp->SetBoolField(TEXT("saved"), true);
     Resp->SetStringField(TEXT("assetPath"), SafeAssetPath);
     Resp->SetNumberField(TEXT("appliedTags"), AppliedCount);
     StrongThis->SendAutomationResponse(Socket, RequestId, true,

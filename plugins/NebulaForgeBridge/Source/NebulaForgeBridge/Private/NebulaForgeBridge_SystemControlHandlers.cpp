@@ -1427,7 +1427,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bDataValidationAction = Lower == TEXT("run_data_validation") || Lower == TEXT("create_asset_validator");
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
   const bool bGameplayTagNativeAction = Lower == TEXT("register_native_tag");
-  const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project");
+  const bool bBuildPipelineAlias = Lower == TEXT("cook_content") || Lower == TEXT("package_project") || Lower == TEXT("compile_shaders");
   const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
   const bool bCultureAction = Lower == TEXT("set_culture") || Lower == TEXT("set_language_and_locale") || Lower == TEXT("set_locale");
   const bool bQualityLevelAction = Lower == TEXT("set_quality_level");

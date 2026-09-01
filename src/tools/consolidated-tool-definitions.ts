@@ -1013,6 +1013,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         width: commonSchemas.numberProp,
         height: commonSchemas.numberProp,
         command: commonSchemas.stringProp,
+        shaderMode: { type: 'string', enum: ['changed', 'all'], description: 'Shader recompilation scope; defaults to changed.' },
         steps: commonSchemas.integerProp,
         bookmarkName: commonSchemas.stringProp,
         // Path parameters for various actions
@@ -1811,7 +1812,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'set_cvar', 'get_project_settings', 'validate_assets',
             'set_project_setting', 'execute_python', 'release_gate'
           ,
-            'generate_project_files', 'register_native_tag',
+            'compile_shaders', 'generate_project_files', 'register_native_tag',
             ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
           description: 'Action'
         },

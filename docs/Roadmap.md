@@ -1414,7 +1414,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 32.1 Build Pipeline
 - [x] `run_ubt` (expanded)
 - [x] `generate_project_files` (managed UBT `ProjectFiles` mode)
-- [ ] `compile_shaders`
+- [x] `compile_shaders` (validated `recompileshaders changed|all` console alias)
 - [x] `cook_content` (platform)
 - [x] `package_project` (platform)
 - [ ] `configure_build_settings`

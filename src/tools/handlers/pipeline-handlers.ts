@@ -1044,6 +1044,10 @@ async function findBundledDotNetRoot(ubtPath: string): Promise<string | undefine
 /** Dispatch system_control pipeline actions to local UBT or the C++ bridge. */
 export async function handlePipelineTools(action: string, args: PipelineArgs, tools: ITools) {
   switch (action) {
+    case 'compile_shaders': {
+      const mode = args.shaderMode === 'all' ? 'all' : 'changed';
+      return cleanObject(await executeAutomationRequest(tools, 'console_command', { ...args, command: `recompileshaders ${mode}` }, 'Automation bridge not available for shader compilation'));
+    }
     case 'generate_project_files':
       return handlePipelineTools('run_ubt', {
         ...args,

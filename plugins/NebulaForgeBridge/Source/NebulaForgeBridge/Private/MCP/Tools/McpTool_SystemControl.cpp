@@ -39,6 +39,7 @@ public:
 			.Bool(TEXT("enabled"), TEXT("Whether the item/feature is enabled."))
 			.String(TEXT("resolution"), TEXT("Resolution setting (e.g., 1024x1024)."))
 			.String(TEXT("command"), TEXT(""))
+			.StringEnum(TEXT("shaderMode"), { TEXT("changed"), TEXT("all") }, TEXT("Shader recompilation scope."))
 			.String(TEXT("target"), TEXT(""))
 			.String(TEXT("platform"), TEXT(""))
 			.String(TEXT("configuration"), TEXT(""))

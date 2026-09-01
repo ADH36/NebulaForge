@@ -1181,6 +1181,20 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     float SurfaceArea = 0.0f;
     float Volume = 0.0f;
     FVector CenterOfMass = FVector::ZeroVector;
+    bool bTopologyQueriesSupported = false;
+    bool bIsClosed = false;
+    bool bIsDense = false;
+    int32 OpenBorderLoopCount = 0;
+    int32 OpenBorderEdgeCount = 0;
+    int32 ConnectedIslandCount = 0;
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5
+    bTopologyQueriesSupported = true;
+    bIsClosed = UGeometryScriptLibrary_MeshQueryFunctions::GetIsClosedMesh(Mesh);
+    bIsDense = UGeometryScriptLibrary_MeshQueryFunctions::GetIsDenseMesh(Mesh);
+    OpenBorderLoopCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumOpenBorderLoops(Mesh);
+    OpenBorderEdgeCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumOpenBorderEdges(Mesh);
+    ConnectedIslandCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumConnectedIslands(Mesh);
+#endif
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
     UGeometryScriptLibrary_MeshQueryFunctions::GetMeshVolumeAreaCenter(Mesh, SurfaceArea, Volume, CenterOfMass);
 #else
@@ -1198,6 +1212,12 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     Result->SetBoolField(TEXT("hasAttributeSet"), bHasAttributeSet);
     Result->SetNumberField(TEXT("surfaceArea"), SurfaceArea);
     Result->SetNumberField(TEXT("volume"), Volume);
+    Result->SetBoolField(TEXT("topologyQueriesSupported"), bTopologyQueriesSupported);
+    Result->SetBoolField(TEXT("isClosed"), bIsClosed);
+    Result->SetBoolField(TEXT("isDense"), bIsDense);
+    Result->SetNumberField(TEXT("openBorderLoopCount"), OpenBorderLoopCount);
+    Result->SetNumberField(TEXT("openBorderEdgeCount"), OpenBorderEdgeCount);
+    Result->SetNumberField(TEXT("connectedIslandCount"), ConnectedIslandCount);
     Result->SetStringField(TEXT("info"), UGeometryScriptLibrary_MeshQueryFunctions::GetMeshInfoString(Mesh));
     TSharedPtr<FJsonObject> Center = MakeShared<FJsonObject>();
     Center->SetNumberField(TEXT("x"), CenterOfMass.X);

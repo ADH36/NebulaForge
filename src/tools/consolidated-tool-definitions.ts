@@ -2613,6 +2613,12 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         centerOfMass: commonSchemas.objectProp,
         info: commonSchemas.stringProp,
         hasAttributeSet: commonSchemas.booleanProp,
+        topologyQueriesSupported: commonSchemas.booleanProp,
+        isClosed: commonSchemas.booleanProp,
+        isDense: commonSchemas.booleanProp,
+        openBorderLoopCount: commonSchemas.numberProp,
+        openBorderEdgeCount: commonSchemas.numberProp,
+        connectedIslandCount: commonSchemas.numberProp,
         meshInfo: {
           type: 'object',
           properties: {

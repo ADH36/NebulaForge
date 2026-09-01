@@ -162,6 +162,7 @@ public:
 			.Number(TEXT("frameRun"), TEXT("Number of frames to display a keyframe."))
 			.Number(TEXT("keyFrameIndex"), TEXT("Optional insertion index for a flipbook keyframe."))
 			.Number(TEXT("framesPerSecond"), TEXT("Flipbook nominal playback frame rate."))
+			.Bool(TEXT("forceResize"), TEXT("Force PaperTileMap resize when reducing dimensions."))
 			.StringEnum(TEXT("collisionDomain"), { TEXT("none"), TEXT("2d"), TEXT("3d") }, TEXT("PaperTileMap collision domain."))
 			.Number(TEXT("collisionThickness"), TEXT("PaperTileMap collision extrusion thickness."))
 			.String(TEXT("expressionClass"), TEXT(""))

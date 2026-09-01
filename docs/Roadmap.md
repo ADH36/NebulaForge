@@ -2117,6 +2117,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Tile Maps: `fill_paper_tile_region` (bounded batch of official `SetTile` calls with optional single collision rebuild)
 - [x] Tile Maps: `configure_paper_tile_map_layer_collision` (official `UPaperTileMapComponent::SetLayerCollision`; requires an owned/editable tile map component and the optional Paper2D plugin)
 - [x] Tile Maps: `configure_tile_map_collision` (official `UPaperTileMap::SetCollisionDomain`, `SetCollisionThickness`, and `RebuildCollision`; requires the optional Paper2D editor plugin)
+- [x] Tile Maps: `resize_tile_map` (official `UPaperTileMap::ResizeMap`; bounded dimensions, optional force resize, collision rebuild, and safe persistence)
 - [x] Actors: `spawn_paper_sprite_actor`, `spawn_paper_flipbook_actor` (official Paper2D actor/component APIs; requires the optional Paper2D plugin and a pre-existing sprite/flipbook asset)
 - [x] Actors: `spawn_paper_tile_map_actor` (official `APaperTileMapActor::GetRenderComponent` and `UPaperTileMapComponent::SetTileMap`; requires the optional Paper2D plugin and a pre-existing tile-map asset)
 - [x] Actors: `set_paper_tile_map_color` (official `UPaperTileMapComponent::SetTileMapColor`; requires the optional Paper2D plugin)

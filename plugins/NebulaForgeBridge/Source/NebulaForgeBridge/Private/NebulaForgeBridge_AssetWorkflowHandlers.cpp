@@ -487,6 +487,46 @@ static bool HandlePaperFlipbookAssetAction(
 #endif
 
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+static bool HandlePaperTileMapResizeAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString TileMapPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(TileMapPath));
+  if (!TileMap) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileMap"), TEXT("TILEMAP_NOT_FOUND"));
+    return true;
+  }
+  int32 Width = 0;
+  int32 Height = 0;
+  bool bForceResize = false;
+  if (!Payload->TryGetNumberField(TEXT("width"), Width) || !Payload->TryGetNumberField(TEXT("height"), Height) ||
+      Width < 1 || Width > 1024 || Height < 1 || Height > 1024) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("width and height must be between 1 and 1024"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  Payload->TryGetBoolField(TEXT("forceResize"), bForceResize);
+  TileMap->Modify();
+  TileMap->ResizeMap(Width, Height, bForceResize);
+  TileMap->RebuildCollision();
+  bool bSave = true;
+  Payload->TryGetBoolField(TEXT("save"), bSave);
+  if (bSave && !McpSafeAssetSave(TileMap)) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("Paper tile-map resized but save failed"), TEXT("SAVE_FAILED"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetNumberField(TEXT("width"), TileMap->MapWidth);
+  Result->SetNumberField(TEXT("height"), TileMap->MapHeight);
+  Result->SetBoolField(TEXT("forceResize"), bForceResize);
+  Result->SetBoolField(TEXT("saved"), bSave);
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map resized"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileMapAssetAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1070,6 +1110,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("create_tile_map")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileMapAssetAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("resize_tile_map")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapResizeAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

@@ -263,6 +263,12 @@ TSharedPtr<FJsonObject> UNebulaForgeBridgeSubsystem::GetMovieRenderQueueTrackedS
 #else
 #define MCP_HAS_NIAGARA_BOOL_PARAMETER_TRACK 0
 #endif
+#if __has_include("MovieScene/Parameters/MovieSceneNiagaraVectorParameterTrack.h") && __has_include("Channels/MovieSceneFloatChannel.h") && __has_include("NiagaraVariable.h") && __has_include("NiagaraTypes.h")
+#include "MovieScene/Parameters/MovieSceneNiagaraVectorParameterTrack.h"
+#define MCP_HAS_NIAGARA_VECTOR_PARAMETER_TRACK 1
+#else
+#define MCP_HAS_NIAGARA_VECTOR_PARAMETER_TRACK 0
+#endif
 #include "Tracks/MovieSceneEventTrack.h"
 #include "Sound/SoundBase.h"
 
@@ -3371,6 +3377,88 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     return true;
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara parameter track API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+
+  if (EffectiveAction == TEXT("sequence_add_niagara_vector_parameter_key")) {
+#if MCP_HAS_NIAGARA_VECTOR_PARAMETER_TRACK
+    const FString SeqPath = ResolveSequencePath(LocalPayload);
+    FString ActorName, ParameterName;
+    int32 Frame = 0, RowIndex = 0;
+    double X = 0.0, Y = 0.0, Z = 0.0;
+    if (SeqPath.IsEmpty() || !LocalPayload->TryGetStringField(TEXT("actorName"), ActorName) || ActorName.IsEmpty() ||
+        !LocalPayload->TryGetStringField(TEXT("parameterName"), ParameterName) || ParameterName.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("path, actorName, and parameterName are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    LocalPayload->TryGetNumberField(TEXT("frame"), Frame);
+    LocalPayload->TryGetNumberField(TEXT("rowIndex"), RowIndex);
+    LocalPayload->TryGetNumberField(TEXT("vectorX"), X);
+    LocalPayload->TryGetNumberField(TEXT("vectorY"), Y);
+    LocalPayload->TryGetNumberField(TEXT("vectorZ"), Z);
+    if (Frame < -1000000000 || Frame > 1000000000 || RowIndex < 0 || RowIndex > 100000 || !FMath::IsFinite(X) || !FMath::IsFinite(Y) || !FMath::IsFinite(Z)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("frame, rowIndex, or vector channels are outside the supported range"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    ULevelSequence* Sequence = LoadObject<ULevelSequence>(nullptr, *SeqPath);
+    if (!Sequence || !Sequence->GetMovieScene()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Level sequence not found"), TEXT("SEQUENCE_NOT_FOUND"));
+      return true;
+    }
+    FGuid BindingGuid;
+    for (const FMovieSceneBinding& Binding : Sequence->GetMovieScene()->GetBindings()) {
+      FString BindingName;
+      if (const FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(Binding.GetObjectGuid())) BindingName = Possessable->GetName();
+      else if (const FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(Binding.GetObjectGuid())) BindingName = Spawnable->GetName();
+      if (BindingName.Equals(ActorName, ESearchCase::IgnoreCase) || BindingName.Contains(ActorName)) { BindingGuid = Binding.GetObjectGuid(); break; }
+    }
+    if (!BindingGuid.IsValid()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Binding not found for actor"), TEXT("BINDING_NOT_FOUND"));
+      return true;
+    }
+    UMovieSceneNiagaraVectorParameterTrack* ParameterTrack = nullptr;
+    for (UMovieSceneTrack* Track : Sequence->GetMovieScene()->FindTracks(UMovieSceneNiagaraVectorParameterTrack::StaticClass(), BindingGuid)) {
+      ParameterTrack = Cast<UMovieSceneNiagaraVectorParameterTrack>(Track);
+      if (ParameterTrack) break;
+    }
+    if (!ParameterTrack) ParameterTrack = Cast<UMovieSceneNiagaraVectorParameterTrack>(Sequence->GetMovieScene()->AddTrack(UMovieSceneNiagaraVectorParameterTrack::StaticClass(), BindingGuid));
+    if (!ParameterTrack) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara vector parameter track"), TEXT("TRACK_CREATION_FAILED"));
+      return true;
+    }
+    ParameterTrack->SetChannelsUsed(3);
+    ParameterTrack->SetParameter(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), FName(*ParameterName)));
+    UMovieSceneSection* Section = ParameterTrack->GetAllSections().Num() > 0 ? ParameterTrack->GetAllSections()[0] : ParameterTrack->CreateNewSection();
+    if (!Section) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create Niagara vector parameter section"), TEXT("SECTION_CREATION_FAILED"));
+      return true;
+    }
+    if (ParameterTrack->GetAllSections().Num() == 0) ParameterTrack->AddSection(*Section);
+    FMovieSceneFloatChannel* XChannel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0);
+    FMovieSceneFloatChannel* YChannel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(1);
+    FMovieSceneFloatChannel* ZChannel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(2);
+    if (!XChannel || !YChannel || !ZChannel) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara vector parameter section does not expose three float channels"), TEXT("CHANNEL_UNAVAILABLE"));
+      return true;
+    }
+    XChannel->AddLinearKey(FFrameNumber(Frame), static_cast<float>(X));
+    YChannel->AddLinearKey(FFrameNumber(Frame), static_cast<float>(Y));
+    ZChannel->AddLinearKey(FFrameNumber(Frame), static_cast<float>(Z));
+    Sequence->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("sequencePath"), SeqPath);
+    Result->SetStringField(TEXT("actorName"), ActorName);
+    Result->SetStringField(TEXT("parameterName"), ParameterName);
+    Result->SetNumberField(TEXT("frame"), Frame);
+    Result->SetNumberField(TEXT("vectorX"), X);
+    Result->SetNumberField(TEXT("vectorY"), Y);
+    Result->SetNumberField(TEXT("vectorZ"), Z);
+    Result->SetNumberField(TEXT("rowIndex"), RowIndex);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Niagara vector parameter key added"), Result);
+    return true;
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Niagara vector parameter track API is unavailable in this engine build"), TEXT("NOT_AVAILABLE"));
     return true;
 #endif
   }

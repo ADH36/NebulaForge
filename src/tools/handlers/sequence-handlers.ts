@@ -314,6 +314,21 @@ export async function handleSequenceTools(action: string, args: Record<string, u
         ...args, path, actorName, parameterName, frame, rowIndex, subAction: 'add_niagara_bool_parameter_key'
       }) as SequenceActionResponse);
     }
+    case 'add_niagara_vector_parameter_key': {
+      const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
+      const actorName = requireNonEmptyString(args.actorName, 'actorName', 'Missing required parameter: actorName');
+      const parameterName = requireNonEmptyString(args.parameterName, 'parameterName', 'Missing required parameter: parameterName');
+      const frame = Number(args.frame ?? 0);
+      const rowIndex = Number(args.rowIndex ?? 0);
+      const channels = ['vectorX', 'vectorY', 'vectorZ'].map((key) => Number(args[key] ?? 0));
+      if (!Number.isInteger(frame) || frame < -1000000000 || frame > 1000000000) throw new Error('frame must be an integer between -1000000000 and 1000000000');
+      if (!channels.every((channel) => Number.isFinite(channel))) throw new Error('vector channels must be finite numbers');
+      if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex > 100000) throw new Error('rowIndex must be a non-negative integer');
+      return cleanObject(await executeAutomationRequest(tools, 'manage_sequence', {
+        ...args, path, actorName, parameterName, frame, rowIndex,
+        vectorX: channels[0], vectorY: channels[1], vectorZ: channels[2], subAction: 'add_niagara_vector_parameter_key'
+      }) as SequenceActionResponse);
+    }
     case 'inspect_niagara_parameter_track': {
       const path = requireNonEmptyString(args.path, 'path', 'Missing required parameter: path');
       const actorName = requireNonEmptyString(args.actorName, 'actorName', 'Missing required parameter: actorName');

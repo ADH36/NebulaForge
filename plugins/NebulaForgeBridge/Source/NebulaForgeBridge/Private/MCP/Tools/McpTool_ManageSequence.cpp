@@ -40,6 +40,7 @@ public:
 				TEXT("add_niagara_float_parameter_key"),
 				TEXT("add_niagara_integer_parameter_key"),
 				TEXT("add_niagara_bool_parameter_key"),
+				TEXT("add_niagara_vector_parameter_key"),
 				TEXT("inspect_niagara_parameter_track"),
 				TEXT("add_camera_cut_track"),
 				TEXT("add_camera_shake_track"),
@@ -136,6 +137,9 @@ public:
 			.Number(TEXT("colorB"), TEXT("Blue channel for a material color key."))
 			.Number(TEXT("colorA"), TEXT("Alpha channel for a material color key."))
 			.Integer(TEXT("customPrimitiveDataIndex"), TEXT("Custom primitive data start index."))
+			.Number(TEXT("vectorX"), TEXT("X channel for a Niagara vector key."))
+			.Number(TEXT("vectorY"), TEXT("Y channel for a Niagara vector key."))
+			.Number(TEXT("vectorZ"), TEXT("Z channel for a Niagara vector key."))
 			.Number(TEXT("rowIndex"), TEXT("Optional subsequence track row."))
 			.String(TEXT("outputPath"), TEXT("Project-relative Movie Render Queue output directory."))
 			.String(TEXT("mrqJobId"), TEXT("Movie Render Queue job identifier."))

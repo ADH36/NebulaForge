@@ -8050,8 +8050,8 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
     if (SubAction == TEXT("translate_mesh")) return HandleTranslateMesh(this, RequestId, Payload, RequestingSocket);
 
     // Additional UV Operations
-    if (SubAction == TEXT("unwrap_uv")) return HandleUnwrapUV(this, RequestId, Payload, RequestingSocket);
-    if (SubAction == TEXT("pack_uv_islands")) return HandlePackUVIslands(this, RequestId, Payload, RequestingSocket);
+    if (SubAction == TEXT("unwrap_uv") || SubAction == TEXT("unwrap_uvs")) return HandleUnwrapUV(this, RequestId, Payload, RequestingSocket);
+    if (SubAction == TEXT("pack_uv_islands") || SubAction == TEXT("pack_uvs")) return HandlePackUVIslands(this, RequestId, Payload, RequestingSocket);
 
     // Nanite Conversion
     if (SubAction == TEXT("convert_to_nanite")) return HandleConvertToNanite(this, RequestId, Payload, RequestingSocket);

@@ -2493,7 +2493,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'simplify_mesh', 'subdivide', 'remesh_uniform', 'merge_vertices', 'remesh_voxel',
             'simplify_mesh_tool', 'remesh_tool', 'boolean_tool',
             'weld_vertices', 'fill_holes', 'remove_degenerates',
-            'auto_uv', 'project_uv', 'transform_uvs', 'unwrap_uv', 'pack_uv_islands',
+            'auto_uv', 'project_uv', 'transform_uvs', 'unwrap_uv', 'unwrap_uvs', 'pack_uv_islands', 'pack_uvs',
             'recalculate_normals', 'flip_normals', 'recompute_tangents',
             'generate_collision', 'generate_complex_collision', 'simplify_collision',
             'generate_lods', 'set_lod_settings', 'set_lod_screen_sizes', 'convert_to_nanite',

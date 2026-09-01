@@ -5263,6 +5263,61 @@ bool UNebulaForgeBridgeSubsystem::HandleControlEditorAction(
     return HandleControlEditorResume(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("console_command") || LowerSub == TEXT("execute_command"))
     return HandleControlEditorConsoleCommand(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("configure_killcam_duration")) {
+    double DurationSeconds = 0.0;
+    if (!Payload->TryGetNumberField(TEXT("durationSeconds"), DurationSeconds) ||
+        !FMath::IsFinite(DurationSeconds) || DurationSeconds <= 0.0 || DurationSeconds > 120.0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("durationSeconds must be greater than 0 and no more than 120"), nullptr);
+      return true;
+    }
+    ConfiguredKillcamDurationSeconds = DurationSeconds;
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetNumberField(TEXT("durationSeconds"), ConfiguredKillcamDurationSeconds);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Killcam duration configured"), Response);
+    return true;
+  }
+  if (LowerSub == TEXT("start_killcam")) {
+    UWorld *World = GEditor ? (GEditor->PlayWorld ? GEditor->PlayWorld.Get()
+                                                  : GEditor->GetEditorWorldContext().World())
+                            : nullptr;
+    FString Filename;
+    Payload->TryGetStringField(TEXT("filename"), Filename);
+    if (Filename.IsEmpty()) Payload->TryGetStringField(TEXT("name"), Filename);
+    double StartTime = 0.0;
+    double DurationSeconds = ConfiguredKillcamDurationSeconds;
+    if (!Payload->TryGetNumberField(TEXT("startTime"), StartTime)) Payload->TryGetNumberField(TEXT("demoTime"), StartTime);
+    Payload->TryGetNumberField(TEXT("durationSeconds"), DurationSeconds);
+    if (!World || Filename.IsEmpty() || !FMath::IsFinite(StartTime) || StartTime < 0.0 ||
+        !FMath::IsFinite(DurationSeconds) || DurationSeconds <= 0.0 || DurationSeconds > 120.0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
+                                TEXT("start_killcam requires filename, non-negative startTime, and a duration from 0 to 120 seconds"), nullptr);
+      return true;
+    }
+    const FString SafeFilename = MakeSafeConsoleName(Filename, TEXT("Demo"));
+    const FString SeekCommand = FString::Printf(TEXT("DemoGotoTime %.6f"), StartTime);
+    const FString PlayCommand = FString::Printf(TEXT("DemoPlay %s"), *SafeFilename);
+    const bool bSeeked = GEditor->Exec(World, *SeekCommand);
+    const bool bPlayed = bSeeked && GEditor->Exec(World, *PlayCommand);
+    if (bPlayed) {
+      TWeakObjectPtr<UWorld> WeakWorld(World);
+      FTimerHandle KillcamTimerHandle;
+      World->GetTimerManager().SetTimer(KillcamTimerHandle, FTimerDelegate::CreateLambda([WeakWorld]() {
+        if (GEditor) {
+          if (UWorld *ActiveWorld = WeakWorld.Get()) GEditor->Exec(ActiveWorld, TEXT("DemoPause"));
+        }
+      }), static_cast<float>(DurationSeconds), false);
+    }
+    TSharedPtr<FJsonObject> Response = McpHandlerUtils::CreateResultObject();
+    Response->SetStringField(TEXT("filename"), SafeFilename);
+    Response->SetNumberField(TEXT("startTime"), StartTime);
+    Response->SetNumberField(TEXT("durationSeconds"), DurationSeconds);
+    Response->SetBoolField(TEXT("seeked"), bSeeked);
+    Response->SetBoolField(TEXT("playing"), bPlayed);
+    SendAutomationResponse(RequestingSocket, RequestId, bPlayed, bPlayed ? TEXT("Killcam started") : TEXT("Killcam replay command failed"), Response,
+                           bPlayed ? FString() : TEXT("DEMO_COMMAND_FAILED"));
+    return true;
+  }
   if (LowerSub == TEXT("play_demo") || LowerSub == TEXT("pause_demo") ||
       LowerSub == TEXT("seek_demo") || LowerSub == TEXT("set_demo_playback_speed")) {
     UWorld *World = GEditor->PlayWorld ? GEditor->PlayWorld.Get()

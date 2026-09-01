@@ -248,6 +248,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_editor', arguments: { action: 'pause_demo' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'seek_demo', demoTime: 1.5 }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'set_demo_playback_speed', demoSpeed: 1.0 }, expected: 'success|error' },
+  { toolName: 'control_editor', arguments: { action: 'configure_killcam_duration', durationSeconds: 5 }, expected: 'success|error' },
+  { toolName: 'control_editor', arguments: { action: 'start_killcam', filename: 'ContractDemo', startTime: 10, durationSeconds: 5 }, expected: 'success|error' },
   { toolName: 'manage_level_structure', arguments: { action: 'get_wp_cell_status' }, expected: 'success|error' },
   { toolName: 'manage_level_structure', arguments: { action: 'load_cells' }, expected: 'success|error' },
   { toolName: 'manage_level_structure', arguments: { action: 'pin_wp_cells' }, expected: 'success|error' },

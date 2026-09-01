@@ -61,6 +61,8 @@ public:
 				TEXT("pause_demo"),
 				TEXT("seek_demo"),
 				TEXT("set_demo_playback_speed"),
+				TEXT("configure_killcam_duration"),
+				TEXT("start_killcam"),
 				TEXT("create_bookmark"),
 				TEXT("jump_to_bookmark"),
 				TEXT("set_preferences"),
@@ -141,6 +143,8 @@ public:
 			.FreeformObject(TEXT("metadata"), TEXT("Caller-provided screenshot metadata."))
 			.Number(TEXT("demoTime"), TEXT("Demo playback time in seconds."))
 			.Number(TEXT("demoSpeed"), TEXT("Demo playback speed from 0 to 16."))
+			.Number(TEXT("durationSeconds"), TEXT("Killcam playback duration in seconds."))
+			.Number(TEXT("startTime"), TEXT("Replay time in seconds at which the killcam starts."))
 			.String(TEXT("mediaPlayerPath"), TEXT("Media player asset path."))
 			.String(TEXT("mediaUrl"), TEXT("Media URL to open."))
 			.Number(TEXT("mediaTime"), TEXT("Media playback time in seconds."))

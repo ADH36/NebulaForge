@@ -73,6 +73,8 @@ const ACTION_REQUIRED_PARAMS: Record<string, string[]> = {
   'send_enhanced_input': ['key'],
   'seek_demo': ['demoTime'],
   'set_demo_playback_speed': ['demoSpeed'],
+  'configure_killcam_duration': ['durationSeconds'],
+  'start_killcam': ['filename', 'startTime'],
   'open_media': ['mediaPlayerPath', 'mediaUrl'],
   'play_media': ['mediaPlayerPath'],
   'pause_media': ['mediaPlayerPath'],
@@ -135,6 +137,8 @@ const ACTION_ALLOWED_PARAMS: Record<string, string[]> = {
   'pause_demo': [],
   'seek_demo': ['demoTime'],
   'set_demo_playback_speed': ['demoSpeed'],
+  'configure_killcam_duration': ['durationSeconds'],
+  'start_killcam': ['filename', 'startTime', 'durationSeconds'],
   'stop_recording': [],
   'stop_demo_recording': [],
   'set_viewport_realtime': ['enabled', 'realtime'],
@@ -643,6 +647,19 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       const demoSpeed = Number(args.demoSpeed);
       if (!Number.isFinite(demoSpeed) || demoSpeed <= 0 || demoSpeed > 16) throw new Error('demoSpeed must be greater than 0 and no more than 16');
       return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'set_demo_playback_speed', demoSpeed }) as Record<string, unknown>);
+    }
+    case 'configure_killcam_duration': {
+      const durationSeconds = Number(args.durationSeconds);
+      if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > 120) throw new Error('durationSeconds must be greater than 0 and no more than 120');
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'configure_killcam_duration', durationSeconds }) as Record<string, unknown>);
+    }
+    case 'start_killcam': {
+      const filename = requireNonEmptyString(args.filename || args.name, 'filename');
+      const startTime = Number(args.startTime ?? args.demoTime);
+      const durationSeconds = Number(args.durationSeconds);
+      if (!Number.isFinite(startTime) || startTime < 0) throw new Error('startTime must be a non-negative number');
+      if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > 120) throw new Error('durationSeconds must be greater than 0 and no more than 120');
+      return cleanObject(await executeAutomationRequest(tools, 'control_editor', { action: 'start_killcam', filename, startTime, durationSeconds }) as Record<string, unknown>);
     }
     case 'open_media': {
       const mediaPlayerPath = requireNonEmptyString(args.mediaPlayerPath, 'mediaPlayerPath');

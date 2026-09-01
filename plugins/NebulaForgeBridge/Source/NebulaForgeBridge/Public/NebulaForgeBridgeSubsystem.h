@@ -388,6 +388,7 @@ private:
   FString LastMRQError;
   bool bLastMRQCompleted = false;
   bool bLastMRQSuccess = false;
+  double ConfiguredKillcamDurationSeconds = 5.0;
   UPROPERTY(Transient)
   TMap<FString, TObjectPtr<UMcpManagedGameplayTask>> ManagedGameplayTasks;
   TMap<FString, TWeakObjectPtr<UObject>> ManagedGameplayTaskOwners;

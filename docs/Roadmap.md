@@ -1356,9 +1356,9 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_demo_settings` (guarded documented `demo.*` replay setting authoring)
 - [x] `play_demo`, `pause_demo`, `seek_demo`
 - [x] `set_demo_playback_speed`
-- [ ] `configure_killcam_duration`, `start_killcam`
+- [x] `configure_killcam_duration`, `start_killcam` (bounded replay seek/playback window with automatic pause)
 
-**Implementation note:** Replay playback controls route through `control_editor` and the UE `DemoNetDriver` console/API path. Recording setup, streamer configuration, and killcam presentation remain project-specific.
+**Implementation note:** Replay playback controls route through `control_editor` and the UE `DemoNetDriver` console/API path. Killcam start accepts an explicit replay filename and start time, then pauses after the configured bounded window; streamer configuration remains project-specific.
 
 ---
 

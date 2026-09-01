@@ -5696,34 +5696,46 @@ static bool HandleProceduralMeshSection(UNebulaForgeBridgeSubsystem* Self, const
         return true;
     }
 
-    if (SubAction == TEXT("set_mesh_vertices"))
+    if (SubAction == TEXT("set_mesh_vertices") || SubAction == TEXT("set_mesh_normals") || SubAction == TEXT("set_mesh_uvs"))
     {
         FProcMeshSection* Section = ProcMesh->GetProcMeshSection(SectionIndex);
         TArray<FVector> NewVertices;
-        if (!Section || !ReadProcMeshVectorArray(Payload, TEXT("vertices"), NewVertices) || NewVertices.Num() != Section->ProcVertexBuffer.Num())
+        TArray<FVector> NewNormals;
+        TArray<FVector2D> NewUV0;
+        const bool bVertices = SubAction == TEXT("set_mesh_vertices");
+        const bool bNormals = SubAction == TEXT("set_mesh_normals");
+        const TCHAR* FieldName = bNormals ? TEXT("normals") : (bVertices ? TEXT("vertices") : TEXT("uv0"));
+        const bool bRead = bNormals ? ReadProcMeshVectorArray(Payload, FieldName, NewNormals) :
+            (bVertices ? ReadProcMeshVectorArray(Payload, FieldName, NewVertices) : ReadProcMeshUVArray(Payload, FieldName, NewUV0));
+        const int32 NewCount = bNormals ? NewNormals.Num() : (bVertices ? NewVertices.Num() : NewUV0.Num());
+        if (!Section || !bRead || NewCount != Section->ProcVertexBuffer.Num())
         {
-            Self->SendAutomationError(Socket, RequestId, TEXT("vertices must match the existing section vertex count"), TEXT("INVALID_ARGUMENT"));
+            Self->SendAutomationError(Socket, RequestId, TEXT("attribute array must match the existing section vertex count"), TEXT("INVALID_ARGUMENT"));
             return true;
         }
         TArray<FVector> Normals;
         TArray<FVector2D> UV0;
         TArray<FColor> Colors;
         TArray<FProcMeshTangent> Tangents;
+        NewVertices.Reserve(Section->ProcVertexBuffer.Num());
         Normals.Reserve(Section->ProcVertexBuffer.Num());
         UV0.Reserve(Section->ProcVertexBuffer.Num());
         Colors.Reserve(Section->ProcVertexBuffer.Num());
         Tangents.Reserve(Section->ProcVertexBuffer.Num());
         for (const FProcMeshVertex& Vertex : Section->ProcVertexBuffer)
         {
+            if (!bVertices) NewVertices.Add(Vertex.Position);
             Normals.Add(Vertex.Normal);
             UV0.Add(Vertex.UV0);
             Colors.Add(Vertex.Color);
             Tangents.Add(Vertex.Tangent);
         }
+        if (bNormals) Normals = MoveTemp(NewNormals);
+        if (!bNormals && !bVertices) UV0 = MoveTemp(NewUV0);
         ProcMesh->UpdateMeshSection(SectionIndex, NewVertices, Normals, UV0, Colors, Tangents);
         TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
         Result->SetNumberField(TEXT("sectionIndex"), SectionIndex);
-        Result->SetNumberField(TEXT("vertexCount"), NewVertices.Num());
+        Result->SetNumberField(TEXT("vertexCount"), NewCount);
         Self->SendAutomationResponse(Socket, RequestId, true, TEXT("Procedural mesh section vertices updated"), Result);
         return true;
     }

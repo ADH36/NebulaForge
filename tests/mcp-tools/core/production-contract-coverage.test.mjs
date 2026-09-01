@@ -18,6 +18,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'create_hierarchical_instanced_static_mesh', actorName: 'ContractActor', componentName: 'ContractHISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_procedural_mesh_component', actorName: 'ContractActor', componentName: 'ContractProceduralMesh' }, expected: 'success|error' },
   { toolName: 'manage_geometry', arguments: { action: 'set_mesh_vertices', actorName: 'ContractActor', componentName: 'ContractProceduralMesh', sectionIndex: 0, vertices: [[0, 0, 0], [100, 0, 0], [0, 100, 0]] }, expected: 'success|error' },
+  { toolName: 'manage_geometry', arguments: { action: 'set_mesh_normals', actorName: 'ContractActor', componentName: 'ContractProceduralMesh', sectionIndex: 0, normals: [[0, 0, 1], [0, 0, 1], [0, 0, 1]] }, expected: 'success|error' },
+  { toolName: 'manage_geometry', arguments: { action: 'set_mesh_uvs', actorName: 'ContractActor', componentName: 'ContractProceduralMesh', sectionIndex: 0, uv0: [[0, 0], [1, 0], [0, 1]] }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_sprite_actor', actorName: 'ContractPaperSprite', paperAssetPath: '/Game/Contract/Sprite' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_flipbook_actor', actorName: 'ContractPaperFlipbook', paperAssetPath: '/Game/Contract/Flipbook' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'spawn_paper_tile_map_actor', actorName: 'ContractPaperTileMap', paperAssetPath: '/Game/Contract/TileMap' }, expected: 'success|error' },

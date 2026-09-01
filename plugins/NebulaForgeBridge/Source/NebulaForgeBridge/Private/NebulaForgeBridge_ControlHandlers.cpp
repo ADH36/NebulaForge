@@ -124,6 +124,14 @@
 #else
 #define MCP_HAS_PAPER2D 0
 #endif
+#if __has_include("PaperTileMapActor.h") && __has_include("PaperTileMapComponent.h") && __has_include("PaperTileMap.h")
+#include "PaperTileMapActor.h"
+#include "PaperTileMapComponent.h"
+#include "PaperTileMap.h"
+#define MCP_HAS_PAPER_TILEMAP 1
+#else
+#define MCP_HAS_PAPER_TILEMAP 0
+#endif
 
 // -----------------------------------------------------------------------------
 // Editor-only Includes: Editor Subsystems (paths vary by UE version)
@@ -1052,14 +1060,18 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorSpawn(
 #if WITH_EDITOR
   FString ClassPath;
   Payload->TryGetStringField(TEXT("classPath"), ClassPath);
-#if MCP_HAS_PAPER2D
   FString RequestedAction;
   Payload->TryGetStringField(TEXT("action"), RequestedAction);
   RequestedAction = RequestedAction.ToLower();
+#if MCP_HAS_PAPER2D
   if (RequestedAction == TEXT("spawn_paper_sprite_actor"))
     ClassPath = TEXT("/Script/Paper2D.PaperSpriteActor");
   else if (RequestedAction == TEXT("spawn_paper_flipbook_actor"))
     ClassPath = TEXT("/Script/Paper2D.PaperFlipbookActor");
+#endif
+#if MCP_HAS_PAPER_TILEMAP
+  if (RequestedAction == TEXT("spawn_paper_tile_map_actor"))
+    ClassPath = TEXT("/Script/Paper2D.PaperTileMapActor");
 #endif
   FString ActorName;
   Payload->TryGetStringField(TEXT("actorName"), ActorName);
@@ -1267,6 +1279,20 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorSpawn(
     if (!bAppliedPaperAsset) {
       SendStandardErrorResponse(this, Socket, RequestId, TEXT("PAPER_ASSET_NOT_APPLIED"),
                                 TEXT("The Paper2D asset was not found or did not match the requested actor component"));
+      return true;
+    }
+  }
+#endif
+#if MCP_HAS_PAPER_TILEMAP
+  if (RequestedAction == TEXT("spawn_paper_tile_map_actor")) {
+    const FString PaperAssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("paperAssetPath")));
+    UObject* PaperAsset = PaperAssetPath.IsEmpty() ? nullptr : UEditorAssetLibrary::LoadAsset(PaperAssetPath);
+    UPaperTileMap* TileMap = Cast<UPaperTileMap>(PaperAsset);
+    APaperTileMapActor* TileMapActor = Cast<APaperTileMapActor>(Spawned);
+    if (!TileMap || !TileMapActor || !TileMapActor->GetRenderComponent() ||
+        !TileMapActor->GetRenderComponent()->SetTileMap(TileMap)) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("PAPER_ASSET_NOT_APPLIED"),
+                                TEXT("paperAssetPath must resolve to a PaperTileMap asset"));
       return true;
     }
   }
@@ -4137,6 +4163,15 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return HandleControlActorSpawn(RequestId, Payload, RequestingSocket);
   }
 #endif
+  if (LowerSub == TEXT("spawn_paper_tile_map_actor")) {
+#if MCP_HAS_PAPER_TILEMAP
+    return HandleControlActorSpawn(RequestId, Payload, RequestingSocket);
+#else
+    SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("NOT_SUPPORTED"),
+                              TEXT("Paper2D plugin is required for Paper tile-map actor spawning"));
+    return true;
+#endif
+  }
   if (LowerSub == TEXT("spawn_blueprint"))
     return HandleControlActorSpawnBlueprint(RequestId, Payload,
                                             RequestingSocket);

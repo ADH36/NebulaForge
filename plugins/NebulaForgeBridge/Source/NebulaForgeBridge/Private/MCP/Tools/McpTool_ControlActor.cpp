@@ -26,6 +26,7 @@ public:
 				TEXT("spawn_actor"),
 				TEXT("spawn_paper_sprite_actor"),
 				TEXT("spawn_paper_flipbook_actor"),
+				TEXT("spawn_paper_tile_map_actor"),
 				TEXT("spawn_blueprint"),
 				TEXT("delete"),
 				TEXT("destroy_actor"),

@@ -1050,6 +1050,36 @@ static bool HandlePaperTileMapLayerConfigureAction(
   return true;
 }
 
+static bool HandlePaperTileMapLayerInspectAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  int32 LayerIndex = 0;
+  if (!TileMap || !Payload->TryGetNumberField(TEXT("layerIndex"), LayerIndex) || LayerIndex < 0 || LayerIndex >= TileMap->TileLayers.Num() ||
+      !TileMap->TileLayers[LayerIndex].Get()) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileMap and layerIndex must be within its layer count"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  const UPaperTileLayer* Layer = TileMap->TileLayers[LayerIndex].Get();
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileMap->GetPathName());
+  Result->SetNumberField(TEXT("layerIndex"), LayerIndex);
+  Result->SetStringField(TEXT("layerName"), Layer->LayerName.ToString());
+  Result->SetNumberField(TEXT("layerWidth"), Layer->GetLayerWidth());
+  Result->SetNumberField(TEXT("layerHeight"), Layer->GetLayerHeight());
+  Result->SetNumberField(TEXT("occupiedCellCount"), Layer->GetNumOccupiedCells());
+  Result->SetBoolField(TEXT("layerCollides"), Layer->GetLayerCollides());
+  Result->SetBoolField(TEXT("renderInEditor"), Layer->ShouldRenderInEditor());
+  Result->SetBoolField(TEXT("renderInGame"), Layer->ShouldRenderInGame());
+  Result->SetObjectField(TEXT("layerColor"), McpHandlerUtils::LinearColorToJson(Layer->GetLayerColor()));
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-map layer inspected"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileMapResizeAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1761,6 +1791,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("configure_tile_map_layer")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileMapLayerConfigureAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("inspect_tile_map_layer")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileMapLayerInspectAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

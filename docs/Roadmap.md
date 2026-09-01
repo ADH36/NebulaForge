@@ -2108,7 +2108,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Actors: `spawn_paper_sprite_actor`, `spawn_paper_flipbook_actor`, `configure_paper_character`
 
 ### 45.6 Procedural Mesh Component
-- [ ] `create_procedural_mesh_component`
+- [x] `create_procedural_mesh_component` (safe component creation; requires the optional Procedural Mesh Component plugin)
 - [ ] `create_mesh_section`, `update_mesh_section`, `clear_mesh_section`, `clear_all_mesh_sections`
 - [ ] `set_mesh_vertices`, `set_mesh_triangles`, `set_mesh_normals`, `set_mesh_uvs`, `set_mesh_colors`, `set_mesh_tangents`
 - [ ] `set_collision_from_mesh`, `add_collision_convex_mesh`, `clear_collision_convex_meshes`

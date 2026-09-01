@@ -709,6 +709,32 @@ static bool HandlePaperTileSetInspectAction(
   return true;
 }
 
+static bool HandlePaperTileSetTileMetadataInspectAction(
+    UNebulaForgeBridgeSubsystem* Owner,
+    const FString& RequestId,
+    const TSharedPtr<FJsonObject>& Payload,
+    TSharedPtr<FMcpBridgeWebSocket> Socket)
+{
+  const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
+  UPaperTileSet* TileSet = Cast<UPaperTileSet>(UEditorAssetLibrary::LoadAsset(AssetPath));
+  int32 TileIndex = 0;
+  const FPaperTileMetadata* Metadata = nullptr;
+  if (!TileSet || !Payload->TryGetNumberField(TEXT("tileIndex"), TileIndex) || TileIndex < 0 || TileIndex >= TileSet->GetTileCount() ||
+      (Metadata = TileSet->GetTileMetadata(TileIndex)) == nullptr) {
+    Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileSet and tileIndex must be within its tile count"), TEXT("INVALID_ARGUMENT"));
+    return true;
+  }
+  TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+  Result->SetStringField(TEXT("assetPath"), TileSet->GetPathName());
+  Result->SetNumberField(TEXT("tileIndex"), TileIndex);
+  Result->SetStringField(TEXT("tileUserData"), Metadata->UserDataName.ToString());
+  Result->SetNumberField(TEXT("terrainMembership"), Metadata->TerrainMembership);
+  Result->SetBoolField(TEXT("hasCollision"), Metadata->HasCollision());
+  Result->SetBoolField(TEXT("hasMetadata"), Metadata->HasMetaData());
+  Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-set tile metadata inspected"), Result, FString());
+  return true;
+}
+
 static bool HandlePaperTileSetAssetAction(
     UNebulaForgeBridgeSubsystem* Owner,
     const FString& RequestId,
@@ -1415,6 +1441,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower == TEXT("configure_tile_set_tile_metadata")) {
 #if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
     return HandlePaperTileSetTileMetadataAction(this, RequestId, Payload, RequestingSocket);
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
+    return true;
+#endif
+  }
+  if (Lower == TEXT("inspect_tile_set_tile_metadata")) {
+#if WITH_EDITOR && MCP_HAS_PAPER_TILEMAP_EDITOR
+    return HandlePaperTileSetTileMetadataInspectAction(this, RequestId, Payload, RequestingSocket);
 #else
     SendAutomationError(RequestingSocket, RequestId, TEXT("Paper2D editor plugin is unavailable"), TEXT("PAPER2D_EDITOR_NOT_AVAILABLE"));
     return true;

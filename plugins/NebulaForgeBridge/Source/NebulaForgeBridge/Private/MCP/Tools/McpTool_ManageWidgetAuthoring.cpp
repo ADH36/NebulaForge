@@ -4,6 +4,7 @@
 #include "MCP/McpToolDefinition.h"
 #include "MCP/McpToolRegistry.h"
 #include "MCP/McpSchemaBuilder.h"
+#include "MCP/McpConsolidatedActionRouting.h"
 
 class FMcpTool_ManageWidgetAuthoring : public FMcpToolDefinition
 {
@@ -97,6 +98,7 @@ public:
 				TEXT("get_widget_info"),
 				TEXT("preview_widget")
 			}, TEXT("The widget authoring action to perform."))
+			.StringEnum(TEXT("action"), McpConsolidatedActions::WidgetAuthoring(), TEXT("The widget authoring action to perform."))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.String(TEXT("folder"), TEXT("Path to a directory."))
 			.String(TEXT("widgetPath"), TEXT("Widget blueprint path."))

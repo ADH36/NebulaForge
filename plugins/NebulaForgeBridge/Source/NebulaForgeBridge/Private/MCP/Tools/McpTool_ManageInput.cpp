@@ -4,6 +4,7 @@
 #include "MCP/McpToolDefinition.h"
 #include "MCP/McpToolRegistry.h"
 #include "MCP/McpSchemaBuilder.h"
+#include "MCP/McpConsolidatedActionRouting.h"
 
 class FMcpTool_ManageInput : public FMcpToolDefinition
 {
@@ -37,6 +38,7 @@ public:
 				TEXT("disable_input_action"),
 				TEXT("get_input_info")
 			}, TEXT("Action to perform"))
+			.StringEnum(TEXT("action"), McpConsolidatedActions::Input(), TEXT("Action to perform"))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.String(TEXT("path"), TEXT("Path to a directory."))
 			.String(TEXT("contextPath"), TEXT("Asset path (e.g., /Game/Path/Asset)."))

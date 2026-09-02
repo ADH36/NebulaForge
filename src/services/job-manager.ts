@@ -130,6 +130,10 @@ class JobManager {
       abortController: new AbortController(),
     };
     this.jobs.set(job.jobId, job);
+    const abortSignal = job.abortController?.signal;
+    if (!abortSignal) {
+      throw new Error('Managed task is missing an abort controller');
+    }
 
     const finish = (status: JobStatus, error?: string): void => {
       if (job.status !== 'running' && job.status !== 'queued') return;
@@ -161,7 +165,7 @@ class JobManager {
     }
 
     void Promise.resolve()
-      .then(() => options.task(job.abortController!.signal))
+      .then(() => options.task(abortSignal))
       .then(
         () => finish('completed'),
         (error: unknown) => finish('failed', error instanceof Error ? error.message : String(error))

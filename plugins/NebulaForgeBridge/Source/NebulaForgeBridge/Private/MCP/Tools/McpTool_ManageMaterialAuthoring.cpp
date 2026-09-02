@@ -4,6 +4,7 @@
 #include "MCP/McpToolDefinition.h"
 #include "MCP/McpToolRegistry.h"
 #include "MCP/McpSchemaBuilder.h"
+#include "MCP/McpConsolidatedActionRouting.h"
 
 class FMcpTool_ManageMaterialAuthoring : public FMcpToolDefinition
 {
@@ -62,6 +63,7 @@ public:
 				TEXT("compile_material"),
 				TEXT("get_material_info")
 			}, TEXT("Material authoring action to perform"))
+			.StringEnum(TEXT("action"), McpConsolidatedActions::MaterialAuthoring(), TEXT("Material authoring action to perform"))
 			.String(TEXT("assetPath"), TEXT("Asset path (e.g., /Game/Path/Asset)."))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.String(TEXT("path"), TEXT("Directory path for asset creation."))

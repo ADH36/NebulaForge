@@ -4,6 +4,7 @@
 #include "MCP/McpToolDefinition.h"
 #include "MCP/McpToolRegistry.h"
 #include "MCP/McpSchemaBuilder.h"
+#include "MCP/McpConsolidatedActionRouting.h"
 
 class FMcpTool_ManageLighting : public FMcpToolDefinition
 {
@@ -70,6 +71,7 @@ public:
 				TEXT("inspect_scene_captures"),
 				TEXT("list_light_types")
 			}, TEXT("Action"))
+			.StringEnum(TEXT("action"), McpConsolidatedActions::Lighting(), TEXT("Action"))
 			.String(TEXT("name"), TEXT("Name identifier."))
 			.Object(TEXT("location"), TEXT("3D location (x, y, z)."),
 				[](FMcpSchemaBuilder& S) {

@@ -55,7 +55,19 @@ function extractTypeScriptTools() {
     });
   }
 
-  return tools.sort((left, right) => left.name.localeCompare(right.name));
+  // The five focused-domain tools are generated from existing canonical
+  // definitions rather than declared as literal objects in the array.
+  for (const match of source.matchAll(
+    /createFocusedDomainTool\(\s*'[^']+'\s*,\s*'([^']+)'\s*,\s*'[^']+'\s*,\s*'[^']+'\s*,\s*([A-Z0-9_]+_ACTIONS)/g
+  )) {
+    tools.push({
+      name: match[1],
+      actions: constants.get(match[2]) ?? []
+    });
+  }
+
+  return [...new Map(tools.map((tool) => [tool.name, tool])).values()]
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function extractTextValues(text) {
@@ -108,17 +120,17 @@ function buildNativeActionEvaluator() {
 }
 
 function extractActionEnumFromNativeTool(source, evaluateActions) {
-  const routedActionEnum = source.match(
-    /\.StringEnum\(\s*TEXT\(\s*"action"\s*\)\s*,\s*McpConsolidatedActions::(\w+)\(\)\s*,/
-  );
-  if (routedActionEnum) {
-    return evaluateActions(routedActionEnum[1]);
+  const routedActionEnums = [...source.matchAll(
+    /\.StringEnum\(\s*TEXT\(\s*"action"\s*\)\s*,\s*McpConsolidatedActions::(\w+)\(\)\s*,/g
+  )];
+  if (routedActionEnums.length > 0) {
+    return evaluateActions(routedActionEnums.at(-1)[1]);
   }
 
-  const inlineActionEnum = source.match(
-    /\.StringEnum\(\s*TEXT\(\s*"action"\s*\)\s*,\s*\{([\s\S]*?)\}\s*,/
-  );
-  return [...new Set(extractTextValues(inlineActionEnum?.[1] ?? ''))].sort();
+  const inlineActionEnums = [...source.matchAll(
+    /\.StringEnum\(\s*TEXT\(\s*"action"\s*\)\s*,\s*\{([\s\S]*?)\}\s*,/g
+  )];
+  return [...new Set(extractTextValues(inlineActionEnums.at(-1)?.[1] ?? ''))].sort();
 }
 
 function extractNativeToolDefinitions() {

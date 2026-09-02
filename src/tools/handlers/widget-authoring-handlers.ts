@@ -94,7 +94,7 @@ export async function handleWidgetAuthoringTools(
 
     case 'create_common_activatable_widget':
     case 'create_common_button_base': {
-      requireNonEmptyString(argsRecord.name, 'name', `Missing required parameter: name`);
+      requireNonEmptyString(argsRecord.name, 'name', 'Missing required parameter: name');
       // CommonUI is an optional UE plugin; the bridge reports NOT_AVAILABLE when absent.
       return sendRequest(action);
     }

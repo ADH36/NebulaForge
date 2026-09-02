@@ -4,6 +4,7 @@
 #include "MCP/McpToolDefinition.h"
 #include "MCP/McpToolRegistry.h"
 #include "MCP/McpSchemaBuilder.h"
+#include "MCP/McpConsolidatedActionRouting.h"
 
 class FMcpTool_ManageNavigation : public FMcpToolDefinition
 {
@@ -39,6 +40,7 @@ public:
 				TEXT("configure_smart_link_behavior"),
 				TEXT("get_navigation_info")
 			}, TEXT("Navigation action to perform"))
+			.StringEnum(TEXT("action"), McpConsolidatedActions::Navigation(), TEXT("Navigation action to perform"))
 			.String(TEXT("navMeshPath"), TEXT("Path to NavMesh data asset."))
 			.String(TEXT("boundsActorName"), TEXT("Named NavMeshBoundsVolume for scoped authoring/builds."))
 			.String(TEXT("volumeName"), TEXT("Alias for boundsActorName when creating bounds."))

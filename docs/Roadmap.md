@@ -1765,7 +1765,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `import_metahuman`
 - [x] `spawn_metahuman_actor` (project-class-aware façade over validated actor spawning; accepts a concrete MetaHuman class/Blueprint `classPath`, with a safe `AActor` fallback when the MetaHuman plugin is unavailable)
 - [x] `list_available_metahumans` (asset-registry search façade for MetaHuman-named assets; full MetaHuman import/spawn remains plugin/project dependent)
-- [ ] `configure_metahuman_component`, `set_lod_settings`, `configure_body_type`
+- [x] `configure_metahuman_component` (project-aware façade over validated `UActorComponent` creation and reflected property authoring; accepts `componentType`, `componentName`, and `properties`, with an `ActorComponent` fallback when the MetaHuman plugin does not supply a project class)
+- [ ] `set_lod_settings`, `configure_body_type`
 - [ ] Face: `get_face_parameters`, `set_face_parameter`, `set_skin_tone`, `set_eye_color`, `set_hair_style`, `set_hair_color`, `set_eyebrow_style`, `set_teeth_configuration`, `set_makeup`
 - [ ] Body: `set_body_proportions`, `set_body_type`, `set_height`
 - [ ] DNA/Rig: `export_metahuman_dna`, `create_custom_rig_logic`, `configure_control_rig_for_metahuman`

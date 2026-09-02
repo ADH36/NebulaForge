@@ -32,6 +32,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'set_game_paused', paused: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'is_game_paused' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_audio_time_seconds' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'is_any_local_player_camera_within_range', location: { x: 0, y: 0, z: 0 }, maximumRange: 1000 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'set_max_audio_channels_scaled', maxChannelCountScale: 0.5 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_max_audio_channel_count' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'are_any_listeners_within_range', location: { x: 0, y: 0, z: 0 }, maximumRange: 1000 }, expected: 'success|error' },

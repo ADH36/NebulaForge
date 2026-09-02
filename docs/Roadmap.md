@@ -505,6 +505,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Indexed Niagara int32 and UInt8 array values via Epic's `SetNiagaraArrayInt32Value` and `SetNiagaraArrayUInt8Value` APIs (`set_niagara_parameter`, `parameterType: Int32ArrayValue` or `UInt8ArrayValue`); integral/range validation is enforced.
 - [x] Indexed Niagara vector, vector2D, vector4, quaternion, and color array values via Epic's typed `SetNiagaraArray*Value` APIs (`set_niagara_parameter`, `parameterType: VectorArrayValue`, `Vector2ArrayValue`, `Vector4ArrayValue`, `QuaternionArrayValue`, or `ColorArrayValue`).
 - [x] Indexed Niagara matrix array values via Epic's `SetNiagaraArrayMatrixValue` API (`set_niagara_parameter`, `parameterType: MatrixArrayValue`, `arrayIndex`, `arrayValue`, optional `sizeToFit` and `applyLwcRebase`).
+- [x] Niagara Position/LWC array values via Epic's `SetNiagaraArrayPosition` and `SetNiagaraArrayPositionValue` APIs (`set_niagara_parameter`, `parameterType: PositionArray` or `PositionArrayValue`); position arrays use FVector values distinct from ordinary vector arrays.
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

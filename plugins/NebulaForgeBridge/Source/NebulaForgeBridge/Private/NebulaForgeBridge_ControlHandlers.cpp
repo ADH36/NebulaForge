@@ -4241,6 +4241,19 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     PingPayload->SetStringField(TEXT("action"), TEXT("create_ping_system"));
     return HandleControlActorSpawn(RequestId, PingPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("create_targeting_component")) {
+    TSharedPtr<FJsonObject> ComponentPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      ComponentPayload->SetField(Pair.Key, Pair.Value);
+    FString ComponentType;
+    ComponentPayload->TryGetStringField(TEXT("componentType"), ComponentType);
+    if (ComponentType.IsEmpty())
+      ComponentPayload->SetStringField(TEXT("componentType"), TEXT("/Script/Engine.ActorComponent"));
+    if (!ComponentPayload->HasField(TEXT("componentName")))
+      ComponentPayload->SetStringField(TEXT("componentName"), TEXT("TargetingComponent"));
+    ComponentPayload->SetStringField(TEXT("action"), TEXT("add_component"));
+    return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_marker_widget") ||
       LowerSub == TEXT("configure_marker_3d_2d") ||
       LowerSub == TEXT("configure_marker_distance") ||

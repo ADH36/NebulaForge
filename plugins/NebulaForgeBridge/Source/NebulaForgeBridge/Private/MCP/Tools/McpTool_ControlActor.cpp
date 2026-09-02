@@ -27,6 +27,7 @@ public:
 				TEXT("create_checkpoint_actor"),
 				TEXT("create_world_marker"),
 				TEXT("create_ping_system"),
+				TEXT("create_targeting_component"),
 				TEXT("configure_marker_3d_2d"),
 				TEXT("configure_marker_widget"),
 				TEXT("configure_marker_distance"),

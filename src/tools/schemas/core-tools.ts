@@ -248,7 +248,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
         action: {
           type: 'string',
           enum: [
-            'spawn', 'spawn_actor', 'create_checkpoint_actor', 'create_world_marker', 'create_ping_system', 'spawn_blueprint',
+            'spawn', 'spawn_actor', 'create_checkpoint_actor', 'create_world_marker', 'create_ping_system', 'create_targeting_component', 'spawn_blueprint',
             'configure_marker_widget', 'configure_marker_3d_2d', 'configure_marker_distance', 'configure_marker_occlusion',
             'delete', 'destroy_actor', 'delete_by_tag', 'duplicate',
             'apply_force',

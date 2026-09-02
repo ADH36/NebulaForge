@@ -1668,6 +1668,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `get_audio_time_seconds` (API-derived audio-clock inspection using Epic's `UGameplayStatics::GetAudioTimeSeconds`)
 - [x] `is_any_local_player_camera_within_range` (API-derived camera proximity query using Epic's `UGameplayStatics::IsAnyLocalPlayerCameraWithinRange`)
 - [x] `get_num_local_player_controllers` (API-derived local-player inspection using Epic's `UGameplayStatics::GetNumLocalPlayerControllers`)
+- [x] `set_subtitles_enabled`, `are_subtitles_enabled` (API-derived subtitle controls using Epic's `UGameplayStatics::SetSubtitlesEnabled`/`AreSubtitlesEnabled`)
 - [x] `set_max_audio_channels_scaled` (API-derived audio control using Epic's `UGameplayStatics::SetMaxAudioChannelsScaled`, with a validated 0–1 voice-count scale)
 - [x] `get_max_audio_channel_count` (API-derived audio inspection using Epic's `UGameplayStatics::GetMaxAudioChannelCount`)
 - [x] `are_any_listeners_within_range` (API-derived spatial-audio query using Epic's `UGameplayStatics::AreAnyListenersWithinRange`)

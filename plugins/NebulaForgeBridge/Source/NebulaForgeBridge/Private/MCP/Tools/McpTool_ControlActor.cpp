@@ -33,6 +33,7 @@ public:
 				TEXT("configure_metahuman_component"),
 				TEXT("configure_avatar_component"),
 				TEXT("setup_avatar_skeleton_mapping"),
+				TEXT("apply_avatar_to_character"),
 				TEXT("configure_body_type"),
 				TEXT("set_body_type"),
 				TEXT("get_face_parameters"),

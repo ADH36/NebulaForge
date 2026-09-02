@@ -4310,6 +4310,22 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     PropertyPayload->SetField(TEXT("value"), MappingValue);
     return HandleSetObjectProperty(RequestId, TEXT("set_object_property"), PropertyPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("apply_avatar_to_character")) {
+    FString AvatarName;
+    FString CharacterName;
+    Payload->TryGetStringField(TEXT("avatarActor"), AvatarName);
+    Payload->TryGetStringField(TEXT("characterActor"), CharacterName);
+    if (AvatarName.IsEmpty()) Payload->TryGetStringField(TEXT("childActor"), AvatarName);
+    if (CharacterName.IsEmpty()) Payload->TryGetStringField(TEXT("parentActor"), CharacterName);
+    if (AvatarName.IsEmpty() || CharacterName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("avatarActor and characterActor required"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> AttachPayload = MakeShared<FJsonObject>();
+    AttachPayload->SetStringField(TEXT("childActor"), AvatarName);
+    AttachPayload->SetStringField(TEXT("parentActor"), CharacterName);
+    return HandleControlActorAttach(RequestId, AttachPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_body_type") || LowerSub == TEXT("set_body_type")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

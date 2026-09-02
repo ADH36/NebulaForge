@@ -4213,7 +4213,8 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     MarkerPayload->SetStringField(TEXT("action"), TEXT("create_world_marker"));
     return HandleControlActorSpawn(RequestId, MarkerPayload, RequestingSocket);
   }
-  if (LowerSub == TEXT("configure_marker_3d_2d") ||
+  if (LowerSub == TEXT("configure_marker_widget") ||
+      LowerSub == TEXT("configure_marker_3d_2d") ||
       LowerSub == TEXT("configure_marker_distance") ||
       LowerSub == TEXT("configure_marker_occlusion")) {
     FString TargetName;
@@ -4224,7 +4225,39 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("MARKER_WIDGET_NOT_FOUND"), TEXT("actorName must identify an actor with a UWidgetComponent marker"));
       return true;
     }
-    if (LowerSub == TEXT("configure_marker_3d_2d")) {
+    if (LowerSub == TEXT("configure_marker_widget")) {
+      FString WidgetClassPath;
+      if (Payload->TryGetStringField(TEXT("widgetClass"), WidgetClassPath)) {
+        UClass* WidgetClass = ResolveClassByName(WidgetClassPath);
+        if (!WidgetClass || !WidgetClass->IsChildOf(UUserWidget::StaticClass())) {
+          SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_WIDGET_CLASS"), TEXT("widgetClass must resolve to a UUserWidget subclass"));
+          return true;
+        }
+        MarkerWidget->SetWidgetClass(WidgetClass);
+      }
+      bool bDrawAtDesiredSize = false;
+      if (Payload->TryGetBoolField(TEXT("drawAtDesiredSize"), bDrawAtDesiredSize)) MarkerWidget->SetDrawAtDesiredSize(bDrawAtDesiredSize);
+      const TSharedPtr<FJsonObject>* DrawSize = nullptr;
+      if (Payload->TryGetObjectField(TEXT("drawSize"), DrawSize) && DrawSize && DrawSize->IsValid()) {
+        double Width = 0.0;
+        double Height = 0.0;
+        if (!(*DrawSize)->TryGetNumberField(TEXT("x"), Width) || !(*DrawSize)->TryGetNumberField(TEXT("y"), Height) || !FMath::IsFinite(Width) || !FMath::IsFinite(Height) || Width <= 0.0 || Height <= 0.0 || Width > 100000.0 || Height > 100000.0) {
+          SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("drawSize x/y must be finite and between 0 and 100000"));
+          return true;
+        }
+        MarkerWidget->SetDrawSize(FVector2D(static_cast<float>(Width), static_cast<float>(Height)));
+      }
+      const TSharedPtr<FJsonObject>* Pivot = nullptr;
+      if (Payload->TryGetObjectField(TEXT("pivot"), Pivot) && Pivot && Pivot->IsValid()) {
+        double X = 0.5;
+        double Y = 0.5;
+        if (!(*Pivot)->TryGetNumberField(TEXT("x"), X) || !(*Pivot)->TryGetNumberField(TEXT("y"), Y) || !FMath::IsFinite(X) || !FMath::IsFinite(Y) || X < 0.0 || X > 1.0 || Y < 0.0 || Y > 1.0) {
+          SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("pivot x/y must be finite and between 0 and 1"));
+          return true;
+        }
+        MarkerWidget->SetPivot(FVector2D(static_cast<float>(X), static_cast<float>(Y)));
+      }
+    } else if (LowerSub == TEXT("configure_marker_3d_2d")) {
       FString Mode;
       Payload->TryGetStringField(TEXT("mode"), Mode);
       bool bScreenSpace = false;

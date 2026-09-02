@@ -1700,7 +1700,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 35.4 World Markers/Ping System
 - [x] `create_world_marker` (native actor marker façade with an attached `UWidgetComponent`, optional `UUserWidget` class, screen/world space, and desired-size controls)
 - [ ] `create_ping_system`
-- [ ] `configure_marker_widget`
+- [x] `configure_marker_widget` (configures existing marker `UWidgetComponent` widget class, draw-at-desired-size, draw size, and pivot using Epic’s documented APIs)
 - [x] `configure_marker_3d_2d` (sets an existing marker widget to screen/2D or world/3D space using Epic's `UWidgetComponent::SetWidgetSpace`)
 - [x] `configure_marker_distance` (sets the marker widget primitive cull distance using Epic's `UPrimitiveComponent::SetCullDistance`)
 - [x] `configure_marker_occlusion` (selects world-space occludable or screen-space non-occludable rendering, matching Epic's `EWidgetSpace` semantics)

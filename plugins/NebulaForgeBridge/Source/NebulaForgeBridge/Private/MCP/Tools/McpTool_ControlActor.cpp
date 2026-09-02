@@ -27,6 +27,7 @@ public:
 				TEXT("create_checkpoint_actor"),
 				TEXT("create_world_marker"),
 				TEXT("configure_marker_3d_2d"),
+				TEXT("configure_marker_widget"),
 				TEXT("configure_marker_distance"),
 				TEXT("configure_marker_occlusion"),
 				TEXT("spawn_paper_sprite_actor"),

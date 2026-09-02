@@ -4306,6 +4306,23 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     PropertyPayload->SetStringField(TEXT("value"), BodyType.TrimStartAndEnd());
     return HandleSetObjectProperty(RequestId, TEXT("set_object_property"), PropertyPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("get_face_parameters")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    AActor *TargetActor = FindActorByName(TargetName);
+    if (!TargetActor) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    FString PropertyName = TEXT("FaceParameters");
+    Payload->TryGetStringField(TEXT("propertyName"), PropertyName);
+    PropertyName.TrimStartAndEndInline();
+    if (PropertyName.IsEmpty()) PropertyName = TEXT("FaceParameters");
+    TSharedPtr<FJsonObject> PropertyPayload = MakeShared<FJsonObject>();
+    PropertyPayload->SetStringField(TEXT("objectPath"), TargetActor->GetPathName());
+    PropertyPayload->SetStringField(TEXT("propertyName"), PropertyName);
+    return HandleGetObjectProperty(RequestId, TEXT("get_object_property"), PropertyPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("set_face_parameter")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

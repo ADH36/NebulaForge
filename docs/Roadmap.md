@@ -1770,7 +1770,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_metahuman_component` (project-aware façade over validated `UActorComponent` creation and reflected property authoring; accepts `componentType`, `componentName`, and `properties`, with an `ActorComponent` fallback when the MetaHuman plugin does not supply a project class)
 - [ ] `set_lod_settings`
 - [x] `configure_body_type` (project-aware façade that writes a reflected `BodyType` property on the target actor; the concrete enum/property remains supplied by the installed MetaHuman or character project)
-- [ ] Face: `get_face_parameters`
+- [x] `get_face_parameters` (project-aware reflected-property façade; defaults to `FaceParameters` and accepts an overrideable property name)
 - [x] `set_face_parameter` (project-aware reflected-property façade; accepts the installed MetaHuman face property name and JSON value)
 - [x] `set_skin_tone` (project-aware reflected-property façade; defaults to `SkinTone` and accepts an overrideable `propertyName` plus JSON color/value)
 - [x] `set_eye_color` (project-aware reflected-property façade; defaults to `EyeColor` and accepts an overrideable `propertyName` plus JSON color/value)

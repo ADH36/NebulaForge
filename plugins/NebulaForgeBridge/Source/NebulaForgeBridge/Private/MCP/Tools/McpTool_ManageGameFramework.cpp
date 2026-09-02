@@ -40,6 +40,7 @@ public:
 				TEXT("configure_spawn_system"),
 				TEXT("configure_player_start"),
 				TEXT("set_respawn_rules"),
+				TEXT("configure_checkpoint_respawn"),
 				TEXT("configure_spectating"),
 				TEXT("get_game_framework_info")
 			}, TEXT("Game framework action to perform."))

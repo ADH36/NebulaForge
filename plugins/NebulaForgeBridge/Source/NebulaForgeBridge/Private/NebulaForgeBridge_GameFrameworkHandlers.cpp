@@ -1724,7 +1724,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageGameFrameworkAction(
         SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Success"), Response);
         return true;
     }
-    else if (SubAction == TEXT("set_respawn_rules"))
+    else if (SubAction == TEXT("set_respawn_rules") || SubAction == TEXT("configure_checkpoint_respawn"))
     {
         if (GameModeBlueprint.IsEmpty())
         {

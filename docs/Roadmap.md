@@ -1680,7 +1680,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `get_max_audio_channel_count` (API-derived audio inspection using Epic's `UGameplayStatics::GetMaxAudioChannelCount`)
 - [x] `are_any_listeners_within_range` (API-derived spatial-audio query using Epic's `UGameplayStatics::AreAnyListenersWithinRange`)
 - [x] `save_checkpoint`, `load_checkpoint` (aliases over the existing UE `UGameplayStatics` SaveGame slot pipeline, defaulting to the `Checkpoint` slot while accepting an explicit `slotName`)
-- [ ] `configure_checkpoint_respawn`
+- [x] `configure_checkpoint_respawn` (named façade over the validated GameMode respawn-rule authoring path, preserving checkpoint-oriented API naming while configuring delay, location, force-respawn, and life-count settings)
 
 ### 35.3 Objective System
 - [ ] `create_objective`

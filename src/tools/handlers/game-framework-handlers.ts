@@ -211,6 +211,13 @@ export async function handleGameFrameworkTools(
       return sendRequest('set_respawn_rules');
     }
 
+    case 'configure_checkpoint_respawn': {
+      const gmPath = getGameModePath(argsRecord);
+      requireNonEmptyString(gmPath, 'gameModeBlueprint', 'Missing required parameter: gameModeBlueprint or blueprintPath');
+      // Checkpoint façade over the validated GameMode respawn-rule authoring path.
+      return sendRequest('configure_checkpoint_respawn');
+    }
+
     case 'configure_spectating': {
       const gmPath = getGameModePath(argsRecord);
       requireNonEmptyString(gmPath, 'gameModeBlueprint', 'Missing required parameter: gameModeBlueprint or blueprintPath');

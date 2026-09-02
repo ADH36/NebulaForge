@@ -635,7 +635,7 @@ inline const TArray<FString>& GameFramework()
 		TEXT("configure_game_rules"), TEXT("setup_match_states"),
 		TEXT("configure_round_system"), TEXT("configure_team_system"),
 		TEXT("configure_scoring_system"), TEXT("configure_spawn_system"),
-		TEXT("configure_player_start"), TEXT("set_respawn_rules"),
+		TEXT("configure_player_start"), TEXT("set_respawn_rules"), TEXT("configure_checkpoint_respawn"),
 		TEXT("configure_spectating"), TEXT("get_game_framework_info")
 	};
 	return Actions;

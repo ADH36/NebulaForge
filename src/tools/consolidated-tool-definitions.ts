@@ -210,7 +210,7 @@ export const GAME_FRAMEWORK_ACTIONS = [
   'set_game_state_class', 'set_player_state_class', 'configure_game_rules',
   'setup_match_states', 'configure_round_system', 'configure_team_system',
   'configure_scoring_system', 'configure_spawn_system',
-  'configure_player_start', 'set_respawn_rules', 'configure_spectating',
+  'configure_player_start', 'set_respawn_rules', 'configure_checkpoint_respawn', 'configure_spectating',
   'get_game_framework_info'
 ] as const;
 

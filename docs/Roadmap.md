@@ -1675,6 +1675,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `get_accurate_real_time` (API-derived high-precision application clock using Epic's `UGameplayStatics::GetAccurateRealTime`)
 - [x] `get_time_seconds`, `get_unpaused_time_seconds`, `get_real_time_seconds` (API-derived world-clock inspection using Epic's `UGameplayStatics` time accessors with pause/dilation semantics preserved)
 - [x] `get_world_delta_seconds` (API-derived frame timing inspection using Epic's `UGameplayStatics::GetWorldDeltaSeconds`)
+- [x] `get_current_reverb_effect` (API-derived audio-environment inspection using Epic's `UGameplayStatics::GetCurrentReverbEffect`, returning the active object path when present)
 - [x] `get_current_level_name` (API-derived current-level inspection using Epic's `UGameplayStatics::GetCurrentLevelName`, including prefix removal control)
 - [x] `get_viewport_mouse_capture_mode`, `set_viewport_mouse_capture_mode` (API-derived viewport input controls using Epic's `UGameplayStatics` mouse-capture accessors)
 - [x] `set_max_audio_channels_scaled` (API-derived audio control using Epic's `UGameplayStatics::SetMaxAudioChannelsScaled`, with a validated 0–1 voice-count scale)

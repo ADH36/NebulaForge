@@ -18,6 +18,7 @@
 #include "Components/SlateWrapperTypes.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Misc/Guid.h"
+#include "Misc/Base64.h"
 #include "Misc/AutomationTest.h"
 #include "Scalability.h"
 #include "HAL/FileManager.h"
@@ -1422,6 +1423,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("call_interface_function");
   const bool bSaveGameAction =
       Lower == TEXT("save_game_to_slot") || Lower == TEXT("load_game_from_slot") ||
+      Lower == TEXT("save_game_to_memory") || Lower == TEXT("load_game_from_memory") ||
       Lower == TEXT("inspect_save_game_schema") || Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
       Lower == TEXT("list_save_game_slots");
   const bool bGameplayTagContainerAction =
@@ -1683,6 +1685,52 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       } else {
         SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame schema inspected"), Result, FString());
       }
+      return true;
+    }
+    if (Lower == TEXT("save_game_to_memory")) {
+      FString ObjectPath;
+      Payload->TryGetStringField(TEXT("saveGameObject"), ObjectPath);
+      USaveGame *SaveGame = LoadObject<USaveGame>(nullptr, *ObjectPath);
+      if (!SaveGame) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("saveGameObject must resolve to a loaded USaveGame object"), TEXT("OBJECT_NOT_FOUND"));
+        return true;
+      }
+      TArray<uint8> SaveData;
+      if (!UGameplayStatics::SaveGameToMemory(SaveGame, SaveData)) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("SaveGame memory serialization failed"), TEXT("SAVE_MEMORY_FAILED"));
+        return true;
+      }
+      constexpr int32 MaxSaveGameMemoryBytes = 8 * 1024 * 1024;
+      if (SaveData.Num() > MaxSaveGameMemoryBytes) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Serialized SaveGame exceeds the 8 MiB transport limit"), TEXT("PAYLOAD_TOO_LARGE"));
+        return true;
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("classPath"), SaveGame->GetClass()->GetPathName());
+      Result->SetNumberField(TEXT("byteLength"), SaveData.Num());
+      Result->SetStringField(TEXT("dataBase64"), FBase64::Encode(SaveData));
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame serialized to memory"), Result, FString());
+      return true;
+    }
+    if (Lower == TEXT("load_game_from_memory")) {
+      FString EncodedData;
+      Payload->TryGetStringField(TEXT("dataBase64"), EncodedData);
+      TArray<uint8> SaveData;
+      constexpr int32 MaxSaveGameMemoryBytes = 8 * 1024 * 1024;
+      if (EncodedData.IsEmpty() || !FBase64::Decode(EncodedData, SaveData) || SaveData.Num() == 0) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("dataBase64 must contain valid non-empty Base64 SaveGame data"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (SaveData.Num() > MaxSaveGameMemoryBytes) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Encoded SaveGame exceeds the 8 MiB transport limit"), TEXT("PAYLOAD_TOO_LARGE"));
+        return true;
+      }
+      USaveGame *Loaded = UGameplayStatics::LoadGameFromMemory(SaveData);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetNumberField(TEXT("byteLength"), SaveData.Num());
+      Result->SetBoolField(TEXT("loaded"), Loaded != nullptr);
+      if (Loaded) Result->SetStringField(TEXT("classPath"), Loaded->GetClass()->GetPathName());
+      SendAutomationResponse(RequestingSocket, RequestId, Loaded != nullptr, Loaded ? TEXT("SaveGame loaded from memory") : TEXT("SaveGame memory data could not be loaded"), Result, Loaded ? FString() : TEXT("LOAD_MEMORY_FAILED"));
       return true;
     }
     return HandleRuntimeSaveGameAction(RequestId, Lower, Payload, RequestingSocket);
@@ -1984,6 +2032,53 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       }
       return true;
     }
+    if (Lower == TEXT("save_game_to_memory")) {
+      FString ObjectPath;
+      Payload->TryGetStringField(TEXT("saveGameObject"), ObjectPath);
+      USaveGame *SaveGame = LoadObject<USaveGame>(nullptr, *ObjectPath);
+      if (!SaveGame) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("saveGameObject must resolve to a loaded USaveGame object"), TEXT("OBJECT_NOT_FOUND"));
+        return true;
+      }
+      TArray<uint8> SaveData;
+      if (!UGameplayStatics::SaveGameToMemory(SaveGame, SaveData)) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("SaveGame memory serialization failed"), TEXT("SAVE_MEMORY_FAILED"));
+        return true;
+      }
+      constexpr int32 MaxSaveGameMemoryBytes = 8 * 1024 * 1024;
+      if (SaveData.Num() > MaxSaveGameMemoryBytes) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Serialized SaveGame exceeds the 8 MiB transport limit"), TEXT("PAYLOAD_TOO_LARGE"));
+        return true;
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("classPath"), SaveGame->GetClass()->GetPathName());
+      Result->SetNumberField(TEXT("byteLength"), SaveData.Num());
+      Result->SetStringField(TEXT("dataBase64"), FBase64::Encode(SaveData));
+      SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("SaveGame serialized to memory"), Result, FString());
+      return true;
+    }
+    if (Lower == TEXT("load_game_from_memory")) {
+      FString EncodedData;
+      Payload->TryGetStringField(TEXT("dataBase64"), EncodedData);
+      TArray<uint8> SaveData;
+      constexpr int32 MaxSaveGameMemoryBytes = 8 * 1024 * 1024;
+      if (EncodedData.IsEmpty() || !FBase64::Decode(EncodedData, SaveData) || SaveData.Num() == 0) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("dataBase64 must contain valid non-empty Base64 SaveGame data"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (SaveData.Num() > MaxSaveGameMemoryBytes) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Encoded SaveGame exceeds the 8 MiB transport limit"), TEXT("PAYLOAD_TOO_LARGE"));
+        return true;
+      }
+      USaveGame *Loaded = UGameplayStatics::LoadGameFromMemory(SaveData);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetNumberField(TEXT("byteLength"), SaveData.Num());
+      Result->SetBoolField(TEXT("loaded"), Loaded != nullptr);
+      if (Loaded) Result->SetStringField(TEXT("classPath"), Loaded->GetClass()->GetPathName());
+      SendAutomationResponse(RequestingSocket, RequestId, Loaded != nullptr, Loaded ? TEXT("SaveGame loaded from memory") : TEXT("SaveGame memory data could not be loaded"), Result, Loaded ? FString() : TEXT("LOAD_MEMORY_FAILED"));
+      return true;
+    }
+    const bool bMemorySaveGameAction = Lower == TEXT("save_game_to_memory") || Lower == TEXT("load_game_from_memory");
     FString SlotName;
     Payload->TryGetStringField(TEXT("slotName"), SlotName);
     SlotName.TrimStartAndEndInline();
@@ -1993,7 +2088,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       SendAutomationError(RequestingSocket, RequestId, TEXT("userIndex must be between 0 and 7"), TEXT("INVALID_ARGUMENT"));
       return true;
     }
-    if (Lower != TEXT("list_save_game_slots") && SlotName.IsEmpty()) {
+    if (!bMemorySaveGameAction && Lower != TEXT("list_save_game_slots") && SlotName.IsEmpty()) {
       SendAutomationError(RequestingSocket, RequestId, TEXT("slotName is required"), TEXT("INVALID_ARGUMENT"));
       return true;
     }

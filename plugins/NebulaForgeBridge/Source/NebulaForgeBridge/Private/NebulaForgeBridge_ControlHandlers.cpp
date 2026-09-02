@@ -4366,6 +4366,22 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     PropertyPayload->SetObjectField(TEXT("properties"), Properties);
     return HandleControlActorSetComponentProperties(RequestId, PropertyPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("configure_hair_simulation")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    const TSharedPtr<FJsonObject> *Properties = nullptr;
+    if (TargetName.IsEmpty() || ComponentName.IsEmpty() || !Payload->TryGetObjectField(TEXT("properties"), Properties) || !Properties || !(*Properties).IsValid() || (*Properties)->Values.Num() == 0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName, componentName, and non-empty properties required"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> PropertyPayload = MakeShared<FJsonObject>();
+    PropertyPayload->SetStringField(TEXT("actorName"), TargetName);
+    PropertyPayload->SetStringField(TEXT("componentName"), ComponentName);
+    PropertyPayload->SetObjectField(TEXT("properties"), *Properties);
+    return HandleControlActorSetComponentProperties(RequestId, PropertyPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_body_type") || LowerSub == TEXT("set_body_type")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

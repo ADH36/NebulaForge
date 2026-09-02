@@ -36,6 +36,7 @@ public:
 				TEXT("apply_avatar_to_character"),
 				TEXT("configure_avatar_lod"),
 				TEXT("configure_groom_lod"),
+				TEXT("configure_hair_simulation"),
 				TEXT("configure_hair_material"),
 				TEXT("set_lod_settings"),
 				TEXT("configure_body_type"),

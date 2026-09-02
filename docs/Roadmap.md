@@ -1802,7 +1802,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `import_groom` (extension-validated `.abc` façade over the deferred importer; requires Epic's Groom/Alembic translator plugin)
 - [x] `configure_groom_lod` (project-aware component-property LOD façade; accepts `componentName`, reflected `properties`, or validated `forcedLodModel`/`minLod` values)
 - [ ] `create_groom_binding`, `bind_groom_to_skeletal_mesh`
-- [ ] `configure_hair_simulation`, `set_hair_stiffness`, `set_hair_damping`, `configure_hair_collision`
+- [x] `configure_hair_simulation` (project-aware component-property façade; requires a target Groom component and non-empty reflected `properties`)
+- [ ] `set_hair_stiffness`, `set_hair_damping`, `configure_hair_collision`
 - [x] `configure_hair_material` (validated material assignment façade over the target hair component and material slot; accepts `materialPath`/`assetPath` and `materialSlot`)
 - [ ] `set_hair_color`
 - [x] `set_hair_roughness` (material-instance scalar façade over Unreal's `set_scalar_parameter_value`; defaults to parameter `Roughness` and accepts an overrideable parameter name)

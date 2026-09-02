@@ -1666,6 +1666,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_game_paused` (API-derived system control using Epic's `UGameplayStatics::SetGamePaused` return value)
 - [x] `set_max_audio_channels_scaled` (API-derived audio control using Epic's `UGameplayStatics::SetMaxAudioChannelsScaled`, with a validated 0–1 voice-count scale)
 - [x] `get_max_audio_channel_count` (API-derived audio inspection using Epic's `UGameplayStatics::GetMaxAudioChannelCount`)
+- [x] `are_any_listeners_within_range` (API-derived spatial-audio query using Epic's `UGameplayStatics::AreAnyListenersWithinRange`)
 - [x] `save_checkpoint`, `load_checkpoint` (aliases over the existing UE `UGameplayStatics` SaveGame slot pipeline, defaulting to the `Checkpoint` slot while accepting an explicit `slotName`)
 - [ ] `configure_checkpoint_respawn`
 

@@ -2115,6 +2115,24 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   if (Lower.IsEmpty())
     return false;
 
+  if (Lower == TEXT("create_objective")) {
+    TSharedPtr<FJsonObject> ObjectivePayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : Payload->Values)
+      ObjectivePayload->SetField(Pair.Key, Pair.Value);
+    if (!ObjectivePayload->HasField(TEXT("classPath")))
+      ObjectivePayload->SetStringField(TEXT("classPath"), TEXT("/Script/NebulaForgeBridge.McpGenericDataAsset"));
+    TSharedPtr<FJsonObject> Properties = MakeShared<FJsonObject>();
+    Properties->SetStringField(TEXT("ItemName"), GetJsonStringField(Payload, TEXT("objectiveId"), GetJsonStringField(Payload, TEXT("name"))));
+    Properties->SetStringField(TEXT("Description"), GetJsonStringField(Payload, TEXT("description")));
+    TSharedPtr<FJsonObject> Metadata = MakeShared<FJsonObject>();
+    Metadata->SetStringField(TEXT("state"), TEXT("locked"));
+    Metadata->SetStringField(TEXT("objectiveType"), GetJsonStringField(Payload, TEXT("objectiveType"), TEXT("objective")));
+    Properties->SetObjectField(TEXT("Properties"), Metadata);
+    ObjectivePayload->SetObjectField(TEXT("properties"), Properties);
+    ObjectivePayload->SetStringField(TEXT("action"), TEXT("create_data_asset"));
+    return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), ObjectivePayload, Socket);
+  }
+
   if (Lower == TEXT("inspect_asset_capabilities"))
   {
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -2172,6 +2190,38 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
       Lower == TEXT("get_data_asset_properties") ||
       Lower == TEXT("set_data_asset_properties"))
     return HandleDataAssetAction(RequestId, Lower, Payload, RequestingSocket);
+  if (Lower == TEXT("set_objective_state")) {
+    FString AssetPath;
+    Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+    FString State;
+    Payload->TryGetStringField(TEXT("state"), State);
+    State = State.ToLower();
+    if (AssetPath.IsEmpty() || (State != TEXT("locked") && State != TEXT("active") && State != TEXT("completed") && State != TEXT("failed"))) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("assetPath and state (locked, active, completed, or failed) are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UObject* Asset = LoadObject<UObject>(nullptr, *SanitizeProjectRelativePath(AssetPath));
+    UMcpGenericDataAsset* Objective = Cast<UMcpGenericDataAsset>(Asset);
+    if (!Objective) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Objective data asset not found"), TEXT("ASSET_NOT_FOUND"));
+      return true;
+    }
+    Objective->Modify();
+    Objective->Properties.Add(TEXT("state"), State);
+    Objective->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(Objective)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Objective state changed but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Objective->GetPathName());
+    Result->SetStringField(TEXT("state"), State);
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Objective state updated"), Result, FString());
+    return true;
+  }
 
   if (Lower == TEXT("list_primary_assets") || Lower == TEXT("get_primary_asset")) {
     UAssetManager& AssetManager = UAssetManager::Get();

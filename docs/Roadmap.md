@@ -1691,8 +1691,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_checkpoint_respawn` (named façade over the validated GameMode respawn-rule authoring path, preserving checkpoint-oriented API naming while configuring delay, location, force-respawn, and life-count settings)
 
 ### 35.3 Objective System
-- [ ] `create_objective`
-- [ ] `set_objective_state` (locked, active, completed, failed)
+- [x] `create_objective` (creates a persisted `UMcpGenericDataAsset` objective record with identifier, description, type, and initial locked state)
+- [x] `set_objective_state` (updates persisted objective metadata among locked, active, completed, and failed)
 - [ ] `configure_objective_markers`
 - [x] `create_objective_tracker_widget` (named alias over the existing UMG objective-tracker authoring action; adds the tracker element to a HUD widget)
 - [ ] `configure_objective_progression`

@@ -65,7 +65,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("create_collection"), TEXT("add_to_collection"),
 		TEXT("set_asset_color"), TEXT("show_in_explorer"),
 		TEXT("set_search_text"),
-		TEXT("create_material"), TEXT("create_material_instance"),
+		TEXT("create_material"), TEXT("create_material_instance"), TEXT("create_objective"), TEXT("set_objective_state"),
 		TEXT("create_render_target"), TEXT("create_data_asset"), TEXT("create_primary_data_asset"),
 		TEXT("get_data_asset_properties"), TEXT("set_data_asset_properties"),
 		TEXT("list_primary_assets"), TEXT("get_primary_asset"),

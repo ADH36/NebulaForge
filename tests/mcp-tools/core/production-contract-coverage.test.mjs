@@ -70,6 +70,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'create_ping_system', actorName: 'ContractWorldPing', lifetimeSeconds: 5 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_targeting_component', actorName: 'ContractTarget', componentType: '/Script/Engine.ActorComponent', componentName: 'TargetingComponent' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_quest_manager', actorName: 'ContractQuestManager' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'spawn_metahuman_actor', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_lock_on_target', actorName: 'ContractTarget', lockOnSocket: 'head' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_target_priority', actorName: 'ContractTarget', priority: 10 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_target_switching', actorName: 'ContractTarget', mode: 'nearest' }, expected: 'success|error' },

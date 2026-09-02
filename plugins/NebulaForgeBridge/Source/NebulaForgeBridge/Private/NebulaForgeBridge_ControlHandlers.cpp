@@ -4265,6 +4265,17 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ManagerPayload->SetStringField(TEXT("action"), TEXT("spawn_actor"));
     return HandleControlActorSpawn(RequestId, ManagerPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("spawn_metahuman_actor")) {
+    TSharedPtr<FJsonObject> MetaHumanPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      MetaHumanPayload->SetField(Pair.Key, Pair.Value);
+    if (!MetaHumanPayload->HasField(TEXT("classPath")))
+      MetaHumanPayload->SetStringField(TEXT("classPath"), TEXT("/Script/Engine.Actor"));
+    if (!MetaHumanPayload->HasField(TEXT("actorName")))
+      MetaHumanPayload->SetStringField(TEXT("actorName"), TEXT("MetaHumanActor"));
+    MetaHumanPayload->SetStringField(TEXT("action"), TEXT("spawn_actor"));
+    return HandleControlActorSpawn(RequestId, MetaHumanPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_lock_on_target") || LowerSub == TEXT("set_target_priority") || LowerSub == TEXT("configure_target_switching") || LowerSub == TEXT("configure_soft_lock") || LowerSub == TEXT("configure_aim_assist")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

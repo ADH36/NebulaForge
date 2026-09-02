@@ -29,6 +29,7 @@ public:
 				TEXT("create_ping_system"),
 				TEXT("create_targeting_component"),
 				TEXT("create_quest_manager"),
+				TEXT("spawn_metahuman_actor"),
 				TEXT("configure_lock_on_target"),
 				TEXT("set_target_priority"),
 				TEXT("configure_target_switching"),

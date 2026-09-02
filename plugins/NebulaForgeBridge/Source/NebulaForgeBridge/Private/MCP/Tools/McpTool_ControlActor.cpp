@@ -35,6 +35,7 @@ public:
 				TEXT("configure_soft_lock"),
 				TEXT("configure_aim_assist"),
 				TEXT("configure_photo_mode_camera"),
+				TEXT("configure_photo_mode_poses"),
 				TEXT("configure_marker_3d_2d"),
 				TEXT("configure_marker_widget"),
 				TEXT("configure_marker_distance"),

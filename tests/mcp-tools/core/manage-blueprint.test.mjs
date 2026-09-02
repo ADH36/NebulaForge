@@ -274,6 +274,7 @@ const testCases = [
     ['ADD: add_compass', 'add_compass', { parentName: 'HUDCanvas' }],
     ['ADD: add_interaction_prompt', 'add_interaction_prompt', { parentName: 'HUDCanvas', promptFormat: 'Press E' }],
     ['ADD: add_objective_tracker', 'add_objective_tracker', { parentName: 'HUDCanvas', maxVisibleObjectives: 3 }],
+    ['ADD: create_objective_tracker_widget', 'create_objective_tracker_widget', { parentName: 'HUDCanvas', maxVisibleObjectives: 3 }],
     ['ADD: add_damage_indicator', 'add_damage_indicator', { parentName: 'HUDCanvas', fadeTime: 1.0 }],
   ].map(([scenario, action, extra]) => ({
     scenario,

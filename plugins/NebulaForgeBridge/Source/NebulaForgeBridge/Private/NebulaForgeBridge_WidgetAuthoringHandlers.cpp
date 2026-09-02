@@ -5762,7 +5762,8 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
         return true;
     }
 
-    if (SubAction.Equals(TEXT("add_objective_tracker"), ESearchCase::IgnoreCase))
+    if (SubAction.Equals(TEXT("add_objective_tracker"), ESearchCase::IgnoreCase) ||
+        SubAction.Equals(TEXT("create_objective_tracker_widget"), ESearchCase::IgnoreCase))
     {
         FString WidgetPath = GetJsonStringField(Payload, TEXT("widgetPath"));
         FString SlotName = GetJsonStringField(Payload, TEXT("slotName"), TEXT("ObjectiveTracker"));

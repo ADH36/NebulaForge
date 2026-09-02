@@ -189,7 +189,7 @@ export const WIDGET_AUTHORING_ACTIONS = [
   'bind_on_value_changed', 'create_widget_animation', 'add_animation_track', 'add_animation_keyframe',
   'set_animation_loop', 'create_main_menu', 'create_pause_menu', 'create_settings_menu',
   'create_loading_screen', 'create_hud_widget', 'add_health_bar', 'add_ammo_counter', 'add_minimap',
-  'add_crosshair', 'add_compass', 'add_interaction_prompt', 'add_objective_tracker',
+  'add_crosshair', 'add_compass', 'add_interaction_prompt', 'add_objective_tracker', 'create_objective_tracker_widget',
   'add_damage_indicator', 'create_inventory_ui', 'create_dialog_widget', 'create_radial_menu',
   'get_widget_info', 'preview_widget'
 ] as const;

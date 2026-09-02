@@ -576,6 +576,7 @@ export async function handleWidgetAuthoringTools(
       return sendRequest('add_interaction_prompt');
     }
 
+    case 'create_objective_tracker_widget':
     case 'add_objective_tracker': {
       requireNonEmptyString(argsRecord.widgetPath, 'widgetPath', 'Missing required parameter: widgetPath');
       // Adds an objective tracker element to a HUD widget

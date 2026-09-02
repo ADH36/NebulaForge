@@ -217,7 +217,7 @@ inline const TArray<FString>& WidgetAuthoring()
 		TEXT("create_loading_screen"), TEXT("create_hud_widget"),
 		TEXT("add_health_bar"), TEXT("add_ammo_counter"),
 		TEXT("add_minimap"), TEXT("add_crosshair"), TEXT("add_compass"),
-		TEXT("add_interaction_prompt"), TEXT("add_objective_tracker"),
+		TEXT("add_interaction_prompt"), TEXT("add_objective_tracker"), TEXT("create_objective_tracker_widget"),
 		TEXT("add_damage_indicator"), TEXT("create_inventory_ui"),
 		TEXT("create_dialog_widget"), TEXT("create_radial_menu"),
 		TEXT("get_widget_info"), TEXT("preview_widget")

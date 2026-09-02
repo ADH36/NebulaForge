@@ -89,6 +89,7 @@ public:
 				TEXT("add_compass"),
 				TEXT("add_interaction_prompt"),
 				TEXT("add_objective_tracker"),
+				TEXT("create_objective_tracker_widget"),
 				TEXT("add_damage_indicator"),
 				TEXT("create_inventory_ui"),
 				TEXT("create_dialog_widget"),

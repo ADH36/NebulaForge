@@ -1667,7 +1667,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_objective`
 - [ ] `set_objective_state` (locked, active, completed, failed)
 - [ ] `configure_objective_markers`
-- [ ] `create_objective_tracker_widget`
+- [x] `create_objective_tracker_widget` (named alias over the existing UMG objective-tracker authoring action; adds the tracker element to a HUD widget)
 - [ ] `configure_objective_progression`
 
 ### 35.4 World Markers/Ping System

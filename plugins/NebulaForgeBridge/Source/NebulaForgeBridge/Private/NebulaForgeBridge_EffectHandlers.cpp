@@ -1127,6 +1127,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             ParameterType.Equals(TEXT("Int32Array"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("ArrayInt32"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("BoolArray"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) ||
@@ -1142,6 +1143,14 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               Values.Add(static_cast<float>(Entry->AsNumber()));
             }
             if (bValidArray) { UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(NiComp, ParamName, Values); bApplied = true; }
+          } else if (bValidArray && ParameterType.Equals(TEXT("BoolArray"), ESearchCase::IgnoreCase)) {
+            TArray<bool> Values;
+            for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
+              bool Value = false;
+              if (!Entry.IsValid() || !Entry->TryGetBool(Value)) { bValidArray = false; break; }
+              Values.Add(Value);
+            }
+            if (bValidArray) { UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayBool(NiComp, ParamName, Values); bApplied = true; }
           } else if (bValidArray && (ParameterType.Contains(TEXT("Int"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase))) {
             TArray<int32> Values;
             for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
@@ -1627,6 +1636,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Int32Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("ArrayInt32"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("BoolArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) &&

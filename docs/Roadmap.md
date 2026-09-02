@@ -1717,7 +1717,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_quest_data_asset` (creates a persisted generic `UDataAsset`-backed quest record with quest identity, description, type, and inactive state metadata through the existing asset authoring path)
 - [ ] `create_quest_manager`
 - [x] `start_quest`, `complete_quest_objective`, `track_quest` (validated quest-record state/tracking transitions on the persisted generic quest data asset)
-- [ ] `create_dialogue_tree`
+- [x] `create_dialogue_tree` (creates a persisted generic `UDataAsset`-backed dialogue-tree record with localized-text-ready identity/description metadata and an initial node count)
 - [ ] `add_dialogue_node`, `add_dialogue_choice`
 - [ ] `configure_dialogue_conditions`
 - [ ] `play_dialogue`

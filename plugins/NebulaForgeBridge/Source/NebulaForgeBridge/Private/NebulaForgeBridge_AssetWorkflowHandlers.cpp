@@ -2185,6 +2185,22 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return true;
   }
 
+  if (Lower == TEXT("create_dialogue_tree")) {
+    TSharedPtr<FJsonObject> DialoguePayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : Payload->Values)
+      DialoguePayload->SetField(Pair.Key, Pair.Value);
+    if (!DialoguePayload->HasField(TEXT("classPath")))
+      DialoguePayload->SetStringField(TEXT("classPath"), TEXT("/Script/NebulaForgeBridge.McpGenericDataAsset"));
+    TSharedPtr<FJsonObject> Properties = MakeShared<FJsonObject>();
+    Properties->SetStringField(TEXT("ItemName"), GetJsonStringField(Payload, TEXT("treeId"), GetJsonStringField(Payload, TEXT("name"))));
+    Properties->SetStringField(TEXT("Description"), GetJsonStringField(Payload, TEXT("description")));
+    Properties->SetStringField(TEXT("dialogueType"), GetJsonStringField(Payload, TEXT("dialogueType"), TEXT("tree")));
+    Properties->SetStringField(TEXT("nodeCount"), TEXT("0"));
+    DialoguePayload->SetObjectField(TEXT("properties"), Properties);
+    DialoguePayload->SetStringField(TEXT("action"), TEXT("create_data_asset"));
+    return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), DialoguePayload, RequestingSocket);
+  }
+
   if (Lower == TEXT("inspect_asset_capabilities"))
   {
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

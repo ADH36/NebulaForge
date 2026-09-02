@@ -67,6 +67,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("set_search_text"),
 		TEXT("create_material"), TEXT("create_material_instance"), TEXT("create_objective"), TEXT("set_objective_state"),
 		TEXT("configure_objective_markers"), TEXT("configure_objective_progression"), TEXT("create_quest_data_asset"),
+		TEXT("start_quest"), TEXT("complete_quest_objective"), TEXT("track_quest"),
 		TEXT("create_render_target"), TEXT("create_data_asset"), TEXT("create_primary_data_asset"),
 		TEXT("get_data_asset_properties"), TEXT("set_data_asset_properties"),
 		TEXT("list_primary_assets"), TEXT("get_primary_asset"),

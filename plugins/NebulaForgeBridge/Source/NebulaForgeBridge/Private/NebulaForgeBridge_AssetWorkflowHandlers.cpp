@@ -2156,6 +2156,35 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), QuestPayload, RequestingSocket);
   }
 
+  if (Lower == TEXT("start_quest") || Lower == TEXT("complete_quest_objective") || Lower == TEXT("track_quest")) {
+    FString AssetPath;
+    Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+    if (AssetPath.IsEmpty()) Payload->TryGetStringField(TEXT("questPath"), AssetPath);
+    UMcpGenericDataAsset* Quest = Cast<UMcpGenericDataAsset>(AssetPath.IsEmpty() ? nullptr : LoadObject<UObject>(nullptr, *SanitizeProjectRelativePath(AssetPath)));
+    if (!Quest) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Quest data asset not found"), TEXT("ASSET_NOT_FOUND"));
+      return true;
+    }
+    Quest->Modify();
+    if (Lower == TEXT("start_quest")) Quest->Properties.Add(TEXT("state"), TEXT("active"));
+    else if (Lower == TEXT("complete_quest_objective")) Quest->Properties.Add(TEXT("state"), TEXT("completed"));
+    else Quest->Properties.Add(TEXT("tracked"), TEXT("true"));
+    Quest->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(Quest)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Quest state changed but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Quest->GetPathName());
+    Result->SetStringField(TEXT("state"), Quest->Properties.FindRef(TEXT("state")));
+    Result->SetBoolField(TEXT("tracked"), Quest->Properties.FindRef(TEXT("tracked")) == TEXT("true"));
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Quest state updated"), Result, FString());
+    return true;
+  }
+
   if (Lower == TEXT("inspect_asset_capabilities"))
   {
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

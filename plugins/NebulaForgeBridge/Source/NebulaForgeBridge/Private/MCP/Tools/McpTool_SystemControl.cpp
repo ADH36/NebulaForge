@@ -22,8 +22,10 @@ public:
 
 	TSharedPtr<FJsonObject> BuildInputSchema() const override
 	{
+		TArray<FString> Actions = McpConsolidatedActions::SystemControl();
+		Actions.AddUnique(TEXT("enable_photo_mode"));
 		return FMcpSchemaBuilder()
-			.StringEnum(TEXT("action"), McpConsolidatedActions::SystemControl(),
+			.StringEnum(TEXT("action"), Actions,
 				TEXT("Action"))
 			.StringEnum(TEXT("type"), {
 				TEXT("CPU"),

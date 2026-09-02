@@ -526,7 +526,7 @@ inline const TArray<FString>& SystemControlCore()
       TEXT("create_string_table"), TEXT("add_string_entry"), TEXT("get_localized_string"), TEXT("set_culture"), TEXT("set_language_and_locale"), TEXT("set_locale"),
       TEXT("read_config_value"), TEXT("write_config_value"), TEXT("get_section"), TEXT("create_config_section"),
       TEXT("list_config_layers"), TEXT("get_config_value"), TEXT("set_config_value"), TEXT("reload_config"), TEXT("flush_config"), TEXT("get_config_hierarchy"),
-      TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("save_checkpoint"), TEXT("load_checkpoint"), TEXT("save_checkpoint_async"), TEXT("load_checkpoint_async"), TEXT("inspect_save_game_schema"), TEXT("delete_save_game_slot"),
+      TEXT("save_game_to_slot"), TEXT("load_game_from_slot"), TEXT("save_game_to_memory"), TEXT("load_game_from_memory"), TEXT("save_checkpoint"), TEXT("load_checkpoint"), TEXT("save_checkpoint_async"), TEXT("load_checkpoint_async"), TEXT("inspect_save_game_schema"), TEXT("delete_save_game_slot"),
       TEXT("check_save_game_slot"), TEXT("list_save_game_slots"),
       TEXT("subscribe"), TEXT("unsubscribe"),
 		TEXT("spawn_category"), TEXT("enable_gameplay_debugger"), TEXT("start_session"), TEXT("stop_session"), TEXT("get_session_status"), TEXT("capture_insights_trace"), TEXT("check_map_errors"), TEXT("create_functional_test"), TEXT("create_automation_test"), TEXT("get_test_results"),

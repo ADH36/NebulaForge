@@ -132,6 +132,7 @@ public:
 			.String(TEXT("className"), TEXT("U-prefixed SaveGame class name."))
 			.String(TEXT("headerPath"), TEXT("Relative SaveGame header path."))
 			.String(TEXT("sourcePath"), TEXT("Relative SaveGame source path."))
+			.String(TEXT("dataBase64"), TEXT("Base64-encoded binary SaveGame data for memory serialization actions."))
 			.Array(TEXT("variables"), TEXT("SaveGame variables with name, type, and optional defaultValue."))
 			.Number(TEXT("schemaVersion"), TEXT("Optional SaveGame schema version."))
 			.String(TEXT("migrationManifestPath"), TEXT("Optional project-relative SaveGame migration manifest path."))

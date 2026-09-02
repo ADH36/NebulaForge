@@ -144,6 +144,8 @@ public:
 			.String(TEXT("parameterType"), TEXT(""))
 			.String(TEXT("objectPath"), TEXT("Unreal object asset path for generic Niagara object parameters."))
 			.String(TEXT("componentName"), TEXT("Optional skeletal mesh component name for Niagara skeletal mesh parameters."))
+			.Number(TEXT("arrayIndex"), TEXT("Zero-based index for a Niagara array value setter."))
+			.Bool(TEXT("sizeToFit"), TEXT("Resize a Niagara array to include arrayIndex when using an indexed setter."))
 			.Array(TEXT("boneNames"), TEXT("Filtered skeletal mesh bone names."), TEXT("string"))
 			.Array(TEXT("socketNames"), TEXT("Filtered skeletal mesh socket names."), TEXT("string"))
 			.Array(TEXT("samplingRegions"), TEXT("Skeletal mesh sampling region names."), TEXT("string"))

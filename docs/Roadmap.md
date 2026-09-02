@@ -501,6 +501,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Niagara linear-color array values via Epic's `UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayColor` API (`set_niagara_parameter`, `parameterType: ColorArray`, nested RGB/RGBA values); malformed and non-finite entries are rejected.
 - [x] Niagara UInt8 array values via Epic's `UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayUInt8` API (`set_niagara_parameter`, `parameterType: UInt8Array`); values are restricted to integral 0–255 entries.
 - [x] Niagara boolean array values via Epic's `UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayBool` API (`set_niagara_parameter`, `parameterType: BoolArray`); entries must be JSON booleans.
+- [x] Indexed Niagara float and boolean array values via Epic's `SetNiagaraArrayFloatValue` and `SetNiagaraArrayBoolValue` APIs (`set_niagara_parameter`, `parameterType: FloatArrayValue` or `BoolArrayValue`, `arrayIndex`, `arrayValue`, optional `sizeToFit`).
 - [x] `add_skeletal_mesh_data_interface`
 - [x] `add_static_mesh_data_interface`
 - [x] `add_spline_data_interface`

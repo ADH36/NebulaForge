@@ -5649,7 +5649,8 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
                                                     RequestingSocket);
   if (LowerSub == TEXT("set_material") ||
       LowerSub == TEXT("set_actor_material") ||
-      LowerSub == TEXT("apply_material"))
+      LowerSub == TEXT("apply_material") ||
+      LowerSub == TEXT("configure_hair_material"))
     return HandleControlActorSetMaterial(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("get_components") ||
       LowerSub == TEXT("get_actor_components"))

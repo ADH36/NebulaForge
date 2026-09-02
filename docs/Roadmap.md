@@ -1802,7 +1802,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `configure_groom_lod`
 - [ ] `create_groom_binding`, `bind_groom_to_skeletal_mesh`
 - [ ] `configure_hair_simulation`, `set_hair_stiffness`, `set_hair_damping`, `configure_hair_collision`
-- [ ] `configure_hair_material`, `set_hair_color`, `set_hair_roughness`
+- [x] `configure_hair_material` (validated material assignment façade over the target hair component and material slot; accepts `materialPath`/`assetPath` and `materialSlot`)
+- [ ] `set_hair_color`, `set_hair_roughness`
 
 ---
 

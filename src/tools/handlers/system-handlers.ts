@@ -261,6 +261,7 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
       if (!filePath || content === undefined) return { success: false, error: 'INVALID_ARGUMENT', message: 'filePath and content are required' };
       return writeProjectFile(argsTyped.projectPath, filePath, content, record.backup !== false);
     }
+    case 'configure_checkpoint_data':
     case 'generate_save_game_class': {
       const record = argsTyped as Record<string, unknown>;
       if (typeof record.className !== 'string' || typeof record.headerPath !== 'string' || typeof record.sourcePath !== 'string' || !Array.isArray(record.variables)) {

@@ -24,6 +24,9 @@
 #include "Engine/GameInstance.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameStateBase.h"
+#if MCP_HAS_TARGETING_SYSTEM
+#include "TargetingSystem/TargetingSubsystem.h"
+#endif
 #include "Components/Widget.h"
 #include "Components/SlateWrapperTypes.h"
 #include "Engine/UserInterfaceSettings.h"
@@ -1537,6 +1540,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGetGameInstanceAction = Lower == TEXT("get_game_instance");
   const bool bGetGameModeAction = Lower == TEXT("get_game_mode");
   const bool bGetGameStateAction = Lower == TEXT("get_game_state");
+  const bool bGetTargetingSubsystemAction = Lower == TEXT("get_targeting_subsystem");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
@@ -1595,7 +1599,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
-       Lower != TEXT("get_closest_listener_location") && Lower != TEXT("get_game_instance") && Lower != TEXT("get_game_mode") && Lower != TEXT("get_game_state") && Lower != TEXT("get_num_player_controllers") && Lower != TEXT("get_num_player_states") &&
+       Lower != TEXT("get_closest_listener_location") && Lower != TEXT("get_game_instance") && Lower != TEXT("get_game_mode") && Lower != TEXT("get_game_state") && Lower != TEXT("get_num_player_controllers") && Lower != TEXT("get_num_player_states") && Lower != TEXT("get_targeting_subsystem") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bForceDisableSplitscreenAction && !bGamePausedAction && !bProjectFilesAction) {
     return false; // Not handled by this function
@@ -2253,6 +2257,21 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     Result->SetStringField(TEXT("classPath"), WorldObject ? WorldObject->GetClass()->GetPathName() : FString());
     const TCHAR* LookupLabel = bGetGameInstanceAction ? TEXT("Game instance") : bGetGameModeAction ? TEXT("Game mode") : TEXT("Game state");
     SendAutomationResponse(RequestingSocket, RequestId, true, FString::Printf(TEXT("%s lookup completed"), LookupLabel), Result, FString());
+    return true;
+  }
+
+  if (bGetTargetingSubsystemAction) {
+#if MCP_HAS_TARGETING_SYSTEM
+    UObject* TargetingSubsystem = UTargetingSubsystem::GetTargetingSubsystem(GetWorld());
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("supported"), true);
+    Result->SetBoolField(TEXT("found"), TargetingSubsystem != nullptr);
+    Result->SetStringField(TEXT("objectPath"), TargetingSubsystem ? TargetingSubsystem->GetPathName() : FString());
+    Result->SetStringField(TEXT("classPath"), TargetingSubsystem ? TargetingSubsystem->GetClass()->GetPathName() : FString());
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Targeting subsystem lookup completed"), Result, FString());
+#else
+    SendAutomationError(RequestingSocket, RequestId, TEXT("Gameplay Targeting System plugin is not available in this build"), TEXT("NOT_SUPPORTED"));
+#endif
     return true;
   }
 

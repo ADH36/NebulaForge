@@ -1647,6 +1647,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 **Goal**: Common gameplay patterns and systems.
 
 ### 35.1 Targeting System
+- [x] `get_targeting_subsystem` (API-derived optional-plugin discovery using Epic's `UTargetingSubsystem::GetTargetingSubsystem`; returns subsystem metadata when available and `NOT_SUPPORTED` otherwise)
 - [ ] `create_targeting_component`
 - [ ] `configure_lock_on_target`
 - [ ] `set_target_priority`

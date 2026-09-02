@@ -199,6 +199,8 @@ public class NebulaForgeBridge : ModuleRules
 
             // Phase 24: GAS - Gameplay Ability System (optional plugin)
             AddOptionalDynamicModule(Target, EngineDir, "GameplayAbilities", "GameplayAbilities");
+            bool bHasTargetingSystem = AddOptionalDynamicModule(Target, EngineDir, "TargetingSystem", "TargetingSystem");
+            PublicDefinitions.Add(bHasTargetingSystem ? "MCP_HAS_TARGETING_SYSTEM=1" : "MCP_HAS_TARGETING_SYSTEM=0");
 
             // Phase 11: MetaSound modules (optional plugin)
             // Note: MetasoundFrontend exports data symbols (FrontendInvalidID) so cannot use delay-load
@@ -350,6 +352,7 @@ public class NebulaForgeBridge : ModuleRules
             PublicDefinitions.Add("MCP_HAS_SUBOBJECT_DATA_SUBSYSTEM=0");
             PublicDefinitions.Add("MCP_HAS_WP_FOR_EACH_DATALAYER=0");
             PublicDefinitions.Add("MCP_HAS_PCG=0");
+            PublicDefinitions.Add("MCP_HAS_TARGETING_SYSTEM=0");
         }
 
         // ============================================================================

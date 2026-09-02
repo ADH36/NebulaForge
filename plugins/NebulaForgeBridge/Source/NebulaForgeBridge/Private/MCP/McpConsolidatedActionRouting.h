@@ -51,7 +51,7 @@ inline bool ContainsAction(const TArray<FString>& Actions, const FString& Action
 inline const TArray<FString>& ManageAssetCore()
 {
 	static const TArray<FString> Actions = {
-		TEXT("list"), TEXT("import"), TEXT("import_gltf"), TEXT("import_glb"), TEXT("import_fbx_interchange"), TEXT("import_gltf_interchange"), TEXT("import_obj_interchange"), TEXT("duplicate"), TEXT("duplicate_asset"),
+		TEXT("list"), TEXT("import"), TEXT("import_gltf"), TEXT("import_glb"), TEXT("import_fbx_interchange"), TEXT("import_gltf_interchange"), TEXT("import_obj_interchange"), TEXT("import_usd_interchange"), TEXT("import_alembic_file"), TEXT("duplicate"), TEXT("duplicate_asset"),
 		TEXT("rename"), TEXT("rename_asset"), TEXT("move"), TEXT("move_asset"),
 		TEXT("delete"), TEXT("delete_asset"), TEXT("delete_assets"),
 		TEXT("create_folder"), TEXT("search_assets"), TEXT("get_dependencies"),

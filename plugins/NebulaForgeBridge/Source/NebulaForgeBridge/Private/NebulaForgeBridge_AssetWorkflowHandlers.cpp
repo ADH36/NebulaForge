@@ -2293,13 +2293,16 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   // Asset Operations
   if (Lower == TEXT("import_gltf") || Lower == TEXT("import_glb") || Lower == TEXT("import_gltf_interchange") ||
       Lower == TEXT("import_fbx_interchange") ||
-      Lower == TEXT("import_obj_interchange")) {
+      Lower == TEXT("import_obj_interchange") || Lower == TEXT("import_usd_interchange") ||
+      Lower == TEXT("import_alembic_file")) {
     FString SourcePath;
     Payload->TryGetStringField(TEXT("sourcePath"), SourcePath);
     const FString Extension = FPaths::GetExtension(SourcePath).ToLower();
     const FString ExpectedExtension = Lower == TEXT("import_glb") ? TEXT("glb") :
         Lower == TEXT("import_fbx_interchange") ? TEXT("fbx") :
-        Lower == TEXT("import_obj_interchange") ? TEXT("obj") : TEXT("gltf");
+        Lower == TEXT("import_obj_interchange") ? TEXT("obj") :
+        Lower == TEXT("import_usd_interchange") ? TEXT("usd") :
+        Lower == TEXT("import_alembic_file") ? TEXT("abc") : TEXT("gltf");
     if (Extension != ExpectedExtension) {
       SendAutomationResponse(RequestingSocket, RequestId, false,
                              FString::Printf(TEXT("%s requires a .%s sourcePath"), *Lower, *ExpectedExtension),

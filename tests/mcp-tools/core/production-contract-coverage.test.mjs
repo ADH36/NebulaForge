@@ -100,6 +100,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'import_glb', sourcePath: 'missing.glb', destinationPath: '/Game/ContractAvatar' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_fbx_interchange', sourcePath: 'missing.fbx', destinationPath: '/Game/ContractMesh' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_gltf_interchange', sourcePath: 'missing.gltf', destinationPath: '/Game/ContractMesh' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'import_usd_interchange', sourcePath: 'missing.usd', destinationPath: '/Game/ContractStage' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'import_alembic_file', sourcePath: 'missing.abc', destinationPath: '/Game/ContractCache' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_obj_interchange', sourcePath: 'missing.obj', destinationPath: '/Game/ContractMesh' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'start_quest', assetPath: '/Game/ContractQuest' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_dialogue_tree', treeId: 'ContractDialogue', name: 'Contract Dialogue' }, expected: 'success|error' },

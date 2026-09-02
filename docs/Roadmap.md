@@ -1820,7 +1820,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `import_with_interchange`, `configure_import_asset_type`, `set_reimport_strategy`
 - [x] `import_fbx_interchange`, `import_obj_interchange` (extension-validated façades over the existing deferred Unreal AssetTools/Interchange-safe importer; FBX support remains subject to Epic's project feature flag and installed translator)
 - [x] `import_gltf_interchange` (explicit Interchange alias of the extension-validated glTF importer)
-- [ ] `import_usd_interchange`
+- [x] `import_usd_interchange` (extension-validated façade over the existing deferred importer; requires Epic's USD Importer/Interchange translator plugin)
 
 ### 37.3 USD
 - [ ] Stage: `create_usd_stage`, `open_usd_stage`, `save_usd_stage`, `close_usd_stage`
@@ -1831,7 +1831,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] Live: `enable_usd_live_edit`, `configure_usd_sync`
 
 ### 37.4 Alembic
-- [ ] `import_alembic_file`, `configure_alembic_import` (geometry, groom, animation)
+- [x] `import_alembic_file` (extension-validated `.abc` façade over the existing deferred importer; requires the installed Alembic/Interchange translator)
+- [ ] `configure_alembic_import` (geometry, groom, animation)
 - [ ] `set_alembic_sampling`, `set_alembic_frame_range`
 - [ ] `create_geometry_cache_track`, `configure_cache_playback`
 - [ ] `import_alembic_groom`, `bind_groom_to_mesh`

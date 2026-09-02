@@ -1715,7 +1715,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 35.6 Quest/Dialogue System
 - [x] `create_quest_data_asset` (creates a persisted generic `UDataAsset`-backed quest record with quest identity, description, type, and inactive state metadata through the existing asset authoring path)
-- [ ] `create_quest_manager`
+- [x] `create_quest_manager` (project-class-aware actor authoring façade; accepts a concrete manager `classPath` and defaults to an `AActor` named `QuestManager` because Epic does not provide a universal quest-manager class)
 - [x] `start_quest`, `complete_quest_objective`, `track_quest` (validated quest-record state/tracking transitions on the persisted generic quest data asset)
 - [x] `create_dialogue_tree` (creates a persisted generic `UDataAsset`-backed dialogue-tree record with localized-text-ready identity/description metadata and an initial node count)
 - [x] `add_dialogue_node`, `add_dialogue_choice` (persists validated node text/speaker and choice text/target metadata on the authored dialogue-tree asset)

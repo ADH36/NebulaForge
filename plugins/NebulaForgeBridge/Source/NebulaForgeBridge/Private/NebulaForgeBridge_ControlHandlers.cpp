@@ -4254,6 +4254,17 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ComponentPayload->SetStringField(TEXT("action"), TEXT("add_component"));
     return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("create_quest_manager")) {
+    TSharedPtr<FJsonObject> ManagerPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      ManagerPayload->SetField(Pair.Key, Pair.Value);
+    if (!ManagerPayload->HasField(TEXT("classPath")))
+      ManagerPayload->SetStringField(TEXT("classPath"), TEXT("/Script/Engine.Actor"));
+    if (!ManagerPayload->HasField(TEXT("actorName")))
+      ManagerPayload->SetStringField(TEXT("actorName"), TEXT("QuestManager"));
+    ManagerPayload->SetStringField(TEXT("action"), TEXT("spawn_actor"));
+    return HandleControlActorSpawn(RequestId, ManagerPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_photo_mode_camera")) {
     TSharedPtr<FJsonObject> CameraPayload = MakeShared<FJsonObject>();
     for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)

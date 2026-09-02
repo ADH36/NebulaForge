@@ -1481,7 +1481,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") || Lower == TEXT("configure_chunking") ||
       Lower == TEXT("get_config_value") || Lower == TEXT("read_config_value") || Lower == TEXT("set_config_value") || Lower == TEXT("write_config_value") ||
       Lower == TEXT("get_section") || Lower == TEXT("create_config_section") ||
-      Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy") || Lower == TEXT("configure_scalability_group") || Lower == TEXT("create_device_profile") || Lower == TEXT("set_cvar_for_profile") || Lower == TEXT("configure_build_settings") || Lower == TEXT("configure_platform_settings") || Lower == TEXT("configure_plugin_settings") || Lower == TEXT("configure_windows_build") || Lower == TEXT("configure_linux_build") || Lower == TEXT("configure_mac_build") || Lower == TEXT("configure_ios_build") || Lower == TEXT("configure_android_build") || Lower == TEXT("configure_android_signing") || Lower == TEXT("configure_ios_signing") || Lower == TEXT("take_photo_mode_screenshot") || Lower == TEXT("set_max_audio_channels_scaled") || Lower == TEXT("get_max_audio_channel_count") || Lower == TEXT("are_any_listeners_within_range") || Lower == TEXT("is_game_paused") || Lower == TEXT("get_audio_time_seconds") || Lower == TEXT("is_any_local_player_camera_within_range") || Lower == TEXT("get_num_local_player_controllers") || Lower == TEXT("set_subtitles_enabled") || Lower == TEXT("are_subtitles_enabled") || Lower == TEXT("get_active_spatial_plugin") || Lower == TEXT("set_active_spatial_plugin") || Lower == TEXT("get_available_spatial_plugins") || Lower == TEXT("get_platform_name");
+      Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy") || Lower == TEXT("configure_scalability_group") || Lower == TEXT("create_device_profile") || Lower == TEXT("set_cvar_for_profile") || Lower == TEXT("configure_build_settings") || Lower == TEXT("configure_platform_settings") || Lower == TEXT("configure_plugin_settings") || Lower == TEXT("configure_windows_build") || Lower == TEXT("configure_linux_build") || Lower == TEXT("configure_mac_build") || Lower == TEXT("configure_ios_build") || Lower == TEXT("configure_android_build") || Lower == TEXT("configure_android_signing") || Lower == TEXT("configure_ios_signing") || Lower == TEXT("take_photo_mode_screenshot") || Lower == TEXT("set_max_audio_channels_scaled") || Lower == TEXT("get_max_audio_channel_count") || Lower == TEXT("are_any_listeners_within_range") || Lower == TEXT("is_game_paused") || Lower == TEXT("get_audio_time_seconds") || Lower == TEXT("is_any_local_player_camera_within_range") || Lower == TEXT("get_num_local_player_controllers") || Lower == TEXT("set_subtitles_enabled") || Lower == TEXT("are_subtitles_enabled") || Lower == TEXT("get_active_spatial_plugin") || Lower == TEXT("set_active_spatial_plugin") || Lower == TEXT("get_available_spatial_plugins") || Lower == TEXT("get_platform_name") || Lower == TEXT("get_accurate_real_time");
   const bool bDataValidationAction = Lower == TEXT("run_data_validation") || Lower == TEXT("create_asset_validator");
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
   const bool bGameplayTagNativeAction = Lower == TEXT("register_native_tag");
@@ -1504,6 +1504,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bSetActiveSpatialPluginAction = Lower == TEXT("set_active_spatial_plugin");
   const bool bGetAvailableSpatialPluginsAction = Lower == TEXT("get_available_spatial_plugins");
   const bool bGetPlatformNameAction = Lower == TEXT("get_platform_name");
+  const bool bGetAccurateRealTimeAction = Lower == TEXT("get_accurate_real_time");
   const bool bMaxAudioChannelsScaledAction = Lower == TEXT("set_max_audio_channels_scaled");
   const bool bGetMaxAudioChannelCountAction = Lower == TEXT("get_max_audio_channel_count");
   const bool bAreAnyListenersWithinRangeAction = Lower == TEXT("are_any_listeners_within_range");
@@ -2017,6 +2018,17 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("platformName"), UGameplayStatics::GetPlatformName());
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Platform name read"), Result, FString());
+    return true;
+  }
+
+  if (bGetAccurateRealTimeAction) {
+    int32 Seconds = 0;
+    double PartialSeconds = 0.0;
+    UGameplayStatics::GetAccurateRealTime(Seconds, PartialSeconds);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("seconds"), Seconds);
+    Result->SetNumberField(TEXT("partialSeconds"), PartialSeconds);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Accurate application time read"), Result, FString());
     return true;
   }
 

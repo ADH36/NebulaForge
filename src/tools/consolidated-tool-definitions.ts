@@ -895,7 +895,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         action: {
           type: 'string',
           enum: [
-            'spawn', 'spawn_actor', 'create_checkpoint_actor', 'spawn_paper_sprite_actor', 'spawn_paper_flipbook_actor', 'spawn_paper_tile_map_actor', 'spawn_blueprint',
+            'spawn', 'spawn_actor', 'create_checkpoint_actor', 'create_world_marker', 'spawn_paper_sprite_actor', 'spawn_paper_flipbook_actor', 'spawn_paper_tile_map_actor', 'spawn_blueprint',
             'delete', 'destroy_actor', 'delete_by_tag', 'duplicate',
             'apply_force',
             'set_transform', 'teleport_actor', 'set_actor_location', 'set_actor_rotation', 'set_actor_scale', 'set_actor_transform',

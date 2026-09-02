@@ -59,6 +59,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "Components/WidgetComponent.h"
+#include "Blueprint/UserWidget.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -1256,6 +1258,38 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorSpawn(
       BaseName = TEXT("Actor");
     }
     Spawned->SetActorLabel(BaseName);
+  }
+
+  if (RequestedAction == TEXT("create_world_marker")) {
+    UWidgetComponent* MarkerWidget = NewObject<UWidgetComponent>(Spawned, TEXT("WorldMarkerWidget"), RF_Transactional);
+    if (!MarkerWidget) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("MARKER_WIDGET_CREATE_FAILED"), TEXT("Failed to create world-marker widget component"));
+      return true;
+    }
+    Spawned->Modify();
+    Spawned->AddInstanceComponent(MarkerWidget);
+    MarkerWidget->OnComponentCreated();
+    MarkerWidget->SetupAttachment(Spawned->GetRootComponent());
+    FString WidgetClassPath;
+    Payload->TryGetStringField(TEXT("widgetClass"), WidgetClassPath);
+    if (!WidgetClassPath.IsEmpty()) {
+      UClass* WidgetClass = ResolveClassByName(WidgetClassPath);
+      if (!WidgetClass || !WidgetClass->IsChildOf(UUserWidget::StaticClass())) {
+        SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_WIDGET_CLASS"), TEXT("widgetClass must resolve to a UUserWidget subclass"));
+        return true;
+      }
+      MarkerWidget->SetWidgetClass(WidgetClass);
+    }
+    bool bScreenSpace = true;
+    Payload->TryGetBoolField(TEXT("screenSpace"), bScreenSpace);
+    MarkerWidget->SetWidgetSpace(bScreenSpace ? EWidgetSpace::Screen : EWidgetSpace::World);
+    bool bDrawAtDesiredSize = true;
+    Payload->TryGetBoolField(TEXT("drawAtDesiredSize"), bDrawAtDesiredSize);
+    MarkerWidget->SetDrawAtDesiredSize(bDrawAtDesiredSize);
+    MarkerWidget->RegisterComponent();
+    MarkerWidget->UpdateComponentToWorld();
+    MarkerWidget->MarkPackageDirty();
+    Spawned->MarkPackageDirty();
   }
 
 #if MCP_HAS_PAPER2D
@@ -4167,6 +4201,17 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       CheckpointPayload->SetStringField(TEXT("actorName"), TEXT("CheckpointActor"));
     CheckpointPayload->SetStringField(TEXT("action"), TEXT("create_checkpoint_actor"));
     return HandleControlActorSpawn(RequestId, CheckpointPayload, RequestingSocket);
+  }
+  if (LowerSub == TEXT("create_world_marker")) {
+    TSharedPtr<FJsonObject> MarkerPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      MarkerPayload->SetField(Pair.Key, Pair.Value);
+    if (!MarkerPayload->HasField(TEXT("classPath")))
+      MarkerPayload->SetStringField(TEXT("classPath"), TEXT("/Script/Engine.Actor"));
+    if (!MarkerPayload->HasField(TEXT("actorName")))
+      MarkerPayload->SetStringField(TEXT("actorName"), TEXT("WorldMarker"));
+    MarkerPayload->SetStringField(TEXT("action"), TEXT("create_world_marker"));
+    return HandleControlActorSpawn(RequestId, MarkerPayload, RequestingSocket);
   }
   if (LowerSub == TEXT("spawn") || LowerSub == TEXT("spawn_actor") ||
       LowerSub == TEXT("spawn_paper_sprite_actor") || LowerSub == TEXT("spawn_paper_flipbook_actor"))

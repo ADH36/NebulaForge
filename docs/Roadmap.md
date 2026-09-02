@@ -1698,7 +1698,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_objective_progression` (persists validated non-negative progress, positive target progress, and optional progression type metadata)
 
 ### 35.4 World Markers/Ping System
-- [ ] `create_world_marker`
+- [x] `create_world_marker` (native actor marker façade with an attached `UWidgetComponent`, optional `UUserWidget` class, screen/world space, and desired-size controls)
 - [ ] `create_ping_system`
 - [ ] `configure_marker_widget`
 - [ ] `configure_marker_3d_2d`

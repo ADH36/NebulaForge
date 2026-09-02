@@ -66,6 +66,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'get_targeting_subsystem' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_instanced_static_mesh_component', actorName: 'ContractActor', componentName: 'ContractISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_checkpoint_actor', actorName: 'ContractCheckpoint' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'create_world_marker', actorName: 'ContractWorldMarker', screenSpace: true }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_objective', name: 'ContractObjective', path: '/Game/MCP' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'set_objective_state', assetPath: '/Game/MCP/ContractObjective.ContractObjective', state: 'active' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'configure_objective_markers', assetPath: '/Game/MCP/ContractObjective.ContractObjective', markerType: 'world' }, expected: 'success|error' },

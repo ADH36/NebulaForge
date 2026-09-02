@@ -4265,7 +4265,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ManagerPayload->SetStringField(TEXT("action"), TEXT("spawn_actor"));
     return HandleControlActorSpawn(RequestId, ManagerPayload, RequestingSocket);
   }
-  if (LowerSub == TEXT("configure_lock_on_target") || LowerSub == TEXT("set_target_priority")) {
+  if (LowerSub == TEXT("configure_lock_on_target") || LowerSub == TEXT("set_target_priority") || LowerSub == TEXT("configure_target_switching") || LowerSub == TEXT("configure_soft_lock") || LowerSub == TEXT("configure_aim_assist")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);
     AActor* TargetActor = FindActorByName(TargetName);
@@ -4279,7 +4279,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       FString SocketName;
       if (Payload->TryGetStringField(TEXT("lockOnSocket"), SocketName) && !SocketName.TrimStartAndEnd().IsEmpty())
         TargetActor->Tags.AddUnique(FName(*FString::Printf(TEXT("LockOnSocket.%s"), *SocketName.TrimStartAndEnd())));
-    } else {
+    } else if (LowerSub == TEXT("set_target_priority")) {
       double Priority = 0.0;
       if (!Payload->TryGetNumberField(TEXT("priority"), Priority) || !FMath::IsFinite(Priority) || Priority < -1000000.0 || Priority > 1000000.0 || FMath::FloorToDouble(Priority) != Priority) {
         SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("priority must be a finite integer between -1000000 and 1000000"), nullptr);
@@ -4288,6 +4288,25 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       for (int32 Index = TargetActor->Tags.Num() - 1; Index >= 0; --Index)
         if (TargetActor->Tags[Index].ToString().StartsWith(TEXT("TargetPriority."))) TargetActor->Tags.RemoveAt(Index);
       TargetActor->Tags.Add(FName(*FString::Printf(TEXT("TargetPriority.%d"), static_cast<int32>(Priority))));
+    } else if (LowerSub == TEXT("configure_target_switching")) {
+      FString Mode;
+      Payload->TryGetStringField(TEXT("mode"), Mode);
+      Mode = Mode.ToLower();
+      if (Mode != TEXT("cycle") && Mode != TEXT("nearest") && Mode != TEXT("manual")) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("mode must be cycle, nearest, or manual"), nullptr);
+        return true;
+      }
+      TargetActor->Tags.AddUnique(FName(TEXT("TargetSwitching.Enabled")));
+      TargetActor->Tags.AddUnique(FName(*FString::Printf(TEXT("TargetSwitching.Mode.%s"), *Mode)));
+    } else {
+      double Strength = 1.0;
+      if (Payload->HasField(TEXT("strength")) && (!Payload->TryGetNumberField(TEXT("strength"), Strength) || !FMath::IsFinite(Strength) || Strength < 0.0 || Strength > 1.0)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("strength must be between 0 and 1"), nullptr);
+        return true;
+      }
+      const TCHAR* Prefix = LowerSub == TEXT("configure_soft_lock") ? TEXT("SoftLock") : TEXT("AimAssist");
+      TargetActor->Tags.AddUnique(FName(*FString::Printf(TEXT("%s.Enabled"), Prefix)));
+      TargetActor->Tags.AddUnique(FName(*FString::Printf(TEXT("%s.Strength.%d"), Prefix, FMath::RoundToInt(Strength * 100.0))));
     }
     TargetActor->MarkPackageDirty();
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

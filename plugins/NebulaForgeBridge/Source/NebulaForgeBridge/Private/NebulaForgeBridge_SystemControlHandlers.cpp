@@ -13,6 +13,7 @@
 #include "Internationalization/StringTableCore.h"
 #include "Internationalization/StringTableRegistry.h"
 #include "Internationalization/Internationalization.h"
+#include "Internationalization/Culture.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/EngineBaseTypes.h"
 #include "Sound/ReverbEffect.h"

@@ -1195,9 +1195,10 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     bIsDense = UGeometryScriptLibrary_MeshQueryFunctions::GetIsDenseMesh(Mesh);
     bHasVertexIDGaps = UGeometryScriptLibrary_MeshQueryFunctions::GetHasVertexIDGaps(Mesh);
     bHasTriangleIDGaps = UGeometryScriptLibrary_MeshQueryFunctions::GetHasTriangleIDGaps(Mesh);
-    OpenBorderLoopCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumOpenBorderLoops(Mesh);
+    bool bAmbiguousTopologyFound = false;
+    OpenBorderLoopCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumOpenBorderLoops(Mesh, bAmbiguousTopologyFound);
     OpenBorderEdgeCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumOpenBorderEdges(Mesh);
-    ConnectedIslandCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumConnectedIslands(Mesh);
+    ConnectedIslandCount = UGeometryScriptLibrary_MeshQueryFunctions::GetNumConnectedComponents(Mesh);
 #endif
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
     UGeometryScriptLibrary_MeshQueryFunctions::GetMeshVolumeAreaCenter(Mesh, SurfaceArea, Volume, CenterOfMass);
@@ -1226,7 +1227,7 @@ static bool HandleGetMeshInfo(UNebulaForgeBridgeSubsystem* Self, const FString& 
     Result->SetNumberField(TEXT("openBorderEdgeCount"), OpenBorderEdgeCount);
     Result->SetNumberField(TEXT("connectedIslandCount"), ConnectedIslandCount);
     TSharedPtr<FJsonObject> Bounds = MakeShared<FJsonObject>();
-    Bounds->SetBoolField(TEXT("isValid"), MeshBounds.IsValid);
+    Bounds->SetBoolField(TEXT("isValid"), MeshBounds.IsValid != 0);
     auto MakeVectorObject = [](const FVector& Value) {
         TSharedPtr<FJsonObject> VectorObject = MakeShared<FJsonObject>();
         VectorObject->SetNumberField(TEXT("x"), Value.X);

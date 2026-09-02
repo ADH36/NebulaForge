@@ -771,7 +771,11 @@ static bool HandlePaperTileSetTileMetadataInspectAction(
   Result->SetStringField(TEXT("assetPath"), TileSet->GetPathName());
   Result->SetNumberField(TEXT("tileIndex"), TileIndex);
   Result->SetStringField(TEXT("tileUserData"), Metadata->UserDataName.ToString());
-  Result->SetNumberField(TEXT("terrainMembership"), Metadata->TerrainMembership);
+  TArray<TSharedPtr<FJsonValue>> TerrainMembership;
+  for (uint8 Membership : Metadata->TerrainMembership) {
+    TerrainMembership.Add(MakeShared<FJsonValueNumber>(Membership));
+  }
+  Result->SetArrayField(TEXT("terrainMembership"), TerrainMembership);
   Result->SetBoolField(TEXT("hasCollision"), Metadata->HasCollision());
   Result->SetBoolField(TEXT("hasMetadata"), Metadata->HasMetaData());
   Owner->SendAutomationResponse(Socket, RequestId, true, TEXT("Paper tile-set tile metadata inspected"), Result, FString());
@@ -1285,10 +1289,11 @@ static bool HandlePaperTileMapCoordinatesAction(
 {
   const FString AssetPath = SanitizeProjectRelativePath(GetJsonStringField(Payload, TEXT("assetPath")));
   UPaperTileMap* TileMap = Cast<UPaperTileMap>(UEditorAssetLibrary::LoadAsset(AssetPath));
-  TSharedPtr<FJsonObject> PositionObject;
+  const TSharedPtr<FJsonObject>* PositionObject = nullptr;
   FVector Position = FVector::ZeroVector;
   if (!TileMap || !Payload->TryGetObjectField(TEXT("position"), PositionObject) ||
-      !McpHandlerUtils::JsonToVector(PositionObject, Position) || !Position.IsFinite()) {
+      !PositionObject || !McpHandlerUtils::JsonToVector(*PositionObject, Position) ||
+      !FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y) || !FMath::IsFinite(Position.Z)) {
     Owner->SendAutomationError(Socket, RequestId, TEXT("assetPath must resolve to a PaperTileMap and position must be a finite {x,y,z} object"), TEXT("INVALID_ARGUMENT"));
     return true;
   }
@@ -2130,7 +2135,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     Properties->SetObjectField(TEXT("Properties"), Metadata);
     ObjectivePayload->SetObjectField(TEXT("properties"), Properties);
     ObjectivePayload->SetStringField(TEXT("action"), TEXT("create_data_asset"));
-    return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), ObjectivePayload, Socket);
+    return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), ObjectivePayload, RequestingSocket);
   }
 
   if (Lower == TEXT("inspect_asset_capabilities"))

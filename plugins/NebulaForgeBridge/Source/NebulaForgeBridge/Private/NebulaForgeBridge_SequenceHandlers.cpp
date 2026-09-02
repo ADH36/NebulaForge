@@ -3928,7 +3928,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
       SendAutomationError(RequestingSocket, RequestId, TEXT("Unable to create custom primitive data track"), TEXT("TRACK_CREATION_FAILED"));
       return true;
     }
-    DataTrack->AddScalarParameterKey(static_cast<uint8>(DataIndex), FFrameNumber(Frame), RowIndex, static_cast<float>(Value), RCIM_Linear);
+    DataTrack->AddScalarParameterKey(static_cast<uint8>(DataIndex), FFrameNumber(Frame), RowIndex, static_cast<float>(Value), EMovieSceneKeyInterpolation::Linear);
     Sequence->MarkPackageDirty();
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetStringField(TEXT("sequencePath"), SeqPath);
@@ -4000,9 +4000,9 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
     }
     if (EffectiveAction == TEXT("sequence_add_material_color_track")) {
       MaterialTrack->AddColorParameterKey(FName(*ParameterName), FFrameNumber(Frame), RowIndex,
-          FLinearColor(static_cast<float>(ColorR), static_cast<float>(ColorG), static_cast<float>(ColorB), static_cast<float>(ColorA)), RCIM_Linear);
+          FLinearColor(static_cast<float>(ColorR), static_cast<float>(ColorG), static_cast<float>(ColorB), static_cast<float>(ColorA)), EMovieSceneKeyInterpolation::Linear);
     } else {
-      MaterialTrack->AddScalarParameterKey(FName(*ParameterName), FFrameNumber(Frame), RowIndex, static_cast<float>(Value), RCIM_Linear);
+      MaterialTrack->AddScalarParameterKey(FName(*ParameterName), FFrameNumber(Frame), RowIndex, static_cast<float>(Value), EMovieSceneKeyInterpolation::Linear);
     }
     Sequence->MarkPackageDirty();
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -4239,7 +4239,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSequenceAction(
                              TEXT("INVALID_CLASS_TYPE"));
       return true;
     }
-    UMovieSceneCameraShakeTrack *Track = MovieScene->AddMasterTrack<UMovieSceneCameraShakeTrack>();
+    UMovieSceneCameraShakeTrack *Track = MovieScene->AddTrack<UMovieSceneCameraShakeTrack>();
     if (!Track) {
       SendAutomationResponse(RequestingSocket, RequestId, false,
                              TEXT("Unable to create camera shake track"), nullptr,

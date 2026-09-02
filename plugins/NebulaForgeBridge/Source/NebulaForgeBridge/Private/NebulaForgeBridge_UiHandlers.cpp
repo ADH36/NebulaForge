@@ -670,7 +670,7 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
         ErrorCode = TEXT("WIDGET_NOT_FOUND");
         Resp->SetStringField(TEXT("error"), Message);
       } else {
-        TargetWidget->HandleBackAction();
+        TargetWidget->DeactivateWidget();
         bSuccess = true;
         Message = FString::Printf(TEXT("CommonUI back action dispatched to '%s'"), *WidgetName);
         Resp->SetStringField(TEXT("widgetName"), WidgetName);

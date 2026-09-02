@@ -1490,7 +1490,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             bHasNumber = true;
           }
           if (bHasNumber && FMath::IsFinite(NumberValue) && FMath::IsNearlyEqual(NumberValue, FMath::RoundToDouble(NumberValue)) && NumberValue >= MIN_int32 && NumberValue <= MAX_int32) {
-            NiComp->SetNiagaraVariableInt(ParamName, static_cast<int32>(NumberValue));
+             NiComp->SetVariableInt(ParamName, static_cast<int32>(NumberValue));
             bApplied = true;
           }
         } else if (ParameterType.Equals(TEXT("Vector2"), ESearchCase::IgnoreCase) ||
@@ -1505,7 +1505,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             bHasVector = (*ObjValue)->TryGetNumberField(TEXT("x"), VX) && (*ObjValue)->TryGetNumberField(TEXT("y"), VY);
           }
           if (bHasVector && FMath::IsFinite(VX) && FMath::IsFinite(VY)) {
-            NiComp->SetNiagaraVariableVec2(ParamName, FVector2D(static_cast<float>(VX), static_cast<float>(VY)));
+             NiComp->SetVariableVec2(ParamName, FVector2D(static_cast<float>(VX), static_cast<float>(VY)));
             bApplied = true;
           }
         } else if (ParameterType.Equals(TEXT("Vector4"), ESearchCase::IgnoreCase) ||
@@ -1520,7 +1520,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             bHasVector = (*ObjValue)->TryGetNumberField(TEXT("x"), VX) && (*ObjValue)->TryGetNumberField(TEXT("y"), VY) && (*ObjValue)->TryGetNumberField(TEXT("z"), VZ) && (*ObjValue)->TryGetNumberField(TEXT("w"), VW);
           }
           if (bHasVector && FMath::IsFinite(VX) && FMath::IsFinite(VY) && FMath::IsFinite(VZ) && FMath::IsFinite(VW)) {
-            NiComp->SetNiagaraVariableVec4(ParamName, FVector4(static_cast<float>(VX), static_cast<float>(VY), static_cast<float>(VZ), static_cast<float>(VW)));
+             NiComp->SetVariableVec4(ParamName, FVector4(static_cast<float>(VX), static_cast<float>(VY), static_cast<float>(VZ), static_cast<float>(VW)));
             bApplied = true;
           }
         } else if (ParameterType.Equals(TEXT("Position"), ESearchCase::IgnoreCase)) {
@@ -1534,7 +1534,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             bHasPosition = (*ObjValue)->TryGetNumberField(TEXT("x"), PX) && (*ObjValue)->TryGetNumberField(TEXT("y"), PY) && (*ObjValue)->TryGetNumberField(TEXT("z"), PZ);
           }
           if (bHasPosition && FMath::IsFinite(PX) && FMath::IsFinite(PY) && FMath::IsFinite(PZ)) {
-            NiComp->SetNiagaraVariablePosition(ParamName, FVector(static_cast<float>(PX), static_cast<float>(PY), static_cast<float>(PZ)));
+             NiComp->SetVariablePosition(ParamName, FVector(static_cast<float>(PX), static_cast<float>(PY), static_cast<float>(PZ)));
             bApplied = true;
           }
         } else if (ParameterType.Equals(TEXT("Vector"),
@@ -1789,7 +1789,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             (*ObjValue)->TryGetNumberField(TEXT("w"), QW);
           }
           if (bHasQuat && FMath::IsFinite(QX) && FMath::IsFinite(QY) && FMath::IsFinite(QZ) && FMath::IsFinite(QW)) {
-            NiComp->SetNiagaraVariableQuat(ParamName, FQuat(static_cast<float>(QX), static_cast<float>(QY), static_cast<float>(QZ), static_cast<float>(QW)));
+             NiComp->SetVariableQuat(ParamName, FQuat(static_cast<float>(QX), static_cast<float>(QY), static_cast<float>(QZ), static_cast<float>(QW)));
             bApplied = true;
           }
         } else if (ParameterType.Equals(TEXT("Bool"),

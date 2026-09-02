@@ -127,17 +127,20 @@
 #include "PaperSpriteActor.h"
 #include "PaperFlipbookActor.h"
 #include "PaperCharacter.h"
+#include "PaperSprite.h"
+#include "PaperFlipbook.h"
 #include "PaperSpriteComponent.h"
 #include "PaperFlipbookComponent.h"
 #define MCP_HAS_PAPER2D 1
 #else
 #define MCP_HAS_PAPER2D 0
 #endif
-#if __has_include("PaperTileMapActor.h") && __has_include("PaperTileMapComponent.h") && __has_include("PaperTileMap.h") && __has_include("PaperTileLayer.h")
+#if __has_include("PaperTileMapActor.h") && __has_include("PaperTileMapComponent.h") && __has_include("PaperTileMap.h") && __has_include("PaperTileLayer.h") && __has_include("PaperTileSet.h")
 #include "PaperTileMapActor.h"
 #include "PaperTileMapComponent.h"
 #include "PaperTileMap.h"
 #include "PaperTileLayer.h"
+#include "PaperTileSet.h"
 #define MCP_HAS_PAPER_TILEMAP 1
 #else
 #define MCP_HAS_PAPER_TILEMAP 0
@@ -4677,7 +4680,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       else
         TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
     }
-    if (!TileMapComponent || !TileMapComponent->GetTileMap()) {
+    if (!TileMapComponent || !TileMapComponent->TileMap) {
       SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("COMPONENT_NOT_FOUND"),
                                 TEXT("actorName must resolve to a PaperTileMapComponent"), nullptr);
       return true;
@@ -4713,7 +4716,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       else
         TileMapComponent = Found->FindComponentByClass<UPaperTileMapComponent>();
     }
-    if (!TileMapComponent || !TileMapComponent->GetTileMap()) {
+    if (!TileMapComponent || !TileMapComponent->TileMap) {
       SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("COMPONENT_NOT_FOUND"),
                                 TEXT("actorName must resolve to a PaperTileMapComponent"), nullptr);
       return true;
@@ -4722,12 +4725,12 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     FVector StepX;
     FVector StepY;
     FVector OffsetYFactor;
-    TileMapComponent->GetTileMap()->GetTileToLocalParameters(CornerPosition, StepX, StepY, OffsetYFactor);
+    TileMapComponent->TileMap->GetTileToLocalParameters(CornerPosition, StepX, StepY, OffsetYFactor);
     FVector LocalCornerPosition;
     FVector LocalStepX;
     FVector LocalStepY;
     FVector LocalOffsetYFactor;
-    TileMapComponent->GetTileMap()->GetLocalToTileParameters(LocalCornerPosition, LocalStepX, LocalStepY, LocalOffsetYFactor);
+    TileMapComponent->TileMap->GetLocalToTileParameters(LocalCornerPosition, LocalStepX, LocalStepY, LocalOffsetYFactor);
     TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
     Data->SetStringField(TEXT("actorName"), TargetName);
     Data->SetStringField(TEXT("componentName"), TileMapComponent->GetName());
@@ -4811,7 +4814,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     int32 MapWidth = 0;
     int32 MapHeight = 0;
     int32 NumLayers = 0;
-    if (!TileMapComponent || !TileMapComponent->GetTileMap() || !Payload->TryGetNumberField(TEXT("x"), X) ||
+    if (!TileMapComponent || !TileMapComponent->TileMap || !Payload->TryGetNumberField(TEXT("x"), X) ||
         !Payload->TryGetNumberField(TEXT("y"), Y) || !Payload->TryGetNumberField(TEXT("layer"), Layer)) {
       SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"),
                                 TEXT("actorName, a PaperTileMapComponent, and integer x/y/layer are required"), nullptr);
@@ -4824,7 +4827,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       return true;
     }
     TArray<FVector> Polygon;
-    TileMapComponent->GetTileMap()->GetTilePolygon(X, Y, Layer, Polygon);
+    TileMapComponent->TileMap->GetTilePolygon(X, Y, Layer, Polygon);
     TArray<TSharedPtr<FJsonValue>> Points;
     for (const FVector& Point : Polygon)
       Points.Add(MakeShared<FJsonValueObject>(McpHandlerUtils::VectorToJson(Point)));

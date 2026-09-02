@@ -1718,8 +1718,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_quest_manager`
 - [x] `start_quest`, `complete_quest_objective`, `track_quest` (validated quest-record state/tracking transitions on the persisted generic quest data asset)
 - [x] `create_dialogue_tree` (creates a persisted generic `UDataAsset`-backed dialogue-tree record with localized-text-ready identity/description metadata and an initial node count)
-- [ ] `add_dialogue_node`, `add_dialogue_choice`
-- [ ] `configure_dialogue_conditions`
+- [x] `add_dialogue_node`, `add_dialogue_choice` (persists validated node text/speaker and choice text/target metadata on the authored dialogue-tree asset)
+- [x] `configure_dialogue_conditions` (persists per-node condition metadata on the authored dialogue-tree asset)
 - [ ] `play_dialogue`
 
 ### 35.7 Instancing & HLOD

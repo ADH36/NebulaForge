@@ -2201,6 +2201,59 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), DialoguePayload, RequestingSocket);
   }
 
+  if (Lower == TEXT("add_dialogue_node") || Lower == TEXT("add_dialogue_choice") || Lower == TEXT("configure_dialogue_conditions")) {
+    FString AssetPath;
+    Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+    if (AssetPath.IsEmpty()) Payload->TryGetStringField(TEXT("treePath"), AssetPath);
+    FString NodeId;
+    Payload->TryGetStringField(TEXT("nodeId"), NodeId);
+    NodeId.TrimStartAndEndInline();
+    if (AssetPath.IsEmpty() || NodeId.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("assetPath/treePath and nodeId are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UMcpGenericDataAsset* DialogueTree = Cast<UMcpGenericDataAsset>(LoadObject<UObject>(nullptr, *SanitizeProjectRelativePath(AssetPath)));
+    if (!DialogueTree) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Dialogue tree data asset not found"), TEXT("ASSET_NOT_FOUND"));
+      return true;
+    }
+    DialogueTree->Modify();
+    FString Prefix = FString::Printf(TEXT("Node.%s."), *NodeId);
+    if (Lower == TEXT("add_dialogue_node")) {
+      DialogueTree->Properties.Add(Prefix + TEXT("text"), GetJsonStringField(Payload, TEXT("text"), GetJsonStringField(Payload, TEXT("dialogueText"))));
+      DialogueTree->Properties.Add(Prefix + TEXT("speaker"), GetJsonStringField(Payload, TEXT("speaker")));
+      int32 NodeCount = FCString::Atoi(*DialogueTree->Properties.FindRef(TEXT("nodeCount")));
+      DialogueTree->Properties.Add(TEXT("nodeCount"), FString::FromInt(FMath::Max(0, NodeCount) + 1));
+    } else if (Lower == TEXT("add_dialogue_choice")) {
+      FString ChoiceId;
+      Payload->TryGetStringField(TEXT("choiceId"), ChoiceId);
+      ChoiceId.TrimStartAndEndInline();
+      if (ChoiceId.IsEmpty()) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("choiceId is required"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      FString ChoicePrefix = Prefix + FString::Printf(TEXT("Choice.%s."), *ChoiceId);
+      DialogueTree->Properties.Add(ChoicePrefix + TEXT("text"), GetJsonStringField(Payload, TEXT("text"), GetJsonStringField(Payload, TEXT("choiceText"))));
+      DialogueTree->Properties.Add(ChoicePrefix + TEXT("targetNodeId"), GetJsonStringField(Payload, TEXT("targetNodeId")));
+    } else {
+      DialogueTree->Properties.Add(Prefix + TEXT("conditions"), GetJsonStringField(Payload, TEXT("conditions")));
+    }
+    DialogueTree->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(DialogueTree)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Dialogue tree changed but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), DialogueTree->GetPathName());
+    Result->SetStringField(TEXT("nodeId"), NodeId);
+    Result->SetNumberField(TEXT("nodeCount"), FCString::Atoi(*DialogueTree->Properties.FindRef(TEXT("nodeCount"))));
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Dialogue tree updated"), Result, FString());
+    return true;
+  }
+
   if (Lower == TEXT("inspect_asset_capabilities"))
   {
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

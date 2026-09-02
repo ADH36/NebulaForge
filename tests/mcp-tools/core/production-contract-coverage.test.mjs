@@ -80,6 +80,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'set_hair_style', actorName: 'ContractMetaHuman', value: 'Short' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_eyebrow_style', actorName: 'ContractMetaHuman', value: 'Natural' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_makeup', actorName: 'ContractMetaHuman', value: 'Subtle' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'set_teeth_configuration', actorName: 'ContractMetaHuman', value: 'Natural' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_lock_on_target', actorName: 'ContractTarget', lockOnSocket: 'head' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_target_priority', actorName: 'ContractTarget', priority: 10 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_target_switching', actorName: 'ContractTarget', mode: 'nearest' }, expected: 'success|error' },

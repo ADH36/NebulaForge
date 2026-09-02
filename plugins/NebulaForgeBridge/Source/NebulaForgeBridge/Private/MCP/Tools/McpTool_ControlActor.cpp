@@ -39,6 +39,7 @@ public:
 				TEXT("set_hair_style"),
 				TEXT("set_eyebrow_style"),
 				TEXT("set_makeup"),
+				TEXT("set_teeth_configuration"),
 				TEXT("configure_lock_on_target"),
 				TEXT("set_target_priority"),
 				TEXT("configure_target_switching"),

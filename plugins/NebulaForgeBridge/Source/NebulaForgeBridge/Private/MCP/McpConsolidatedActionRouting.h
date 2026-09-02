@@ -225,6 +225,7 @@ inline const TArray<FString>& WidgetAuthoring()
 		TEXT("add_damage_indicator"), TEXT("create_inventory_ui"),
 		TEXT("create_dialog_widget"), TEXT("create_radial_menu"),
 		TEXT("play_dialogue"),
+		TEXT("configure_photo_mode_ui"),
 		TEXT("get_widget_info"), TEXT("preview_widget")
 	};
 	return Actions;

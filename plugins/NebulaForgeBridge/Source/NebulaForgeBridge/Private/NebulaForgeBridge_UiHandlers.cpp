@@ -383,6 +383,14 @@ bool UNebulaForgeBridgeSubsystem::HandleUiAction(
   }
   const FString LowerSub = SubAction.ToLower();
 
+  if (LowerSub == TEXT("configure_photo_mode_ui")) {
+    TSharedPtr<FJsonObject> HudPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      HudPayload->SetField(Pair.Key, Pair.Value);
+    HudPayload->SetStringField(TEXT("subAction"), TEXT("create_hud"));
+    return HandleUiAction(RequestId, Action, HudPayload, RequestingSocket);
+  }
+
   if (LowerSub == TEXT("create_common_action_widget") ||
       LowerSub == TEXT("configure_navigation_rules")) {
     return HandleManageWidgetAuthoringAction(

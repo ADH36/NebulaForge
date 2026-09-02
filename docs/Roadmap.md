@@ -1711,7 +1711,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `configure_photo_mode_filters`
 - [ ] `configure_photo_mode_poses`
 - [x] `take_photo_mode_screenshot` (named alias over the validated screenshot pipeline, including editor/game/full-window modes and optional metadata)
-- [ ] `configure_photo_mode_ui`
+- [x] `configure_photo_mode_ui` (named façade over the existing HUD widget creation path, using Epic's `CreateWidget` and `UUserWidget::AddToViewport` APIs)
 
 ### 35.6 Quest/Dialogue System
 - [x] `create_quest_data_asset` (creates a persisted generic `UDataAsset`-backed quest record with quest identity, description, type, and inactive state metadata through the existing asset authoring path)

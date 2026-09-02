@@ -1305,6 +1305,8 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               bApplied = true;
             }
           } else if (bValidArray && ParameterType.Equals(TEXT("MatrixArray"), ESearchCase::IgnoreCase)) {
+            bool bApplyLwcRebase = true;
+            LocalPayload->TryGetBoolField(TEXT("applyLwcRebase"), bApplyLwcRebase);
             TArray<FMatrix> MatrixValues;
             for (const TSharedPtr<FJsonValue> &Entry : *ArrayValue) {
               const TArray<TSharedPtr<FJsonValue>> *Components = nullptr;
@@ -1322,7 +1324,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                   FPlane(Values[12], Values[13], Values[14], Values[15])));
             }
             if (bValidArray) {
-              UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayMatrix(NiComp, ParamName, MatrixValues, true);
+              UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayMatrix(NiComp, ParamName, MatrixValues, bApplyLwcRebase);
               bApplied = true;
             }
           }

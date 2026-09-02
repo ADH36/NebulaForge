@@ -112,7 +112,7 @@ inline const TArray<FString>& MaterialAuthoring()
 		TEXT("create_material_function"), TEXT("add_function_input"),
 		TEXT("add_function_output"), TEXT("use_material_function"),
 		TEXT("get_material_function_info"), TEXT("create_material_instance"),
-		TEXT("set_scalar_parameter_value"), TEXT("set_vector_parameter_value"),
+		TEXT("set_scalar_parameter_value"), TEXT("set_vector_parameter_value"), TEXT("set_hair_roughness"),
 		TEXT("set_texture_parameter_value"), TEXT("create_landscape_material"),
 		TEXT("create_decal_material"), TEXT("create_post_process_material"),
 		TEXT("add_landscape_layer"), TEXT("configure_layer_blend"),

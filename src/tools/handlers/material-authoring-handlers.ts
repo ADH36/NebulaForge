@@ -747,6 +747,24 @@ export async function handleMaterialAuthoringTools(
       }
 
       // Set a scalar parameter override on a material instance
+      case 'set_hair_roughness': {
+        const params = normalizeArgs(args, [
+          { key: 'assetPath', aliases: ['instancePath'], required: true },
+          { key: 'parameterName', default: 'Roughness' },
+          { key: 'value', required: true },
+          { key: 'save', default: true },
+        ]);
+        const assetPath = extractString(params, 'assetPath');
+        const parameterName = extractString(params, 'parameterName');
+        const value = extractOptionalNumber(params, 'value') ?? 0;
+        const save = extractOptionalBoolean(params, 'save') ?? true;
+        const res = (await executeAutomationRequest(tools, TOOL_ACTIONS.MANAGE_MATERIAL_AUTHORING, {
+          subAction: 'set_scalar_parameter_value', assetPath, parameterName, value, save,
+        })) as AutomationResponse;
+        if (res.success === false) return ResponseFactory.error(res.error ?? 'Failed to set hair roughness', res.errorCode);
+        return ResponseFactory.success(res, res.message ?? `Hair roughness parameter '${parameterName}' set to ${value}`);
+      }
+
       case 'set_scalar_parameter_value': {
         const params = normalizeArgs(args, [
           { key: 'assetPath', aliases: ['instancePath'], required: true },

@@ -77,6 +77,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'apply_avatar_to_character', avatarActor: 'ContractAvatar', characterActor: 'ContractCharacter' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_avatar_lod', actorName: 'ContractAvatar', componentName: 'AvatarMesh', forcedLodModel: 1, minLod: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_hair_material', actorName: 'ContractAvatar', componentName: 'Hair', materialPath: '/Game/ContractHairMaterial', materialSlot: 0 }, expected: 'success|error' },
+  { toolName: 'manage_material_authoring', arguments: { action: 'set_hair_roughness', assetPath: '/Game/ContractHairMaterialInstance', value: 0.35 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_lod_settings', actorName: 'ContractMetaHuman', componentName: 'Face', forcedLodModel: 1, minLod: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_body_type', actorName: 'ContractMetaHuman', bodyType: 'Athletic' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_body_type', actorName: 'ContractMetaHuman', bodyType: 'Athletic' }, expected: 'success|error' },

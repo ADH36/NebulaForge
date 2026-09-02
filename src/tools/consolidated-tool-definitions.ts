@@ -25,7 +25,7 @@ export const MATERIAL_AUTHORING_ACTIONS = [
   'connect_nodes', 'connect_material_pins', 'disconnect_nodes', 'break_material_connections',
   'create_material_function', 'add_function_input', 'add_function_output', 'use_material_function',
   'get_material_function_info',
-  'create_material_instance', 'set_scalar_parameter_value', 'set_vector_parameter_value', 'set_texture_parameter_value',
+  'create_material_instance', 'set_scalar_parameter_value', 'set_vector_parameter_value', 'set_texture_parameter_value', 'set_hair_roughness',
   'create_landscape_material', 'create_decal_material', 'create_post_process_material',
   'add_landscape_layer', 'configure_layer_blend',
   'compile_material', 'get_material_info',

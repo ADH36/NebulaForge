@@ -2320,6 +2320,16 @@ bool UNebulaForgeBridgeSubsystem::HandleManageMaterialAuthoringAction(
   }
 
   // --------------------------------------------------------------------------
+  // set_hair_roughness delegates to the standard scalar material parameter API.
+  // --------------------------------------------------------------------------
+  if (SubAction == TEXT("set_hair_roughness")) {
+    FString ParameterName;
+    if (!Payload->TryGetStringField(TEXT("parameterName"), ParameterName) || ParameterName.IsEmpty())
+      Payload->SetStringField(TEXT("parameterName"), TEXT("Roughness"));
+    SubAction = TEXT("set_scalar_parameter_value");
+  }
+
+  // --------------------------------------------------------------------------
   // set_scalar_parameter_value
   // --------------------------------------------------------------------------
   if (SubAction == TEXT("set_scalar_parameter_value")) {

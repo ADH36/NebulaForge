@@ -1803,7 +1803,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_groom_binding`, `bind_groom_to_skeletal_mesh`
 - [ ] `configure_hair_simulation`, `set_hair_stiffness`, `set_hair_damping`, `configure_hair_collision`
 - [x] `configure_hair_material` (validated material assignment façade over the target hair component and material slot; accepts `materialPath`/`assetPath` and `materialSlot`)
-- [ ] `set_hair_color`, `set_hair_roughness`
+- [ ] `set_hair_color`
+- [x] `set_hair_roughness` (material-instance scalar façade over Unreal's `set_scalar_parameter_value`; defaults to parameter `Roughness` and accepts an overrideable parameter name)
 
 ---
 

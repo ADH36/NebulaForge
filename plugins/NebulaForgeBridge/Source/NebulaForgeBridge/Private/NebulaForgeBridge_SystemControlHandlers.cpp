@@ -1528,6 +1528,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bMaxAudioChannelsScaledAction = Lower == TEXT("set_max_audio_channels_scaled");
   const bool bGetMaxAudioChannelCountAction = Lower == TEXT("get_max_audio_channel_count");
   const bool bAreAnyListenersWithinRangeAction = Lower == TEXT("are_any_listeners_within_range");
+  const bool bGetClosestListenerLocationAction = Lower == TEXT("get_closest_listener_location");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
@@ -1586,6 +1587,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
+       Lower != TEXT("get_closest_listener_location") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bForceDisableSplitscreenAction && !bGamePausedAction && !bProjectFilesAction) {
     return false; // Not handled by this function
@@ -2191,6 +2193,34 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetBoolField(TEXT("withinRange"), bWithinRange);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Audio listener proximity queried"), Result, FString());
+    return true;
+  }
+
+  if (bGetClosestListenerLocationAction) {
+    const TSharedPtr<FJsonObject>* LocationObject = nullptr;
+    double X = 0.0;
+    double Y = 0.0;
+    double Z = 0.0;
+    double MaximumRange = 0.0;
+    bool bAllowAttenuationOverride = false;
+    if (!Payload->TryGetObjectField(TEXT("location"), LocationObject) || LocationObject == nullptr ||
+        !(*LocationObject)->TryGetNumberField(TEXT("x"), X) || !(*LocationObject)->TryGetNumberField(TEXT("y"), Y) ||
+        !(*LocationObject)->TryGetNumberField(TEXT("z"), Z) || !Payload->TryGetNumberField(TEXT("maximumRange"), MaximumRange) ||
+        !Payload->TryGetBoolField(TEXT("allowAttenuationOverride"), bAllowAttenuationOverride) ||
+        !FMath::IsFinite(X) || !FMath::IsFinite(Y) || !FMath::IsFinite(Z) || !FMath::IsFinite(MaximumRange) || MaximumRange < 0.0) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("location {x,y,z}, a finite non-negative maximumRange, and allowAttenuationOverride are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    FVector ListenerPosition = FVector::ZeroVector;
+    const bool bFound = UGameplayStatics::GetClosestListenerLocation(GetWorld(), FVector(static_cast<float>(X), static_cast<float>(Y), static_cast<float>(Z)), static_cast<float>(MaximumRange), bAllowAttenuationOverride, ListenerPosition);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("found"), bFound);
+    TSharedPtr<FJsonObject> Position = MakeShared<FJsonObject>();
+    Position->SetNumberField(TEXT("x"), ListenerPosition.X);
+    Position->SetNumberField(TEXT("y"), ListenerPosition.Y);
+    Position->SetNumberField(TEXT("z"), ListenerPosition.Z);
+    Result->SetObjectField(TEXT("listenerPosition"), Position);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Closest audio listener location queried"), Result, FString());
     return true;
   }
 

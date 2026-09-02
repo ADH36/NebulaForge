@@ -1762,6 +1762,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ## Phase 36: Character & Avatar Plugins
 
 ### 36.1 MetaHuman
+
+> Capability boundary: Epic's MetaHuman Creator, MetaHuman SDK, Rig Logic, and DNA workflows are optional project plugins/content. UE's base `AActor`/`UActorComponent` APIs do not define universal MetaHuman face, body, DNA, or LOD properties. The implemented façades therefore accept project-supplied class/property paths; plugin-specific authoring remains gated until those dependencies are available. See Epic's [MetaHuman Creator](https://dev.epicgames.com/documentation/metahuman/metahuman-creator-in-unreal-engine), [plugin overview](https://dev.epicgames.com/documentation/metahuman/metahuman-plugins-overview-in-unreal-engine), and [DNA reference](https://dev.epicgames.com/documentation/metahuman/metahuman-creator-dna-asset-reference-in-unreal-engine).
 - [ ] `import_metahuman`
 - [x] `spawn_metahuman_actor` (project-class-aware façade over validated actor spawning; accepts a concrete MetaHuman class/Blueprint `classPath`, with a safe `AActor` fallback when the MetaHuman plugin is unavailable)
 - [x] `list_available_metahumans` (asset-registry search façade for MetaHuman-named assets; full MetaHuman import/spawn remains plugin/project dependent)

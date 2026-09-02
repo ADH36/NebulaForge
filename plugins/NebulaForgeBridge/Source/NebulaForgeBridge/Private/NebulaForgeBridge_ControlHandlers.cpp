@@ -4265,6 +4265,38 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ManagerPayload->SetStringField(TEXT("action"), TEXT("spawn_actor"));
     return HandleControlActorSpawn(RequestId, ManagerPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("configure_lock_on_target") || LowerSub == TEXT("set_target_priority")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    AActor* TargetActor = FindActorByName(TargetName);
+    if (!TargetActor) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    TargetActor->Modify();
+    if (LowerSub == TEXT("configure_lock_on_target")) {
+      TargetActor->Tags.AddUnique(FName(TEXT("Targetable")));
+      FString SocketName;
+      if (Payload->TryGetStringField(TEXT("lockOnSocket"), SocketName) && !SocketName.TrimStartAndEnd().IsEmpty())
+        TargetActor->Tags.AddUnique(FName(*FString::Printf(TEXT("LockOnSocket.%s"), *SocketName.TrimStartAndEnd())));
+    } else {
+      double Priority = 0.0;
+      if (!Payload->TryGetNumberField(TEXT("priority"), Priority) || !FMath::IsFinite(Priority) || Priority < -1000000.0 || Priority > 1000000.0 || FMath::FloorToDouble(Priority) != Priority) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("priority must be a finite integer between -1000000 and 1000000"), nullptr);
+        return true;
+      }
+      for (int32 Index = TargetActor->Tags.Num() - 1; Index >= 0; --Index)
+        if (TargetActor->Tags[Index].ToString().StartsWith(TEXT("TargetPriority."))) TargetActor->Tags.RemoveAt(Index);
+      TargetActor->Tags.Add(FName(*FString::Printf(TEXT("TargetPriority.%d"), static_cast<int32>(Priority))));
+    }
+    TargetActor->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("actorName"), TargetActor->GetActorLabel());
+    Result->SetBoolField(TEXT("targetable"), TargetActor->Tags.Contains(FName(TEXT("Targetable"))));
+    Result->SetArrayField(TEXT("tags"), [&]() { TArray<TSharedPtr<FJsonValue>> Values; for (const FName& Tag : TargetActor->Tags) Values.Add(MakeShared<FJsonValueString>(Tag.ToString())); return Values; }());
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Targeting metadata updated"), Result, FString());
+    return true;
+  }
   if (LowerSub == TEXT("configure_photo_mode_camera")) {
     TSharedPtr<FJsonObject> CameraPayload = MakeShared<FJsonObject>();
     for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)

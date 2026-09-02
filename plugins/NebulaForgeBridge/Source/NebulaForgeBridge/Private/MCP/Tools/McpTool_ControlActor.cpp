@@ -29,6 +29,8 @@ public:
 				TEXT("create_ping_system"),
 				TEXT("create_targeting_component"),
 				TEXT("create_quest_manager"),
+				TEXT("configure_lock_on_target"),
+				TEXT("set_target_priority"),
 				TEXT("configure_photo_mode_camera"),
 				TEXT("configure_marker_3d_2d"),
 				TEXT("configure_marker_widget"),

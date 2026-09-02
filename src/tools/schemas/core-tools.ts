@@ -249,7 +249,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
           type: 'string',
           enum: [
             'spawn', 'spawn_actor', 'create_checkpoint_actor', 'create_world_marker', 'create_ping_system', 'create_targeting_component', 'spawn_blueprint',
-            'configure_marker_widget', 'configure_marker_3d_2d', 'configure_marker_distance', 'configure_marker_occlusion', 'configure_photo_mode_camera', 'create_quest_manager',
+            'configure_marker_widget', 'configure_marker_3d_2d', 'configure_marker_distance', 'configure_marker_occlusion', 'configure_photo_mode_camera', 'create_quest_manager', 'configure_lock_on_target', 'set_target_priority',
             'delete', 'destroy_actor', 'delete_by_tag', 'duplicate',
             'apply_force',
             'set_transform', 'teleport_actor', 'set_actor_location', 'set_actor_rotation', 'set_actor_scale', 'set_actor_transform',

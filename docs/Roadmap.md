@@ -1649,8 +1649,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 35.1 Targeting System
 - [x] `get_targeting_subsystem` (API-derived optional-plugin discovery using Epic's `UTargetingSubsystem::GetTargetingSubsystem`; returns subsystem metadata when available and `NOT_SUPPORTED` otherwise)
 - [x] `create_targeting_component` (named façade over the supported actor-component authoring path; accepts a project-specific `componentType`, or creates a generic `UActorComponent` marker when omitted, because Epic's Gameplay Targeting System is preset/subsystem based rather than a universal component)
-- [ ] `configure_lock_on_target`
-- [ ] `set_target_priority`
+- [x] `configure_lock_on_target` (marks an actor targetable and optionally records a lock-on socket using standard `AActor::Tags` metadata)
+- [x] `set_target_priority` (replaces the actor's validated integer `TargetPriority.*` tag for project-side target sorting)
 - [ ] `configure_target_switching`
 - [ ] `configure_soft_lock`
 - [ ] `configure_aim_assist`

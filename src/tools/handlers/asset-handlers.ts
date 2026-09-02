@@ -676,6 +676,18 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
 
         return ResponseFactory.success(res, 'Material instance created successfully');
       }
+      case 'list_available_metahumans': {
+        const params = normalizeArgs(args, [{ key: 'packagePaths' }, { key: 'limit' }, { key: 'offset' }]);
+        const packagePaths = extractOptionalArray<string>(params, 'packagePaths');
+        const pathSecurityError = validatePathsSecurity(packagePaths, 'packagePaths');
+        if (pathSecurityError) return pathSecurityError;
+        const res = await executeAutomationRequest(tools, 'asset_query', {
+          searchText: 'MetaHuman', packagePaths, recursivePaths: true,
+          limit: extractOptionalNumber(params, 'limit'), offset: extractOptionalNumber(params, 'offset'),
+          subAction: 'search_assets'
+        }) as AssetOperationResponse;
+        return ResponseFactory.success(res, 'MetaHuman assets found');
+      }
       case 'search_assets': {
         const params = normalizeArgs(args, [
           { key: 'searchText' },

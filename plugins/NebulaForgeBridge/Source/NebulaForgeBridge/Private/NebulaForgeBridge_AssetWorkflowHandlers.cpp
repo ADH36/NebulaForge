@@ -2156,6 +2156,16 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), QuestPayload, RequestingSocket);
   }
 
+  if (Lower == TEXT("list_available_metahumans")) {
+    TSharedPtr<FJsonObject> SearchPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : Payload->Values)
+      SearchPayload->SetField(Pair.Key, Pair.Value);
+    SearchPayload->SetStringField(TEXT("searchText"), TEXT("MetaHuman"));
+    SearchPayload->SetBoolField(TEXT("recursivePaths"), true);
+    SearchPayload->SetStringField(TEXT("action"), TEXT("search_assets"));
+    return HandleSearchAssets(RequestId, TEXT("search_assets"), SearchPayload, RequestingSocket);
+  }
+
   if (Lower == TEXT("start_quest") || Lower == TEXT("complete_quest_objective") || Lower == TEXT("track_quest")) {
     FString AssetPath;
     Payload->TryGetStringField(TEXT("assetPath"), AssetPath);

@@ -71,6 +71,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("create_dialogue_tree"),
 		TEXT("add_dialogue_node"), TEXT("add_dialogue_choice"), TEXT("configure_dialogue_conditions"),
 		TEXT("create_render_target"), TEXT("create_data_asset"), TEXT("create_primary_data_asset"),
+		TEXT("list_available_metahumans"),
 		TEXT("get_data_asset_properties"), TEXT("set_data_asset_properties"),
 		TEXT("list_primary_assets"), TEXT("get_primary_asset"),
         TEXT("create_media_player"), TEXT("create_media_source"), TEXT("create_media_texture"), TEXT("create_media_playlist"), TEXT("create_sprite"), TEXT("create_flipbook"), TEXT("create_tile_set"), TEXT("inspect_tile_set"), TEXT("configure_tile_set"), TEXT("get_tile_set_tile_uv"), TEXT("configure_tile_set_tile_metadata"), TEXT("inspect_tile_set_tile_metadata"), TEXT("get_tile_set_tile_xy"), TEXT("get_tile_set_uv_from_xy"), TEXT("create_tile_map"), TEXT("inspect_tile_map"), TEXT("configure_tile_map_visuals"), TEXT("configure_tile_map_layer"), TEXT("inspect_tile_map_layer"), TEXT("set_tile_map_cell"), TEXT("get_tile_map_cell"), TEXT("fill_tile_map_region"), TEXT("get_tile_map_tile_geometry"), TEXT("get_tile_map_tile_coordinates"), TEXT("resize_tile_map"), TEXT("set_sprite_pivot"), TEXT("inspect_sprite"), TEXT("configure_sprite_source"), TEXT("configure_tile_map_collision"), TEXT("add_flipbook_keyframe"), TEXT("set_flipbook_framerate"),

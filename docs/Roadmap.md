@@ -1762,7 +1762,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ## Phase 36: Character & Avatar Plugins
 
 ### 36.1 MetaHuman
-- [ ] `import_metahuman`, `list_available_metahumans`, `spawn_metahuman_actor`
+- [ ] `import_metahuman`, `spawn_metahuman_actor`
+- [x] `list_available_metahumans` (asset-registry search façade for MetaHuman-named assets; full MetaHuman import/spawn remains plugin/project dependent)
 - [ ] `configure_metahuman_component`, `set_lod_settings`, `configure_body_type`
 - [ ] Face: `get_face_parameters`, `set_face_parameter`, `set_skin_tone`, `set_eye_color`, `set_hair_style`, `set_hair_color`, `set_eyebrow_style`, `set_teeth_configuration`, `set_makeup`
 - [ ] Body: `set_body_proportions`, `set_body_type`, `set_height`

@@ -78,6 +78,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'create_quest_data_asset', questId: 'ContractQuest', name: 'Contract Quest' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'start_quest', assetPath: '/Game/ContractQuest' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_dialogue_tree', treeId: 'ContractDialogue', name: 'Contract Dialogue' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'list_available_metahumans', limit: 10 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'add_dialogue_node', assetPath: '/Game/ContractDialogue', nodeId: 'Start', text: 'Welcome' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_photo_mode_camera', actorName: 'ContractCamera', fov: 70, aspectRatio: 1.7778 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_photo_mode_poses', actorName: 'ContractCamera', location: { x: 0, y: 0, z: 100 }, rotation: { pitch: -10, yaw: 45, roll: 0 } }, expected: 'success|error' },

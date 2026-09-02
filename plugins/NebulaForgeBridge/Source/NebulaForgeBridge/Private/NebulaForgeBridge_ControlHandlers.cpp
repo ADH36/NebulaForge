@@ -4213,6 +4213,52 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     MarkerPayload->SetStringField(TEXT("action"), TEXT("create_world_marker"));
     return HandleControlActorSpawn(RequestId, MarkerPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("configure_marker_3d_2d") ||
+      LowerSub == TEXT("configure_marker_distance") ||
+      LowerSub == TEXT("configure_marker_occlusion")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    AActor* MarkerActor = FindActorByName(TargetName);
+    UWidgetComponent* MarkerWidget = MarkerActor ? MarkerActor->FindComponentByClass<UWidgetComponent>() : nullptr;
+    if (!MarkerActor || !MarkerWidget) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("MARKER_WIDGET_NOT_FOUND"), TEXT("actorName must identify an actor with a UWidgetComponent marker"));
+      return true;
+    }
+    if (LowerSub == TEXT("configure_marker_3d_2d")) {
+      FString Mode;
+      Payload->TryGetStringField(TEXT("mode"), Mode);
+      bool bScreenSpace = false;
+      if (Mode.Equals(TEXT("2d"), ESearchCase::IgnoreCase) || Mode.Equals(TEXT("screen"), ESearchCase::IgnoreCase)) bScreenSpace = true;
+      else if (!Mode.Equals(TEXT("3d"), ESearchCase::IgnoreCase) && !Mode.Equals(TEXT("world"), ESearchCase::IgnoreCase)) {
+        if (!Payload->TryGetBoolField(TEXT("screenSpace"), bScreenSpace)) {
+          SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("mode must be 2d/screen or 3d/world, or screenSpace must be provided"));
+          return true;
+        }
+      }
+      MarkerWidget->SetWidgetSpace(bScreenSpace ? EWidgetSpace::Screen : EWidgetSpace::World);
+    } else if (LowerSub == TEXT("configure_marker_distance")) {
+      double MaxDistance = 0.0;
+      if (!Payload->TryGetNumberField(TEXT("maxDistance"), MaxDistance) || !FMath::IsFinite(MaxDistance) || MaxDistance < 0.0 || MaxDistance > 1000000000.0) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("maxDistance must be finite and between 0 and 1000000000"));
+        return true;
+      }
+      MarkerWidget->SetCullDistance(static_cast<float>(MaxDistance));
+    } else {
+      bool bAllowOcclusion = true;
+      if (!Payload->TryGetBoolField(TEXT("allowOcclusion"), bAllowOcclusion)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("allowOcclusion is required"));
+        return true;
+      }
+      MarkerWidget->SetWidgetSpace(bAllowOcclusion ? EWidgetSpace::World : EWidgetSpace::Screen);
+    }
+    MarkerWidget->MarkRenderStateDirty();
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("actorPath"), MarkerActor->GetPathName());
+    Result->SetStringField(TEXT("componentPath"), MarkerWidget->GetPathName());
+    Result->SetStringField(TEXT("configuration"), LowerSub);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("World marker configuration updated"), Result, FString());
+    return true;
+  }
   if (LowerSub == TEXT("spawn") || LowerSub == TEXT("spawn_actor") ||
       LowerSub == TEXT("spawn_paper_sprite_actor") || LowerSub == TEXT("spawn_paper_flipbook_actor"))
 #if MCP_HAS_PAPER2D

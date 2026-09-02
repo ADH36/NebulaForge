@@ -1124,6 +1124,16 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             Components.Add(MakeShared<FJsonValueNumber>(Value.X)); Components.Add(MakeShared<FJsonValueNumber>(Value.Y)); Components.Add(MakeShared<FJsonValueNumber>(Value.Z));
             Values.Add(MakeShared<FJsonValueArray>(Components));
           }
+        } else if (ParameterType.Equals(TEXT("MatrixArray"), ESearchCase::IgnoreCase)) {
+          bool bApplyLwcRebase = true;
+          LocalPayload->TryGetBoolField(TEXT("applyLwcRebase"), bApplyLwcRebase);
+          for (const FMatrix &Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayMatrix(NiComp, FName(*ParameterName), bApplyLwcRebase)) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            for (int32 Row = 0; Row < 4; ++Row) {
+              for (int32 Column = 0; Column < 4; ++Column) Components.Add(MakeShared<FJsonValueNumber>(Value.M[Row][Column]));
+            }
+            Values.Add(MakeShared<FJsonValueArray>(Components));
+          }
         } else {
           SendAutomationResponse(RequestingSocket, RequestId, false,
                                  TEXT("Unsupported Niagara array getter type"), nullptr,

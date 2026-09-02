@@ -24,6 +24,7 @@ public:
 			.StringEnum(TEXT("action"), {
 				TEXT("spawn"),
 				TEXT("spawn_actor"),
+				TEXT("create_checkpoint_actor"),
 				TEXT("spawn_paper_sprite_actor"),
 				TEXT("spawn_paper_flipbook_actor"),
 				TEXT("spawn_paper_tile_map_actor"),

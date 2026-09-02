@@ -4157,6 +4157,17 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return true;
   }
 
+  if (LowerSub == TEXT("create_checkpoint_actor")) {
+    TSharedPtr<FJsonObject> CheckpointPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      CheckpointPayload->SetField(Pair.Key, Pair.Value);
+    if (!CheckpointPayload->HasField(TEXT("classPath")))
+      CheckpointPayload->SetStringField(TEXT("classPath"), TEXT("/Script/Engine.Actor"));
+    if (!CheckpointPayload->HasField(TEXT("actorName")))
+      CheckpointPayload->SetStringField(TEXT("actorName"), TEXT("CheckpointActor"));
+    CheckpointPayload->SetStringField(TEXT("action"), TEXT("create_checkpoint_actor"));
+    return HandleControlActorSpawn(RequestId, CheckpointPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("spawn") || LowerSub == TEXT("spawn_actor") ||
       LowerSub == TEXT("spawn_paper_sprite_actor") || LowerSub == TEXT("spawn_paper_flipbook_actor"))
 #if MCP_HAS_PAPER2D

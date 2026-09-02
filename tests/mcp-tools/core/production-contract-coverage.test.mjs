@@ -65,6 +65,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'get_num_player_states' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_targeting_subsystem' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_instanced_static_mesh_component', actorName: 'ContractActor', componentName: 'ContractISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'create_checkpoint_actor', actorName: 'ContractCheckpoint' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_hierarchical_instanced_static_mesh', actorName: 'ContractActor', componentName: 'ContractHISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_procedural_mesh_component', actorName: 'ContractActor', componentName: 'ContractProceduralMesh' }, expected: 'success|error' },
   { toolName: 'manage_geometry', arguments: { action: 'set_mesh_vertices', actorName: 'ContractActor', componentName: 'ContractProceduralMesh', sectionIndex: 0, vertices: [[0, 0, 0], [100, 0, 0], [0, 100, 0]] }, expected: 'success|error' },

@@ -1835,7 +1835,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `import_alembic_groom`, `bind_groom_to_mesh`
 
 ### 37.5 glTF
-- [ ] `import_gltf`, `import_glb`, `configure_gltf_import_options`, `set_gltf_material_import`
+- [x] `import_gltf`, `import_glb` (extension-validated façades over the existing deferred Unreal AssetTools/Interchange-safe importer; accepts `sourcePath` and `destinationPath`)
+- [ ] `configure_gltf_import_options`, `set_gltf_material_import`
 - [ ] `export_to_gltf`, `export_to_glb`, `configure_gltf_export_options`, `set_draco_compression`
 
 ### 37.6 Substance Plugin

@@ -2291,6 +2291,19 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   // When TS calls executeAutomationRequest(tools, 'search_assets', {...}), Action='search_assets'
 
   // Asset Operations
+  if (Lower == TEXT("import_gltf") || Lower == TEXT("import_glb")) {
+    FString SourcePath;
+    Payload->TryGetStringField(TEXT("sourcePath"), SourcePath);
+    const FString Extension = FPaths::GetExtension(SourcePath).ToLower();
+    const FString ExpectedExtension = Lower == TEXT("import_glb") ? TEXT("glb") : TEXT("gltf");
+    if (Extension != ExpectedExtension) {
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             FString::Printf(TEXT("%s requires a .%s sourcePath"), *Lower, *ExpectedExtension),
+                             nullptr, TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    return HandleImportAsset(RequestId, Payload, RequestingSocket);
+  }
   if (Lower == TEXT("import"))
     return HandleImportAsset(RequestId, Payload, RequestingSocket);
   if (Lower == TEXT("duplicate") || Lower == TEXT("duplicate_asset"))

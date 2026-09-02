@@ -96,6 +96,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'configure_soft_lock', actorName: 'ContractTarget', strength: 0.75 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_aim_assist', actorName: 'ContractTarget', strength: 0.5 }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_quest_data_asset', questId: 'ContractQuest', name: 'Contract Quest' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'import_gltf', sourcePath: 'missing.gltf', destinationPath: '/Game/ContractAvatar' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'import_glb', sourcePath: 'missing.glb', destinationPath: '/Game/ContractAvatar' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'start_quest', assetPath: '/Game/ContractQuest' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'create_dialogue_tree', treeId: 'ContractDialogue', name: 'Contract Dialogue' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'list_available_metahumans', limit: 10 }, expected: 'success|error' },

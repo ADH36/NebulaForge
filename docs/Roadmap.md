@@ -1785,7 +1785,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 36.2 Ready Player Me
 - [ ] `load_avatar_from_url`, `load_avatar_from_glb`
 - [x] `configure_avatar_component` (project-aware façade over validated `UActorComponent` creation and reflected property authoring; accepts `componentType`, `componentName`, and `properties`)
-- [ ] `setup_avatar_skeleton_mapping`
+- [x] `setup_avatar_skeleton_mapping` (project-aware reflected-property façade; defaults to `SkeletonMapping` and accepts `mapping`/`value` JSON plus an overrideable property name)
 - [ ] `apply_avatar_to_character`
 - [ ] `configure_avatar_lod`
 

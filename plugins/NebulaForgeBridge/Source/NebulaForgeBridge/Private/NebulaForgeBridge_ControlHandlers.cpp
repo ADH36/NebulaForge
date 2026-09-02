@@ -4287,6 +4287,29 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ComponentPayload->SetStringField(TEXT("action"), TEXT("add_component"));
     return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("setup_avatar_skeleton_mapping")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    AActor *TargetActor = FindActorByName(TargetName);
+    if (!TargetActor) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    const TSharedPtr<FJsonValue> MappingValue = Payload->HasField(TEXT("mapping")) ? Payload->TryGetField(TEXT("mapping")) : Payload->TryGetField(TEXT("value"));
+    if (!MappingValue.IsValid()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("mapping or value required"), nullptr);
+      return true;
+    }
+    FString PropertyName = TEXT("SkeletonMapping");
+    Payload->TryGetStringField(TEXT("propertyName"), PropertyName);
+    PropertyName.TrimStartAndEndInline();
+    if (PropertyName.IsEmpty()) PropertyName = TEXT("SkeletonMapping");
+    TSharedPtr<FJsonObject> PropertyPayload = MakeShared<FJsonObject>();
+    PropertyPayload->SetStringField(TEXT("objectPath"), TargetActor->GetPathName());
+    PropertyPayload->SetStringField(TEXT("propertyName"), PropertyName);
+    PropertyPayload->SetField(TEXT("value"), MappingValue);
+    return HandleSetObjectProperty(RequestId, TEXT("set_object_property"), PropertyPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_body_type") || LowerSub == TEXT("set_body_type")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

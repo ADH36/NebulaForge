@@ -1707,7 +1707,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 ### 35.5 Photo Mode
 - [ ] `enable_photo_mode`
-- [ ] `configure_photo_mode_camera`
+- [x] `configure_photo_mode_camera` (named façade over the existing `UCameraComponent` settings authoring path, including project-specific FOV/aspect/post-process fields supported by the bridge)
 - [ ] `configure_photo_mode_filters`
 - [ ] `configure_photo_mode_poses`
 - [x] `take_photo_mode_screenshot` (named alias over the validated screenshot pipeline, including editor/game/full-window modes and optional metadata)

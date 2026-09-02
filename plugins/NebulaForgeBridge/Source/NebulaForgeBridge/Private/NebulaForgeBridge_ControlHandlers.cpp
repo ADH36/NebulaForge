@@ -4254,6 +4254,13 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ComponentPayload->SetStringField(TEXT("action"), TEXT("add_component"));
     return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("configure_photo_mode_camera")) {
+    TSharedPtr<FJsonObject> CameraPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      CameraPayload->SetField(Pair.Key, Pair.Value);
+    CameraPayload->SetStringField(TEXT("action"), TEXT("configure_camera_settings"));
+    return HandleControlActorAction(RequestId, CameraPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_marker_widget") ||
       LowerSub == TEXT("configure_marker_3d_2d") ||
       LowerSub == TEXT("configure_marker_distance") ||

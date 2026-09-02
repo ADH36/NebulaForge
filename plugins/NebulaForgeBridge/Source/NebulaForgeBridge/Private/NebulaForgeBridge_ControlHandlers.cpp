@@ -4328,6 +4328,29 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     PropertyPayload->SetField(TEXT("value"), ValueField);
     return HandleSetObjectProperty(RequestId, TEXT("set_object_property"), PropertyPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("set_skin_tone")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    AActor *TargetActor = FindActorByName(TargetName);
+    if (!TargetActor) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    const TSharedPtr<FJsonValue> ValueField = Payload->TryGetField(TEXT("value"));
+    if (!ValueField.IsValid()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("value required"), nullptr);
+      return true;
+    }
+    FString PropertyName = TEXT("SkinTone");
+    Payload->TryGetStringField(TEXT("propertyName"), PropertyName);
+    PropertyName.TrimStartAndEndInline();
+    if (PropertyName.IsEmpty()) PropertyName = TEXT("SkinTone");
+    TSharedPtr<FJsonObject> PropertyPayload = MakeShared<FJsonObject>();
+    PropertyPayload->SetStringField(TEXT("objectPath"), TargetActor->GetPathName());
+    PropertyPayload->SetStringField(TEXT("propertyName"), PropertyName);
+    PropertyPayload->SetField(TEXT("value"), ValueField);
+    return HandleSetObjectProperty(RequestId, TEXT("set_object_property"), PropertyPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_lock_on_target") || LowerSub == TEXT("set_target_priority") || LowerSub == TEXT("configure_target_switching") || LowerSub == TEXT("configure_soft_lock") || LowerSub == TEXT("configure_aim_assist")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

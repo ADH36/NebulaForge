@@ -33,6 +33,7 @@ public:
 				TEXT("configure_metahuman_component"),
 				TEXT("configure_body_type"),
 				TEXT("set_face_parameter"),
+				TEXT("set_skin_tone"),
 				TEXT("configure_lock_on_target"),
 				TEXT("set_target_priority"),
 				TEXT("configure_target_switching"),

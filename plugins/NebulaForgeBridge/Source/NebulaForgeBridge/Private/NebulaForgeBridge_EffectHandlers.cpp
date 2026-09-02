@@ -1140,11 +1140,32 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                  TEXT("INVALID_ARGUMENT"));
           return true;
         }
-        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+      TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        int32 RequestedIndex = -1;
+        double RequestedIndexNumber = 0.0;
+        const bool bHasRequestedIndex = LocalPayload->TryGetNumberField(TEXT("arrayIndex"), RequestedIndexNumber);
+        if (bHasRequestedIndex && (!FMath::IsFinite(RequestedIndexNumber) || !FMath::IsNearlyEqual(RequestedIndexNumber, FMath::RoundToDouble(RequestedIndexNumber)) || RequestedIndexNumber < 0.0 || RequestedIndexNumber > static_cast<double>(MAX_int32))) {
+          SendAutomationResponse(RequestingSocket, RequestId, false,
+                                 TEXT("arrayIndex must be a nonnegative int32"), nullptr,
+                                 TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        if (bHasRequestedIndex) RequestedIndex = static_cast<int32>(RequestedIndexNumber);
         Resp->SetStringField(TEXT("actorName"), SystemName);
         Resp->SetStringField(TEXT("parameterName"), ParameterName);
         Resp->SetStringField(TEXT("parameterType"), ParameterType);
-        Resp->SetArrayField(TEXT("value"), Values);
+        if (bHasRequestedIndex) {
+          if (!Values.IsValidIndex(RequestedIndex)) {
+            SendAutomationResponse(RequestingSocket, RequestId, false,
+                                   TEXT("arrayIndex is outside the Niagara array"), nullptr,
+                                   TEXT("INDEX_OUT_OF_RANGE"));
+            return true;
+          }
+          Resp->SetNumberField(TEXT("arrayIndex"), RequestedIndex);
+          Resp->SetField(TEXT("value"), Values[RequestedIndex]);
+        } else {
+          Resp->SetArrayField(TEXT("value"), Values);
+        }
         SendAutomationResponse(RequestingSocket, RequestId, true,
                                TEXT("Niagara array parameter read"), Resp);
         return true;

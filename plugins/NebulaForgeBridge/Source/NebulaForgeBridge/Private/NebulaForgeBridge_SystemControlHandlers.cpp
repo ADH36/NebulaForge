@@ -1493,6 +1493,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGlobalTimeDilationAction = Lower == TEXT("set_global_time_dilation");
   const bool bGlobalPitchAction = Lower == TEXT("set_global_pitch_modulation");
   const bool bForceDisableSplitscreenAction = Lower == TEXT("set_force_disable_splitscreen");
+  const bool bGamePausedAction = Lower == TEXT("set_game_paused");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
@@ -1552,7 +1553,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bForceDisableSplitscreenAction && !bProjectFilesAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bForceDisableSplitscreenAction && !bGamePausedAction && !bProjectFilesAction) {
     return false; // Not handled by this function
   }
 
@@ -1889,6 +1890,20 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetBoolField(TEXT("disableSplitscreen"), UGameplayStatics::IsSplitscreenForceDisabled(GetWorld()));
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Forced split-screen state updated"), Result, FString());
+    return true;
+  }
+
+  if (bGamePausedAction) {
+    bool bPaused = false;
+    if (!Payload->TryGetBoolField(TEXT("paused"), bPaused)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("paused is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const bool bChanged = UGameplayStatics::SetGamePaused(GetWorld(), bPaused);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("paused"), bPaused);
+    Result->SetBoolField(TEXT("changed"), bChanged);
+    SendAutomationResponse(RequestingSocket, RequestId, bChanged, bChanged ? TEXT("Game pause state updated") : TEXT("Game pause state could not be changed"), Result, bChanged ? FString() : TEXT("PAUSE_STATE_FAILED"));
     return true;
   }
 

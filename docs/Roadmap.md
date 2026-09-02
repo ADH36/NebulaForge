@@ -1662,6 +1662,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `save_data_to_slot`, `load_data_from_slot` (API-derived raw binary slot transport via Epic's `SaveDataToSlot`/`LoadDataFromSlot`, Base64 transport bounded to 8 MiB)
 - [x] `set_world_rendering` (API-derived system-control action using Epic's `UGameplayStatics::SetEnableWorldRendering`/`GetEnableWorldRendering`)
 - [x] `set_global_time_dilation`, `set_global_pitch_modulation` (API-derived system controls using Epic's `UGameplayStatics::SetGlobalTimeDilation`/`GetGlobalTimeDilation` and `SetGlobalPitchModulation`)
+- [x] `set_force_disable_splitscreen` (API-derived system control using Epic's `UGameplayStatics::SetForceDisableSplitscreen`/`IsSplitscreenForceDisabled`)
 - [x] `save_checkpoint`, `load_checkpoint` (aliases over the existing UE `UGameplayStatics` SaveGame slot pipeline, defaulting to the `Checkpoint` slot while accepting an explicit `slotName`)
 - [ ] `configure_checkpoint_respawn`
 

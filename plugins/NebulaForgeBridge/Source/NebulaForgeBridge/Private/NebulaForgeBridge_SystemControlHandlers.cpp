@@ -1492,6 +1492,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bWorldRenderingAction = Lower == TEXT("set_world_rendering");
   const bool bGlobalTimeDilationAction = Lower == TEXT("set_global_time_dilation");
   const bool bGlobalPitchAction = Lower == TEXT("set_global_pitch_modulation");
+  const bool bForceDisableSplitscreenAction = Lower == TEXT("set_force_disable_splitscreen");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
@@ -1551,7 +1552,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bProjectFilesAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bForceDisableSplitscreenAction && !bProjectFilesAction) {
     return false; // Not handled by this function
   }
 
@@ -1875,6 +1876,19 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     Result->SetNumberField(TEXT("pitchModulation"), PitchModulation);
     Result->SetNumberField(TEXT("timeSec"), TimeSec);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Global pitch modulation updated"), Result, FString());
+    return true;
+  }
+
+  if (bForceDisableSplitscreenAction) {
+    bool bDisable = false;
+    if (!Payload->TryGetBoolField(TEXT("disableSplitscreen"), bDisable)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("disableSplitscreen is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UGameplayStatics::SetForceDisableSplitscreen(GetWorld(), bDisable);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("disableSplitscreen"), UGameplayStatics::IsSplitscreenForceDisabled(GetWorld()));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Forced split-screen state updated"), Result, FString());
     return true;
   }
 

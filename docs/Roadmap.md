@@ -1665,6 +1665,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_force_disable_splitscreen` (API-derived system control using Epic's `UGameplayStatics::SetForceDisableSplitscreen`/`IsSplitscreenForceDisabled`)
 - [x] `set_game_paused` (API-derived system control using Epic's `UGameplayStatics::SetGamePaused` return value)
 - [x] `is_game_paused` (API-derived system-control inspection using Epic's `UGameplayStatics::IsGamePaused`)
+- [x] `get_audio_time_seconds` (API-derived audio-clock inspection using Epic's `UGameplayStatics::GetAudioTimeSeconds`)
 - [x] `set_max_audio_channels_scaled` (API-derived audio control using Epic's `UGameplayStatics::SetMaxAudioChannelsScaled`, with a validated 0–1 voice-count scale)
 - [x] `get_max_audio_channel_count` (API-derived audio inspection using Epic's `UGameplayStatics::GetMaxAudioChannelCount`)
 - [x] `are_any_listeners_within_range` (API-derived spatial-audio query using Epic's `UGameplayStatics::AreAnyListenersWithinRange`)

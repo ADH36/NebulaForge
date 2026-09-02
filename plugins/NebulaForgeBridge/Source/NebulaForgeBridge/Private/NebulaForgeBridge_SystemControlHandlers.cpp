@@ -21,6 +21,9 @@
 #include "GameFramework/Character.h"
 #include "Camera/PlayerCameraManager.h"
 #include "GameFramework/PlayerState.h"
+#include "Engine/GameInstance.h"
+#include "GameFramework/GameModeBase.h"
+#include "GameFramework/GameStateBase.h"
 #include "Components/Widget.h"
 #include "Components/SlateWrapperTypes.h"
 #include "Engine/UserInterfaceSettings.h"
@@ -1529,6 +1532,9 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGetMaxAudioChannelCountAction = Lower == TEXT("get_max_audio_channel_count");
   const bool bAreAnyListenersWithinRangeAction = Lower == TEXT("are_any_listeners_within_range");
   const bool bGetClosestListenerLocationAction = Lower == TEXT("get_closest_listener_location");
+  const bool bGetGameInstanceAction = Lower == TEXT("get_game_instance");
+  const bool bGetGameModeAction = Lower == TEXT("get_game_mode");
+  const bool bGetGameStateAction = Lower == TEXT("get_game_state");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
@@ -1587,7 +1593,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
-       Lower != TEXT("get_closest_listener_location") &&
+       Lower != TEXT("get_closest_listener_location") && Lower != TEXT("get_game_instance") && Lower != TEXT("get_game_mode") && Lower != TEXT("get_game_state") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bForceDisableSplitscreenAction && !bGamePausedAction && !bProjectFilesAction) {
     return false; // Not handled by this function
@@ -2221,6 +2227,20 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     Position->SetNumberField(TEXT("z"), ListenerPosition.Z);
     Result->SetObjectField(TEXT("listenerPosition"), Position);
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Closest audio listener location queried"), Result, FString());
+    return true;
+  }
+
+  if (bGetGameInstanceAction || bGetGameModeAction || bGetGameStateAction) {
+    UObject* WorldObject = nullptr;
+    if (bGetGameInstanceAction) WorldObject = UGameplayStatics::GetGameInstance(GetWorld());
+    else if (bGetGameModeAction) WorldObject = UGameplayStatics::GetGameMode(GetWorld());
+    else WorldObject = UGameplayStatics::GetGameState(GetWorld());
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("found"), WorldObject != nullptr);
+    Result->SetStringField(TEXT("objectPath"), WorldObject ? WorldObject->GetPathName() : FString());
+    Result->SetStringField(TEXT("classPath"), WorldObject ? WorldObject->GetClass()->GetPathName() : FString());
+    const TCHAR* LookupLabel = bGetGameInstanceAction ? TEXT("Game instance") : bGetGameModeAction ? TEXT("Game mode") : TEXT("Game state");
+    SendAutomationResponse(RequestingSocket, RequestId, true, FString::Printf(TEXT("%s lookup completed"), LookupLabel), Result, FString());
     return true;
   }
 

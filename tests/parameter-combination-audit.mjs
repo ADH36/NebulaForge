@@ -116,6 +116,7 @@ function extractToolSchemas() {
         const action = getProperty(properties, 'action');
         const actionEnum = action && ts.isObjectLiteralExpression(action) ? getProperty(action, 'enum') : undefined;
         const required = getProperty(inputSchema, 'required');
+        const additionalProperties = getProperty(inputSchema, 'additionalProperties');
 
         tools.push({
           name: nameNode.text,
@@ -126,6 +127,7 @@ function extractToolSchemas() {
             .filter((name) => typeof name === 'string')
             .sort(),
           required: required && ts.isArrayLiteralExpression(required) ? stringArrayFromArrayLiteral(required, constants) : []
+          ,additionalProperties: additionalProperties && additionalProperties.kind === ts.SyntaxKind.FalseKeyword ? false : true
         });
       }
     }
@@ -444,7 +446,12 @@ async function buildAudit() {
       coveredOptionalParameters: optionalParameters.filter((parameter) => successfulParameters.has(parameter)).length,
       missingOptionalParameters,
       failureOnlyOptionalParameters: missingOptionalParameters.filter((parameter) => usedParameters.has(parameter)),
-      extraParameters: [...usedParameters].filter((parameter) => !declaredProperties.has(parameter)).sort(),
+      // All consolidated tools deliberately enable additionalProperties so
+      // action-specific fields may be supplied at the top level or under
+      // `params`. Only closed schemas should report undeclared parameters.
+      extraParameters: schema.additionalProperties === false
+        ? [...usedParameters].filter((parameter) => !declaredProperties.has(parameter)).sort()
+        : [],
       actions: schema.actions.map((action) => {
         const actionCases = toolCases.filter((testCase) => testCase.action === action);
         return {

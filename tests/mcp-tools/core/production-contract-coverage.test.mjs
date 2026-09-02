@@ -116,8 +116,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'configure_photo_mode_camera', actorName: 'ContractCamera', fov: 70, aspectRatio: 1.7778 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_photo_mode_poses', actorName: 'ContractCamera', location: { x: 0, y: 0, z: 100 }, rotation: { pitch: -10, yaw: 45, roll: 0 } }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'enable_photo_mode', enabled: true }, expected: 'success|error' },
-  { toolName: 'system_control', arguments: { action: 'play_dialogue', widgetPath: '/Game/UI/WBP_DialogBox.WBP_DialogBox', dialogueText: 'Welcome' }, expected: 'success|error' },
-  { toolName: 'system_control', arguments: { action: 'configure_photo_mode_ui', widgetPath: '/Game/UI/WBP_PhotoMode.WBP_PhotoMode' }, expected: 'success|error' },
+  { toolName: 'manage_blueprint', arguments: { action: 'play_dialogue', widgetPath: '/Game/UI/WBP_DialogBox.WBP_DialogBox', dialogueText: 'Welcome' }, expected: 'success|error' },
+  { toolName: 'manage_blueprint', arguments: { action: 'configure_photo_mode_ui', widgetPath: '/Game/UI/WBP_PhotoMode.WBP_PhotoMode' }, expected: 'success|error' },
   { toolName: 'manage_lighting', arguments: { action: 'configure_photo_mode_filters', volumeName: 'PhotoModeVolume', bloomIntensity: 0.2, vignetteIntensity: 0.1 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_marker_widget', actorName: 'ContractWorldMarker', drawAtDesiredSize: true, drawSize: { x: 128, y: 64 }, pivot: { x: 0.5, y: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_marker_3d_2d', actorName: 'ContractWorldMarker', mode: '2d' }, expected: 'success|error' },
@@ -451,4 +451,22 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_level_structure', arguments: { action: 'unpin_wp_cells' }, expected: 'success|error' },
   { toolName: 'control_editor', arguments: { action: 'screenshot', screenshotPath: 'Contract.png' }, expected: 'success|error' },
   { toolName: 'manage_level_structure', arguments: { action: 'get_level_structure_info', reloadForVerification: false, verifyPersistence: false }, expected: 'success|error' }
+  ,{ toolName: 'manage_asset', arguments: { action: 'add_dialogue_choice', assetPath: '/Game/ContractDialogue', nodeId: 'Start', choiceId: 'Accept', text: 'Accept' }, expected: 'success|error' }
+  ,{ toolName: 'manage_asset', arguments: { action: 'complete_quest_objective', assetPath: '/Game/ContractQuest', objectiveId: 'Objective', state: 'completed' }, expected: 'success|error' }
+  ,{ toolName: 'manage_asset', arguments: { action: 'configure_dialogue_conditions', assetPath: '/Game/ContractDialogue', nodeId: 'Start', conditions: [] }, expected: 'success|error' }
+  ,{ toolName: 'manage_asset', arguments: { action: 'set_hair_roughness', assetPath: '/Game/ContractHairMaterialInstance', value: 0.35 }, expected: 'success|error' }
+  ,{ toolName: 'manage_asset', arguments: { action: 'track_quest', assetPath: '/Game/ContractQuest', questId: 'ContractQuest' }, expected: 'success|error' }
+  ,{ toolName: 'manage_blueprint', arguments: { action: 'configure_photo_mode_ui', widgetPath: '/Game/ContractPhotoMode', enabled: true }, expected: 'success|error' }
+  ,{ toolName: 'manage_blueprint', arguments: { action: 'play_dialogue', widgetPath: '/Game/ContractDialog', dialogueText: 'Welcome' }, expected: 'success|error' }
+  ,{ toolName: 'build_environment', arguments: { action: 'configure_photo_mode_filters', volumeName: 'ContractPhotoMode', bloomIntensity: 0.2, vignetteIntensity: 0.1 }, expected: 'success|error' }
+  ,{ toolName: 'system_control', arguments: { action: 'execute_python_script', code: 'print("contract")' }, expected: 'success|error' }
+  ,{ toolName: 'system_control', arguments: { action: 'remove_tag_from_container', container: 'ContractTags', tag: 'Contract.Tag' }, expected: 'success|error' }
+  ,{ toolName: 'system_control', arguments: { action: 'get_platform_name', accessibleBehavior: 'Auto', accessibleSummaryBehavior: 'Summary', accessibleSummaryText: 'Summary', canChildrenBeAccessible: true, overrideAccessibleDefaults: false, buildHttpChunkInstallData: false, clusterGroupIndex: 0, collisionProfileName: 'Default', enableDamageFromCollision: false, enableNanite: false, forceOneChunkPerFile: false, generateNoChunks: false, httpChunkInstallDataDirectory: 'Saved/Chunks', levelPath: '/Game/Contract/Level', linearEtherDrag: 0, maxSimulatedLevel: 1, parentProfileName: 'Default', platformName: 'Windows', removeOnMaxSleep: false, simulatePhysics: false, supportRayTracing: false }, expected: 'success|error' }
+  ,{ toolName: 'manage_effect', arguments: { action: 'destroy_effect_pool', poolName: 'ContractPool', force: true }, expected: 'success|error' }
+  ,{ toolName: 'manage_asset', arguments: { action: 'configure_sprite_collision', assetPath: '/Game/Contract/Sprite', collisionOffsetOverride: 0, collisionThicknessOverride: 1, includeReferencers: false, layerGridColor: [1, 1, 1, 1], multiTileGridColor: [1, 1, 1, 1], multiTileGridOffsetX: 0, multiTileGridOffsetY: 0, overrideCollisionOffset: false, overrideCollisionThickness: false, pivotX: 0.5, pivotY: 0.5, pixelsPerUnrealUnit: 1, renderTargetPath: '/Game/Contract/RenderTarget', separationPerLayer: 1, separationPerTileX: 1, separationPerTileY: 1 }, expected: 'success|error' }
+  ,{ toolName: 'control_actor', arguments: { action: 'configure_flipbook_loop', actorName: 'ContractFlipbook', markRenderStateDirty: true, playbackPosition: 0, teleport: false }, expected: 'success|error' }
+  ,{ toolName: 'control_editor', arguments: { action: 'configure_take_sources', actorNames: ['ContractActor'], autoLock: false, recordIntoSubSequences: false, shaderMode: 'Default', startAtCurrentTimecode: false }, expected: 'success|error' }
+  ,{ toolName: 'manage_sequence', arguments: { action: 'play', sequencePath: '/Game/Contract/Sequence', looping: false, playUntilFinished: false }, expected: 'success|error' }
+  ,{ toolName: 'manage_pcg', arguments: { action: 'create_pcg_graph', graphPath: '/Game/Contract/Graph', paperAssetPath: '/Game/Contract/Paper' }, expected: 'success|error' }
+  ,{ toolName: 'manage_effect', arguments: { action: 'create_effect_pool', poolName: 'ContractPool', commandContext: 'editor', commandDescription: 'contract', commandLabel: 'contract', commandName: 'contract', commandSet: 'contract', overrideExisting: false }, expected: 'success|error' }
 ]);

@@ -1489,6 +1489,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bStringTableAction = Lower == TEXT("create_string_table") || Lower == TEXT("add_string_entry") || Lower == TEXT("get_localized_string");
   const bool bCultureAction = Lower == TEXT("set_culture") || Lower == TEXT("set_language_and_locale") || Lower == TEXT("set_locale");
   const bool bQualityLevelAction = Lower == TEXT("set_quality_level");
+  const bool bWorldRenderingAction = Lower == TEXT("set_world_rendering");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
@@ -1548,7 +1549,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bProjectFilesAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bProjectFilesAction) {
     return false; // Not handled by this function
   }
 
@@ -1826,6 +1827,19 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     Result->SetNumberField(TEXT("level"), Level);
     Result->SetStringField(TEXT("quality"), Level == 0 ? TEXT("low") : Level == 1 ? TEXT("medium") : Level == 2 ? TEXT("high") : Level == 3 ? TEXT("epic") : TEXT("cinematic"));
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Scalability quality level set"), Result, FString());
+    return true;
+  }
+
+  if (bWorldRenderingAction) {
+    bool bEnabled = true;
+    if (!Payload->TryGetBoolField(TEXT("enabled"), bEnabled)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("enabled is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UGameplayStatics::SetEnableWorldRendering(GetWorld(), bEnabled);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("enabled"), UGameplayStatics::GetEnableWorldRendering(GetWorld()));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("World rendering state updated"), Result, FString());
     return true;
   }
 

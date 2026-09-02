@@ -12,7 +12,7 @@ import { normalizeAndSanitizeAssetPath } from '../../utils/validation.js';
  */
 const VALID_ASSET_ACTIONS = new Set([
   // Core asset operations
-  'list', 'import', 'import_gltf', 'import_glb', 'import_fbx_interchange', 'import_gltf_interchange', 'import_obj_interchange', 'import_usd_interchange', 'import_alembic_file', 'import_groom', 'duplicate', 'rename', 'move', 'delete',
+  'list', 'import', 'import_gltf', 'import_glb', 'load_avatar_from_glb', 'import_fbx_interchange', 'import_gltf_interchange', 'import_obj_interchange', 'import_usd_interchange', 'import_alembic_file', 'import_groom', 'duplicate', 'rename', 'move', 'delete',
   'create_folder', 'search_assets', 'get_dependencies', 'validate',
   'fixup_redirectors', 'find_by_tag', 'exists', 'verify_asset_persistence', 'bulk_rename', 'bulk_delete',
   'duplicate_asset', 'rename_asset', 'move_asset', 'delete_asset', 'delete_assets',

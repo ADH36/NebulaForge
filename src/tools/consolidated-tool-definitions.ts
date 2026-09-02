@@ -290,7 +290,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         action: {
           type: 'string',
           enum: [
-            'list', 'import', 'import_gltf', 'import_glb', 'import_fbx_interchange', 'import_gltf_interchange', 'import_obj_interchange', 'import_usd_interchange', 'import_alembic_file', 'import_groom', 'duplicate', 'duplicate_asset', 'rename', 'rename_asset', 'move', 'move_asset', 'delete', 'delete_asset', 'delete_assets', 'create_folder', 'search_assets',
+            'list', 'import', 'import_gltf', 'import_glb', 'load_avatar_from_glb', 'import_fbx_interchange', 'import_gltf_interchange', 'import_obj_interchange', 'import_usd_interchange', 'import_alembic_file', 'import_groom', 'duplicate', 'duplicate_asset', 'rename', 'rename_asset', 'move', 'move_asset', 'delete', 'delete_asset', 'delete_assets', 'create_folder', 'search_assets',
             'get_dependencies', 'get_source_control_state', 'analyze_graph', 'get_asset_graph', 'reference_viewer', 'audit_assets', 'size_map_analysis', 'create_thumbnail', 'set_tags', 'get_metadata', 'set_metadata', 'validate', 'fixup_redirectors', 'find_by_tag', 'verify_asset_persistence', 'generate_report', 'inspect_asset_capabilities',
             // Phase 34.2: Content Browser navigation, views, collections, and discovery.
             'set_view_settings', 'navigate_to_path', 'sync_to_asset', 'sync_to_folder',

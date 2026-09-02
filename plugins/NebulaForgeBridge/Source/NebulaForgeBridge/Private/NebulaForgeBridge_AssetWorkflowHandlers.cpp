@@ -2291,14 +2291,14 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
   // When TS calls executeAutomationRequest(tools, 'search_assets', {...}), Action='search_assets'
 
   // Asset Operations
-  if (Lower == TEXT("import_gltf") || Lower == TEXT("import_glb") || Lower == TEXT("import_gltf_interchange") ||
+  if (Lower == TEXT("import_gltf") || Lower == TEXT("import_glb") || Lower == TEXT("load_avatar_from_glb") || Lower == TEXT("import_gltf_interchange") ||
       Lower == TEXT("import_fbx_interchange") ||
       Lower == TEXT("import_obj_interchange") || Lower == TEXT("import_usd_interchange") ||
       Lower == TEXT("import_alembic_file") || Lower == TEXT("import_groom")) {
     FString SourcePath;
     Payload->TryGetStringField(TEXT("sourcePath"), SourcePath);
     const FString Extension = FPaths::GetExtension(SourcePath).ToLower();
-    const FString ExpectedExtension = Lower == TEXT("import_glb") ? TEXT("glb") :
+    const FString ExpectedExtension = Lower == TEXT("import_glb") || Lower == TEXT("load_avatar_from_glb") ? TEXT("glb") :
         Lower == TEXT("import_fbx_interchange") ? TEXT("fbx") :
         Lower == TEXT("import_obj_interchange") ? TEXT("obj") :
         Lower == TEXT("import_usd_interchange") ? TEXT("usd") :

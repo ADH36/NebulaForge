@@ -1783,7 +1783,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] LOD: `configure_metahuman_lod_bias`, `enable_disable_features_for_performance`
 
 ### 36.2 Ready Player Me
-- [ ] `load_avatar_from_url`, `load_avatar_from_glb`
+- [ ] `load_avatar_from_url`
+- [x] `load_avatar_from_glb` (local `.glb` façade over the deferred Interchange importer; accepts `sourcePath` and `destinationPath`, while actor application remains a separate operation)
 - [x] `configure_avatar_component` (project-aware façade over validated `UActorComponent` creation and reflected property authoring; accepts `componentType`, `componentName`, and `properties`)
 - [x] `setup_avatar_skeleton_mapping` (project-aware reflected-property façade; defaults to `SkeletonMapping` and accepts `mapping`/`value` JSON plus an overrideable property name)
 - [x] `apply_avatar_to_character` (attaches the resolved avatar actor to the character actor through the validated Unreal actor-attachment path; accepts `avatarActor`/`characterActor` or child/parent aliases)

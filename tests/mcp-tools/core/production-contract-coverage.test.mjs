@@ -100,6 +100,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'create_quest_data_asset', questId: 'ContractQuest', name: 'Contract Quest' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_gltf', sourcePath: 'missing.gltf', destinationPath: '/Game/ContractAvatar' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_glb', sourcePath: 'missing.glb', destinationPath: '/Game/ContractAvatar' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'load_avatar_from_glb', sourcePath: 'missing.glb', destinationPath: '/Game/ContractAvatarLoaded' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_fbx_interchange', sourcePath: 'missing.fbx', destinationPath: '/Game/ContractMesh' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_gltf_interchange', sourcePath: 'missing.gltf', destinationPath: '/Game/ContractMesh' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_usd_interchange', sourcePath: 'missing.usd', destinationPath: '/Game/ContractStage' }, expected: 'success|error' },

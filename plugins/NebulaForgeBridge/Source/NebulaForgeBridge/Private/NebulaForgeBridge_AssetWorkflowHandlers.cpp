@@ -2222,6 +2222,56 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Objective state updated"), Result, FString());
     return true;
   }
+  if (Lower == TEXT("configure_objective_markers") || Lower == TEXT("configure_objective_progression")) {
+    FString AssetPath;
+    Payload->TryGetStringField(TEXT("assetPath"), AssetPath);
+    UObject* Asset = AssetPath.IsEmpty() ? nullptr : LoadObject<UObject>(nullptr, *SanitizeProjectRelativePath(AssetPath));
+    UMcpGenericDataAsset* Objective = Cast<UMcpGenericDataAsset>(Asset);
+    if (!Objective) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Objective data asset not found"), TEXT("ASSET_NOT_FOUND"));
+      return true;
+    }
+    Objective->Modify();
+    if (Lower == TEXT("configure_objective_markers")) {
+      FString MarkerType;
+      if (!Payload->TryGetStringField(TEXT("markerType"), MarkerType) ||
+          (MarkerType.ToLower() != TEXT("world") && MarkerType.ToLower() != TEXT("2d") && MarkerType.ToLower() != TEXT("3d"))) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("markerType must be world, 2d, or 3d"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      Objective->Properties.Add(TEXT("markerType"), MarkerType.ToLower());
+      FString MarkerWidgetPath;
+      if (Payload->TryGetStringField(TEXT("markerWidgetPath"), MarkerWidgetPath)) Objective->Properties.Add(TEXT("markerWidgetPath"), MarkerWidgetPath);
+      bool bEnabled = true;
+      if (Payload->TryGetBoolField(TEXT("enabled"), bEnabled)) Objective->Properties.Add(TEXT("markerEnabled"), bEnabled ? TEXT("true") : TEXT("false"));
+    } else {
+      double Progress = 0.0;
+      double TargetProgress = 1.0;
+      if ((Payload->HasField(TEXT("progress")) && (!Payload->TryGetNumberField(TEXT("progress"), Progress) || !FMath::IsFinite(Progress))) ||
+          (Payload->HasField(TEXT("targetProgress")) && (!Payload->TryGetNumberField(TEXT("targetProgress"), TargetProgress) || !FMath::IsFinite(TargetProgress) || TargetProgress <= 0.0)) ||
+          Progress < 0.0) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("progress must be finite and non-negative; targetProgress must be finite and positive"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      Objective->Properties.Add(TEXT("progress"), FString::SanitizeFloat(Progress));
+      Objective->Properties.Add(TEXT("targetProgress"), FString::SanitizeFloat(TargetProgress));
+      FString ProgressionType;
+      if (Payload->TryGetStringField(TEXT("progressionType"), ProgressionType)) Objective->Properties.Add(TEXT("progressionType"), ProgressionType);
+    }
+    Objective->MarkPackageDirty();
+    bool bSave = false;
+    Payload->TryGetBoolField(TEXT("save"), bSave);
+    if (bSave && !McpSafeAssetSave(Objective)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Objective configuration changed but save failed"), TEXT("SAVE_FAILED"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("assetPath"), Objective->GetPathName());
+    Result->SetStringField(TEXT("configuration"), Lower == TEXT("configure_objective_markers") ? TEXT("markers") : TEXT("progression"));
+    Result->SetBoolField(TEXT("saved"), bSave);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Objective configuration updated"), Result, FString());
+    return true;
+  }
 
   if (Lower == TEXT("list_primary_assets") || Lower == TEXT("get_primary_asset")) {
     UAssetManager& AssetManager = UAssetManager::Get();

@@ -1693,9 +1693,9 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 35.3 Objective System
 - [x] `create_objective` (creates a persisted `UMcpGenericDataAsset` objective record with identifier, description, type, and initial locked state)
 - [x] `set_objective_state` (updates persisted objective metadata among locked, active, completed, and failed)
-- [ ] `configure_objective_markers`
+- [x] `configure_objective_markers` (persists validated world/2D/3D marker metadata and optional widget/enabled settings on the objective record)
 - [x] `create_objective_tracker_widget` (named alias over the existing UMG objective-tracker authoring action; adds the tracker element to a HUD widget)
-- [ ] `configure_objective_progression`
+- [x] `configure_objective_progression` (persists validated non-negative progress, positive target progress, and optional progression type metadata)
 
 ### 35.4 World Markers/Ping System
 - [ ] `create_world_marker`

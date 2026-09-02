@@ -4287,7 +4287,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ComponentPayload->SetStringField(TEXT("action"), TEXT("add_component"));
     return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
   }
-  if (LowerSub == TEXT("configure_body_type")) {
+  if (LowerSub == TEXT("configure_body_type") || LowerSub == TEXT("set_body_type")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);
     AActor *TargetActor = FindActorByName(TargetName);

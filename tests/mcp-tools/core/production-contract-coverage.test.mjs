@@ -73,6 +73,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'spawn_metahuman_actor', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_metahuman_component', actorName: 'ContractMetaHuman', componentName: 'MetaHumanComponent', properties: {} }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_body_type', actorName: 'ContractMetaHuman', bodyType: 'Athletic' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'set_body_type', actorName: 'ContractMetaHuman', bodyType: 'Athletic' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_face_parameters', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_face_parameter', actorName: 'ContractMetaHuman', propertyName: 'FaceParameter', value: 0.5 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_skin_tone', actorName: 'ContractMetaHuman', value: { r: 0.5, g: 0.35, b: 0.25, a: 1 } }, expected: 'success|error' },

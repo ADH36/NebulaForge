@@ -1777,7 +1777,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_hair_color` (project-aware reflected-property façade; defaults to `HairColor` and accepts an overrideable `propertyName` plus JSON color/value)
 - [x] `set_hair_style`, `set_eyebrow_style`, `set_makeup` (project-aware reflected-property façades; default to `HairStyle`, `EyebrowStyle`, and `Makeup`, with overrideable property names and JSON values)
 - [x] `set_teeth_configuration` (project-aware reflected-property façade; defaults to `TeethConfiguration` and accepts an overrideable property name plus JSON value)
-- [ ] Body: `set_body_type`
+- [x] `set_body_type` (alias of the project-aware reflected `BodyType` façade; the concrete enum/property remains supplied by the installed MetaHuman or character project)
 - [x] `set_body_proportions`, `set_height` (project-aware reflected-property façades; default to `BodyProportions` and `Height`, with overrideable property names and JSON values)
 - [ ] DNA/Rig: `export_metahuman_dna`, `create_custom_rig_logic`, `configure_control_rig_for_metahuman`
 - [ ] LOD: `configure_metahuman_lod_bias`, `enable_disable_features_for_performance`

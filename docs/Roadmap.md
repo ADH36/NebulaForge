@@ -1818,7 +1818,9 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `create_interchange_pipeline`, `add_pipeline_step`, `configure_pipeline_settings`
 - [ ] `register_custom_translator`, `configure_translator_settings`
 - [ ] `import_with_interchange`, `configure_import_asset_type`, `set_reimport_strategy`
-- [ ] `import_fbx_interchange`, `import_gltf_interchange`, `import_usd_interchange`, `import_obj_interchange`
+- [x] `import_fbx_interchange`, `import_obj_interchange` (extension-validated façades over the existing deferred Unreal AssetTools/Interchange-safe importer; FBX support remains subject to Epic's project feature flag and installed translator)
+- [x] `import_gltf_interchange` (explicit Interchange alias of the extension-validated glTF importer)
+- [ ] `import_usd_interchange`
 
 ### 37.3 USD
 - [ ] Stage: `create_usd_stage`, `open_usd_stage`, `save_usd_stage`, `close_usd_stage`

@@ -60,6 +60,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Components/WidgetComponent.h"
+#include "Engine/TimerManager.h"
 #include "Blueprint/UserWidget.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Character.h"
@@ -1263,7 +1264,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorSpawn(
     Spawned->SetActorLabel(BaseName);
   }
 
-  if (RequestedAction == TEXT("create_world_marker")) {
+  if (RequestedAction == TEXT("create_world_marker") || RequestedAction == TEXT("create_ping_system")) {
     UWidgetComponent* MarkerWidget = NewObject<UWidgetComponent>(Spawned, TEXT("WorldMarkerWidget"), RF_Transactional);
     if (!MarkerWidget) {
       SendStandardErrorResponse(this, Socket, RequestId, TEXT("MARKER_WIDGET_CREATE_FAILED"), TEXT("Failed to create world-marker widget component"));
@@ -1293,6 +1294,21 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorSpawn(
     MarkerWidget->UpdateComponentToWorld();
     MarkerWidget->MarkPackageDirty();
     Spawned->MarkPackageDirty();
+  }
+
+  double PingLifetimeSeconds = 0.0;
+  if (RequestedAction == TEXT("create_ping_system") && Payload->HasField(TEXT("lifetimeSeconds"))) {
+    if (!Payload->TryGetNumberField(TEXT("lifetimeSeconds"), PingLifetimeSeconds) ||
+        !FMath::IsFinite(PingLifetimeSeconds) || PingLifetimeSeconds <= 0.0 ||
+        PingLifetimeSeconds > 3600.0) {
+      SendStandardErrorResponse(this, Socket, RequestId, TEXT("INVALID_PING_LIFETIME"), TEXT("lifetimeSeconds must be greater than 0 and no more than 3600 seconds"));
+      return true;
+    }
+    TWeakObjectPtr<AActor> WeakPingActor(Spawned);
+    FTimerHandle PingTimer;
+    TargetWorld->GetTimerManager().SetTimer(PingTimer, FTimerDelegate::CreateLambda([WeakPingActor]() {
+      if (AActor* PingActor = WeakPingActor.Get()) PingActor->Destroy();
+    }), static_cast<float>(PingLifetimeSeconds), false);
   }
 
 #if MCP_HAS_PAPER2D
@@ -4215,6 +4231,15 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       MarkerPayload->SetStringField(TEXT("actorName"), TEXT("WorldMarker"));
     MarkerPayload->SetStringField(TEXT("action"), TEXT("create_world_marker"));
     return HandleControlActorSpawn(RequestId, MarkerPayload, RequestingSocket);
+  }
+  if (LowerSub == TEXT("create_ping_system")) {
+    TSharedPtr<FJsonObject> PingPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
+      PingPayload->SetField(Pair.Key, Pair.Value);
+    if (!PingPayload->HasField(TEXT("classPath"))) PingPayload->SetStringField(TEXT("classPath"), TEXT("/Script/Engine.Actor"));
+    if (!PingPayload->HasField(TEXT("actorName"))) PingPayload->SetStringField(TEXT("actorName"), TEXT("WorldPing"));
+    PingPayload->SetStringField(TEXT("action"), TEXT("create_ping_system"));
+    return HandleControlActorSpawn(RequestId, PingPayload, RequestingSocket);
   }
   if (LowerSub == TEXT("configure_marker_widget") ||
       LowerSub == TEXT("configure_marker_3d_2d") ||

@@ -67,6 +67,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'create_instanced_static_mesh_component', actorName: 'ContractActor', componentName: 'ContractISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_checkpoint_actor', actorName: 'ContractCheckpoint' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_world_marker', actorName: 'ContractWorldMarker', screenSpace: true }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'create_ping_system', actorName: 'ContractWorldPing', lifetimeSeconds: 5 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_marker_widget', actorName: 'ContractWorldMarker', drawAtDesiredSize: true, drawSize: { x: 128, y: 64 }, pivot: { x: 0.5, y: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_marker_3d_2d', actorName: 'ContractWorldMarker', mode: '2d' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_marker_distance', actorName: 'ContractWorldMarker', maxDistance: 5000 }, expected: 'success|error' },

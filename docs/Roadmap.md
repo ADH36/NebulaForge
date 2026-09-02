@@ -1706,7 +1706,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_marker_occlusion` (selects world-space occludable or screen-space non-occludable rendering, matching Epic's `EWidgetSpace` semantics)
 
 ### 35.5 Photo Mode
-- [ ] `enable_photo_mode`
+- [x] `enable_photo_mode` (pause-backed photo-mode toggle using Epic's `UGameplayStatics::SetGamePaused`/`IsGamePaused`; project-specific filters, poses, and UI remain separate)
 - [x] `configure_photo_mode_camera` (named façade over the existing `UCameraComponent` settings authoring path, including project-specific FOV/aspect/post-process fields supported by the bridge)
 - [ ] `configure_photo_mode_filters`
 - [ ] `configure_photo_mode_poses`

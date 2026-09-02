@@ -1508,6 +1508,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGlobalPitchAction = Lower == TEXT("set_global_pitch_modulation");
   const bool bForceDisableSplitscreenAction = Lower == TEXT("set_force_disable_splitscreen");
   const bool bGamePausedAction = Lower == TEXT("set_game_paused");
+  const bool bEnablePhotoModeAction = Lower == TEXT("enable_photo_mode");
   const bool bIsGamePausedAction = Lower == TEXT("is_game_paused");
   const bool bGetAudioTimeSecondsAction = Lower == TEXT("get_audio_time_seconds");
   const bool bIsAnyLocalPlayerCameraWithinRangeAction = Lower == TEXT("is_any_local_player_camera_within_range");
@@ -1543,6 +1544,21 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGetGameStateAction = Lower == TEXT("get_game_state");
   const bool bGetTargetingSubsystemAction = Lower == TEXT("get_targeting_subsystem");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
+
+  if (bEnablePhotoModeAction) {
+    bool bEnabled = false;
+    if (!Payload->TryGetBoolField(TEXT("enabled"), bEnabled)) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("enabled is required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const bool bChanged = UGameplayStatics::SetGamePaused(GetWorld(), bEnabled);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetBoolField(TEXT("enabled"), bEnabled);
+    Result->SetBoolField(TEXT("paused"), UGameplayStatics::IsGamePaused(GetWorld()));
+    Result->SetBoolField(TEXT("changed"), bChanged);
+    SendAutomationResponse(RequestingSocket, RequestId, bChanged, bChanged ? TEXT("Photo mode pause state updated") : TEXT("Photo mode pause state could not be changed"), Result, bChanged ? FString() : TEXT("PHOTO_MODE_STATE_FAILED"));
+    return true;
+  }
 
   // Check if this handler should process this sub-action
   if (!Lower.StartsWith(TEXT("run_ubt")) &&

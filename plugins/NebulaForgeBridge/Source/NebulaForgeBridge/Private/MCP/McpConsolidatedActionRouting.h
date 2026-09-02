@@ -586,6 +586,7 @@ inline const TArray<FString>& Performance()
 inline TArray<FString> SystemControl()
 {
 	TArray<FString> Actions = SystemControlCore();
+	Actions.AddUnique(TEXT("enable_photo_mode"));
 	AppendUniqueActions(Actions, Performance());
 	return Actions;
 }

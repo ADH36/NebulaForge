@@ -84,6 +84,7 @@
 
 // Engine
 #include "Engine/Texture2D.h"
+#include "UObject/UnrealType.h"
 #include "UObject/UObjectIterator.h"
 
 // UMG Layout Panels
@@ -873,6 +874,38 @@ bool UNebulaForgeBridgeSubsystem::HandleManageWidgetAuthoringAction(
                             TEXT("SAVE_FAILED"));
         return false;
     };
+
+    if (SubAction.Equals(TEXT("play_dialogue"), ESearchCase::IgnoreCase))
+    {
+        FString WidgetPath = GetJsonStringField(Payload, TEXT("widgetPath"));
+        FString DialogueText = GetJsonStringField(Payload, TEXT("dialogueText"), GetJsonStringField(Payload, TEXT("text")));
+        int32 ZOrder = 0;
+        Payload->TryGetNumberField(TEXT("zOrder"), ZOrder);
+        UClass* WidgetClass = WidgetPath.IsEmpty() ? nullptr : LoadClass<UUserWidget>(nullptr, *SanitizeProjectRelativePath(WidgetPath));
+        if (!WidgetClass || !GEngine || !GEngine->GameViewport || !GEngine->GameViewport->GetWorld())
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("widgetPath must resolve to a UUserWidget class in an active game viewport"), TEXT("WIDGET_NOT_AVAILABLE"));
+            return true;
+        }
+        UUserWidget* DialogueWidget = CreateWidget<UUserWidget>(GEngine->GameViewport->GetWorld(), WidgetClass);
+        if (!DialogueWidget)
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Failed to create dialogue widget"), TEXT("CREATE_FAILED"));
+            return true;
+        }
+        if (!DialogueText.IsEmpty())
+        {
+            if (FTextProperty* TextProperty = FindFProperty<FTextProperty>(DialogueWidget->GetClass(), FName(TEXT("DialogueText"))))
+                TextProperty->SetPropertyValue_InContainer(DialogueWidget, FText::FromString(DialogueText));
+        }
+        DialogueWidget->AddToViewport(ZOrder);
+        ResultJson->SetStringField(TEXT("widgetPath"), WidgetPath);
+        ResultJson->SetStringField(TEXT("widgetName"), DialogueWidget->GetName());
+        ResultJson->SetStringField(TEXT("dialogueText"), DialogueText);
+        ResultJson->SetNumberField(TEXT("zOrder"), ZOrder);
+        SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Dialogue widget added to viewport"), ResultJson);
+        return true;
+    }
 
     // =========================================================================
     // 19.1 Widget Creation

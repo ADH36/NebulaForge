@@ -1720,7 +1720,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_dialogue_tree` (creates a persisted generic `UDataAsset`-backed dialogue-tree record with localized-text-ready identity/description metadata and an initial node count)
 - [x] `add_dialogue_node`, `add_dialogue_choice` (persists validated node text/speaker and choice text/target metadata on the authored dialogue-tree asset)
 - [x] `configure_dialogue_conditions` (persists per-node condition metadata on the authored dialogue-tree asset)
-- [ ] `play_dialogue`
+- [x] `play_dialogue` (loads a project-supplied `UUserWidget`, optionally populates a reflected `DialogueText` `FText` property, and calls Epic's `UUserWidget::AddToViewport`; the dialogue tree remains project-runtime data)
 
 ### 35.7 Instancing & HLOD
 - [x] `create_instanced_static_mesh_component` (native actor component authoring)

@@ -75,6 +75,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'configure_body_type', actorName: 'ContractMetaHuman', bodyType: 'Athletic' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_face_parameter', actorName: 'ContractMetaHuman', propertyName: 'FaceParameter', value: 0.5 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_skin_tone', actorName: 'ContractMetaHuman', value: { r: 0.5, g: 0.35, b: 0.25, a: 1 } }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'set_eye_color', actorName: 'ContractMetaHuman', value: { r: 0.2, g: 0.5, b: 1, a: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_lock_on_target', actorName: 'ContractTarget', lockOnSocket: 'head' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_target_priority', actorName: 'ContractTarget', priority: 10 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_target_switching', actorName: 'ContractTarget', mode: 'nearest' }, expected: 'success|error' },

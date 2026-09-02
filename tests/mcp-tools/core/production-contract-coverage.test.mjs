@@ -83,6 +83,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'enable_photo_mode', enabled: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'play_dialogue', widgetPath: '/Game/UI/WBP_DialogBox.WBP_DialogBox', dialogueText: 'Welcome' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'configure_photo_mode_ui', widgetPath: '/Game/UI/WBP_PhotoMode.WBP_PhotoMode' }, expected: 'success|error' },
+  { toolName: 'manage_lighting', arguments: { action: 'configure_photo_mode_filters', volumeName: 'PhotoModeVolume', bloomIntensity: 0.2, vignetteIntensity: 0.1 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_marker_widget', actorName: 'ContractWorldMarker', drawAtDesiredSize: true, drawSize: { x: 128, y: 64 }, pivot: { x: 0.5, y: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_marker_3d_2d', actorName: 'ContractWorldMarker', mode: '2d' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_marker_distance', actorName: 'ContractWorldMarker', maxDistance: 5000 }, expected: 'success|error' },

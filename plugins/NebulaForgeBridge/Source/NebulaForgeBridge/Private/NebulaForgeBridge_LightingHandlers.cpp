@@ -919,6 +919,7 @@ bool UNebulaForgeBridgeSubsystem::HandleLightingAction(
         Lower.StartsWith(TEXT("configure_chromatic_aberration")) ||
         Lower.StartsWith(TEXT("configure_grain")) ||
         Lower.StartsWith(TEXT("configure_screen_percentage")) ||
+        Lower.StartsWith(TEXT("configure_photo_mode_filters")) ||
         Lower.StartsWith(TEXT("inspect_post_process_volume")) ||
         Lower.StartsWith(TEXT("create_scene_capture_2d")) ||
         Lower.StartsWith(TEXT("create_scene_capture_cube")) ||

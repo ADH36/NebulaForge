@@ -1708,7 +1708,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 35.5 Photo Mode
 - [x] `enable_photo_mode` (pause-backed photo-mode toggle using Epic's `UGameplayStatics::SetGamePaused`/`IsGamePaused`; project-specific filters, poses, and UI remain separate)
 - [x] `configure_photo_mode_camera` (named façade over the existing `UCameraComponent` settings authoring path, including project-specific FOV/aspect/post-process fields supported by the bridge)
-- [ ] `configure_photo_mode_filters`
+- [x] `configure_photo_mode_filters` (named façade over the existing `FPostProcessSettings` authoring path for bloom, vignette, exposure, color grading, DOF, and related documented post-process fields)
 - [ ] `configure_photo_mode_poses`
 - [x] `take_photo_mode_screenshot` (named alias over the validated screenshot pipeline, including editor/game/full-window modes and optional metadata)
 - [x] `configure_photo_mode_ui` (named façade over the existing HUD widget creation path, using Epic's `CreateWidget` and `UUserWidget::AddToViewport` APIs)

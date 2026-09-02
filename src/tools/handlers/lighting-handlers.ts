@@ -1176,6 +1176,7 @@ export async function handleLightingTools(action: string, args: LightingArgs, to
     case 'configure_chromatic_aberration':
     case 'configure_grain':
     case 'configure_screen_percentage':
+    case 'configure_photo_mode_filters':
     case 'inspect_post_process_volume':
       return configurePostProcessAction(tools, action, args);
 

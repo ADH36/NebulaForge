@@ -90,7 +90,7 @@ export const LIGHTING_ACTIONS = [
   'configure_exposure', 'set_exposure_method', 'set_exposure_compensation',
   'set_exposure_min_max', 'configure_ssao', 'configure_gtao',
   'configure_vignette', 'configure_chromatic_aberration', 'configure_grain',
-  'configure_screen_percentage', 'inspect_post_process_volume',
+  'configure_screen_percentage', 'configure_photo_mode_filters', 'inspect_post_process_volume',
   // Phase 29.6: Scene Capture 2D/cube and render-target workflows.
   'create_scene_capture_2d', 'create_scene_capture_cube', 'create_render_target_cube',
   'configure_scene_capture', 'configure_scene_capture_resolution',

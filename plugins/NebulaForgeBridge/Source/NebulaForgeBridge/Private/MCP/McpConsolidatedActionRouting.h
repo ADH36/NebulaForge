@@ -331,7 +331,7 @@ inline const TArray<FString>& Lighting()
 		TEXT("configure_exposure"), TEXT("set_exposure_method"), TEXT("set_exposure_compensation"),
 		TEXT("set_exposure_min_max"), TEXT("configure_ssao"), TEXT("configure_gtao"),
 		TEXT("configure_vignette"), TEXT("configure_chromatic_aberration"), TEXT("configure_grain"),
-		TEXT("configure_screen_percentage"), TEXT("inspect_post_process_volume"),
+		TEXT("configure_screen_percentage"), TEXT("configure_photo_mode_filters"), TEXT("inspect_post_process_volume"),
 		// Phase 29.6: Scene Capture 2D/cube and render-target workflows.
 		TEXT("create_scene_capture_2d"), TEXT("create_scene_capture_cube"), TEXT("create_render_target_cube"),
 		TEXT("configure_scene_capture"), TEXT("configure_scene_capture_resolution"),

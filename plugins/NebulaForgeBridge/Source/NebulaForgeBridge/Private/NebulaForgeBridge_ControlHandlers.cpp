@@ -4326,6 +4326,46 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     AttachPayload->SetStringField(TEXT("parentActor"), CharacterName);
     return HandleControlActorAttach(RequestId, AttachPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("configure_avatar_lod")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    if (TargetName.IsEmpty() || ComponentName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName and componentName required"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Properties = MakeShared<FJsonObject>();
+    const TSharedPtr<FJsonObject> *ExistingProperties = nullptr;
+    if (Payload->TryGetObjectField(TEXT("properties"), ExistingProperties) && ExistingProperties && (*ExistingProperties).IsValid()) {
+      for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : (*ExistingProperties)->Values)
+        Properties->SetField(Pair.Key, Pair.Value);
+    }
+    double LODValue = 0.0;
+    if (Payload->TryGetNumberField(TEXT("forcedLodModel"), LODValue)) {
+      if (!FMath::IsFinite(LODValue) || LODValue < 0.0 || FMath::FloorToDouble(LODValue) != LODValue) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("forcedLodModel must be a non-negative integer"), nullptr);
+        return true;
+      }
+      Properties->SetNumberField(TEXT("ForcedLodModel"), LODValue);
+    }
+    if (Payload->TryGetNumberField(TEXT("minLod"), LODValue)) {
+      if (!FMath::IsFinite(LODValue) || LODValue < 0.0 || FMath::FloorToDouble(LODValue) != LODValue) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("minLod must be a non-negative integer"), nullptr);
+        return true;
+      }
+      Properties->SetNumberField(TEXT("MinLod"), LODValue);
+    }
+    if (Properties->Values.Num() == 0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("properties, forcedLodModel, or minLod required"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> PropertyPayload = MakeShared<FJsonObject>();
+    PropertyPayload->SetStringField(TEXT("actorName"), TargetName);
+    PropertyPayload->SetStringField(TEXT("componentName"), ComponentName);
+    PropertyPayload->SetObjectField(TEXT("properties"), Properties);
+    return HandleControlActorSetComponentProperties(RequestId, PropertyPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_body_type") || LowerSub == TEXT("set_body_type")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

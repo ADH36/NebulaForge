@@ -1787,7 +1787,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_avatar_component` (project-aware façade over validated `UActorComponent` creation and reflected property authoring; accepts `componentType`, `componentName`, and `properties`)
 - [x] `setup_avatar_skeleton_mapping` (project-aware reflected-property façade; defaults to `SkeletonMapping` and accepts `mapping`/`value` JSON plus an overrideable property name)
 - [x] `apply_avatar_to_character` (attaches the resolved avatar actor to the character actor through the validated Unreal actor-attachment path; accepts `avatarActor`/`characterActor` or child/parent aliases)
-- [ ] `configure_avatar_lod`
+- [x] `configure_avatar_lod` (component-level LOD façade; accepts reflected `properties` or validated `forcedLodModel`/`minLod` values for skeletal/skin mesh components)
 
 ### 36.3 Mutable (Character Customization)
 - [ ] `create_customizable_object`, `add_component_mesh`, `add_component_parameter`

@@ -2953,6 +2953,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         samplingRegions: commonSchemas.arrayOfStrings,
         arrayIndex: commonSchemas.integerProp,
         sizeToFit: commonSchemas.booleanProp,
+        applyLwcRebase: commonSchemas.booleanProp,
         arrayValue: commonSchemas.value,
         sourceBinding: commonSchemas.stringProp,
         // Emitter/module authoring

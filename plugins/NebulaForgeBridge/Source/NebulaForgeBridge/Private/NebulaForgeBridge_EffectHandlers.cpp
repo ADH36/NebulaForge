@@ -1130,6 +1130,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             ParameterType.Equals(TEXT("Vector4ArrayValue"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("QuaternionArrayValue"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("ColorArrayValue"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("MatrixArrayValue"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("FloatArray"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("ArrayFloat"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("IntArray"), ESearchCase::IgnoreCase) ||
@@ -1152,7 +1153,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                  IndexedNumber >= 0.0 && IndexedNumber <= MAX_int32;
           if (bHasIndex) ArrayIndex = static_cast<int32>(IndexedNumber);
           const bool bSizeToFit = LocalPayload->HasField(TEXT("sizeToFit")) ? GetJsonBoolField(LocalPayload, TEXT("sizeToFit")) : true;
-          if ((ParameterType.Equals(TEXT("FloatArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("BoolArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("Int32ArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Vector"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("ColorArrayValue"), ESearchCase::IgnoreCase)) && bHasIndex) {
+          if ((ParameterType.Equals(TEXT("FloatArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("BoolArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("Int32ArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Vector"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("ColorArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("MatrixArrayValue"), ESearchCase::IgnoreCase)) && bHasIndex) {
             if (ParameterType.Equals(TEXT("FloatArrayValue"), ESearchCase::IgnoreCase)) {
               bool bHasValue = LocalPayload->TryGetNumberField(TEXT("arrayValue"), IndexedNumber);
               if (!bHasValue && ValueField.IsValid() && ValueField->Type == EJson::Number) { IndexedNumber = ValueField->AsNumber(); bHasValue = true; }
@@ -1169,6 +1170,25 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               if (bHasValue && FMath::IsFinite(IndexedNumber) && FMath::IsNearlyEqual(IndexedNumber, FMath::RoundToDouble(IndexedNumber)) && IndexedNumber >= Minimum && IndexedNumber <= Maximum) {
                 if (ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase)) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayUInt8Value(NiComp, ParamName, ArrayIndex, static_cast<int32>(IndexedNumber), bSizeToFit);
                 else UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayInt32Value(NiComp, ParamName, ArrayIndex, static_cast<int32>(IndexedNumber), bSizeToFit);
+                bApplied = true;
+              }
+            } else if (ParameterType.Equals(TEXT("MatrixArrayValue"), ESearchCase::IgnoreCase)) {
+              const TSharedPtr<FJsonValue> IndexedValue = LocalPayload->TryGetField(TEXT("arrayValue"));
+              const TArray<TSharedPtr<FJsonValue>> *Components = nullptr;
+              bool bHasValue = IndexedValue.IsValid() && IndexedValue->TryGetArray(Components) && Components && Components->Num() >= 16;
+              float Values[16];
+              if (bHasValue) for (int32 Index = 0; Index < 16; ++Index) {
+                if (!(*Components)[Index].IsValid() || (*Components)[Index]->Type != EJson::Number || !FMath::IsFinite((*Components)[Index]->AsNumber())) { bHasValue = false; break; }
+                Values[Index] = static_cast<float>((*Components)[Index]->AsNumber());
+              }
+              const bool bApplyLwcRebase = LocalPayload->HasField(TEXT("applyLwcRebase")) ? GetJsonBoolField(LocalPayload, TEXT("applyLwcRebase")) : true;
+              if (bHasValue) {
+                const FMatrix Matrix(
+                    FPlane(Values[0], Values[1], Values[2], Values[3]),
+                    FPlane(Values[4], Values[5], Values[6], Values[7]),
+                    FPlane(Values[8], Values[9], Values[10], Values[11]),
+                    FPlane(Values[12], Values[13], Values[14], Values[15]));
+                UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayMatrixValue(NiComp, ParamName, ArrayIndex, Matrix, bSizeToFit, bApplyLwcRebase);
                 bApplied = true;
               }
             } else {
@@ -1710,6 +1730,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("Vector4ArrayValue"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("QuaternionArrayValue"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("ColorArrayValue"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("MatrixArrayValue"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) &&

@@ -1659,6 +1659,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `configure_checkpoint_data` (named façade over the validated SaveGame class generator; authors a project-confined `USaveGame` subclass and optional schema/migration metadata for checkpoint payloads)
 - [x] `save_checkpoint_async`, `load_checkpoint_async` (API-derived aliases over Epic's `UGameplayStatics::AsyncSaveGameToSlot`/`AsyncLoadGameFromSlot`, returning the bridge-managed `asyncId` lifecycle)
 - [x] `save_game_to_memory`, `load_game_from_memory` (API-derived binary SaveGame serialization via Epic's `SaveGameToMemory`/`LoadGameFromMemory`, Base64 transport bounded to 8 MiB)
+- [x] `save_data_to_slot`, `load_data_from_slot` (API-derived raw binary slot transport via Epic's `SaveDataToSlot`/`LoadDataFromSlot`, Base64 transport bounded to 8 MiB)
 - [x] `save_checkpoint`, `load_checkpoint` (aliases over the existing UE `UGameplayStatics` SaveGame slot pipeline, defaulting to the `Checkpoint` slot while accepting an explicit `slotName`)
 - [ ] `configure_checkpoint_respawn`
 

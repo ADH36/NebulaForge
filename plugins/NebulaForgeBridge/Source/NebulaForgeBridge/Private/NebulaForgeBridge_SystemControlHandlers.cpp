@@ -321,6 +321,46 @@ bool UNebulaForgeBridgeSubsystem::HandleRuntimeSaveGameAction(
     }
   }
 
+  if (Lower == TEXT("save_data_to_slot")) {
+    FString EncodedData;
+    Payload->TryGetStringField(TEXT("dataBase64"), EncodedData);
+    TArray<uint8> SaveData;
+    constexpr int32 MaxSaveGameMemoryBytes = 8 * 1024 * 1024;
+    if (EncodedData.IsEmpty() || !FBase64::Decode(EncodedData, SaveData) || SaveData.Num() == 0) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("dataBase64 must contain valid non-empty Base64 data"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (SaveData.Num() > MaxSaveGameMemoryBytes) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Save data exceeds the 8 MiB transport limit"), TEXT("PAYLOAD_TOO_LARGE"));
+      return true;
+    }
+    const bool bSaved = UGameplayStatics::SaveDataToSlot(SaveData, SlotName, UserIndex);
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("slotName"), SlotName);
+    Result->SetNumberField(TEXT("userIndex"), UserIndex);
+    Result->SetNumberField(TEXT("byteLength"), SaveData.Num());
+    Result->SetBoolField(TEXT("saved"), bSaved);
+    SendAutomationResponse(RequestingSocket, RequestId, bSaved, bSaved ? TEXT("Raw SaveGame data written") : TEXT("Raw SaveGame data write failed"), Result, bSaved ? FString() : TEXT("SAVE_DATA_FAILED"));
+    return true;
+  }
+  if (Lower == TEXT("load_data_from_slot")) {
+    TArray<uint8> SaveData;
+    constexpr int32 MaxSaveGameMemoryBytes = 8 * 1024 * 1024;
+    const bool bLoaded = UGameplayStatics::LoadDataFromSlot(SaveData, SlotName, UserIndex);
+    if (bLoaded && SaveData.Num() > MaxSaveGameMemoryBytes) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Loaded save data exceeds the 8 MiB transport limit"), TEXT("PAYLOAD_TOO_LARGE"));
+      return true;
+    }
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetStringField(TEXT("slotName"), SlotName);
+    Result->SetNumberField(TEXT("userIndex"), UserIndex);
+    Result->SetNumberField(TEXT("byteLength"), SaveData.Num());
+    Result->SetBoolField(TEXT("loaded"), bLoaded);
+    if (bLoaded) Result->SetStringField(TEXT("dataBase64"), FBase64::Encode(SaveData));
+    SendAutomationResponse(RequestingSocket, RequestId, bLoaded, bLoaded ? TEXT("Raw SaveGame data loaded") : TEXT("Raw SaveGame data not found"), Result, bLoaded ? FString() : TEXT("SLOT_NOT_FOUND"));
+    return true;
+  }
+
   if (Lower == TEXT("save_game_to_slot")) {
     FString ObjectPath;
     Payload->TryGetStringField(TEXT("saveGameObject"), ObjectPath);
@@ -1424,6 +1464,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bSaveGameAction =
       Lower == TEXT("save_game_to_slot") || Lower == TEXT("load_game_from_slot") ||
       Lower == TEXT("save_game_to_memory") || Lower == TEXT("load_game_from_memory") ||
+      Lower == TEXT("save_data_to_slot") || Lower == TEXT("load_data_from_slot") ||
       Lower == TEXT("inspect_save_game_schema") || Lower == TEXT("delete_save_game_slot") || Lower == TEXT("check_save_game_slot") ||
       Lower == TEXT("list_save_game_slots");
   const bool bGameplayTagContainerAction =
@@ -2097,6 +2138,46 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
         SendAutomationError(RequestingSocket, RequestId, TEXT("slotName contains unsupported characters"), TEXT("INVALID_ARGUMENT"));
         return true;
       }
+    }
+
+    if (Lower == TEXT("save_data_to_slot")) {
+      FString EncodedData;
+      Payload->TryGetStringField(TEXT("dataBase64"), EncodedData);
+      TArray<uint8> SaveData;
+      constexpr int32 MaxSaveGameMemoryBytes = 8 * 1024 * 1024;
+      if (EncodedData.IsEmpty() || !FBase64::Decode(EncodedData, SaveData) || SaveData.Num() == 0) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("dataBase64 must contain valid non-empty Base64 data"), TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+      if (SaveData.Num() > MaxSaveGameMemoryBytes) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Save data exceeds the 8 MiB transport limit"), TEXT("PAYLOAD_TOO_LARGE"));
+        return true;
+      }
+      const bool bSaved = UGameplayStatics::SaveDataToSlot(SaveData, SlotName, UserIndex);
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("slotName"), SlotName);
+      Result->SetNumberField(TEXT("userIndex"), UserIndex);
+      Result->SetNumberField(TEXT("byteLength"), SaveData.Num());
+      Result->SetBoolField(TEXT("saved"), bSaved);
+      SendAutomationResponse(RequestingSocket, RequestId, bSaved, bSaved ? TEXT("Raw SaveGame data written") : TEXT("Raw SaveGame data write failed"), Result, bSaved ? FString() : TEXT("SAVE_DATA_FAILED"));
+      return true;
+    }
+    if (Lower == TEXT("load_data_from_slot")) {
+      TArray<uint8> SaveData;
+      constexpr int32 MaxSaveGameMemoryBytes = 8 * 1024 * 1024;
+      const bool bLoaded = UGameplayStatics::LoadDataFromSlot(SaveData, SlotName, UserIndex);
+      if (bLoaded && SaveData.Num() > MaxSaveGameMemoryBytes) {
+        SendAutomationError(RequestingSocket, RequestId, TEXT("Loaded save data exceeds the 8 MiB transport limit"), TEXT("PAYLOAD_TOO_LARGE"));
+        return true;
+      }
+      TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+      Result->SetStringField(TEXT("slotName"), SlotName);
+      Result->SetNumberField(TEXT("userIndex"), UserIndex);
+      Result->SetNumberField(TEXT("byteLength"), SaveData.Num());
+      Result->SetBoolField(TEXT("loaded"), bLoaded);
+      if (bLoaded) Result->SetStringField(TEXT("dataBase64"), FBase64::Encode(SaveData));
+      SendAutomationResponse(RequestingSocket, RequestId, bLoaded, bLoaded ? TEXT("Raw SaveGame data loaded") : TEXT("Raw SaveGame data not found"), Result, bLoaded ? FString() : TEXT("SLOT_NOT_FOUND"));
+      return true;
     }
 
     if (Lower == TEXT("save_game_to_slot")) {

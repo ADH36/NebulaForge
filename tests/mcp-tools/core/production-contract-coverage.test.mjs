@@ -46,6 +46,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'get_real_time_seconds' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_world_delta_seconds' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_current_reverb_effect' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'get_player_controller', playerIndex: 0 }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'get_player_pawn', playerIndex: 0 }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_current_level_name', removePrefixString: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'get_viewport_mouse_capture_mode' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'set_viewport_mouse_capture_mode', mouseCaptureMode: 'CaptureDuringMouseDown' }, expected: 'success|error' },

@@ -571,6 +571,18 @@ export async function handleEffectTools(action: string, args: HandlerArgs, tools
   // =========================================================================
   // Niagara parameter setting
   // =========================================================================
+  if (action === 'get_niagara_array_parameter') {
+    await ensureDefaultNiagaraActor(tools);
+    mutableArgs.action = 'get_niagara_array_parameter';
+    mutableArgs.subAction = 'get_niagara_array_parameter';
+    mutableArgs.systemName = (mutableArgs.effectHandle as string | undefined) ||
+                             (mutableArgs.niagaraHandle as string | undefined) ||
+                             (mutableArgs.actorName as string | undefined) ||
+                             (mutableArgs.systemName as string | undefined) ||
+                             DEFAULT_NIAGARA_ACTOR_NAME;
+    return executeAutomationRequest(tools, 'create_effect', mutableArgs) as Promise<Record<string, unknown>>;
+  }
+
   if (action === 'set_niagara_parameter') {
     await ensureDefaultNiagaraActor(tools);
     mutableArgs.action = 'set_niagara_parameter';

@@ -2853,7 +2853,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'create_particle_trail', 'create_environment_effect', 'create_impact_effect',
             'create_niagara_ribbon', 'create_effect_pool', 'spawn_pooled_effect', 'release_pooled_effect', 'destroy_effect_pool', 'activate', 'activate_effect', 'deactivate', 'reset', 'set_lifespan', 'destroy_effect',
             'advance_simulation', 'add_niagara_module', 'connect_niagara_pins',
-            'remove_niagara_node', 'set_niagara_parameter', 'clear_debug_shapes', 'cleanup',
+            'remove_niagara_node', 'set_niagara_parameter', 'get_niagara_array_parameter', 'clear_debug_shapes', 'cleanup',
             'list_debug_shapes', 'add_emitter_to_system', 'set_emitter_properties',
             'add_spawn_rate_module', 'add_spawn_burst_module', 'add_spawn_per_unit_module',
             'add_initialize_particle_module', 'add_particle_state_module', 'add_force_module',

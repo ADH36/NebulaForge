@@ -436,7 +436,8 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
         (NativeSubAction == TEXT("list_debug_shapes") ||
          NativeSubAction == TEXT("clear_debug_shapes") ||
          NativeSubAction == TEXT("spawn_niagara") ||
-         NativeSubAction == TEXT("set_niagara_parameter"))
+         NativeSubAction == TEXT("set_niagara_parameter") ||
+         NativeSubAction == TEXT("get_niagara_array_parameter"))
             ? NativeSubAction
             : TEXT("create_effect");
     return HandleEffectAction(RequestId, RoutedAction, LocalPayload,
@@ -1047,6 +1048,71 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
     // Handle niagara sub-action (delegates to existing spawn_niagara logic)
     if (LowerSub == TEXT("niagara") || LowerSub == TEXT("spawn_niagara")) {
       // Reuse logic below
+    } else if (LowerSub.Equals(TEXT("get_niagara_array_parameter"))) {
+      FString SystemName;
+      LocalPayload->TryGetStringField(TEXT("systemName"), SystemName);
+      FString ParameterName;
+      LocalPayload->TryGetStringField(TEXT("parameterName"), ParameterName);
+      FString ParameterType;
+      LocalPayload->TryGetStringField(TEXT("parameterType"), ParameterType);
+      if (ParameterName.IsEmpty() || ParameterType.IsEmpty()) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("parameterName and parameterType required"), nullptr,
+                               TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+#if WITH_EDITOR
+      if (!GEditor) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("Editor not available"), nullptr,
+                               TEXT("EDITOR_NOT_AVAILABLE"));
+        return true;
+      }
+      UEditorActorSubsystem *ActorSS = GEditor->GetEditorSubsystem<UEditorActorSubsystem>();
+      if (!ActorSS) {
+        SendAutomationResponse(RequestingSocket, RequestId, false,
+                               TEXT("EditorActorSubsystem not available"), nullptr,
+                               TEXT("EDITOR_ACTOR_SUBSYSTEM_MISSING"));
+        return true;
+      }
+      for (AActor *Actor : ActorSS->GetAllLevelActors()) {
+        if (!Actor || !Actor->GetActorLabel().Equals(SystemName, ESearchCase::IgnoreCase)) continue;
+        UNiagaraComponent *NiComp = Actor->FindComponentByClass<UNiagaraComponent>();
+        if (!NiComp) break;
+        TArray<TSharedPtr<FJsonValue>> Values;
+        if (ParameterType.Equals(TEXT("FloatArray"), ESearchCase::IgnoreCase)) {
+          for (float Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayFloat(NiComp, FName(*ParameterName))) Values.Add(MakeShared<FJsonValueNumber>(Value));
+        } else if (ParameterType.Equals(TEXT("Int32Array"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("IntArray"), ESearchCase::IgnoreCase)) {
+          for (int32 Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayInt32(NiComp, FName(*ParameterName))) Values.Add(MakeShared<FJsonValueNumber>(Value));
+        } else if (ParameterType.Equals(TEXT("UInt8Array"), ESearchCase::IgnoreCase)) {
+          for (int32 Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayUInt8(NiComp, FName(*ParameterName))) Values.Add(MakeShared<FJsonValueNumber>(Value));
+        } else if (ParameterType.Equals(TEXT("BoolArray"), ESearchCase::IgnoreCase)) {
+          for (bool Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayBool(NiComp, FName(*ParameterName))) Values.Add(MakeShared<FJsonValueBoolean>(Value));
+        } else {
+          SendAutomationResponse(RequestingSocket, RequestId, false,
+                                 TEXT("Unsupported Niagara array getter type"), nullptr,
+                                 TEXT("INVALID_ARGUMENT"));
+          return true;
+        }
+        TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+        Resp->SetStringField(TEXT("actorName"), SystemName);
+        Resp->SetStringField(TEXT("parameterName"), ParameterName);
+        Resp->SetStringField(TEXT("parameterType"), ParameterType);
+        Resp->SetArrayField(TEXT("value"), Values);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+                               TEXT("Niagara array parameter read"), Resp);
+        return true;
+      }
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             FString::Printf(TEXT("Actor '%s' not found or has no Niagara component"), *SystemName), nullptr,
+                             TEXT("ACTOR_OR_COMPONENT_NOT_FOUND"));
+      return true;
+#else
+      SendAutomationResponse(RequestingSocket, RequestId, false,
+                             TEXT("get_niagara_array_parameter requires editor build."), nullptr,
+                             TEXT("NOT_IMPLEMENTED"));
+      return true;
+#endif
     } else if (LowerSub.Equals(TEXT("set_niagara_parameter"))) {
       FString SystemName;
       LocalPayload->TryGetStringField(TEXT("systemName"), SystemName);

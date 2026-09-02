@@ -50,6 +50,7 @@ public:
 				TEXT("connect_niagara_pins"),
 				TEXT("remove_niagara_node"),
 				TEXT("set_niagara_parameter"),
+				TEXT("get_niagara_array_parameter"),
 				TEXT("clear_debug_shapes"),
 				TEXT("cleanup"),
 				TEXT("list_debug_shapes"),

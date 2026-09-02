@@ -19,6 +19,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'system_control', arguments: { action: 'take_photo_mode_screenshot', filename: 'ContractPhotoMode.png', mode: 'editor_viewport', includeMetadata: true }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'save_checkpoint', saveGameObject: '/Game/SaveGames/ContractSaveGame' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'load_checkpoint' }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'save_checkpoint_async', saveGameObject: '/Game/SaveGames/ContractSaveGame', slotName: 'AsyncCheckpoint', async: true }, expected: 'success|error' },
+  { toolName: 'system_control', arguments: { action: 'load_checkpoint_async', slotName: 'AsyncCheckpoint', async: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_instanced_static_mesh_component', actorName: 'ContractActor', componentName: 'ContractISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_hierarchical_instanced_static_mesh', actorName: 'ContractActor', componentName: 'ContractHISM', meshPath: '/Engine/BasicShapes/Cube' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'create_procedural_mesh_component', actorName: 'ContractActor', componentName: 'ContractProceduralMesh' }, expected: 'success|error' },

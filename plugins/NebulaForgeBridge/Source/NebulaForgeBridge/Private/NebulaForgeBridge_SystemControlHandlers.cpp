@@ -1382,9 +1382,13 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
 
   if (Payload.IsValid() &&
       (SubAction.Equals(TEXT("save_checkpoint"), ESearchCase::IgnoreCase) ||
-       SubAction.Equals(TEXT("load_checkpoint"), ESearchCase::IgnoreCase))) {
+       SubAction.Equals(TEXT("load_checkpoint"), ESearchCase::IgnoreCase) ||
+       SubAction.Equals(TEXT("save_checkpoint_async"), ESearchCase::IgnoreCase) ||
+       SubAction.Equals(TEXT("load_checkpoint_async"), ESearchCase::IgnoreCase))) {
+    const bool bAsyncCheckpoint = SubAction.EndsWith(TEXT("_async"), ESearchCase::IgnoreCase);
+    if (bAsyncCheckpoint) Payload->SetBoolField(TEXT("async"), true);
     if (!Payload->HasField(TEXT("slotName"))) Payload->SetStringField(TEXT("slotName"), TEXT("Checkpoint"));
-    SubAction = SubAction.Equals(TEXT("save_checkpoint"), ESearchCase::IgnoreCase) ? TEXT("save_game_to_slot") : TEXT("load_game_from_slot");
+    SubAction = SubAction.StartsWith(TEXT("save_"), ESearchCase::IgnoreCase) ? TEXT("save_game_to_slot") : TEXT("load_game_from_slot");
   }
 
   const FString Lower = SubAction.ToLower();

@@ -1657,6 +1657,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 35.2 Checkpoint System
 - [ ] `create_checkpoint_actor`
 - [x] `configure_checkpoint_data` (named façade over the validated SaveGame class generator; authors a project-confined `USaveGame` subclass and optional schema/migration metadata for checkpoint payloads)
+- [x] `save_checkpoint_async`, `load_checkpoint_async` (API-derived aliases over Epic's `UGameplayStatics::AsyncSaveGameToSlot`/`AsyncLoadGameFromSlot`, returning the bridge-managed `asyncId` lifecycle)
 - [x] `save_checkpoint`, `load_checkpoint` (aliases over the existing UE `UGameplayStatics` SaveGame slot pipeline, defaulting to the `Checkpoint` slot while accepting an explicit `slotName`)
 - [ ] `configure_checkpoint_respawn`
 

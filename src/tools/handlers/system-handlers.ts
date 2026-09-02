@@ -87,9 +87,11 @@ export async function handleSystemTools(action: string, args: HandlerArgs, tools
 
   const argsTyped = args as SystemArgs;
   const sysAction = String(action || '').toLowerCase();
-  if (sysAction === 'save_checkpoint' || sysAction === 'load_checkpoint') {
-    const checkpointArgs: HandlerArgs = { ...args, action: sysAction === 'save_checkpoint' ? 'save_game_to_slot' : 'load_game_from_slot' };
+  if (sysAction === 'save_checkpoint' || sysAction === 'load_checkpoint' || sysAction === 'save_checkpoint_async' || sysAction === 'load_checkpoint_async') {
+    const isSave = sysAction === 'save_checkpoint' || sysAction === 'save_checkpoint_async';
+    const checkpointArgs: HandlerArgs = { ...args, action: isSave ? 'save_game_to_slot' : 'load_game_from_slot' };
     if (typeof checkpointArgs.slotName !== 'string' || checkpointArgs.slotName.trim() === '') checkpointArgs.slotName = 'Checkpoint';
+    if (sysAction.endsWith('_async')) checkpointArgs.async = true;
     return cleanObject(await executeAutomationRequest(tools, 'system_control', checkpointArgs, 'Automation bridge not available for checkpoint operations')) as Record<string, unknown>;
   }
 

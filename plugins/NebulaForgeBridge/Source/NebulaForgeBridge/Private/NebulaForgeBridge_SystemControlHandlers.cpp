@@ -1508,6 +1508,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGetAudioTimeSecondsAction = Lower == TEXT("get_audio_time_seconds");
   const bool bIsAnyLocalPlayerCameraWithinRangeAction = Lower == TEXT("is_any_local_player_camera_within_range");
   const bool bGetNumLocalPlayerControllersAction = Lower == TEXT("get_num_local_player_controllers");
+  const bool bGetNumPlayerControllersAction = Lower == TEXT("get_num_player_controllers");
+  const bool bGetNumPlayerStatesAction = Lower == TEXT("get_num_player_states");
   const bool bSetSubtitlesEnabledAction = Lower == TEXT("set_subtitles_enabled");
   const bool bAreSubtitlesEnabledAction = Lower == TEXT("are_subtitles_enabled");
   const bool bGetActiveSpatialPluginAction = Lower == TEXT("get_active_spatial_plugin");
@@ -1593,7 +1595,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("unregister_python_command") &&
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
-       Lower != TEXT("get_closest_listener_location") && Lower != TEXT("get_game_instance") && Lower != TEXT("get_game_mode") && Lower != TEXT("get_game_state") &&
+       Lower != TEXT("get_closest_listener_location") && Lower != TEXT("get_game_instance") && Lower != TEXT("get_game_mode") && Lower != TEXT("get_game_state") && Lower != TEXT("get_num_player_controllers") && Lower != TEXT("get_num_player_states") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
        !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bForceDisableSplitscreenAction && !bGamePausedAction && !bProjectFilesAction) {
     return false; // Not handled by this function
@@ -1987,6 +1989,16 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetNumberField(TEXT("count"), UGameplayStatics::GetNumLocalPlayerControllers(GetWorld()));
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Local player controller count read"), Result, FString());
+    return true;
+  }
+
+  if (bGetNumPlayerControllersAction || bGetNumPlayerStatesAction) {
+    const int32 Count = bGetNumPlayerControllersAction
+        ? UGameplayStatics::GetNumPlayerControllers(GetWorld())
+        : UGameplayStatics::GetNumPlayerStates(GetWorld());
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("count"), Count);
+    SendAutomationResponse(RequestingSocket, RequestId, true, bGetNumPlayerControllersAction ? TEXT("Player controller count read") : TEXT("Player state count read"), Result, FString());
     return true;
   }
 

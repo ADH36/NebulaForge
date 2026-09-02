@@ -1797,7 +1797,9 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `bake_customizable_instance`, `configure_bake_settings`
 
 ### 36.4 Groom/Hair System
-- [ ] `create_groom_asset`, `import_groom` (alembic, cache), `configure_groom_lod`
+- [ ] `create_groom_asset`
+- [x] `import_groom` (extension-validated `.abc` façade over the deferred importer; requires Epic's Groom/Alembic translator plugin)
+- [ ] `configure_groom_lod`
 - [ ] `create_groom_binding`, `bind_groom_to_skeletal_mesh`
 - [ ] `configure_hair_simulation`, `set_hair_stiffness`, `set_hair_damping`, `configure_hair_collision`
 - [ ] `configure_hair_material`, `set_hair_color`, `set_hair_roughness`

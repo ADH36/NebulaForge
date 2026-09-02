@@ -1800,7 +1800,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 36.4 Groom/Hair System
 - [ ] `create_groom_asset`
 - [x] `import_groom` (extension-validated `.abc` façade over the deferred importer; requires Epic's Groom/Alembic translator plugin)
-- [ ] `configure_groom_lod`
+- [x] `configure_groom_lod` (project-aware component-property LOD façade; accepts `componentName`, reflected `properties`, or validated `forcedLodModel`/`minLod` values)
 - [ ] `create_groom_binding`, `bind_groom_to_skeletal_mesh`
 - [ ] `configure_hair_simulation`, `set_hair_stiffness`, `set_hair_damping`, `configure_hair_collision`
 - [x] `configure_hair_material` (validated material assignment façade over the target hair component and material slot; accepts `materialPath`/`assetPath` and `materialSlot`)

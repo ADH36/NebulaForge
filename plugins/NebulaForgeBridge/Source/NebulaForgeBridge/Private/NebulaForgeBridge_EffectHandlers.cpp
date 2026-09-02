@@ -1088,6 +1088,42 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
           for (int32 Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayUInt8(NiComp, FName(*ParameterName))) Values.Add(MakeShared<FJsonValueNumber>(Value));
         } else if (ParameterType.Equals(TEXT("BoolArray"), ESearchCase::IgnoreCase)) {
           for (bool Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayBool(NiComp, FName(*ParameterName))) Values.Add(MakeShared<FJsonValueBoolean>(Value));
+        } else if (ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase)) {
+          for (const FVector &Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayVector(NiComp, FName(*ParameterName))) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            Components.Add(MakeShared<FJsonValueNumber>(Value.X)); Components.Add(MakeShared<FJsonValueNumber>(Value.Y)); Components.Add(MakeShared<FJsonValueNumber>(Value.Z));
+            Values.Add(MakeShared<FJsonValueArray>(Components));
+          }
+        } else if (ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase)) {
+          for (const FVector2D &Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayVector2D(NiComp, FName(*ParameterName))) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            Components.Add(MakeShared<FJsonValueNumber>(Value.X)); Components.Add(MakeShared<FJsonValueNumber>(Value.Y));
+            Values.Add(MakeShared<FJsonValueArray>(Components));
+          }
+        } else if (ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase)) {
+          for (const FVector4 &Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayVector4(NiComp, FName(*ParameterName))) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            Components.Add(MakeShared<FJsonValueNumber>(Value.X)); Components.Add(MakeShared<FJsonValueNumber>(Value.Y)); Components.Add(MakeShared<FJsonValueNumber>(Value.Z)); Components.Add(MakeShared<FJsonValueNumber>(Value.W));
+            Values.Add(MakeShared<FJsonValueArray>(Components));
+          }
+        } else if (ParameterType.Equals(TEXT("QuaternionArray"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("QuatArray"), ESearchCase::IgnoreCase)) {
+          for (const FQuat &Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayQuat(NiComp, FName(*ParameterName))) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            Components.Add(MakeShared<FJsonValueNumber>(Value.X)); Components.Add(MakeShared<FJsonValueNumber>(Value.Y)); Components.Add(MakeShared<FJsonValueNumber>(Value.Z)); Components.Add(MakeShared<FJsonValueNumber>(Value.W));
+            Values.Add(MakeShared<FJsonValueArray>(Components));
+          }
+        } else if (ParameterType.Equals(TEXT("ColorArray"), ESearchCase::IgnoreCase)) {
+          for (const FLinearColor &Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayColor(NiComp, FName(*ParameterName))) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            Components.Add(MakeShared<FJsonValueNumber>(Value.R)); Components.Add(MakeShared<FJsonValueNumber>(Value.G)); Components.Add(MakeShared<FJsonValueNumber>(Value.B)); Components.Add(MakeShared<FJsonValueNumber>(Value.A));
+            Values.Add(MakeShared<FJsonValueArray>(Components));
+          }
+        } else if (ParameterType.Equals(TEXT("PositionArray"), ESearchCase::IgnoreCase)) {
+          for (const FVector &Value : UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayPosition(NiComp, FName(*ParameterName))) {
+            TArray<TSharedPtr<FJsonValue>> Components;
+            Components.Add(MakeShared<FJsonValueNumber>(Value.X)); Components.Add(MakeShared<FJsonValueNumber>(Value.Y)); Components.Add(MakeShared<FJsonValueNumber>(Value.Z));
+            Values.Add(MakeShared<FJsonValueArray>(Components));
+          }
         } else {
           SendAutomationResponse(RequestingSocket, RequestId, false,
                                  TEXT("Unsupported Niagara array getter type"), nullptr,

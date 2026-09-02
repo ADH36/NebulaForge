@@ -1481,7 +1481,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower == TEXT("remove_gameplay_tag") || Lower == TEXT("list_config_layers") || Lower == TEXT("configure_chunking") ||
       Lower == TEXT("get_config_value") || Lower == TEXT("read_config_value") || Lower == TEXT("set_config_value") || Lower == TEXT("write_config_value") ||
       Lower == TEXT("get_section") || Lower == TEXT("create_config_section") ||
-      Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy") || Lower == TEXT("configure_scalability_group") || Lower == TEXT("create_device_profile") || Lower == TEXT("set_cvar_for_profile") || Lower == TEXT("configure_build_settings") || Lower == TEXT("configure_platform_settings") || Lower == TEXT("configure_plugin_settings") || Lower == TEXT("configure_windows_build") || Lower == TEXT("configure_linux_build") || Lower == TEXT("configure_mac_build") || Lower == TEXT("configure_ios_build") || Lower == TEXT("configure_android_build") || Lower == TEXT("configure_android_signing") || Lower == TEXT("configure_ios_signing") || Lower == TEXT("take_photo_mode_screenshot");
+      Lower == TEXT("reload_config") || Lower == TEXT("flush_config") || Lower == TEXT("get_config_hierarchy") || Lower == TEXT("configure_scalability_group") || Lower == TEXT("create_device_profile") || Lower == TEXT("set_cvar_for_profile") || Lower == TEXT("configure_build_settings") || Lower == TEXT("configure_platform_settings") || Lower == TEXT("configure_plugin_settings") || Lower == TEXT("configure_windows_build") || Lower == TEXT("configure_linux_build") || Lower == TEXT("configure_mac_build") || Lower == TEXT("configure_ios_build") || Lower == TEXT("configure_android_build") || Lower == TEXT("configure_android_signing") || Lower == TEXT("configure_ios_signing") || Lower == TEXT("take_photo_mode_screenshot") || Lower == TEXT("set_max_audio_channels_scaled");
   const bool bDataValidationAction = Lower == TEXT("run_data_validation") || Lower == TEXT("create_asset_validator");
   const bool bGameplayTagConfigAction = Lower == TEXT("create_gameplay_tag");
   const bool bGameplayTagNativeAction = Lower == TEXT("register_native_tag");
@@ -1494,6 +1494,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bGlobalPitchAction = Lower == TEXT("set_global_pitch_modulation");
   const bool bForceDisableSplitscreenAction = Lower == TEXT("set_force_disable_splitscreen");
   const bool bGamePausedAction = Lower == TEXT("set_game_paused");
+  const bool bMaxAudioChannelsScaledAction = Lower == TEXT("set_max_audio_channels_scaled");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
@@ -1904,6 +1905,19 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     Result->SetBoolField(TEXT("paused"), bPaused);
     Result->SetBoolField(TEXT("changed"), bChanged);
     SendAutomationResponse(RequestingSocket, RequestId, bChanged, bChanged ? TEXT("Game pause state updated") : TEXT("Game pause state could not be changed"), Result, bChanged ? FString() : TEXT("PAUSE_STATE_FAILED"));
+    return true;
+  }
+
+  if (bMaxAudioChannelsScaledAction) {
+    double MaxChannelCountScale = 1.0;
+    if (!Payload->TryGetNumberField(TEXT("maxChannelCountScale"), MaxChannelCountScale) || !FMath::IsFinite(MaxChannelCountScale) || MaxChannelCountScale < 0.0 || MaxChannelCountScale > 1.0) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("maxChannelCountScale must be finite and between 0 and 1"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UGameplayStatics::SetMaxAudioChannelsScaled(GetWorld(), static_cast<float>(MaxChannelCountScale));
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("maxChannelCountScale"), MaxChannelCountScale);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Maximum audio channel scale updated"), Result, FString());
     return true;
   }
 

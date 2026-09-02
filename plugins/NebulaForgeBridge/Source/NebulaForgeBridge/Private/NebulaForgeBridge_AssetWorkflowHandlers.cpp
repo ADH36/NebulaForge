@@ -2138,6 +2138,24 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), ObjectivePayload, RequestingSocket);
   }
 
+  if (Lower == TEXT("create_quest_data_asset")) {
+    TSharedPtr<FJsonObject> QuestPayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : Payload->Values)
+      QuestPayload->SetField(Pair.Key, Pair.Value);
+    if (!QuestPayload->HasField(TEXT("classPath")))
+      QuestPayload->SetStringField(TEXT("classPath"), TEXT("/Script/NebulaForgeBridge.McpGenericDataAsset"));
+    TSharedPtr<FJsonObject> Properties = MakeShared<FJsonObject>();
+    Properties->SetStringField(TEXT("ItemName"), GetJsonStringField(Payload, TEXT("questId"), GetJsonStringField(Payload, TEXT("name"))));
+    Properties->SetStringField(TEXT("Description"), GetJsonStringField(Payload, TEXT("description")));
+    TSharedPtr<FJsonObject> Metadata = MakeShared<FJsonObject>();
+    Metadata->SetStringField(TEXT("state"), TEXT("inactive"));
+    Metadata->SetStringField(TEXT("questType"), GetJsonStringField(Payload, TEXT("questType"), TEXT("quest")));
+    Properties->SetObjectField(TEXT("Properties"), Metadata);
+    QuestPayload->SetObjectField(TEXT("properties"), Properties);
+    QuestPayload->SetStringField(TEXT("action"), TEXT("create_data_asset"));
+    return HandleDataAssetAction(RequestId, TEXT("create_data_asset"), QuestPayload, RequestingSocket);
+  }
+
   if (Lower == TEXT("inspect_asset_capabilities"))
   {
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();

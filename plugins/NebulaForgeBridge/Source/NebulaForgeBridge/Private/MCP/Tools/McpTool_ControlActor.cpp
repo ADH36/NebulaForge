@@ -31,6 +31,7 @@ public:
 				TEXT("create_quest_manager"),
 				TEXT("spawn_metahuman_actor"),
 				TEXT("configure_metahuman_component"),
+				TEXT("configure_body_type"),
 				TEXT("configure_lock_on_target"),
 				TEXT("set_target_priority"),
 				TEXT("configure_target_switching"),

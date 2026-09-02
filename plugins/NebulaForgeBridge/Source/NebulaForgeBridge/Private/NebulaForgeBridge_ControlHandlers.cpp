@@ -4287,6 +4287,25 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     ComponentPayload->SetStringField(TEXT("action"), TEXT("add_component"));
     return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("configure_body_type")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    AActor *TargetActor = FindActorByName(TargetName);
+    if (!TargetActor) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    FString BodyType;
+    if (!Payload->TryGetStringField(TEXT("bodyType"), BodyType) || BodyType.TrimStartAndEnd().IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("bodyType required"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> PropertyPayload = MakeShared<FJsonObject>();
+    PropertyPayload->SetStringField(TEXT("objectPath"), TargetActor->GetPathName());
+    PropertyPayload->SetStringField(TEXT("propertyName"), TEXT("BodyType"));
+    PropertyPayload->SetStringField(TEXT("value"), BodyType.TrimStartAndEnd());
+    return HandleSetObjectProperty(RequestId, TEXT("set_object_property"), PropertyPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_lock_on_target") || LowerSub == TEXT("set_target_priority") || LowerSub == TEXT("configure_target_switching") || LowerSub == TEXT("configure_soft_lock") || LowerSub == TEXT("configure_aim_assist")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

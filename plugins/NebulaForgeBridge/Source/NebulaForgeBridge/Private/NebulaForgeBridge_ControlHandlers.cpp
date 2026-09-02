@@ -4326,7 +4326,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     AttachPayload->SetStringField(TEXT("parentActor"), CharacterName);
     return HandleControlActorAttach(RequestId, AttachPayload, RequestingSocket);
   }
-  if (LowerSub == TEXT("configure_avatar_lod")) {
+  if (LowerSub == TEXT("configure_avatar_lod") || LowerSub == TEXT("set_lod_settings")) {
     FString TargetName;
     FString ComponentName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

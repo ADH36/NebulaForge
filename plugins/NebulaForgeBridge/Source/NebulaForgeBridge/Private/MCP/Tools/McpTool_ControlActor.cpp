@@ -31,6 +31,7 @@ public:
 				TEXT("create_quest_manager"),
 				TEXT("spawn_metahuman_actor"),
 				TEXT("configure_metahuman_component"),
+				TEXT("configure_avatar_component"),
 				TEXT("configure_body_type"),
 				TEXT("set_body_type"),
 				TEXT("get_face_parameters"),

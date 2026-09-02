@@ -4276,14 +4276,14 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     MetaHumanPayload->SetStringField(TEXT("action"), TEXT("spawn_actor"));
     return HandleControlActorSpawn(RequestId, MetaHumanPayload, RequestingSocket);
   }
-  if (LowerSub == TEXT("configure_metahuman_component")) {
+  if (LowerSub == TEXT("configure_metahuman_component") || LowerSub == TEXT("configure_avatar_component")) {
     TSharedPtr<FJsonObject> ComponentPayload = MakeShared<FJsonObject>();
     for (const TPair<FString, TSharedPtr<FJsonValue>> &Pair : Payload->Values)
       ComponentPayload->SetField(Pair.Key, Pair.Value);
     if (!ComponentPayload->HasField(TEXT("componentType")))
       ComponentPayload->SetStringField(TEXT("componentType"), TEXT("/Script/Engine.ActorComponent"));
     if (!ComponentPayload->HasField(TEXT("componentName")))
-      ComponentPayload->SetStringField(TEXT("componentName"), TEXT("MetaHumanComponent"));
+      ComponentPayload->SetStringField(TEXT("componentName"), LowerSub == TEXT("configure_avatar_component") ? TEXT("AvatarComponent") : TEXT("MetaHumanComponent"));
     ComponentPayload->SetStringField(TEXT("action"), TEXT("add_component"));
     return HandleControlActorAddComponent(RequestId, ComponentPayload, RequestingSocket);
   }

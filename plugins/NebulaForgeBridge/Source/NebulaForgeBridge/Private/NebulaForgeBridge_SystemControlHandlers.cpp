@@ -1490,6 +1490,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
   const bool bCultureAction = Lower == TEXT("set_culture") || Lower == TEXT("set_language_and_locale") || Lower == TEXT("set_locale");
   const bool bQualityLevelAction = Lower == TEXT("set_quality_level");
   const bool bWorldRenderingAction = Lower == TEXT("set_world_rendering");
+  const bool bGlobalTimeDilationAction = Lower == TEXT("set_global_time_dilation");
+  const bool bGlobalPitchAction = Lower == TEXT("set_global_pitch_modulation");
   const bool bProjectFilesAction = Lower == TEXT("generate_project_files");
 
   // Check if this handler should process this sub-action
@@ -1549,7 +1551,7 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("run_editor_utility") &&
       Lower != TEXT("inspect_editor_utility") &&
        !bSubsystemAction && !bAsyncTimerAction && !bDelegateInterfaceAction && !bSaveGameAction && !bGameplayTagContainerAction &&
-       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bProjectFilesAction) {
+       !bHostWorkflowAction && !bDataValidationAction && !bGameplayTagConfigAction && !bGameplayTagNativeAction && !bBuildPipelineAlias && !bStringTableAction && !bCultureAction && !bQualityLevelAction && !bWorldRenderingAction && !bGlobalTimeDilationAction && !bGlobalPitchAction && !bProjectFilesAction) {
     return false; // Not handled by this function
   }
 
@@ -1840,6 +1842,39 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
     Result->SetBoolField(TEXT("enabled"), UGameplayStatics::GetEnableWorldRendering(GetWorld()));
     SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("World rendering state updated"), Result, FString());
+    return true;
+  }
+
+  if (bGlobalTimeDilationAction) {
+    double TimeDilation = 1.0;
+    if (!Payload->TryGetNumberField(TEXT("timeDilation"), TimeDilation) || !FMath::IsFinite(TimeDilation) || TimeDilation < 0.0 || TimeDilation > 100.0) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("timeDilation must be finite and between 0 and 100"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UGameplayStatics::SetGlobalTimeDilation(GetWorld(), static_cast<float>(TimeDilation));
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("timeDilation"), UGameplayStatics::GetGlobalTimeDilation(GetWorld()));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Global time dilation updated"), Result, FString());
+    return true;
+  }
+
+  if (bGlobalPitchAction) {
+    double PitchModulation = 1.0;
+    double TimeSec = 0.0;
+    if (!Payload->TryGetNumberField(TEXT("pitchModulation"), PitchModulation) || !FMath::IsFinite(PitchModulation) || PitchModulation < 0.0 || PitchModulation > 100.0) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("pitchModulation must be finite and between 0 and 100"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    Payload->TryGetNumberField(TEXT("timeSec"), TimeSec);
+    if (!FMath::IsFinite(TimeSec) || TimeSec < 0.0 || TimeSec > 600.0) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("timeSec must be finite and between 0 and 600"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    UGameplayStatics::SetGlobalPitchModulation(GetWorld(), static_cast<float>(PitchModulation), static_cast<float>(TimeSec));
+    TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+    Result->SetNumberField(TEXT("pitchModulation"), PitchModulation);
+    Result->SetNumberField(TEXT("timeSec"), TimeSec);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Global pitch modulation updated"), Result, FString());
     return true;
   }
 

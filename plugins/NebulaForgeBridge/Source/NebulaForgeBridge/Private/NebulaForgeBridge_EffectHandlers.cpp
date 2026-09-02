@@ -1125,6 +1125,11 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
             ParameterType.Equals(TEXT("BoolArrayValue"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("Int32ArrayValue"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("VectorArrayValue"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("Vector2ArrayValue"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("Vector4ArrayValue"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("QuaternionArrayValue"), ESearchCase::IgnoreCase) ||
+            ParameterType.Equals(TEXT("ColorArrayValue"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("FloatArray"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("ArrayFloat"), ESearchCase::IgnoreCase) ||
             ParameterType.Equals(TEXT("IntArray"), ESearchCase::IgnoreCase) ||
@@ -1147,7 +1152,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                                  IndexedNumber >= 0.0 && IndexedNumber <= MAX_int32;
           if (bHasIndex) ArrayIndex = static_cast<int32>(IndexedNumber);
           const bool bSizeToFit = LocalPayload->HasField(TEXT("sizeToFit")) ? GetJsonBoolField(LocalPayload, TEXT("sizeToFit")) : true;
-          if ((ParameterType.Equals(TEXT("FloatArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("BoolArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("Int32ArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase)) && bHasIndex) {
+          if ((ParameterType.Equals(TEXT("FloatArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("BoolArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("Int32ArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Vector"), ESearchCase::IgnoreCase) || ParameterType.Contains(TEXT("Quaternion"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("ColorArrayValue"), ESearchCase::IgnoreCase)) && bHasIndex) {
             if (ParameterType.Equals(TEXT("FloatArrayValue"), ESearchCase::IgnoreCase)) {
               bool bHasValue = LocalPayload->TryGetNumberField(TEXT("arrayValue"), IndexedNumber);
               if (!bHasValue && ValueField.IsValid() && ValueField->Type == EJson::Number) { IndexedNumber = ValueField->AsNumber(); bHasValue = true; }
@@ -1156,7 +1161,7 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               bool bHasValue = LocalPayload->TryGetBoolField(TEXT("arrayValue"), IndexedBool);
               if (!bHasValue && ValueField.IsValid() && ValueField->Type == EJson::Boolean) { IndexedBool = ValueField->AsBool(); bHasValue = true; }
               if (bHasValue) { UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayBoolValue(NiComp, ParamName, ArrayIndex, IndexedBool, bSizeToFit); bApplied = true; }
-            } else {
+            } else if (ParameterType.Equals(TEXT("Int32ArrayValue"), ESearchCase::IgnoreCase) || ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase)) {
               bool bHasValue = LocalPayload->TryGetNumberField(TEXT("arrayValue"), IndexedNumber);
               if (!bHasValue && ValueField.IsValid() && ValueField->Type == EJson::Number) { IndexedNumber = ValueField->AsNumber(); bHasValue = true; }
               const double Minimum = ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase) ? 0.0 : static_cast<double>(MIN_int32);
@@ -1165,6 +1170,31 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
                 if (ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase)) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayUInt8Value(NiComp, ParamName, ArrayIndex, static_cast<int32>(IndexedNumber), bSizeToFit);
                 else UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayInt32Value(NiComp, ParamName, ArrayIndex, static_cast<int32>(IndexedNumber), bSizeToFit);
                 bApplied = true;
+              }
+            } else {
+              const TSharedPtr<FJsonValue> IndexedValue = LocalPayload->TryGetField(TEXT("arrayValue"));
+              const TArray<TSharedPtr<FJsonValue>> *Components = nullptr;
+              const bool bHasComponents = IndexedValue.IsValid() && IndexedValue->TryGetArray(Components) && Components;
+              const bool bIsVector2 = ParameterType.Equals(TEXT("Vector2ArrayValue"), ESearchCase::IgnoreCase);
+              const bool bIsVector4 = ParameterType.Equals(TEXT("Vector4ArrayValue"), ESearchCase::IgnoreCase);
+              const bool bIsQuat = ParameterType.Equals(TEXT("QuaternionArrayValue"), ESearchCase::IgnoreCase);
+              const int32 Required = bIsVector2 ? 2 : (bIsVector4 || bIsQuat ? 4 : 3);
+              double Values[4] = {0, 0, 0, bIsQuat ? 1.0 : 1.0};
+              bool bHasValue = bHasComponents && Components->Num() >= Required;
+              if (bHasValue) for (int32 Index = 0; Index < Required; ++Index) {
+                if (!(*Components)[Index].IsValid() || (*Components)[Index]->Type != EJson::Number || !FMath::IsFinite((*Components)[Index]->AsNumber())) { bHasValue = false; break; }
+                Values[Index] = (*Components)[Index]->AsNumber();
+              }
+              if (bHasValue) {
+                if (ParameterType.Equals(TEXT("ColorArrayValue"), ESearchCase::IgnoreCase)) {
+                  if (Components->Num() < 3) bHasValue = false;
+                  else if (Components->Num() >= 4 && (!(*Components)[3].IsValid() || (*Components)[3]->Type != EJson::Number || !FMath::IsFinite((*Components)[3]->AsNumber()))) bHasValue = false;
+                  else UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayColorValue(NiComp, ParamName, ArrayIndex, FLinearColor(static_cast<float>(Values[0]), static_cast<float>(Values[1]), static_cast<float>(Values[2]), static_cast<float>(Components->Num() >= 4 ? (*Components)[3]->AsNumber() : 1.0)), bSizeToFit);
+                } else if (bIsVector2) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVector2DValue(NiComp, ParamName, ArrayIndex, FVector2D(static_cast<float>(Values[0]), static_cast<float>(Values[1])), bSizeToFit);
+                else if (bIsVector4) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVector4Value(NiComp, ParamName, ArrayIndex, FVector4(static_cast<float>(Values[0]), static_cast<float>(Values[1]), static_cast<float>(Values[2]), static_cast<float>(Values[3])), bSizeToFit);
+                else if (bIsQuat) UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayQuatValue(NiComp, ParamName, ArrayIndex, FQuat(static_cast<float>(Values[0]), static_cast<float>(Values[1]), static_cast<float>(Values[2]), static_cast<float>(Values[3])), bSizeToFit);
+                else UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVectorValue(NiComp, ParamName, ArrayIndex, FVector(static_cast<float>(Values[0]), static_cast<float>(Values[1]), static_cast<float>(Values[2])), bSizeToFit);
+                bApplied = bHasValue;
               }
             }
           }
@@ -1675,6 +1705,11 @@ bool UNebulaForgeBridgeSubsystem::HandleEffectAction(
               !ParameterType.Equals(TEXT("BoolArrayValue"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Int32ArrayValue"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("UInt8ArrayValue"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("VectorArrayValue"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Vector2ArrayValue"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("Vector4ArrayValue"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("QuaternionArrayValue"), ESearchCase::IgnoreCase) &&
+              !ParameterType.Equals(TEXT("ColorArrayValue"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("VectorArray"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector2Array"), ESearchCase::IgnoreCase) &&
               !ParameterType.Equals(TEXT("Vector4Array"), ESearchCase::IgnoreCase) &&

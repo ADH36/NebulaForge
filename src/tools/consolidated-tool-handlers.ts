@@ -58,6 +58,7 @@ import { handleNavigationTools } from './handlers/navigation-handlers.js';
 import { handleSplineTools } from './handlers/spline-handlers.js';
 import { handlePCGTools } from './handlers/pcg-handlers.js';
 import { handleManageToolsTools } from './handlers/manage-tools-handlers.js';
+import { handleResearchTools, handleTerrainData } from './handlers/research-handlers.js';
 
 type NormalizedToolCall = {
   name: string;
@@ -330,6 +331,9 @@ function registerDefaultHandlers() {
     if (navigationActionSet.has(action)) return await handleNavigationTools(action, args, tools);
     return await handleAITools(action, args, tools);
   });
+
+  toolRegistry.register('deep_research', async (args) => await handleResearchTools(args));
+  toolRegistry.register('terrain_data', async (args) => await handleTerrainData(args));
   toolRegistry.register('manage_navigation', async (args, tools) =>
     await handleNavigationTools(getToolAction(args), args, tools));
   toolRegistry.register('manage_inventory', async (args, tools) => await handleInventoryTools(getToolAction(args), args, tools));

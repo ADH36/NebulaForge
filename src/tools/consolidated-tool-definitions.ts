@@ -253,6 +253,43 @@ export const PCG_ACTIONS = [
 /** All MCP tool definitions registered with the server, grouped by category. */
 export const consolidatedToolDefinitions: ToolDefinition[] = [
   {
+    name: 'terrain_data',
+    category: 'world',
+    description: 'Generate real-world terrain heightmaps, elevation previews, map images, and water features through the VibeUE terrain API.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['generate_heightmap', 'preview_elevation', 'get_map_image', 'list_styles', 'get_water_features'] },
+        lat: { type: 'number' }, lng: { type: 'number' }, map_size: { type: 'number' }, resolution: { type: 'number' },
+        format: { type: 'string' }, style: { type: 'string' }, base_level: { type: 'number' }, height_scale: { type: 'number' },
+        water_depth: { type: 'number' }, gravity_center: { type: 'number' }, level_correction: { type: 'number' },
+        blur_passes: { type: 'number' }, blur_post_passes: { type: 'number' }, sharpen: { type: 'boolean' }, draw_streams: { type: 'boolean' }, stream_depth: { type: 'number' }, plains_height: { type: 'number' }
+      },
+      required: ['action']
+    },
+    outputSchema: { type: 'object', properties: { success: { type: 'boolean' }, error: { type: 'string' }, message: { type: 'string' }, dataBase64: { type: 'string' }, results: { type: 'array' } } }
+  },
+  {
+    name: 'deep_research',
+    category: 'utility',
+    description: 'Search the web, fetch pages as clean text, and geocode or reverse-geocode locations for Unreal workflows.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['search', 'fetch_page', 'geocode', 'reverse_geocode'] },
+        query: { type: 'string', maxLength: 512 },
+        url: { type: 'string', maxLength: 2048 },
+        lat: { type: 'string', maxLength: 64 },
+        lng: { type: 'string', maxLength: 64 }
+      },
+      required: ['action']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: { success: { type: 'boolean' }, error: { type: 'string' }, message: { type: 'string' }, results: { type: 'array' }, content: { type: 'string' } }
+    }
+  },
+  {
     name: 'manage_tools',
     description: 'Dynamic MCP tool management. List canonical tools, view category counts, and enable/disable tools or categories at runtime.',
     category: 'core',

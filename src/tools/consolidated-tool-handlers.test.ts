@@ -52,7 +52,7 @@ describe('consolidated action params compatibility', () => {
       expect(action?.enum).toContain(actionName);
       expect(inputSchema?.properties).toHaveProperty('params');
     }
-    expect(consolidatedToolDefinitions).toHaveLength(28);
+    expect(consolidatedToolDefinitions).toHaveLength(30);
   });
 
   it.each([

@@ -199,6 +199,11 @@ public class NebulaForgeBridge : ModuleRules
 
             // Phase 24: GAS - Gameplay Ability System (optional plugin)
             AddOptionalDynamicModule(Target, EngineDir, "GameplayAbilities", "GameplayAbilities");
+            // UE 5.8 native MCP/toolset stack. These remain optional so UE 5.0-5.7 builds
+            // continue using NebulaForge's own native transport and consolidated registry.
+            AddOptionalDynamicModule(Target, EngineDir, "ModelContextProtocol", "ModelContextProtocol");
+            AddOptionalDynamicModule(Target, EngineDir, "ToolsetRegistry", "ToolsetRegistry");
+            AddOptionalDynamicModule(Target, EngineDir, "EditorToolset", "EditorToolset");
             bool bHasTargetingSystem = AddOptionalDynamicModule(Target, EngineDir, "TargetingSystem", "TargetingSystem");
             PublicDefinitions.Add(bHasTargetingSystem ? "MCP_HAS_TARGETING_SYSTEM=1" : "MCP_HAS_TARGETING_SYSTEM=0");
 

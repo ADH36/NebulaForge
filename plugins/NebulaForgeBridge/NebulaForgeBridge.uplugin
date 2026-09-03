@@ -39,6 +39,21 @@
       "Enabled": true
     },
     {
+      "Name": "ModelContextProtocol",
+      "Enabled": true,
+      "Optional": true
+    },
+    {
+      "Name": "ToolsetRegistry",
+      "Enabled": true,
+      "Optional": true
+    },
+    {
+      "Name": "EditorToolset",
+      "Enabled": true,
+      "Optional": true
+    },
+    {
       "Name": "LevelSequenceEditor",
       "Enabled": true,
       "Optional": true

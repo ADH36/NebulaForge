@@ -59,6 +59,9 @@ import { handleSplineTools } from './handlers/spline-handlers.js';
 import { handlePCGTools } from './handlers/pcg-handlers.js';
 import { handleManageToolsTools } from './handlers/manage-tools-handlers.js';
 import { handleResearchTools, handleTerrainData } from './handlers/research-handlers.js';
+import { SkillRegistry } from '../services/skill-registry.js';
+
+const skillRegistry = new SkillRegistry();
 
 type NormalizedToolCall = {
   name: string;
@@ -334,6 +337,11 @@ function registerDefaultHandlers() {
 
   toolRegistry.register('deep_research', async (args) => await handleResearchTools(args));
   toolRegistry.register('terrain_data', async (args) => await handleTerrainData(args));
+  toolRegistry.register('list_skills', async () => ({ success: true, skills: await skillRegistry.list() }));
+  toolRegistry.register('get_skills', async (args) => {
+    try { return { success: true, skills: await skillRegistry.get(args.skillPaths ?? args.paths) }; }
+    catch (error) { return { success: false, error: 'SKILL_LOAD_FAILED', message: error instanceof Error ? error.message : 'Failed to load skills' }; }
+  });
   toolRegistry.register('manage_navigation', async (args, tools) =>
     await handleNavigationTools(getToolAction(args), args, tools));
   toolRegistry.register('manage_inventory', async (args, tools) => await handleInventoryTools(getToolAction(args), args, tools));

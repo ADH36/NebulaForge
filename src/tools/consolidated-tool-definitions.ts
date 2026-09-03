@@ -253,6 +253,20 @@ export const PCG_ACTIONS = [
 /** All MCP tool definitions registered with the server, grouped by category. */
 export const consolidatedToolDefinitions: ToolDefinition[] = [
   {
+    name: 'list_skills',
+    category: 'utility',
+    description: 'List locally available lazy-loaded Unreal workflow skill packs.',
+    inputSchema: { type: 'object', properties: {} },
+    outputSchema: { type: 'object', properties: { success: { type: 'boolean' }, skills: { type: 'array' } } }
+  },
+  {
+    name: 'get_skills',
+    category: 'utility',
+    description: 'Load one to five named Unreal workflow skill packs on demand.',
+    inputSchema: { type: 'object', properties: { skillPaths: { type: 'array', minItems: 1, maxItems: 5, items: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$' } }, paths: { type: 'array', minItems: 1, maxItems: 5, items: { type: 'string' } } } },
+    outputSchema: { type: 'object', properties: { success: { type: 'boolean' }, error: { type: 'string' }, message: { type: 'string' }, skills: { type: 'array' } } }
+  },
+  {
     name: 'terrain_data',
     category: 'world',
     description: 'Generate real-world terrain heightmaps, elevation previews, map images, and water features through the VibeUE terrain API.',

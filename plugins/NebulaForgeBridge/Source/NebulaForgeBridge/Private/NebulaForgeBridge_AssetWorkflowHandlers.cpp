@@ -2966,7 +2966,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleBulkDeleteAssets(RequestId, Action, Payload, RequestingSocket);
   if (Lower == TEXT("generate_lods") || Lower == TEXT("set_lod_generation"))
     return HandleGenerateLODs(RequestId, Lower, Payload, RequestingSocket);
-  if (Lower == TEXT("nanite_rebuild_mesh"))
+  if (Lower == TEXT("nanite_rebuild_mesh") || Lower == TEXT("configure_nanite_import"))
     return HandleNaniteRebuildMesh(RequestId, Action, Payload, RequestingSocket);
 
   // Source Control

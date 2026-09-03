@@ -80,7 +80,7 @@ inline const TArray<FString>& ManageAssetCore()
 		TEXT("import_curve_table_csv"), TEXT("export_curve_table_csv"), TEXT("generate_lods"), TEXT("set_lod_generation"),
 		TEXT("add_material_parameter"), TEXT("list_instances"),
 		TEXT("reset_instance_parameters"), TEXT("exists"),
-		TEXT("get_material_stats"), TEXT("nanite_rebuild_mesh"),
+		TEXT("get_material_stats"), TEXT("nanite_rebuild_mesh"), TEXT("configure_nanite_import"),
 		TEXT("bulk_rename"), TEXT("bulk_delete"),
 		TEXT("source_control_checkout"), TEXT("source_control_submit"),
 		TEXT("add_material_node"), TEXT("connect_material_pins"),

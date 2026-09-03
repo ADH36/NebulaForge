@@ -288,7 +288,7 @@ bool UNebulaForgeBridgeSubsystem::HandleRenderAction(
     // -------------------------------------------------------------------------
     // nanite_rebuild_mesh: Enable Nanite and rebuild static mesh
     // -------------------------------------------------------------------------
-    if (SubAction == TEXT("nanite_rebuild_mesh"))
+    if (SubAction == TEXT("nanite_rebuild_mesh") || SubAction == TEXT("configure_nanite_import"))
     {
         FString AssetPath;
         if (!Payload->TryGetStringField(TEXT("assetPath"), AssetPath) || AssetPath.IsEmpty())

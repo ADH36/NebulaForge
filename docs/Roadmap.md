@@ -1822,7 +1822,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 37.1 Quixel Bridge / Megascans / Fab
 - [ ] `connect_to_bridge`, `list_bridge_assets`, `list_downloaded_assets`
 - [ ] `import_megascan_surface`, `import_megascan_3d_asset`, `import_megascan_3d_plant`, `import_megascan_decal`, `import_megascan_atlas`, `import_megascan_brush`
-- [ ] `configure_import_settings`, `configure_nanite_import`
+- [ ] `configure_import_settings`
+- [x] `configure_nanite_import` (asset-scoped alias over the official Nanite rebuild/configuration path; accepts `assetPath`, `enableNanite`, and rebuild options)
 - [x] `set_lod_generation` (explicit asset-tool alias over the official deferred `generate_lods` path; accepts `assetPath` and `lodCount`)
 - [x] `set_material_blend_mode` (explicit material-prefixed alias of the official `set_blend_mode` authoring action)
 - [x] `configure_virtual_texture` (shared texture authoring handler)

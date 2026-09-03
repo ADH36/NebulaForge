@@ -503,6 +503,26 @@ const handlers: Record<string, ActorActionHandler> = {
             label: extractString(params, 'label')
         }) as Record<string, unknown>;
     },
+    get_actor_tick: async (args, tools) => {
+        const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'get_actor_tick',
+            actorName: extractString(params, 'actorName')
+        }) as Record<string, unknown>;
+    },
+    set_actor_tick: async (args, tools) => {
+        const params = normalizeArgs(args, [
+            { key: 'actorName', aliases: ['name'], required: true },
+            { key: 'enabled', required: true },
+            { key: 'interval', aliases: ['tickInterval', 'tick_interval'] }
+        ]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'set_actor_tick',
+            actorName: extractString(params, 'actorName'),
+            enabled: params.enabled,
+            ...(params.interval === undefined ? {} : { interval: params.interval })
+        }) as Record<string, unknown>;
+    },
     get_gameplay_tags: async (args, tools) => {
         const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
         const actorName = extractString(params, 'actorName');

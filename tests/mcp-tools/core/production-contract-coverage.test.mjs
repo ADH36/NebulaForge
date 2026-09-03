@@ -107,6 +107,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'set_actor_folder_path_recursive', actorName: 'ContractMetaHuman', folderPath: 'Contract/Avatars' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_actor_label', actorName: 'ContractMetaHuman', label: 'Contract Avatar Label' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_actor_label', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'set_actor_tick', actorName: 'ContractMetaHuman', enabled: false, interval: 0.1 }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'get_actor_tick', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_hair_style', actorName: 'ContractMetaHuman', value: 'Short' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_eyebrow_style', actorName: 'ContractMetaHuman', value: 'Natural' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_makeup', actorName: 'ContractMetaHuman', value: 'Subtle' }, expected: 'success|error' },

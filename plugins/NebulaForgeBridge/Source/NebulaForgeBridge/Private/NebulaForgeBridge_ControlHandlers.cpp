@@ -5978,6 +5978,44 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_label") ? TEXT("Actor label retrieved") : TEXT("Actor label updated"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_actor_tick") || LowerSub == TEXT("set_actor_tick")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    TargetName.TrimStartAndEndInline();
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("set_actor_tick")) {
+      bool bEnabled = false;
+      if (!Payload->TryGetBoolField(TEXT("enabled"), bEnabled)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("enabled required"), nullptr);
+        return true;
+      }
+      double Interval = 0.0;
+      if (Payload->HasField(TEXT("interval"))) {
+        if (!Payload->TryGetNumberField(TEXT("interval"), Interval) || Interval < 0.0) {
+          SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("interval must be a non-negative number"), nullptr);
+          return true;
+        }
+      }
+      Found->Modify();
+      Found->SetActorTickEnabled(bEnabled);
+      if (Payload->HasField(TEXT("interval"))) Found->SetActorTickInterval(static_cast<float>(Interval));
+      Found->MarkPackageDirty();
+    }
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetBoolField(TEXT("enabled"), Found->IsActorTickEnabled());
+    Data->SetNumberField(TEXT("interval"), Found->GetActorTickInterval());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_tick") ? TEXT("Actor tick settings retrieved") : TEXT("Actor tick settings updated"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

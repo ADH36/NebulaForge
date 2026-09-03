@@ -5727,6 +5727,47 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     return HandleControlActorAddTag(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("remove_tag"))
     return HandleControlActorRemoveTag(RequestId, Payload, RequestingSocket);
+  if (LowerSub == TEXT("get_actor_tags") || LowerSub == TEXT("set_actor_tags")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("set_actor_tags")) {
+      const TArray<TSharedPtr<FJsonValue>> *TagValues = nullptr;
+      if (!Payload->TryGetArrayField(TEXT("tags"), TagValues) || !TagValues) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("tags array required"), nullptr);
+        return true;
+      }
+      TArray<FName> NewTags;
+      for (const TSharedPtr<FJsonValue> &TagValue : *TagValues) {
+        FString TagText;
+        if (!TagValue.IsValid() || !TagValue->TryGetString(TagText)) {
+          SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("tags must contain only strings"), nullptr);
+          return true;
+        }
+        TagText.TrimStartAndEndInline();
+        if (!TagText.IsEmpty()) NewTags.AddUnique(FName(*TagText));
+      }
+      Found->Modify();
+      Found->Tags = MoveTemp(NewTags);
+      Found->MarkPackageDirty();
+    }
+    TArray<TSharedPtr<FJsonValue>> TagResults;
+    for (const FName &Tag : Found->Tags) TagResults.Add(MakeShared<FJsonValueString>(Tag.ToString()));
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetArrayField(TEXT("tags"), TagResults);
+    Data->SetNumberField(TEXT("count"), TagResults.Num());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("set_actor_tags") ? TEXT("Actor tags updated") : TEXT("Actor tags retrieved"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

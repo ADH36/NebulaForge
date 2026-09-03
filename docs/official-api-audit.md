@@ -11,3 +11,7 @@ This file records the API checks behind roadmap decisions for optional UE5 impor
 | URL-backed Interchange source data | [InterchangeCore API index](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/InterchangeCore) | `load_avatar_from_url` remains open: Epic's current source-data documentation does not provide a stable URL-to-import path for this bridge, so callers must download to a project-controlled local path before using `load_avatar_from_glb`. |
 
 Native Unreal compilation is still environment-dependent; TypeScript build/type-check, unit tests, parity audit, and whitespace checks are run for each increment.
+
+## Current roadmap baseline
+
+At the latest audit, `docs/Roadmap.md` contains 1,102 checked entries and 332 unchecked entries. The unchecked set is concentrated in integrations whose public API is supplied by optional plugins or external services: MetaHuman DNA/Rig Logic, Mutable, Fab/Megascans, USD authoring, Substance, Houdini, SpeedTree, Datasmith, Wwise, FMOD, Live Link providers, nDisplay, Composure/OCIO, Remote Control, DMX/OSC/MIDI, XR platforms, EOS/Steam, and third-party character/voice services. These remain open until the project supplies the corresponding plugin modules and version-specific public classes/settings.

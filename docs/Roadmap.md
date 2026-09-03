@@ -1819,6 +1819,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 
 > Capability boundary: Epic's Interchange API exposes translators, pipelines, reimport stacks, and import results, but the concrete translator/pipeline classes are optional engine plugins and vary by installed UE version. The generic `import_with_interchange` façade is therefore implemented against the stable deferred editor import path, while pipeline authoring, translator registration, and reimport-policy controls remain gated until a project supplies the relevant Interchange plugin classes. Alembic import modes likewise depend on the optional Alembic Importer (`EAlembicImportType`), and Fab/Megascans access requires the project's authenticated Bridge/Fab integration. See Epic's [Interchange pipeline API](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/InterchangeCore/UInterchangePipelineBase), [Interchange import guide](https://dev.epicgames.com/documentation/en-us/unreal-engine/importing-assets-using-interchange-in-unreal-engine), and [Alembic import type API](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Plugins/AlembicLibrary/EAlembicImportType).
 
+See [`docs/official-api-audit.md`](official-api-audit.md) for the supporting API evidence and current implementation boundaries.
+
 ### 37.1 Quixel Bridge / Megascans / Fab
 - [ ] `connect_to_bridge`, `list_bridge_assets`, `list_downloaded_assets`
 - [ ] `import_megascan_surface`, `import_megascan_3d_asset`, `import_megascan_3d_plant`, `import_megascan_decal`, `import_megascan_atlas`, `import_megascan_brush`

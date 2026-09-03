@@ -163,8 +163,6 @@ const nativeToolsByName = new Map(nativeCanonicalTools.map((tool) => [tool.name,
 
 // These tools intentionally belong to the Node/stdio surface: they use the
 // host filesystem or outbound HTTP and have no Unreal-native implementation.
-// VibeUE functionality remains available through call_vibeue_service when
-// the VibeUE plugin is installed in the editor.
 const stdioOnlyTools = new Set([
   'deep_research', 'generate_agent_config', 'get_skills', 'list_skills', 'terrain_data'
 ]);

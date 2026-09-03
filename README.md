@@ -68,30 +68,11 @@ Look for the MCP indicator in the Unreal status bar. The <code>LogMcpNativeTrans
 </details>
 
 <details>
-<summary><strong>🧩 Optional VibeUE service layer</strong></summary>
+<summary><strong>🧩 Native NebulaForge service layer</strong></summary>
 
-NebulaForge can use the complete VibeUE UE 5.8 service and skill layer alongside its bridge. Clone
-or download [VibeUE](https://github.com/kevinpbuckley/VibeUE), then run:
-
-~~~bash
-npm run vibeue:sync -- --source /path/to/VibeUE --project /path/to/YourProject
-~~~
-
-Or install directly from the upstream repository:
-
-~~~bash
-npm run vibeue:sync -- --repo https://github.com/kevinpbuckley/VibeUE.git --project /path/to/YourProject
-~~~
-
-The command validates `VibeUE.uplugin` and copies it to `YourProject/Plugins/VibeUE`. After rebuilding
-the editor, use `list_vibeue_services` and `call_vibeue_service` from NebulaForge to discover and
-invoke VibeUE services; its `Content/Skills` packs are also discovered by the Node bridge.
-
-Verify the target before building:
-
-~~~bash
-npm run vibeue:verify -- --project /path/to/YourProject
-~~~
+The editor service layer is implemented directly in the NebulaForge bridge. Use the consolidated
+domain tools and `manage_performance` actions to control and inspect the editor. Workflow packs
+under `Content/Skills` and `docs/skills` are discovered automatically by the Node bridge.
 
 </details>
 

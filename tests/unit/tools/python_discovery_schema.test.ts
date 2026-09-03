@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { consolidatedToolDefinitions } from '../../../src/tools/consolidated-tool-definitions.js';
 
-describe('VibeUE-compatible Python discovery actions', () => {
+describe('NebulaForge Python discovery actions', () => {
   it('exposes execution and discovery actions through system_control', () => {
     const definition = consolidatedToolDefinitions.find((tool) => tool.name === 'system_control');
     const actionSchema = definition?.inputSchema.properties?.action as { enum?: string[] } | undefined;
@@ -12,8 +12,6 @@ describe('VibeUE-compatible Python discovery actions', () => {
       'discover_python_class',
       'discover_python_function',
       'list_python_subsystems',
-      'list_vibeue_services',
-      'call_vibeue_service'
     ]));
   });
 
@@ -25,12 +23,9 @@ describe('VibeUE-compatible Python discovery actions', () => {
     expect(properties).toHaveProperty('className');
     expect(properties).toHaveProperty('functionName');
     expect(properties).toHaveProperty('methodFilter');
-    expect(properties).toHaveProperty('serviceName');
-    expect(properties).toHaveProperty('methodName');
-    expect(properties).toHaveProperty('parameters');
   });
 
-  it('exposes VibeUE performance service methods as first-class actions', () => {
+  it('exposes NebulaForge performance service methods as first-class actions', () => {
     const definition = consolidatedToolDefinitions.find((tool) => tool.name === 'system_control');
     const actionSchema = definition?.inputSchema.properties?.action as { enum?: string[] } | undefined;
 

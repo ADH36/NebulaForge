@@ -8,8 +8,6 @@ function candidateRoots(): string[] {
     process.env.NEBULAFORGE_SKILLS_PATH,
     path.join(process.cwd(), 'docs', 'skills'),
     path.join(process.cwd(), 'Content', 'Skills'),
-    path.join(process.cwd(), 'Plugins', 'VibeUE', 'Content', 'Skills'),
-    path.join(process.cwd(), 'plugins', 'VibeUE', 'Content', 'Skills')
   ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
 }
 

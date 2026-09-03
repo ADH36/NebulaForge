@@ -102,9 +102,9 @@ export async function handleTerrainData(args: Record<string, unknown>): Promise<
   const validActions = ['generate_heightmap', 'preview_elevation', 'get_map_image', 'list_styles', 'get_water_features'];
   if (!validActions.includes(action)) return { success: false, error: 'UNKNOWN_ACTION', message: `Unsupported terrain action: ${action}` };
 
-  const apiKey = process.env.MCP_TERRAIN_API_KEY ?? process.env.VIBEUE_API_KEY;
-  if (!apiKey) return { success: false, error: 'TERRAIN_API_KEY_REQUIRED', message: 'Set MCP_TERRAIN_API_KEY or VIBEUE_API_KEY to use real-world terrain data.' };
-  const baseUrl = process.env.MCP_TERRAIN_API_BASE_URL ?? 'https://www.vibeue.com';
+  const apiKey = process.env.MCP_TERRAIN_API_KEY;
+  if (!apiKey) return { success: false, error: 'TERRAIN_API_KEY_REQUIRED', message: 'Set MCP_TERRAIN_API_KEY to use real-world terrain data.' };
+  const baseUrl = process.env.MCP_TERRAIN_API_BASE_URL ?? 'https://www.openstreetmap.org';
   const endpoint = action === 'generate_heightmap' ? 'heightmap' : action === 'preview_elevation' ? 'preview' : action === 'get_map_image' ? 'map-image' : action === 'get_water_features' ? 'water-features' : 'styles';
   try {
     if (action === 'list_styles') {

@@ -178,7 +178,7 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
     return true;
   }
 
-  // VibeUE-compatible trace names reuse NebulaForge's existing Insights and
+  // NebulaForge-compatible trace names reuse NebulaForge's existing Insights and
   // editor bookmark implementations. Keeping the translation here means
   // native MCP callers and the TypeScript bridge expose the same contract.
   if (Lower == TEXT("start_trace") || Lower == TEXT("stop_trace") ||
@@ -197,31 +197,70 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
     return HandleInsightsAction(RequestId, TEXT("manage_insights"), Payload, RequestingSocket);
   }
 
-  FString VibePerformanceMethod;
-  if (Lower == TEXT("frame_timing")) VibePerformanceMethod = TEXT("FrameTiming");
-  else if (Lower == TEXT("force_hitch")) VibePerformanceMethod = TEXT("ForceHitch");
-  else if (Lower == TEXT("performance_report")) VibePerformanceMethod = TEXT("Report");
-  else if (Lower == TEXT("region_start")) VibePerformanceMethod = TEXT("RegionStart");
-  else if (Lower == TEXT("region_end")) VibePerformanceMethod = TEXT("RegionEnd");
-  else if (Lower == TEXT("analyse_trace")) VibePerformanceMethod = TEXT("Analyse");
-  else if (Lower == TEXT("start_standalone")) VibePerformanceMethod = TEXT("StartStandalone");
-  else if (Lower == TEXT("stop_standalone")) VibePerformanceMethod = TEXT("StopStandalone");
-  else if (Lower == TEXT("get_standalone_status")) VibePerformanceMethod = TEXT("GetStandaloneStatus");
-  else if (Lower == TEXT("start_pie")) VibePerformanceMethod = TEXT("StartPIE");
-  else if (Lower == TEXT("stop_pie")) VibePerformanceMethod = TEXT("StopPIE");
-  else if (Lower == TEXT("set_background_throttling")) VibePerformanceMethod = TEXT("SetBackgroundThrottling");
-  else if (Lower == TEXT("get_background_throttling")) VibePerformanceMethod = TEXT("GetBackgroundThrottling");
-  if (!VibePerformanceMethod.IsEmpty()) {
-    TSharedPtr<FJsonObject> ServicePayload = MakeShared<FJsonObject>();
-    TSharedPtr<FJsonObject> Parameters = MakeShared<FJsonObject>();
-    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values) {
-      if (Pair.Key != TEXT("action") && Pair.Key != TEXT("subAction")) Parameters->SetField(Pair.Key, Pair.Value);
+  if (Lower == TEXT("frame_timing")) {
+    if (GEngine && GEditor) GEngine->Exec(GEditor->GetEditorWorldContext().World(), TEXT("stat unit"));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Frame timing statistics enabled"), nullptr);
+    return true;
+  }
+  if (Lower == TEXT("performance_report")) {
+    if (GEngine && GEditor) GEngine->Exec(GEditor->GetEditorWorldContext().World(), TEXT("stat fps"));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Performance statistics enabled"), nullptr);
+    return true;
+  }
+  if (Lower == TEXT("force_hitch")) {
+    double Milliseconds = 100.0;
+    Payload->TryGetNumberField(TEXT("milliseconds"), Milliseconds);
+    Milliseconds = FMath::Clamp(Milliseconds, 1.0, 5000.0);
+    if (GEngine && GEditor) GEngine->Exec(GEditor->GetEditorWorldContext().World(), *FString::Printf(TEXT("t.Hitch %d"), FMath::RoundToInt(Milliseconds)));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Forced hitch requested"), nullptr);
+    return true;
+  }
+  if (Lower == TEXT("region_start") || Lower == TEXT("region_end")) {
+    FString Label;
+    Payload->TryGetStringField(TEXT("label"), Label);
+    Label = Label.IsEmpty() ? (Lower == TEXT("region_start") ? TEXT("NebulaRegionStart") : TEXT("NebulaRegionEnd")) : Label;
+    Label.ReplaceInline(TEXT("\n"), TEXT(" "));
+    Label.ReplaceInline(TEXT("\r"), TEXT(" "));
+    if (GEngine && GEditor) GEngine->Exec(GEditor->GetEditorWorldContext().World(), *FString::Printf(TEXT("Trace.Bookmark %s"), *Label));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Trace region bookmark recorded"), nullptr);
+    return true;
+  }
+  if (Lower == TEXT("start_pie") || Lower == TEXT("start_standalone")) {
+    if (!GEditor) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Editor not available"), TEXT("NO_EDITOR"));
+      return true;
     }
-    ServicePayload->SetStringField(TEXT("action"), TEXT("call_vibeue_service"));
-    ServicePayload->SetStringField(TEXT("serviceName"), TEXT("PerformanceService"));
-    ServicePayload->SetStringField(TEXT("methodName"), VibePerformanceMethod);
-    ServicePayload->SetObjectField(TEXT("parameters"), Parameters);
-    return HandleSystemControlAction(RequestId, TEXT("system_control"), ServicePayload, RequestingSocket);
+    GEditor->Exec(GEditor->GetEditorWorldContext().World(), Lower == TEXT("start_pie") ? TEXT("PlayInEditor") : TEXT("PlayStandalone"));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Play session started"), nullptr);
+    return true;
+  }
+  if (Lower == TEXT("stop_pie") || Lower == TEXT("stop_standalone")) {
+    if (!GEditor) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Editor not available"), TEXT("NO_EDITOR"));
+      return true;
+    }
+    GEditor->Exec(GEditor->GetEditorWorldContext().World(), TEXT("StopPlay"));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Play session stopped"), nullptr);
+    return true;
+  }
+  if (Lower == TEXT("get_standalone_status") || Lower == TEXT("analyse_trace")) {
+    TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
+    Result->SetStringField(TEXT("action"), Lower);
+    Result->SetBoolField(TEXT("editorAvailable"), GEditor != nullptr);
+    Result->SetStringField(TEXT("status"), Lower == TEXT("analyse_trace") ? TEXT("Use Unreal Insights trace analysis") : TEXT("Query completed"));
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Performance status returned"), Result);
+    return true;
+  }
+  if (Lower == TEXT("set_background_throttling") || Lower == TEXT("get_background_throttling")) {
+    bool bEnabled = true;
+    Payload->TryGetBoolField(TEXT("enabled"), bEnabled);
+    if (Lower == TEXT("set_background_throttling") && GEngine && GEditor) {
+      GEngine->Exec(GEditor->GetEditorWorldContext().World(), bEnabled ? TEXT("t.IdleWhenNotForeground 1") : TEXT("t.IdleWhenNotForeground 0"));
+    }
+    TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
+    Result->SetBoolField(TEXT("enabled"), bEnabled);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Background throttling setting handled"), Result);
+    return true;
   }
 
   // ===========================================================================

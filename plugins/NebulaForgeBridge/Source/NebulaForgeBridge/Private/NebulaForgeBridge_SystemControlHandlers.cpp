@@ -1584,11 +1584,16 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("enable_visual_logger") &&
       Lower != TEXT("add_visual_log_entry") &&
       Lower != TEXT("execute_python") &&
+      Lower != TEXT("execute_python_code") &&
       Lower != TEXT("execute_python_script") &&
       Lower != TEXT("execute_python_string") &&
       Lower != TEXT("execute_python_file") &&
       Lower != TEXT("configure_python_paths") &&
       Lower != TEXT("list_python_packages") &&
+      Lower != TEXT("discover_python_module") &&
+      Lower != TEXT("discover_python_class") &&
+      Lower != TEXT("discover_python_function") &&
+      Lower != TEXT("list_python_subsystems") &&
       Lower != TEXT("create_editor_utility_widget") &&
       Lower != TEXT("create_editor_utility_blueprint") &&
       Lower != TEXT("create_python_editor_utility") &&
@@ -3914,9 +3919,11 @@ FMessageLog LogListing{FName(*Category)};
                              Result, TEXT("EXPORT_FAILED"));
     }
     return true;
-  } else if (Lower == TEXT("execute_python") || Lower == TEXT("execute_python_script") ||
+  } else if (Lower == TEXT("execute_python") || Lower == TEXT("execute_python_code") || Lower == TEXT("execute_python_script") ||
              Lower == TEXT("execute_python_string") || Lower == TEXT("execute_python_file") ||
              Lower == TEXT("configure_python_paths") || Lower == TEXT("list_python_packages") ||
+             Lower == TEXT("discover_python_module") || Lower == TEXT("discover_python_class") ||
+             Lower == TEXT("discover_python_function") || Lower == TEXT("list_python_subsystems") ||
              Lower == TEXT("create_editor_utility_widget") || Lower == TEXT("create_editor_utility_blueprint") ||
              Lower == TEXT("create_python_editor_utility") || Lower == TEXT("register_python_command") ||
              Lower == TEXT("create_geometry_collection") ||
@@ -3945,6 +3952,62 @@ FMessageLog LogListing{FName(*Category)};
       Code = TEXT("import importlib.metadata as _m\n"
                   "_names = sorted({d.metadata.get('Name') or d.name for d in _m.distributions()})\n"
                   "print('\\n'.join(_names[:500]))\n");
+    }
+
+    if (Lower == TEXT("discover_python_module") || Lower == TEXT("discover_python_class") ||
+        Lower == TEXT("discover_python_function") || Lower == TEXT("list_python_subsystems")) {
+      FString Subject;
+      FString MethodFilter;
+      Payload->TryGetStringField(TEXT("moduleName"), Subject);
+      if (Lower == TEXT("discover_python_class")) Payload->TryGetStringField(TEXT("className"), Subject);
+      if (Lower == TEXT("discover_python_function")) Payload->TryGetStringField(TEXT("functionName"), Subject);
+      Payload->TryGetStringField(TEXT("methodFilter"), MethodFilter);
+      Subject.TrimStartAndEndInline();
+      MethodFilter.TrimStartAndEndInline();
+      Subject.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+      Subject.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      MethodFilter.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+      MethodFilter.ReplaceInline(TEXT("'"), TEXT("\\'"));
+
+      if (Lower == TEXT("list_python_subsystems")) {
+        Code = TEXT("import json, unreal\n"
+                   "_names = sorted(n for n in dir(unreal) if n.endswith('Subsystem'))\n"
+                   "print(json.dumps({'subsystems': _names}, sort_keys=True))\n");
+      } else if (Subject.IsEmpty()) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            FString::Printf(TEXT("%s requires its subject name"), *Lower),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      } else if (Lower == TEXT("discover_python_module")) {
+        Code = FString::Printf(TEXT("import importlib, inspect, json\n"
+          "_m = importlib.import_module('%s')\n"
+          "_items = {}\n"
+          "for _name in dir(_m):\n"
+          "    if _name.startswith('_'): continue\n"
+          "    try: _value = getattr(_m, _name)\n"
+          "    except Exception: continue\n"
+          "    _items[_name] = {'kind': ('class' if inspect.isclass(_value) else 'function' if inspect.isfunction(_value) else type(_value).__name__), 'doc': (inspect.getdoc(_value) or '')[:500]}\n"
+          "print(json.dumps({'module': '%s', 'members': _items}, sort_keys=True))\n"), *Subject, *Subject);
+      } else if (Lower == TEXT("discover_python_class")) {
+        Code = FString::Printf(TEXT("import importlib, inspect, json\n"
+          "_module_name, _, _class_name = '%s'.rpartition('.')\n"
+          "_obj = getattr(importlib.import_module(_module_name), _class_name) if _module_name else getattr(__import__('%s'), _class_name)\n"
+          "_methods = {}\n"
+          "for _name, _value in inspect.getmembers(_obj):\n"
+          "    if _name.startswith('_') or ('%s' and '%s' not in _name): continue\n"
+          "    if callable(_value):\n"
+          "        try: _signature = str(inspect.signature(_value))\n"
+          "        except Exception: _signature = ''\n"
+          "        _methods[_name] = {'signature': _signature, 'doc': (inspect.getdoc(_value) or '')[:500]}\n"
+          "print(json.dumps({'class': '%s', 'methods': _methods}, sort_keys=True))\n"), *Subject, *Subject, *MethodFilter, *MethodFilter, *Subject);
+      } else {
+        Code = FString::Printf(TEXT("import importlib, inspect, json\n"
+          "_module_name, _, _function_name = '%s'.rpartition('.')\n"
+          "_obj = getattr(importlib.import_module(_module_name), _function_name) if _module_name else getattr(__import__('%s'), _function_name)\n"
+          "try: _signature = str(inspect.signature(_obj))\n"
+          "except Exception: _signature = ''\n"
+          "print(json.dumps({'function': '%s', 'signature': _signature, 'doc': (inspect.getdoc(_obj) or '')[:2000]}, sort_keys=True))\n"), *Subject, *Subject, *Subject);
+      }
     }
 
     if (Lower == TEXT("create_editor_utility_widget")) {

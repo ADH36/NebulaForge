@@ -148,7 +148,11 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
       !Lower.StartsWith(TEXT("optimize_draw_calls")) &&
       !Lower.StartsWith(TEXT("configure_occlusion_culling")) &&
       !Lower.StartsWith(TEXT("optimize_shaders")) &&
-      !Lower.StartsWith(TEXT("configure_world_partition"))) {
+      !Lower.StartsWith(TEXT("configure_world_partition")) &&
+      !Lower.StartsWith(TEXT("start_trace")) &&
+      !Lower.StartsWith(TEXT("stop_trace")) &&
+      !Lower.StartsWith(TEXT("get_trace_status")) &&
+      !Lower.StartsWith(TEXT("add_trace_bookmark"))) {
     return false;
   }
 
@@ -165,6 +169,25 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
                         TEXT("manage_performance requires action or subAction"),
                         TEXT("INVALID_ACTION"));
     return true;
+  }
+
+  // VibeUE-compatible trace names reuse NebulaForge's existing Insights and
+  // editor bookmark implementations. Keeping the translation here means
+  // native MCP callers and the TypeScript bridge expose the same contract.
+  if (Lower == TEXT("start_trace") || Lower == TEXT("stop_trace") ||
+      Lower == TEXT("get_trace_status")) {
+    TSharedPtr<FJsonObject> TracePayload = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values) {
+      TracePayload->SetField(Pair.Key, Pair.Value);
+    }
+    const FString InsightsAction = Lower == TEXT("start_trace") ? TEXT("start_session") :
+        Lower == TEXT("stop_trace") ? TEXT("stop_session") : TEXT("get_session_status");
+    TracePayload->SetStringField(TEXT("subAction"), InsightsAction);
+    TracePayload->SetStringField(TEXT("action"), InsightsAction);
+    return HandleInsightsAction(RequestId, TEXT("manage_insights"), TracePayload, RequestingSocket);
+  }
+  if (Lower == TEXT("add_trace_bookmark")) {
+    return HandleControlEditorCreateBookmark(RequestId, Payload, RequestingSocket);
   }
 
   // ===========================================================================

@@ -159,7 +159,8 @@ export const PERFORMANCE_ACTIONS = [
   'set_scalability', 'set_resolution_scale', 'set_vsync', 'set_frame_rate_limit', 'enable_gpu_timing',
   'configure_texture_streaming', 'configure_lod', 'apply_baseline_settings', 'enable_disable_features_for_performance', 'optimize_draw_calls',
   'merge_actors', 'configure_occlusion_culling', 'optimize_shaders', 'configure_nanite',
-  'configure_world_partition', 'sign_release', 'run_packaged', 'deploy_package', 'take_photo_mode_screenshot'
+  'configure_world_partition', 'sign_release', 'run_packaged', 'deploy_package', 'take_photo_mode_screenshot',
+  'start_trace', 'stop_trace', 'get_trace_status', 'add_trace_bookmark'
 ] as const;
 
 export const BEHAVIOR_TREE_ACTIONS = [

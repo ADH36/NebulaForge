@@ -39,6 +39,25 @@ export async function handlePerformanceTools(action: string, args: HandlerArgs, 
       const res = await executeAutomationRequest(tools, TOOL_ACTIONS.STOP_PROFILING, {}) as Record<string, unknown>;
       return cleanObject(res);
     }
+    case 'start_trace':
+    case 'stop_trace':
+    case 'get_trace_status': {
+      const traceAction = action === 'start_trace' ? 'start_session' : action === 'stop_trace' ? 'stop_session' : 'get_session_status';
+      const res = await executeAutomationRequest(tools, 'manage_insights', {
+        action: traceAction,
+        subAction: traceAction,
+        channels: typeof argsRecord.channels === 'string' ? argsRecord.channels : undefined
+      }, 'Bridge unavailable') as Record<string, unknown>;
+      return cleanObject({ ...res, action, traceAction });
+    }
+    case 'add_trace_bookmark': {
+      const res = await executeAutomationRequest(tools, 'system_control', {
+        action: 'create_bookmark',
+        index: typeof argsRecord.index === 'number' ? argsRecord.index : 0,
+        label: typeof argsRecord.label === 'string' ? argsRecord.label : undefined
+      }, 'Bridge unavailable') as Record<string, unknown>;
+      return cleanObject({ ...res, action });
+    }
     case 'run_benchmark': {
       const duration = typeof argsTyped.duration === 'number' ? argsTyped.duration : 60;
       const res = await executeAutomationRequest(tools, 'run_benchmark', {

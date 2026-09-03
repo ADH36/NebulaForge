@@ -43,7 +43,11 @@ public:
 				TEXT("configure_occlusion_culling"),
 				TEXT("optimize_shaders"),
 				TEXT("configure_nanite"),
-				TEXT("configure_world_partition")
+				TEXT("configure_world_partition"),
+				TEXT("start_trace"),
+				TEXT("stop_trace"),
+				TEXT("get_trace_status"),
+				TEXT("add_trace_bookmark")
 			}, TEXT("Action"))
 			.StringEnum(TEXT("type"), {
 				TEXT("CPU"),
@@ -55,6 +59,9 @@ public:
 			}, TEXT(""))
 			.Number(TEXT("duration"), TEXT(""))
 			.String(TEXT("outputPath"), TEXT("Output file or directory path."))
+			.String(TEXT("channels"), TEXT("Comma-separated Unreal Insights trace channels."))
+			.Integer(TEXT("index"), TEXT("Editor bookmark slot used by add_trace_bookmark."))
+			.String(TEXT("label"), TEXT("Optional bookmark label."))
 			.Bool(TEXT("detailed"), TEXT(""))
 			.String(TEXT("category"), TEXT(""))
 			.String(TEXT("feature"), TEXT("Allowlisted performance feature: nanite, lumen, virtual_shadow_maps, motion_blur, depth_of_field, bloom, ambient_occlusion, or ray_tracing."))

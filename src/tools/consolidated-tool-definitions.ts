@@ -253,6 +253,13 @@ export const PCG_ACTIONS = [
 /** All MCP tool definitions registered with the server, grouped by category. */
 export const consolidatedToolDefinitions: ToolDefinition[] = [
   {
+    name: 'generate_agent_config',
+    category: 'utility',
+    description: 'Generate or refresh a managed agent guidance block for Codex, Cursor, Claude, Gemini, or Copilot.',
+    inputSchema: { type: 'object', properties: { agent: { type: 'string', enum: ['codex', 'cursor', 'claude', 'gemini', 'copilot'] }, importMode: { type: 'boolean', description: 'Use a compact import directive instead of copying the guidance block.' } } },
+    outputSchema: { type: 'object', properties: { success: { type: 'boolean' }, file: { type: 'string' }, created: { type: 'boolean' }, error: { type: 'string' }, message: { type: 'string' } } }
+  },
+  {
     name: 'list_skills',
     category: 'utility',
     description: 'List locally available lazy-loaded Unreal workflow skill packs.',

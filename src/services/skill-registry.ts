@@ -60,4 +60,31 @@ export class SkillRegistry {
     }
     return result;
   }
+
+  async generateAgentConfig(agent: unknown, importMode = false): Promise<{ file: string; created: boolean }> {
+    const normalized = typeof agent === 'string' ? agent.trim().toLowerCase() : 'codex';
+    const fileByAgent: Record<string, string> = {
+      codex: 'AGENTS.md', cursor: 'AGENTS.md', hermes: 'AGENTS.md',
+      claude: 'CLAUDE.md', claude_code: 'CLAUDE.md',
+      gemini: 'GEMINI.md', gemini_cli: 'GEMINI.md',
+      copilot: path.join('.github', 'copilot-instructions.md')
+    };
+    const file = fileByAgent[normalized];
+    if (!file) throw new Error('agent must be codex, cursor, claude, gemini, or copilot');
+    const target = path.resolve(process.cwd(), file);
+    const root = path.resolve(process.cwd());
+    if (!target.startsWith(root + path.sep)) throw new Error('agent configuration path escaped the project root');
+    const markerStart = '<!-- NEBULAFORGE_SKILLS_START -->';
+    const markerEnd = '<!-- NEBULAFORGE_SKILLS_END -->';
+    const body = importMode
+      ? `${markerStart}\n@import docs/skills/README.md\n${markerEnd}`
+      : `${markerStart}\n## NebulaForge Unreal workflow guidance\n\nUse the runtime \`list_skills\` tool before complex Unreal edits, then load only the relevant packs with \`get_skills\`. Batch related operations with \`execute_python_code\` or the consolidated domain tools. Discover Python APIs with \`discover_python_class\` before calling unfamiliar \`unreal.*\` services. Compile, save, and request verification evidence after mutations.\n${markerEnd}`;
+    let existing = '';
+    try { existing = await fs.readFile(target, 'utf8'); } catch { existing = ''; }
+    const blockPattern = new RegExp(`${markerStart}[\\s\\S]*?${markerEnd}`, 'm');
+    const updated = blockPattern.test(existing) ? existing.replace(blockPattern, body) : `${existing}${existing && !existing.endsWith('\n') ? '\n' : ''}\n${body}\n`;
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, updated, 'utf8');
+    return { file, created: existing.length === 0 };
+  }
 }

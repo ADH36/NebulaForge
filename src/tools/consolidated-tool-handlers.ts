@@ -342,6 +342,13 @@ function registerDefaultHandlers() {
     try { return { success: true, skills: await skillRegistry.get(args.skillPaths ?? args.paths) }; }
     catch (error) { return { success: false, error: 'SKILL_LOAD_FAILED', message: error instanceof Error ? error.message : 'Failed to load skills' }; }
   });
+  toolRegistry.register('generate_agent_config', async (args) => {
+    try {
+      return { success: true, ...(await skillRegistry.generateAgentConfig(args.agent ?? 'codex', args.importMode === true)) };
+    } catch (error) {
+      return { success: false, error: 'AGENT_CONFIG_FAILED', message: error instanceof Error ? error.message : 'Failed to generate agent config' };
+    }
+  });
   toolRegistry.register('manage_navigation', async (args, tools) =>
     await handleNavigationTools(getToolAction(args), args, tools));
   toolRegistry.register('manage_inventory', async (args, tools) => await handleInventoryTools(getToolAction(args), args, tools));

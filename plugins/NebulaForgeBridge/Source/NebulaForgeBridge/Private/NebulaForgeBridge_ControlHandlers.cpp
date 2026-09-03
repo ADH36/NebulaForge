@@ -5768,6 +5768,40 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("set_actor_tags") ? TEXT("Actor tags updated") : TEXT("Actor tags retrieved"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_components_by_tag")) {
+    FString TargetName;
+    FString TagValue;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("tag"), TagValue);
+    TargetName.TrimStartAndEndInline();
+    TagValue.TrimStartAndEndInline();
+    if (TargetName.IsEmpty() || TagValue.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName and tag required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    const TArray<UActorComponent*> TaggedComponents = Found->GetComponentsByTag(UActorComponent::StaticClass(), FName(*TagValue));
+    TArray<TSharedPtr<FJsonValue>> Components;
+    for (const UActorComponent *Component : TaggedComponents) {
+      if (!Component) continue;
+      TSharedPtr<FJsonObject> ComponentData = McpHandlerUtils::CreateResultObject();
+      ComponentData->SetStringField(TEXT("name"), Component->GetName());
+      ComponentData->SetStringField(TEXT("path"), Component->GetPathName());
+      ComponentData->SetStringField(TEXT("class"), Component->GetClass()->GetPathName());
+      Components.Add(MakeShared<FJsonValueObject>(ComponentData));
+    }
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetStringField(TEXT("tag"), TagValue);
+    Data->SetArrayField(TEXT("components"), Components);
+    Data->SetNumberField(TEXT("count"), Components.Num());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Tagged components retrieved"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

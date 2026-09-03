@@ -97,6 +97,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'set_hair_color', actorName: 'ContractMetaHuman', value: { r: 0.1, g: 0.05, b: 0.02, a: 1 } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_actor_tags', actorName: 'ContractMetaHuman', tags: ['Contract.Actor', 'Contract.Avatar'] }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_actor_tags', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'get_components_by_tag', actorName: 'ContractMetaHuman', tag: 'Contract.Component' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_hair_style', actorName: 'ContractMetaHuman', value: 'Short' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_eyebrow_style', actorName: 'ContractMetaHuman', value: 'Natural' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_makeup', actorName: 'ContractMetaHuman', value: 'Subtle' }, expected: 'success|error' },

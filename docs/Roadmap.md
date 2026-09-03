@@ -1652,6 +1652,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `create_targeting_component` (named façade over the supported actor-component authoring path; accepts a project-specific `componentType`, or creates a generic `UActorComponent` marker when omitted, because Epic's Gameplay Targeting System is preset/subsystem based rather than a universal component)
 - [x] `configure_lock_on_target` (marks an actor targetable and optionally records a lock-on socket using standard `AActor::Tags` metadata)
 - [x] Additional actor tag authoring: `get_actor_tags`, `set_actor_tags` (official `AActor::Tags` readback/replacement, kept distinct from registered Gameplay Tags)
+- [x] Additional component tag discovery: `get_components_by_tag` (official `AActor::GetComponentsByTag` readback with component name, path, and class)
 - [x] `set_target_priority` (replaces the actor's validated integer `TargetPriority.*` tag for project-side target sorting)
 - [x] `configure_target_switching` (persists validated cycle/nearest/manual switching metadata as standard actor tags)
 - [x] `configure_soft_lock` (persists validated 0–1 soft-lock strength metadata as standard actor tags)

@@ -5845,6 +5845,35 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Component tags updated"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_component_tags")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    if (TargetName.IsEmpty() || ComponentName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName and componentName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    UActorComponent *Component = Found ? FindComponentByName(Found, ComponentName) : nullptr;
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (!Component) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("COMPONENT_NOT_FOUND"), TEXT("Component not found"), nullptr);
+      return true;
+    }
+    TArray<TSharedPtr<FJsonValue>> TagResults;
+    for (const FName &Tag : Component->ComponentTags) TagResults.Add(MakeShared<FJsonValueString>(Tag.ToString()));
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetStringField(TEXT("componentName"), Component->GetName());
+    Data->SetArrayField(TEXT("tags"), TagResults);
+    Data->SetNumberField(TEXT("count"), TagResults.Num());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Component tags retrieved"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

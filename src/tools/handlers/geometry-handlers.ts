@@ -11,7 +11,7 @@ import type { HandlerArgs } from '../../types/handler-types.js';
 
 // Valid actions for manage_geometry tool
 // These must match C++ dispatcher in NebulaForgeBridge_GeometryHandlers.cpp
-const GEOMETRY_ACTIONS = [
+export const GEOMETRY_ACTIONS = [
   // Primitives (basic)
   'create_box', 'create_sphere', 'create_cylinder', 'create_cone', 'create_capsule',
   'create_torus', 'create_plane', 'create_disc',
@@ -59,7 +59,15 @@ const GEOMETRY_ACTIONS = [
   // Export/conversion
   'convert_to_static_mesh',
   // Utils
-  'get_mesh_info'
+  'get_mesh_info', 'get_uv_set_bounds', 'get_num_uv_islands',
+  'activate_modeling_tool', 'deactivate_modeling_tool', 'inspect_modeling_mode',
+  'unwrap_uvs', 'pack_uvs', 'inspect_geometry_capabilities',
+  // Advanced native bridge operations. These are intentionally exposed only
+  // after their TypeScript normalization/validation path is in place.
+  'create_procedural_mesh', 'append_triangle', 'append_vertex',
+  'delete_vertex', 'delete_triangle', 'get_vertex_position',
+  'set_vertex_position', 'translate_mesh', 'set_uvs', 'set_vertex_color',
+  'split_normals', 'difference'
 ] as const;
 
 type GeometryAction = (typeof GEOMETRY_ACTIONS)[number];

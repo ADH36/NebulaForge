@@ -857,6 +857,14 @@ export async function handleInspectTools(action: string, args: HandlerArgs, tool
       });
       return cleanObject(res) as Record<string, unknown>;
     }
+    case 'inspect_scene_3d': {
+      const res = await executeAutomationRequest(tools, 'inspect', {
+        action: 'inspect_scene_3d',
+        maxActors: args.maxActors,
+        includeHidden: args.includeHidden
+      }, 'Automation bridge not available for 3D scene inspection');
+      return cleanObject(res) as Record<string, unknown>;
+    }
     default: {
       // Fallback to generic automation request if action not explicitly handled
       const res = await executeAutomationRequest(tools, 'inspect', args, 'Automation bridge not available for inspect operations');

@@ -110,6 +110,7 @@
 #include "Components/ActorComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/SkyLightComponent.h"
@@ -3972,7 +3973,8 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectAction(
         LowerSubAction.Equals(TEXT("inspect_cdo")) ||
         LowerSubAction.Equals(TEXT("runtime_report")) ||
         LowerSubAction.Equals(TEXT("pie_report")) ||
-        LowerSubAction.Equals(TEXT("production_capabilities"));
+        LowerSubAction.Equals(TEXT("production_capabilities")) ||
+        LowerSubAction.Equals(TEXT("inspect_scene_3d"));
 
     // Actor actions (delegated to HandleControlActorAction)
     const bool bIsActorAction =
@@ -4060,6 +4062,149 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectAction(
     {
         TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
 
+        // ---------------------------------------------------------------------
+        // inspect_scene_3d -- compact, read-only spatial scene graph for
+        // planning agents. This deliberately avoids asset mutation and image
+        // transfer; callers can opt into screenshot capture separately.
+        // ---------------------------------------------------------------------
+        if (LowerSubAction.Equals(TEXT("inspect_scene_3d")) )
+        {
+            UWorld* World = McpGetRuntimeInspectionWorld();
+            if (!World)
+            {
+                SendAutomationError(RequestingSocket, RequestId, TEXT("No world available"), TEXT("WORLD_NOT_FOUND"));
+                return true;
+            }
+
+            double RequestedMaxActors = 200.0;
+            Payload->TryGetNumberField(TEXT("maxActors"), RequestedMaxActors);
+            const int32 MaxActors = FMath::Clamp(FMath::RoundToInt(RequestedMaxActors), 1, 1000);
+            bool bIncludeHidden = false;
+            Payload->TryGetBoolField(TEXT("includeHidden"), bIncludeHidden);
+
+            TArray<TSharedPtr<FJsonValue>> Actors;
+            TMap<FString, int32> ClassCounts;
+            FBox SceneBounds(EForceInit::ForceInit);
+            int32 TotalActorCount = 0;
+            int32 PrimitiveComponentCount = 0;
+            int32 StaticMeshComponentCount = 0;
+            int32 CollisionEnabledComponentCount = 0;
+            int32 MaterialSlotCount = 0;
+
+            auto VectorToJson = [](const FVector& Vector)
+            {
+                TSharedPtr<FJsonObject> Value = MakeShared<FJsonObject>();
+                Value->SetNumberField(TEXT("x"), Vector.X);
+                Value->SetNumberField(TEXT("y"), Vector.Y);
+                Value->SetNumberField(TEXT("z"), Vector.Z);
+                return Value;
+            };
+
+            for (TActorIterator<AActor> It(World); It; ++It)
+            {
+                AActor* Actor = *It;
+                if (!Actor || (!bIncludeHidden && Actor->IsHiddenEd()))
+                {
+                    continue;
+                }
+
+                ++TotalActorCount;
+                const FString ClassName = Actor->GetClass()->GetName();
+                ClassCounts.FindOrAdd(ClassName)++;
+                const FBox ActorBounds = Actor->GetComponentsBoundingBox(true);
+                if (ActorBounds.IsValid)
+                {
+                    SceneBounds += ActorBounds;
+                }
+
+                TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents(Actor);
+                int32 ActorStaticMeshComponents = 0;
+                int32 ActorCollisionComponents = 0;
+                int32 ActorMaterialSlots = 0;
+                for (UPrimitiveComponent* Component : PrimitiveComponents)
+                {
+                    if (!Component)
+                    {
+                        continue;
+                    }
+                    ++PrimitiveComponentCount;
+                    if (Cast<UStaticMeshComponent>(Component))
+                    {
+                        ++StaticMeshComponentCount;
+                        ++ActorStaticMeshComponents;
+                    }
+                    if (Component->GetCollisionEnabled() != ECollisionEnabled::NoCollision)
+                    {
+                        ++CollisionEnabledComponentCount;
+                        ++ActorCollisionComponents;
+                    }
+                    const int32 Slots = Component->GetNumMaterials();
+                    MaterialSlotCount += Slots;
+                    ActorMaterialSlots += Slots;
+                }
+
+                if (Actors.Num() >= MaxActors)
+                {
+                    continue;
+                }
+
+                TSharedPtr<FJsonObject> Entry = McpHandlerUtils::CreateResultObject();
+                Entry->SetStringField(TEXT("name"), Actor->GetName());
+                Entry->SetStringField(TEXT("path"), Actor->GetPathName());
+                Entry->SetStringField(TEXT("class"), ClassName);
+                Entry->SetObjectField(TEXT("location"), VectorToJson(Actor->GetActorLocation()));
+                const FRotator Rotation = Actor->GetActorRotation();
+                TSharedPtr<FJsonObject> RotationJson = McpHandlerUtils::CreateResultObject();
+                RotationJson->SetNumberField(TEXT("pitch"), Rotation.Pitch);
+                RotationJson->SetNumberField(TEXT("yaw"), Rotation.Yaw);
+                RotationJson->SetNumberField(TEXT("roll"), Rotation.Roll);
+                Entry->SetObjectField(TEXT("rotation"), RotationJson);
+                Entry->SetObjectField(TEXT("scale"), VectorToJson(Actor->GetActorScale3D()));
+                Entry->SetBoolField(TEXT("hidden"), Actor->IsHiddenEd());
+                Entry->SetNumberField(TEXT("primitiveComponentCount"), PrimitiveComponents.Num());
+                Entry->SetNumberField(TEXT("staticMeshComponentCount"), ActorStaticMeshComponents);
+                Entry->SetNumberField(TEXT("collisionEnabledComponentCount"), ActorCollisionComponents);
+                Entry->SetNumberField(TEXT("materialSlotCount"), ActorMaterialSlots);
+                if (ActorBounds.IsValid)
+                {
+                    TSharedPtr<FJsonObject> Bounds = McpHandlerUtils::CreateResultObject();
+                    Bounds->SetObjectField(TEXT("min"), VectorToJson(ActorBounds.Min));
+                    Bounds->SetObjectField(TEXT("max"), VectorToJson(ActorBounds.Max));
+                    Bounds->SetObjectField(TEXT("center"), VectorToJson(ActorBounds.GetCenter()));
+                    Bounds->SetObjectField(TEXT("extent"), VectorToJson(ActorBounds.GetExtent()));
+                    Entry->SetObjectField(TEXT("bounds"), Bounds);
+                }
+                Actors.Add(MakeShared<FJsonValueObject>(Entry));
+            }
+
+            TSharedPtr<FJsonObject> ClassCountsJson = McpHandlerUtils::CreateResultObject();
+            for (const TPair<FString, int32>& Pair : ClassCounts)
+            {
+                ClassCountsJson->SetNumberField(Pair.Key, Pair.Value);
+            }
+            Resp->SetStringField(TEXT("worldName"), World->GetName());
+            Resp->SetArrayField(TEXT("actors"), Actors);
+            Resp->SetNumberField(TEXT("actorCount"), TotalActorCount);
+            Resp->SetNumberField(TEXT("returnedActorCount"), Actors.Num());
+            Resp->SetBoolField(TEXT("truncated"), TotalActorCount > Actors.Num());
+            Resp->SetNumberField(TEXT("primitiveComponentCount"), PrimitiveComponentCount);
+            Resp->SetNumberField(TEXT("staticMeshComponentCount"), StaticMeshComponentCount);
+            Resp->SetNumberField(TEXT("collisionEnabledComponentCount"), CollisionEnabledComponentCount);
+            Resp->SetNumberField(TEXT("materialSlotCount"), MaterialSlotCount);
+            Resp->SetObjectField(TEXT("classCounts"), ClassCountsJson);
+            if (SceneBounds.IsValid)
+            {
+                TSharedPtr<FJsonObject> Bounds = McpHandlerUtils::CreateResultObject();
+                Bounds->SetObjectField(TEXT("min"), VectorToJson(SceneBounds.Min));
+                Bounds->SetObjectField(TEXT("max"), VectorToJson(SceneBounds.Max));
+                Bounds->SetObjectField(TEXT("center"), VectorToJson(SceneBounds.GetCenter()));
+                Bounds->SetObjectField(TEXT("extent"), VectorToJson(SceneBounds.GetExtent()));
+                Resp->SetObjectField(TEXT("sceneBounds"), Bounds);
+            }
+            Resp->SetBoolField(TEXT("success"), true);
+            SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("3D scene inspected"), Resp, FString());
+            return true;
+        }
         // ---------------------------------------------------------------------
         // get_project_settings
         // ---------------------------------------------------------------------

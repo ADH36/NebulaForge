@@ -831,7 +831,8 @@ export const coreToolDefinitions: ToolDefinition[] = [
             'get_metadata', 'add_tag', 'find_by_tag',
             'create_snapshot', 'restore_snapshot', 'export', 'delete_object', 'find_by_class', 'get_bounding_box',
             'get_project_settings', 'get_world_settings', 'get_viewport_info', 'get_selected_actors',
-            'get_scene_stats', 'get_performance_stats', 'get_memory_stats', 'get_editor_settings'
+            'get_scene_stats', 'get_performance_stats', 'get_memory_stats', 'get_editor_settings',
+            'inspect_scene_3d'
           ],
           description: 'Action'
         },
@@ -850,7 +851,9 @@ export const coreToolDefinitions: ToolDefinition[] = [
         blueprintPath: commonSchemas.blueprintPath,
         detailed: commonSchemas.booleanProp,
         propertyNames: commonSchemas.arrayOfStrings,
-        componentNames: commonSchemas.arrayOfStrings
+        componentNames: commonSchemas.arrayOfStrings,
+        maxActors: { type: 'integer', minimum: 1, maximum: 1000, description: 'Maximum actors returned by inspect_scene_3d (default 200).' },
+        includeHidden: { type: 'boolean', description: 'Include hidden actors in inspect_scene_3d results (default false).' }
       },
       required: ['action']
     },
@@ -871,7 +874,10 @@ export const coreToolDefinitions: ToolDefinition[] = [
         componentClass: commonSchemas.stringProp,
         count: commonSchemas.numberProp,
         objects: commonSchemas.arrayOfObjects,
-        actors: commonSchemas.arrayOfObjects
+        actors: commonSchemas.arrayOfObjects,
+        sceneBounds: commonSchemas.objectProp,
+        classCounts: commonSchemas.objectProp,
+        truncated: commonSchemas.booleanProp
       }
     }
   }

@@ -8059,6 +8059,23 @@ bool UNebulaForgeBridgeSubsystem::HandleGeometryAction(
         return false;
     }
 
+    if (Payload.IsValid() && GetStringFieldGeom(Payload, TEXT("subAction")) == TEXT("inspect_geometry_capabilities"))
+    {
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetNumberField(TEXT("engineMajorVersion"), ENGINE_MAJOR_VERSION);
+        Result->SetNumberField(TEXT("engineMinorVersion"), ENGINE_MINOR_VERSION);
+        Result->SetBoolField(TEXT("geometryScriptSupported"), MCP_HAS_FULL_GEOMETRY_SCRIPT != 0);
+        Result->SetBoolField(TEXT("proceduralMeshComponentSupported"), MCP_HAS_PROCEDURAL_MESH_COMPONENT != 0);
+        Result->SetBoolField(TEXT("modelingModeRequiresOptionalPlugin"), true);
+        Result->SetStringField(TEXT("minimumGeometryScriptVersion"), TEXT("5.1"));
+        Result->SetStringField(TEXT("guidance"), MCP_HAS_FULL_GEOMETRY_SCRIPT
+            ? TEXT("Geometry Script operations are available. Check proceduralMeshComponentSupported before section authoring.")
+            : TEXT("Geometry Script operations require Unreal Engine 5.1 or later."));
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Geometry capabilities inspected"), Result, FString());
+        return true;
+    }
+
 #if MCP_HAS_FULL_GEOMETRY_SCRIPT
 
     if (!Payload.IsValid())

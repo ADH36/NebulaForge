@@ -64,7 +64,8 @@ public:
 				TEXT("get_scene_stats"),
 				TEXT("get_performance_stats"),
 				TEXT("get_memory_stats"),
-				TEXT("get_editor_settings")
+				TEXT("get_editor_settings"),
+				TEXT("inspect_scene_3d")
 			}, TEXT("Action"))
 			.String(TEXT("objectPath"), TEXT("Asset path (e.g., /Game/Path/Asset)."))
 			.String(TEXT("propertyName"), TEXT("Name of the property."))
@@ -82,6 +83,8 @@ public:
 			.Bool(TEXT("detailed"), TEXT(""))
 			.Array(TEXT("propertyNames"), TEXT(""))
 			.Array(TEXT("componentNames"), TEXT("Component names to include detailed property readback for."))
+			.Number(TEXT("maxActors"), TEXT("Maximum actors returned by inspect_scene_3d (default 200, maximum 1000)."))
+			.Bool(TEXT("includeHidden"), TEXT("Include hidden actors in inspect_scene_3d results (default false)."))
 			.Required({TEXT("action")})
 			.Build();
 	}

@@ -2419,7 +2419,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'get_metadata', 'add_tag', 'find_by_tag',
             'create_snapshot', 'restore_snapshot', 'export', 'delete_object', 'find_by_class', 'get_bounding_box',
             'get_project_settings', 'get_world_settings', 'get_viewport_info', 'get_selected_actors',
-            'get_scene_stats', 'get_performance_stats', 'get_memory_stats', 'get_editor_settings'
+            'get_scene_stats', 'get_performance_stats', 'get_memory_stats', 'get_editor_settings',
+            'inspect_scene_3d'
           ],
           description: 'Action'
         },
@@ -2439,6 +2440,8 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         detailed: commonSchemas.booleanProp,
         propertyNames: commonSchemas.arrayOfStrings,
         componentNames: commonSchemas.arrayOfStrings
+        ,maxActors: { type: 'integer', minimum: 1, maximum: 1000, description: 'Maximum actors returned by inspect_scene_3d (default 200).' }
+        ,includeHidden: { type: 'boolean', description: 'Include hidden actors in inspect_scene_3d results (default false).' }
       },
       required: ['action']
     },
@@ -2464,6 +2467,9 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         viewTarget: commonSchemas.objectProp,
         playerCameraManager: commonSchemas.objectProp,
         worldType: commonSchemas.stringProp
+        ,sceneBounds: commonSchemas.objectProp
+        ,classCounts: commonSchemas.objectProp
+        ,truncated: commonSchemas.booleanProp
       }
     }
   },
@@ -2642,7 +2648,14 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'generate_collision', 'generate_complex_collision', 'simplify_collision',
             'generate_lods', 'set_lod_settings', 'set_lod_screen_sizes', 'convert_to_nanite',
             'convert_to_static_mesh', 'activate_modeling_tool', 'deactivate_modeling_tool', 'inspect_modeling_mode', 'get_uv_set_bounds', 'get_num_uv_islands',
-            'get_mesh_info'
+            'get_mesh_info', 'inspect_geometry_capabilities',
+            // Advanced low-level actions supported by the native bridge. Keep
+            // these visible here and in the TS handler so clients never see a
+            // schema action that the transport rejects (or vice versa).
+            'create_procedural_mesh', 'append_triangle', 'append_vertex',
+            'delete_vertex', 'delete_triangle', 'get_vertex_position',
+            'set_vertex_position', 'translate_mesh', 'set_uvs',
+            'set_vertex_color', 'split_normals', 'difference'
           ],
           description: 'Geometry action to perform'
         },

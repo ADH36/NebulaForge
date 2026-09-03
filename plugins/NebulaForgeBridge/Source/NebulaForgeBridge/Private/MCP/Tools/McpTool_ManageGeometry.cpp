@@ -125,7 +125,20 @@ public:
 				TEXT("inspect_modeling_mode"),
 				TEXT("get_uv_set_bounds"),
 				TEXT("get_num_uv_islands"),
-				TEXT("get_mesh_info")
+				TEXT("get_mesh_info"),
+				TEXT("inspect_geometry_capabilities"),
+				TEXT("create_procedural_mesh"),
+				TEXT("append_triangle"),
+				TEXT("append_vertex"),
+				TEXT("delete_vertex"),
+				TEXT("delete_triangle"),
+				TEXT("get_vertex_position"),
+				TEXT("set_vertex_position"),
+				TEXT("translate_mesh"),
+				TEXT("set_uvs"),
+				TEXT("set_vertex_color"),
+				TEXT("split_normals"),
+				TEXT("difference")
 			}, TEXT("Geometry action to perform"))
 			.String(TEXT("outputPath"), TEXT("Output file or directory path."))
 			.String(TEXT("actorName"), TEXT("Name of the actor."))

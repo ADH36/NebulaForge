@@ -238,4 +238,28 @@ describe('Inspect Handlers', () => {
       'Automation bridge not available for inspect operations'
     );
   });
+
+  it('routes bounded, read-only 3D scene inspection through the inspect bridge', async () => {
+    mockExecuteAutomationRequest.mockResolvedValue({
+      success: true,
+      actorCount: 12,
+      returnedActorCount: 5,
+      truncated: true,
+      sceneBounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 100, y: 100, z: 100 } }
+    });
+
+    const result = await handleInspectTools(
+      'inspect_scene_3d',
+      { maxActors: 5, includeHidden: true },
+      mockTools
+    );
+
+    expect(mockExecuteAutomationRequest).toHaveBeenCalledWith(
+      mockTools,
+      'inspect',
+      { action: 'inspect_scene_3d', maxActors: 5, includeHidden: true },
+      'Automation bridge not available for 3D scene inspection'
+    );
+    expect(result).toMatchObject({ success: true, actorCount: 12, truncated: true });
+  });
 });

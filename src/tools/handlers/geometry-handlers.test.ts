@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AutomationBridge } from '../../automation/index.js';
 import type { ITools } from '../../types/tool-interfaces.js';
-import { handleGeometryTools } from './geometry-handlers.js';
+import { consolidatedToolDefinitions } from '../consolidated-tool-definitions.js';
+import { GEOMETRY_ACTIONS, handleGeometryTools } from './geometry-handlers.js';
 
 type SendAutomationRequest = (
   action: string,
@@ -126,6 +127,48 @@ describe('handleGeometryTools argument normalization', () => {
       subAction: 'set_lod_settings',
       assetPath: '/Game/MCPTest/TestMesh',
       trianglePercent: 50
+    }), {});
+  });
+});
+
+describe('handleGeometryTools capability and advanced-action contracts', () => {
+  it('keeps the public schema and TypeScript dispatch allow-list in lockstep', () => {
+    const definition = consolidatedToolDefinitions.find((tool) => tool.name === 'manage_geometry');
+    const properties = definition?.inputSchema.properties as Record<string, unknown> | undefined;
+    const actionSchema = properties?.action as { enum?: unknown } | undefined;
+
+    expect([...(actionSchema?.enum as string[])].sort()).toEqual([...GEOMETRY_ACTIONS].sort());
+  });
+
+  it('forwards capability inspection without requiring an actor or asset', async () => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+
+    await handleGeometryTools('inspect_geometry_capabilities', {
+      action: 'inspect_geometry_capabilities'
+    }, tools);
+
+    expect(sendAutomationRequest).toHaveBeenCalledWith('manage_geometry', {
+      action: 'inspect_geometry_capabilities',
+      subAction: 'inspect_geometry_capabilities'
+    }, {});
+  });
+
+  it.each([
+    'activate_modeling_tool', 'deactivate_modeling_tool', 'inspect_modeling_mode',
+    'get_uv_set_bounds', 'get_num_uv_islands', 'unwrap_uvs', 'pack_uvs',
+    'create_procedural_mesh', 'append_triangle', 'append_vertex',
+    'delete_vertex', 'delete_triangle', 'get_vertex_position',
+    'set_vertex_position', 'translate_mesh', 'set_uvs', 'set_vertex_color',
+    'split_normals', 'difference'
+  ])('forwards advertised geometry action %s', async (action) => {
+    const { tools, sendAutomationRequest } = createConnectedTools();
+
+    await handleGeometryTools(action, { action }, tools);
+
+    expect(GEOMETRY_ACTIONS).toContain(action);
+    expect(sendAutomationRequest).toHaveBeenCalledWith('manage_geometry', expect.objectContaining({
+      action,
+      subAction: action
     }), {});
   });
 });

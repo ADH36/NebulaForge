@@ -1784,6 +1784,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [ ] `enable_disable_features_for_performance`
 
 ### 36.2 Ready Player Me
+
+> Capability boundary: Epic's Interchange source-data API currently documents HTTP source handling as TODO, so `load_avatar_from_url` is not claimed until the installed UE version exposes a supported URL-to-source/import path. The local `.glb` path remains implemented through the deferred Interchange-safe importer; callers can download into a project-controlled location and then use `load_avatar_from_glb`.
 - [ ] `load_avatar_from_url`
 - [x] `load_avatar_from_glb` (local `.glb` façade over the deferred Interchange importer; accepts `sourcePath` and `destinationPath`, while actor application remains a separate operation)
 - [x] `configure_avatar_component` (project-aware façade over validated `UActorComponent` creation and reflected property authoring; accepts `componentType`, `componentName`, and `properties`)

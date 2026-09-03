@@ -58,6 +58,36 @@ export async function handlePerformanceTools(action: string, args: HandlerArgs, 
       }, 'Bridge unavailable') as Record<string, unknown>;
       return cleanObject({ ...res, action });
     }
+    case 'frame_timing':
+    case 'force_hitch':
+    case 'performance_report':
+    case 'region_start':
+    case 'region_end':
+    case 'analyse_trace':
+    case 'start_standalone':
+    case 'stop_standalone':
+    case 'get_standalone_status':
+    case 'start_pie':
+    case 'stop_pie':
+    case 'set_background_throttling':
+    case 'get_background_throttling': {
+      const methodByAction: Record<string, string> = {
+        frame_timing: 'FrameTiming', force_hitch: 'ForceHitch', performance_report: 'Report',
+        region_start: 'RegionStart', region_end: 'RegionEnd', analyse_trace: 'Analyse',
+        start_standalone: 'StartStandalone', stop_standalone: 'StopStandalone',
+        get_standalone_status: 'GetStandaloneStatus', start_pie: 'StartPIE', stop_pie: 'StopPIE',
+        set_background_throttling: 'SetBackgroundThrottling', get_background_throttling: 'GetBackgroundThrottling'
+      };
+      const serviceArgs: Record<string, unknown> = { ...argsRecord };
+      delete serviceArgs.action;
+      const res = await executeAutomationRequest(tools, 'system_control', {
+        action: 'call_vibeue_service',
+        serviceName: 'PerformanceService',
+        methodName: methodByAction[action],
+        parameters: serviceArgs
+      }, 'Bridge unavailable') as Record<string, unknown>;
+      return cleanObject({ ...res, action, service: 'PerformanceService', method: methodByAction[action] });
+    }
     case 'run_benchmark': {
       const duration = typeof argsTyped.duration === 'number' ? argsTyped.duration : 60;
       const res = await executeAutomationRequest(tools, 'run_benchmark', {

@@ -47,7 +47,12 @@ public:
 				TEXT("start_trace"),
 				TEXT("stop_trace"),
 				TEXT("get_trace_status"),
-				TEXT("add_trace_bookmark")
+				TEXT("add_trace_bookmark"),
+				TEXT("frame_timing"), TEXT("force_hitch"), TEXT("performance_report"),
+				TEXT("region_start"), TEXT("region_end"), TEXT("analyse_trace"),
+				TEXT("start_standalone"), TEXT("stop_standalone"), TEXT("get_standalone_status"),
+				TEXT("start_pie"), TEXT("stop_pie"), TEXT("set_background_throttling"),
+				TEXT("get_background_throttling")
 			}, TEXT("Action"))
 			.StringEnum(TEXT("type"), {
 				TEXT("CPU"),
@@ -62,6 +67,13 @@ public:
 			.String(TEXT("channels"), TEXT("Comma-separated Unreal Insights trace channels."))
 			.Integer(TEXT("index"), TEXT("Editor bookmark slot used by add_trace_bookmark."))
 			.String(TEXT("label"), TEXT("Optional bookmark label."))
+			.Number(TEXT("targetFPS"), TEXT("Target frame rate for frame timing."))
+			.String(TEXT("thread"), TEXT("Thread to stress for force_hitch: game, render, both, or gpu."))
+			.Number(TEXT("milliseconds"), TEXT("Hitch duration in milliseconds."))
+			.Integer(TEXT("frames"), TEXT("Number of frames for force_hitch."))
+			.String(TEXT("title"), TEXT("Performance report title."))
+			.String(TEXT("source"), TEXT("Performance source: trace, logs, or both."))
+			.String(TEXT("name"), TEXT("Trace or region name."))
 			.Bool(TEXT("detailed"), TEXT(""))
 			.String(TEXT("category"), TEXT(""))
 			.String(TEXT("feature"), TEXT("Allowlisted performance feature: nanite, lumen, virtual_shadow_maps, motion_blur, depth_of_field, bloom, ambient_occlusion, or ray_tracing."))

@@ -1594,6 +1594,8 @@ bool UNebulaForgeBridgeSubsystem::HandleSystemControlAction(
       Lower != TEXT("discover_python_class") &&
       Lower != TEXT("discover_python_function") &&
       Lower != TEXT("list_python_subsystems") &&
+      Lower != TEXT("list_vibeue_services") &&
+      Lower != TEXT("call_vibeue_service") &&
       Lower != TEXT("create_editor_utility_widget") &&
       Lower != TEXT("create_editor_utility_blueprint") &&
       Lower != TEXT("create_python_editor_utility") &&
@@ -3924,6 +3926,8 @@ FMessageLog LogListing{FName(*Category)};
              Lower == TEXT("configure_python_paths") || Lower == TEXT("list_python_packages") ||
              Lower == TEXT("discover_python_module") || Lower == TEXT("discover_python_class") ||
              Lower == TEXT("discover_python_function") || Lower == TEXT("list_python_subsystems") ||
+             Lower == TEXT("list_vibeue_services") ||
+             Lower == TEXT("call_vibeue_service") ||
              Lower == TEXT("create_editor_utility_widget") || Lower == TEXT("create_editor_utility_blueprint") ||
              Lower == TEXT("create_python_editor_utility") || Lower == TEXT("register_python_command") ||
              Lower == TEXT("create_geometry_collection") ||
@@ -3952,6 +3956,62 @@ FMessageLog LogListing{FName(*Category)};
       Code = TEXT("import importlib.metadata as _m\n"
                   "_names = sorted({d.metadata.get('Name') or d.name for d in _m.distributions()})\n"
                   "print('\\n'.join(_names[:500]))\n");
+    }
+
+    if (Lower == TEXT("list_vibeue_services")) {
+      Code = TEXT("import json, unreal\n"
+                  "_names = sorted(n for n in dir(unreal) if n.endswith('Service') or n.endswith('Toolset'))\n"
+                  "print(json.dumps({'services': _names}, sort_keys=True))\n");
+    }
+
+    if (Lower == TEXT("call_vibeue_service")) {
+      FString ServiceName;
+      FString MethodName;
+      Payload->TryGetStringField(TEXT("serviceName"), ServiceName);
+      Payload->TryGetStringField(TEXT("methodName"), MethodName);
+      ServiceName.TrimStartAndEndInline();
+      MethodName.TrimStartAndEndInline();
+      auto IsPythonIdentifier = [](const FString& Value) {
+        if (Value.IsEmpty()) return false;
+        for (int32 Index = 0; Index < Value.Len(); ++Index) {
+          const TCHAR Character = Value[Index];
+          if (!(FChar::IsAlnum(Character) || Character == TEXT('_')) ||
+              (Index == 0 && FChar::IsDigit(Character))) return false;
+        }
+        return true;
+      };
+      if (!IsPythonIdentifier(ServiceName) || !IsPythonIdentifier(MethodName) ||
+          (!ServiceName.EndsWith(TEXT("Service")) && !ServiceName.EndsWith(TEXT("Toolset"))) ||
+          ServiceName.Len() > 128 || MethodName.Len() > 128) {
+        SendAutomationError(RequestingSocket, RequestId,
+                            TEXT("call_vibeue_service requires safe serviceName and methodName identifiers."),
+                            TEXT("INVALID_ARGUMENT"));
+        return true;
+      }
+
+      FString ParametersJson = TEXT("{}");
+      const TSharedPtr<FJsonObject>* ParametersObject = nullptr;
+      if (Payload->TryGetObjectField(TEXT("parameters"), ParametersObject) && ParametersObject && ParametersObject->IsValid()) {
+        const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ParametersJson);
+        FJsonSerializer::Serialize(ParametersObject->ToSharedRef(), Writer);
+        Writer->Close();
+      }
+      ServiceName.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+      ServiceName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      MethodName.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+      MethodName.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      ParametersJson.ReplaceInline(TEXT("\\"), TEXT("\\\\"));
+      ParametersJson.ReplaceInline(TEXT("'"), TEXT("\\'"));
+      Code = FString::Printf(TEXT(
+          "import json, unreal\n"
+          "_service = getattr(unreal, '%s')\n"
+          "_method = getattr(_service, '%s')\n"
+          "_result = _method(**json.loads('%s'))\n"
+          "try:\n"
+          "    print(json.dumps(_result))\n"
+          "except TypeError:\n"
+          "    print(repr(_result))\n"),
+          *ServiceName, *MethodName, *ParametersJson);
     }
 
     if (Lower == TEXT("discover_python_module") || Lower == TEXT("discover_python_class") ||

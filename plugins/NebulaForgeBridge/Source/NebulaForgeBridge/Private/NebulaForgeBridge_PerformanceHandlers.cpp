@@ -152,7 +152,14 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
       !Lower.StartsWith(TEXT("start_trace")) &&
       !Lower.StartsWith(TEXT("stop_trace")) &&
       !Lower.StartsWith(TEXT("get_trace_status")) &&
-      !Lower.StartsWith(TEXT("add_trace_bookmark"))) {
+      !Lower.StartsWith(TEXT("add_trace_bookmark")) &&
+      !Lower.StartsWith(TEXT("frame_timing")) && !Lower.StartsWith(TEXT("force_hitch")) &&
+      !Lower.StartsWith(TEXT("performance_report")) && !Lower.StartsWith(TEXT("region_start")) &&
+      !Lower.StartsWith(TEXT("region_end")) && !Lower.StartsWith(TEXT("analyse_trace")) &&
+      !Lower.StartsWith(TEXT("start_standalone")) && !Lower.StartsWith(TEXT("stop_standalone")) &&
+      !Lower.StartsWith(TEXT("get_standalone_status")) && !Lower.StartsWith(TEXT("start_pie")) &&
+      !Lower.StartsWith(TEXT("stop_pie")) && !Lower.StartsWith(TEXT("set_background_throttling")) &&
+      !Lower.StartsWith(TEXT("get_background_throttling"))) {
     return false;
   }
 
@@ -188,6 +195,33 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
   }
   if (Lower == TEXT("add_trace_bookmark")) {
     return HandleInsightsAction(RequestId, TEXT("manage_insights"), Payload, RequestingSocket);
+  }
+
+  FString VibePerformanceMethod;
+  if (Lower == TEXT("frame_timing")) VibePerformanceMethod = TEXT("FrameTiming");
+  else if (Lower == TEXT("force_hitch")) VibePerformanceMethod = TEXT("ForceHitch");
+  else if (Lower == TEXT("performance_report")) VibePerformanceMethod = TEXT("Report");
+  else if (Lower == TEXT("region_start")) VibePerformanceMethod = TEXT("RegionStart");
+  else if (Lower == TEXT("region_end")) VibePerformanceMethod = TEXT("RegionEnd");
+  else if (Lower == TEXT("analyse_trace")) VibePerformanceMethod = TEXT("Analyse");
+  else if (Lower == TEXT("start_standalone")) VibePerformanceMethod = TEXT("StartStandalone");
+  else if (Lower == TEXT("stop_standalone")) VibePerformanceMethod = TEXT("StopStandalone");
+  else if (Lower == TEXT("get_standalone_status")) VibePerformanceMethod = TEXT("GetStandaloneStatus");
+  else if (Lower == TEXT("start_pie")) VibePerformanceMethod = TEXT("StartPIE");
+  else if (Lower == TEXT("stop_pie")) VibePerformanceMethod = TEXT("StopPIE");
+  else if (Lower == TEXT("set_background_throttling")) VibePerformanceMethod = TEXT("SetBackgroundThrottling");
+  else if (Lower == TEXT("get_background_throttling")) VibePerformanceMethod = TEXT("GetBackgroundThrottling");
+  if (!VibePerformanceMethod.IsEmpty()) {
+    TSharedPtr<FJsonObject> ServicePayload = MakeShared<FJsonObject>();
+    TSharedPtr<FJsonObject> Parameters = MakeShared<FJsonObject>();
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values) {
+      if (Pair.Key != TEXT("action") && Pair.Key != TEXT("subAction")) Parameters->SetField(Pair.Key, Pair.Value);
+    }
+    ServicePayload->SetStringField(TEXT("action"), TEXT("call_vibeue_service"));
+    ServicePayload->SetStringField(TEXT("serviceName"), TEXT("PerformanceService"));
+    ServicePayload->SetStringField(TEXT("methodName"), VibePerformanceMethod);
+    ServicePayload->SetObjectField(TEXT("parameters"), Parameters);
+    return HandleSystemControlAction(RequestId, TEXT("system_control"), ServicePayload, RequestingSocket);
   }
 
   // ===========================================================================

@@ -546,7 +546,7 @@ inline const TArray<FString>& SystemControlCore()
 		TEXT("set_project_setting"), TEXT("execute_python"), TEXT("execute_python_script"), TEXT("execute_python_string"), TEXT("execute_python_file"), TEXT("configure_python_paths"), TEXT("list_python_packages"), TEXT("create_editor_utility_widget"), TEXT("create_editor_utility_blueprint"), TEXT("create_python_editor_utility"), TEXT("create_geometry_collection"), TEXT("add_geometry_to_collection"), TEXT("remove_geometry_from_collection"), TEXT("configure_geometry_collection"), TEXT("inspect_geometry_collection"), TEXT("configure_geometry_collection_component"), TEXT("create_variant_set"), TEXT("add_variant"), TEXT("configure_variant_properties"), TEXT("set_variant_dependencies"), TEXT("activate_variant"), TEXT("get_active_variants"), TEXT("capture_variant_thumbnail"), TEXT("set_variant_thumbnail"), TEXT("export_variant_configuration"), TEXT("get_ui_scale"), TEXT("set_ui_scale"), TEXT("configure_screen_reader_support"), TEXT("announce_accessible_string"), TEXT("set_screen_reader_text"), TEXT("register_python_command"), TEXT("unregister_python_command"), TEXT("run_editor_utility"), TEXT("inspect_editor_utility"),
 		TEXT("create_game_instance_subsystem"), TEXT("create_world_subsystem"),
 		TEXT("execute_python_code"), TEXT("discover_python_module"), TEXT("discover_python_class"),
-		TEXT("discover_python_function"), TEXT("list_python_subsystems"),
+		TEXT("discover_python_function"), TEXT("list_python_subsystems"), TEXT("list_vibeue_services"), TEXT("call_vibeue_service"),
 		TEXT("create_local_player_subsystem"), TEXT("create_engine_subsystem"),
 		TEXT("configure_subsystem_tick"), TEXT("get_subsystem"),
 		TEXT("inspect_subsystem"), TEXT("list_subsystems"),

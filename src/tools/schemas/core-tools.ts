@@ -604,7 +604,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
             'wait_for_job', 'cook_content', 'package_project', 'create_string_table', 'add_string_entry', 'get_localized_string', 'create_gameplay_tag', 'create_asset_validator', 'run_data_validation', 'list_plugins', 'enable_plugin', 'disable_plugin', 'get_plugin_status',
             'enable_photo_mode', 'configure_photo_mode_ui', 'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
-            'set_project_setting', 'execute_python', 'execute_python_code', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'configure_python_paths', 'list_python_packages', 'discover_python_module', 'discover_python_class', 'discover_python_function', 'list_python_subsystems', 'release_gate',
+            'set_project_setting', 'execute_python', 'execute_python_code', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'configure_python_paths', 'list_python_packages', 'discover_python_module', 'discover_python_class', 'discover_python_function', 'list_python_subsystems', 'call_vibeue_service', 'release_gate',
             'create_game_instance_subsystem', 'create_world_subsystem',
             'create_local_player_subsystem', 'create_engine_subsystem',
             'configure_subsystem_tick', 'get_subsystem', 'inspect_subsystem',
@@ -618,7 +618,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
             'create_event_dispatcher', 'bind_to_event', 'unbind_from_event', 'broadcast_event',
             'create_delegate', 'bind_delegate', 'inspect_delegate', 'list_delegate_bindings',
             'create_blueprint_interface', 'add_interface_function', 'implement_interface',
-            'get_interface_info', 'call_interface_function', 'generate_project_files', 'set_language_and_locale', 'set_locale', 'register_native_tag'
+            'get_interface_info', 'call_interface_function', 'generate_project_files', 'set_language_and_locale', 'set_locale', 'register_native_tag', 'list_vibeue_services', 'call_vibeue_service'
           ],
           description: 'Action'
         },
@@ -648,6 +648,15 @@ export const coreToolDefinitions: ToolDefinition[] = [
         pythonPaths: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 4096 }, maxItems: 64, description: 'Filesystem paths to add to the live Unreal Python interpreter sys.path.' },
         moduleName: { type: 'string', minLength: 1, maxLength: 512, description: 'Python module name for discover_python_module.' },
         methodFilter: { type: 'string', maxLength: 512, description: 'Optional substring filter for discovered class methods.' },
+        serviceName: { type: 'string', pattern: '^[A-Za-z_][A-Za-z0-9_]*(Service|Toolset)$', maxLength: 128, description: 'VibeUE Python service/toolset class exposed on the unreal module.' },
+        methodName: { type: 'string', pattern: '^[A-Za-z_][A-Za-z0-9_]*$', maxLength: 128, description: 'Callable method on the selected VibeUE service.' },
+        parameters: { type: 'object', maxProperties: 64, description: 'JSON-compatible keyword parameters passed to the service method.' },
+        targetFPS: { type: 'number', minimum: 1, maximum: 1000 },
+        thread: { type: 'string', enum: ['game', 'render', 'both', 'gpu'] },
+        milliseconds: { type: 'number', minimum: 1, maximum: 5000 },
+        frames: { type: 'integer', minimum: 1, maximum: 600 },
+        title: { type: 'string', maxLength: 256 },
+        source: { type: 'string', enum: ['trace', 'logs', 'both'] },
         uatOperation: { type: 'string', enum: ['build', 'cook', 'stage', 'package', 'archive', 'build_cook_stage_package', 'build_server', 'package_server', 'archive_server'] },
         server: commonSchemas.booleanProp,
         serverConfiguration: commonSchemas.stringProp,

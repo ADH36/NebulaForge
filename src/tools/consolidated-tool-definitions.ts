@@ -160,7 +160,10 @@ export const PERFORMANCE_ACTIONS = [
   'configure_texture_streaming', 'configure_lod', 'apply_baseline_settings', 'enable_disable_features_for_performance', 'optimize_draw_calls',
   'merge_actors', 'configure_occlusion_culling', 'optimize_shaders', 'configure_nanite',
   'configure_world_partition', 'sign_release', 'run_packaged', 'deploy_package', 'take_photo_mode_screenshot',
-  'start_trace', 'stop_trace', 'get_trace_status', 'add_trace_bookmark'
+  'start_trace', 'stop_trace', 'get_trace_status', 'add_trace_bookmark', 'frame_timing', 'force_hitch',
+  'performance_report', 'region_start', 'region_end', 'analyse_trace', 'start_standalone',
+  'stop_standalone', 'get_standalone_status', 'start_pie', 'stop_pie', 'set_background_throttling',
+  'get_background_throttling'
 ] as const;
 
 export const BEHAVIOR_TREE_ACTIONS = [
@@ -224,6 +227,8 @@ export const INPUT_ACTIONS = [
   'add_input_mapping', 'remove_input_mapping', 'add_mapping_modifier',
   'add_mapping_trigger', 'inspect_input_asset'
 ] as const;
+
+export const VIBEUE_SERVICE_ACTIONS = ['list_vibeue_services', 'call_vibeue_service'] as const;
 
 export const VOLUME_ACTIONS = [
   'create_trigger_volume', 'add_trigger_volume', 'create_trigger_box', 'create_trigger_sphere',
@@ -1979,10 +1984,10 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'wait_for_job', 'cook_content', 'package_project', 'create_string_table', 'add_string_entry', 'get_localized_string', 'set_culture', 'set_language_and_locale', 'set_locale', 'create_gameplay_tag', 'create_asset_validator', 'run_data_validation', 'list_plugins', 'enable_plugin', 'disable_plugin', 'get_plugin_status', 'configure_plugin_settings',
             'enable_photo_mode', 'play_sound', 'create_widget', 'show_widget', 'add_widget_child',
             'set_cvar', 'get_project_settings', 'validate_assets',
-            'set_project_setting', 'execute_python', 'execute_python_code', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'configure_python_paths', 'list_python_packages', 'discover_python_module', 'discover_python_class', 'discover_python_function', 'list_python_subsystems', 'create_editor_utility_widget', 'create_editor_utility_blueprint', 'create_python_editor_utility', 'create_geometry_collection', 'add_geometry_to_collection', 'remove_geometry_from_collection', 'configure_geometry_collection', 'inspect_geometry_collection', 'configure_geometry_collection_component', 'create_variant_set', 'add_variant', 'configure_variant_properties', 'set_variant_dependencies', 'activate_variant', 'get_active_variants', 'capture_variant_thumbnail', 'set_variant_thumbnail', 'export_variant_configuration', 'get_ui_scale', 'set_ui_scale', 'configure_screen_reader_support', 'announce_accessible_string', 'set_screen_reader_text', 'register_python_command', 'unregister_python_command', 'run_editor_utility', 'inspect_editor_utility', 'release_gate'
+            'set_project_setting', 'execute_python', 'execute_python_code', 'execute_python_script', 'execute_python_string', 'execute_python_file', 'configure_python_paths', 'list_python_packages', 'discover_python_module', 'discover_python_class', 'discover_python_function', 'list_python_subsystems', 'call_vibeue_service', 'create_editor_utility_widget', 'create_editor_utility_blueprint', 'create_python_editor_utility', 'create_geometry_collection', 'add_geometry_to_collection', 'remove_geometry_from_collection', 'configure_geometry_collection', 'inspect_geometry_collection', 'configure_geometry_collection_component', 'create_variant_set', 'add_variant', 'configure_variant_properties', 'set_variant_dependencies', 'activate_variant', 'get_active_variants', 'capture_variant_thumbnail', 'set_variant_thumbnail', 'export_variant_configuration', 'get_ui_scale', 'set_ui_scale', 'configure_screen_reader_support', 'announce_accessible_string', 'set_screen_reader_text', 'register_python_command', 'unregister_python_command', 'run_editor_utility', 'inspect_editor_utility', 'release_gate'
           ,
             'compile_shaders', 'create_device_profile', 'set_cvar_for_profile', 'configure_build_settings', 'configure_platform_settings', 'configure_plugin_settings', 'configure_windows_build', 'configure_linux_build', 'configure_mac_build', 'configure_ios_build', 'configure_android_build', 'configure_android_signing', 'configure_ios_signing', 'configure_chunking', 'create_pak_file', 'configure_compression', 'configure_asset_encryption', 'create_test_level', 'configure_test_settings', 'configure_demo_settings', 'configure_localization_target', 'import_localization', 'export_localization', 'run_gauntlet_test', 'create_build_target', 'generate_project_files', 'register_native_tag',
-            ...PERFORMANCE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
+            ...PERFORMANCE_ACTIONS, ...VIBEUE_SERVICE_ACTIONS, ...SUBSYSTEM_ACTIONS, ...ASYNC_TIMER_ACTIONS, ...DELEGATE_INTERFACE_ACTIONS],
           description: 'Action'
         },
         profileType: commonSchemas.stringProp,
@@ -2149,7 +2154,10 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         code: { type: 'string', description: 'Python code to execute inline', maxLength: 1048576 }, // 1MB max — prevents resource exhaustion via oversized payloads
         file: { type: 'string', description: 'Path to .py file to execute', maxLength: 4096 }, // Max path length on most OS
         pythonPaths: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 4096 }, maxItems: 64, description: 'Filesystem paths to add to the live Unreal Python interpreter sys.path.' },
-        methodFilter: { type: 'string', maxLength: 512, description: 'Optional substring filter for discovered class methods.' }
+        methodFilter: { type: 'string', maxLength: 512, description: 'Optional substring filter for discovered class methods.' },
+        serviceName: { type: 'string', pattern: '^[A-Za-z_][A-Za-z0-9_]*(Service|Toolset)$', maxLength: 128, description: 'VibeUE Python service/toolset class exposed on the unreal module.' },
+        methodName: { type: 'string', pattern: '^[A-Za-z_][A-Za-z0-9_]*$', maxLength: 128, description: 'Callable method on the selected VibeUE service.' },
+        parameters: { type: 'object', maxProperties: 64, description: 'JSON-compatible keyword parameters passed to the service method.' }
       ,
         mode: screenshotModeSchema,
         returnBase64: { type: 'boolean', description: 'Return PNG image data as base64 when supported. Defaults to true for full_editor_window and game_viewport screenshot modes.' },
@@ -2195,6 +2203,12 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         saveAsset: commonSchemas.booleanProp,
         type: { type: 'string', enum: ['CPU', 'GPU', 'Memory', 'RenderThread', 'GameThread', 'All'] },
         duration: commonSchemas.numberProp,
+        targetFPS: { type: 'number', minimum: 1, maximum: 1000 },
+        thread: { type: 'string', enum: ['game', 'render', 'both', 'gpu'] },
+        milliseconds: { type: 'number', minimum: 1, maximum: 5000 },
+        frames: { type: 'integer', minimum: 1, maximum: 600 },
+        title: { type: 'string', maxLength: 256 },
+        source: { type: 'string', enum: ['trace', 'logs', 'both'] },
         outputPath: commonSchemas.outputPath,
         detailed: commonSchemas.booleanProp,
         scale: commonSchemas.numberProp,

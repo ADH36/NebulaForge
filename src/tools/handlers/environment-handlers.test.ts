@@ -745,4 +745,26 @@ describe('world recipe orchestration contract', () => {
       }), 'Automation bridge not available for landscape and foliage authoring operations'
     );
   });
+
+  it('forwards sculpt toolMode values like Smooth unchanged', async () => {
+    expect(getBuildEnvironmentProperties()).toHaveProperty('toolMode');
+    await handleEnvironmentTools('sculpt_landscape', {
+      action: 'sculpt_landscape',
+      landscapeName: 'Landscape_A',
+      location: { x: 100, y: 200, z: 50 },
+      tool: 'Smooth',
+      radius: 800,
+      strength: 0.4
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'sculpt_landscape', expect.objectContaining({
+        tool: 'Smooth',
+        toolMode: 'Smooth',
+        radius: 800,
+        brushRadius: 800,
+        strength: 0.4
+      })
+    );
+  });
 });

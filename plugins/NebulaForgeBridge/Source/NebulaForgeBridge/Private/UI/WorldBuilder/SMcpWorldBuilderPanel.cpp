@@ -4,6 +4,7 @@
 
 #include "UI/WorldBuilder/SMcpWorldBuilderPanel.h"
 
+#include "Brush/McpWorldBrushWidget.h"
 #include "Editor.h"
 #include "McpHandlerUtils.h"
 #include "NebulaForgeBridgeSubsystem.h"
@@ -350,6 +351,29 @@ void SMcpWorldBuilderPanel::Construct(const FArguments &InArgs)
                                                           ErosionIterations = NewValue;
                                                       })
                           ]
+                    ]
+
+                    // --- Interactive brush ----------------------------------
+                    + SVerticalBox::Slot()
+                    .AutoHeight()
+                    .Padding(0.0f, 8.0f, 0.0f, 2.0f)
+                    [
+                        SNew(SSeparator)
+                    ]
+                  + SVerticalBox::Slot()
+                    .AutoHeight()
+                    .Padding(0.0f, 4.0f, 0.0f, 2.0f)
+                    [
+                        SNew(STextBlock)
+                        .Text(LOCTEXT("BrushHeader", "Interactive Brush"))
+                        .Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
+                    ]
+                  + SVerticalBox::Slot()
+                    .AutoHeight()
+                    .Padding(0.0f, 2.0f)
+                    [
+                        // Shared controls with the brush mode toolkit.
+                        MakeMcpWorldBrushSettingsWidget()
                     ]
 
                     // --- Generate -------------------------------------------

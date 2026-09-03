@@ -77,6 +77,7 @@ public:
 			})
 			.String(TEXT("materialPath"), TEXT("Material asset path."))
 			.String(TEXT("tool"), TEXT(""))
+			.StringEnum(TEXT("toolMode"), { TEXT("Raise"), TEXT("Lower"), TEXT("Flatten"), TEXT("Smooth") }, TEXT("Landscape sculpt tool mode."))
 			.Number(TEXT("radius"), TEXT(""))
 			.Number(TEXT("strength"), TEXT(""))
 			.Number(TEXT("falloff"), TEXT(""))

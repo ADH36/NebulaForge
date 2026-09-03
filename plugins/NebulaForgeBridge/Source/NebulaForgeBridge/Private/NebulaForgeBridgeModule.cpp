@@ -3,6 +3,7 @@
 #include "NebulaForgeBridgeSettings.h"
 
 #include "AI/UI/NebulaForgeAITabManager.h"
+#include "Brush/McpWorldBrushEdMode.h"
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 #include "NebulaForgeAIService.h"
@@ -46,6 +47,10 @@ public:
         // World-builder recipe panel (generate_world orchestration UI).
         FMcpWorldBuilderTabManager::RegisterTabSpawner();
 
+        // Interactive world brush editor mode (Raise/Lower/Flatten/Smooth,
+        // layer paint, foliage scatter strokes).
+        FMcpWorldBrushEdMode::RegisterMode();
+
         UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(
             this, &FNebulaForgeBridgeModule::RegisterStatusBarWidget));
 #endif
@@ -63,6 +68,7 @@ public:
         UE_LOG(LogNebulaForgeBridge, Log, TEXT("NebulaForge Bridge module shut down."));
 
 #if WITH_EDITOR
+        FMcpWorldBrushEdMode::UnregisterMode();
         FMcpWorldBuilderTabManager::UnregisterTabSpawner();
         FNebulaForgeAITabManager::UnregisterTabSpawner();
         FNebulaForgeAIService::Get().Shutdown();

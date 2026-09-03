@@ -11,3 +11,10 @@ one call orchestrates landscape + seeded terrain (+erosion) + rule-based layer p
 PASS/PARTIAL/FAIL evidence. Same seed and preset regenerate deterministically; pass
 `reuseExistingLandscape: true` to rebuild terrain on an existing landscape.
 
+For interactive work, use the World Brush editor mode (Modes panel, or the Brush
+section of the Generate World tab): Raise, Lower, Flatten, and Smooth height
+strokes, additive layer painting, and accumulating HISM foliage scatter, all with
+radius/strength/falloff controls. Programmatic single dabs stay available through
+`sculpt_landscape` (toolMode Raise/Lower/Flatten/Smooth), `paint_landscape_layer`,
+and `scatter_landscape_foliage`.
+

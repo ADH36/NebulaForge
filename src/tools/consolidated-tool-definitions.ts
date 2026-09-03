@@ -1422,6 +1422,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         componentCount: commonSchemas.vector2,
         materialPath: commonSchemas.materialPath,
         tool: commonSchemas.stringProp,
+        toolMode: { type: 'string', enum: ['Raise', 'Lower', 'Flatten', 'Smooth'], description: 'Landscape sculpt tool mode.' },
         radius: commonSchemas.numberProp,
         strength: commonSchemas.numberProp,
         falloff: commonSchemas.numberProp,

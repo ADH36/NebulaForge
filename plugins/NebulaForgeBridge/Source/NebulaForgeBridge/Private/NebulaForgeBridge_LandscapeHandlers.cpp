@@ -62,7 +62,7 @@
 //
 // sculpt_landscape:
 //   Payload:  { "landscapePath"?: string, "landscapeName"?: string,
-//               "location"|"position": {x,y,z}, "toolMode"?: "Raise"|"Lower"|"Flatten",
+//               "location"|"position": {x,y,z}, "toolMode"?: "Raise"|"Lower"|"Flatten"|"Smooth",
 //               "brushRadius"?: number(1000), "brushFalloff"?: number(0.5),
 //               "strength"?: number(0.1), "skipFlush"?: bool }
 //   Response: { "success": bool, "toolMode": string, "modifiedVertices": int }
@@ -1475,6 +1475,28 @@ bool UNebulaForgeBridgeSubsystem::HandleSculptLandscape(
                                 0);
 
     bool bModified = false;
+    // Smooth pass target: region average of the current heights, computed
+    // before blending so the result does not depend on visit order.
+    double SmoothAverage = 0.0;
+    int32 SmoothSamples = 0;
+    if (ToolMode.Equals(TEXT("Smooth"), ESearchCase::IgnoreCase)) {
+      for (int32 Y = MinY; Y <= MaxY; ++Y) {
+        for (int32 X = MinX; X <= MaxX; ++X) {
+          float Dist = FMath::Sqrt(FMath::Square((float)(X - CenterX)) +
+                                   FMath::Square((float)(Y - CenterY)));
+          if (Dist > RadiusVerts)
+            continue;
+          int32 AvgIndex = (Y - MinY) * SizeX + (X - MinX);
+          if (AvgIndex < 0 || AvgIndex >= HeightData.Num())
+            continue;
+          SmoothAverage += HeightData[AvgIndex];
+          ++SmoothSamples;
+        }
+      }
+      if (SmoothSamples > 0) {
+        SmoothAverage /= SmoothSamples;
+      }
+    }
     for (int32 Y = MinY; Y <= MaxY; ++Y) {
       for (int32 X = MinX; X <= MaxX; ++X) {
         float Dist = FMath::Sqrt(FMath::Square((float)(X - CenterX)) +
@@ -1510,6 +1532,10 @@ bool UNebulaForgeBridgeSubsystem::HandleSculptLandscape(
                              ScaleZ * 128.0f +
                          32768.0f;
           Delta = (Target - CurrentVal) * Strength * Alpha;
+        } else if (ToolMode.Equals(TEXT("Smooth"), ESearchCase::IgnoreCase)) {
+          if (SmoothSamples > 0) {
+            Delta = ((float)SmoothAverage - (float)CurrentHeight) * Strength * Alpha;
+          }
         }
 
         int32 NewHeight =

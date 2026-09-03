@@ -6070,6 +6070,25 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Actor owner retrieved"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_actor_default_label")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    TargetName.TrimStartAndEndInline();
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetStringField(TEXT("defaultLabel"), Found->GetDefaultActorLabel());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Actor default label retrieved"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_actor_editor_visibility") || LowerSub == TEXT("set_actor_editor_visibility")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

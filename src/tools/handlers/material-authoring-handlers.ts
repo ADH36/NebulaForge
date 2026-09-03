@@ -128,7 +128,8 @@ export async function handleMaterialAuthoringTools(
       }
 
       // Set the shading model (DefaultLit, Unlit, Subsurface, etc.)
-      case 'set_shading_model': {
+      case 'set_shading_model':
+      case 'set_material_shading_model': {
         const params = normalizeArgs(args, [
           { key: 'assetPath', aliases: ['materialPath', 'instancePath'], required: true },
           { key: 'shadingModel', required: true },
@@ -1440,7 +1441,8 @@ export async function handleMaterialAuthoringTools(
       }
 
       // Set two-sided property
-      case 'set_two_sided': {
+      case 'set_two_sided':
+      case 'set_material_two_sided': {
         const params = normalizeArgs(args, [
           { key: 'assetPath', aliases: ['materialPath'], required: true },
           { key: 'twoSided', aliases: ['enabled'], default: true },

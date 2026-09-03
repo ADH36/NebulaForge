@@ -528,7 +528,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageMaterialAuthoringAction(
   // --------------------------------------------------------------------------
   // set_shading_model
   // --------------------------------------------------------------------------
-  if (SubAction == TEXT("set_shading_model")) {
+  if (SubAction == TEXT("set_shading_model") || SubAction == TEXT("set_material_shading_model")) {
     FString AssetPath, ShadingModel;
     if (!Payload->TryGetStringField(TEXT("assetPath"), AssetPath) ||
         AssetPath.IsEmpty()) {
@@ -4772,7 +4772,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
   // --------------------------------------------------------------------------
   // set_two_sided
   // --------------------------------------------------------------------------
-  if (SubAction == TEXT("set_two_sided")) {
+  if (SubAction == TEXT("set_two_sided") || SubAction == TEXT("set_material_two_sided")) {
     FString AssetPath;
     if (!Payload->TryGetStringField(TEXT("assetPath"), AssetPath) || AssetPath.IsEmpty()) {
       SendAutomationError(Socket, RequestId, TEXT("Missing 'assetPath'."), TEXT("INVALID_ARGUMENT"));

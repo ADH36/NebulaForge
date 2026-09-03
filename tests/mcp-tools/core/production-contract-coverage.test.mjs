@@ -85,6 +85,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'configure_hair_collision', actorName: 'ContractAvatar', componentName: 'Groom', properties: { EnableCollision: true } }, expected: 'success|error' },
   { toolName: 'manage_material_authoring', arguments: { action: 'set_hair_roughness', assetPath: '/Game/ContractHairMaterialInstance', value: 0.35 }, expected: 'success|error' },
   { toolName: 'manage_material_authoring', arguments: { action: 'set_material_blend_mode', assetPath: '/Game/ContractMaterial', blendMode: 'Masked' }, expected: 'success|error' },
+  { toolName: 'manage_material_authoring', arguments: { action: 'set_material_shading_model', assetPath: '/Game/ContractMaterial', shadingModel: 'DefaultLit' }, expected: 'success|error' },
+  { toolName: 'manage_material_authoring', arguments: { action: 'set_material_two_sided', assetPath: '/Game/ContractMaterial', twoSided: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_lod_settings', actorName: 'ContractMetaHuman', componentName: 'Face', forcedLodModel: 1, minLod: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_body_type', actorName: 'ContractMetaHuman', bodyType: 'Athletic' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_body_type', actorName: 'ContractMetaHuman', bodyType: 'Athletic' }, expected: 'success|error' },

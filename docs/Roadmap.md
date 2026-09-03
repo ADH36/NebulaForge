@@ -259,6 +259,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 8.1 Material Creation
 - [x] `create_material` (surface, deferred_decal, light_function, post_process, UI, volume)
 - [x] `set_blend_mode` (opaque, masked, translucent, additive, modulate)
+- [x] Additional explicit material aliases: `set_material_shading_model`, `set_material_two_sided` (map to the official material authoring handlers)
 - [x] `set_shading_model` (default_lit, unlit, subsurface, clear_coat, two_sided_foliage, hair, eye, cloth)
 - [x] `set_material_domain` (surface, deferred_decal, light_function, post_process, UI, volume)
 

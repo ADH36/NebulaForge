@@ -98,7 +98,7 @@ inline const TArray<FString>& MaterialAuthoring()
 {
 	static const TArray<FString> Actions = {
 		TEXT("create_material"), TEXT("set_blend_mode"), TEXT("set_material_blend_mode"),
-		TEXT("set_shading_model"), TEXT("set_material_domain"),
+		TEXT("set_shading_model"), TEXT("set_material_shading_model"), TEXT("set_material_domain"),
 		TEXT("add_texture_sample"), TEXT("add_texture_coordinate"),
 		TEXT("add_scalar_parameter"), TEXT("add_vector_parameter"),
 		TEXT("add_static_switch_parameter"), TEXT("add_math_node"),
@@ -123,7 +123,7 @@ inline const TArray<FString>& MaterialAuthoring()
 		TEXT("get_connected_subgraph"), TEXT("add_material_node"),
 		TEXT("rebuild_material"), TEXT("set_material_parameter"),
 		TEXT("get_material_node_details"), TEXT("remove_material_node"),
-		TEXT("set_two_sided")
+		TEXT("set_two_sided"), TEXT("set_material_two_sided")
 	};
 	return Actions;
 }

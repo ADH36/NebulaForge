@@ -5913,6 +5913,36 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("add_component_tag") ? TEXT("Component tag added") : TEXT("Component tag removed"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_actor_folder_path") || LowerSub == TEXT("set_actor_folder_path")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    TargetName.TrimStartAndEndInline();
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("set_actor_folder_path")) {
+      FString FolderPath;
+      if (!Payload->TryGetStringField(TEXT("folderPath"), FolderPath)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("folderPath required"), nullptr);
+        return true;
+      }
+      FolderPath.TrimStartAndEndInline();
+      Found->Modify();
+      Found->SetFolderPath(FName(*FolderPath));
+      Found->MarkPackageDirty();
+    }
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetStringField(TEXT("folderPath"), Found->GetFolderPath().ToString());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("set_actor_folder_path") ? TEXT("Actor folder path updated") : TEXT("Actor folder path retrieved"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

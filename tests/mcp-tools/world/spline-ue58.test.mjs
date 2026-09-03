@@ -11,6 +11,7 @@ const suffix = Date.now();
 const actorName = `MCP_UE58_Spline_${suffix}`;
 const closedActorName = `MCP_UE58_Closed_${suffix}`;
 const conformActorName = `MCP_UE58_Conform_${suffix}`;
+const gradeActorName = `MCP_UE58_Grade_${suffix}`;
 const levelPath = `/Game/MCPTest/UE58Spline_${suffix}`;
 const meshPath = '/Engine/EngineMeshes/Cube';
 const route = [
@@ -198,6 +199,45 @@ runner.addStep('conform a road spline to the landscape and subdivide long segmen
   return true;
 });
 
+runner.addStep('clamp a near-vertical road route to the requested grade limit', async (tools) => {
+  // Horizontal travel is 2000uu while Z climbs 12000uu, so without clamping
+  // every segment would be near-vertical (the classic bad-Z-input road).
+  const createResponse = await tools.executeTool('build_environment', {
+    action: 'create_road_spline', actorName: gradeActorName,
+    coordinateSpace: 'World',
+    points: [
+      { x: 0, y: 4000, z: 0 },
+      { x: 1000, y: 4000, z: 6000 },
+      { x: 2000, y: 4000, z: 12000 }
+    ],
+    conformToLandscape: false,
+    maxSlopeDegrees: 45
+  });
+  const result = ensureSuccess(createResponse, 'create grade-limited road');
+  if (Number(result.slopeClampedPoints) < 1) {
+    throw new Error(`near-vertical route was not clamped: ${JSON.stringify(result)}`);
+  }
+  if (Number(result.maxSegmentSlopeDegrees) > 45.5) {
+    throw new Error(`route still exceeds the grade limit: ${JSON.stringify(result)}`);
+  }
+  if (!Array.isArray(result.warnings) || result.warnings.length < 1) {
+    throw new Error(`steep-route warnings were not reported: ${JSON.stringify(result)}`);
+  }
+  const inspect = await tools.executeTool('build_environment', {
+    action: 'inspect_spline_points', actorName: gradeActorName, coordinateSpace: 'World'
+  });
+  const inspected = ensureSuccess(inspect, 'inspect grade-limited road');
+  const points = inspected.points.map(pointOf);
+  for (let i = 1; i < points.length; i++) {
+    const dz = Math.abs(Number(points[i].z) - Number(points[i - 1].z));
+    const horizontal = Math.max(Math.abs(Number(points[i].x) - Number(points[i - 1].x)), 1);
+    if (dz > horizontal * Math.tan((45.5 * Math.PI) / 180)) {
+      throw new Error(`inspected route exceeds the grade limit between points ${i - 1} and ${i}: dz=${dz}`);
+    }
+  }
+  return true;
+});
+
 runner.addStep('save, reload, and verify route persistence', async (tools) => {
   ensureSuccess(await tools.executeTool('manage_level', {
     action: 'save_level_as', path: levelPath
@@ -220,6 +260,7 @@ runner.addStep('clear generated segments and delete temporary actors', async (to
   ensureSuccess(await tools.executeTool('control_actor', { action: 'delete', actorName }), 'delete open spline');
   ensureSuccess(await tools.executeTool('control_actor', { action: 'delete', actorName: closedActorName }), 'delete closed spline');
   ensureSuccess(await tools.executeTool('control_actor', { action: 'delete', actorName: conformActorName }), 'delete conformed spline');
+  ensureSuccess(await tools.executeTool('control_actor', { action: 'delete', actorName: gradeActorName }), 'delete grade-limited spline');
   return true;
 });
 

@@ -1642,6 +1642,7 @@ export interface SplinesArgs extends HandlerArgs {
     conformToLandscape?: boolean;
     surfaceOffset?: number;
     maxPointSpacing?: number;
+    maxSlopeDegrees?: number;
     postSpacing?: number;
     railHeight?: number;
     pipeRadius?: number;

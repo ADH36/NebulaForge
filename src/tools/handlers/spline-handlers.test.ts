@@ -91,6 +91,43 @@ describe('UE 5.8 spline routing contract', () => {
     );
   });
 
+  it('forwards grade limiting for near-vertical route protection', async () => {
+    await handleSplineTools('create_road_spline', {
+      action: 'create_road_spline',
+      actorName: 'UE58GradeLimitedRoad',
+      coordinateSpace: 'World',
+      points: [
+        { location: { x: 0, y: 0, z: 0 } },
+        { location: { x: 100, y: 0, z: 9000 } }
+      ],
+      maxSlopeDegrees: 45
+    }, tools);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      'manage_splines',
+      expect.objectContaining({
+        subAction: 'create_road_spline',
+        maxSlopeDegrees: 45
+      }),
+      expect.any(Object)
+    );
+
+    await handleSplineTools('conform_spline_to_landscape', {
+      action: 'conform_spline_to_landscape',
+      actorName: 'UE58GradeLimitedRoad',
+      maxSlopeDegrees: 60
+    }, tools);
+
+    expect(executeAutomationRequestMock).toHaveBeenLastCalledWith(
+      'manage_splines',
+      expect.objectContaining({
+        subAction: 'conform_spline_to_landscape',
+        maxSlopeDegrees: 60
+      }),
+      expect.any(Object)
+    );
+  });
+
   it('exposes the UE 5.8 spline fields and actions in build_environment', () => {
     const definition = consolidatedToolDefinitions.find(tool => tool.name === 'build_environment');
     const schema = definition?.inputSchema as {
@@ -111,6 +148,7 @@ describe('UE 5.8 spline routing contract', () => {
     expect(schema?.properties).toHaveProperty('conformToLandscape');
     expect(schema?.properties).toHaveProperty('surfaceOffset');
     expect(schema?.properties).toHaveProperty('maxPointSpacing');
+    expect(schema?.properties).toHaveProperty('maxSlopeDegrees');
     expect(schema?.properties).toHaveProperty('maxSegmentLength');
     expect(schema?.properties).toHaveProperty('projectToSurface');
     expect(schema?.properties).toHaveProperty('snapToLandscape');

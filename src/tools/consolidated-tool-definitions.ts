@@ -1500,6 +1500,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         leaveTangent: commonSchemas.location,
         conformToLandscape: { type: 'boolean', description: 'Project spline points onto the landscape surface (default: true for road/path templates).' },
         maxPointSpacing: { type: 'number', description: 'Densify the route with curve samples at this spacing before conforming (0 = keep points).' },
+        maxSlopeDegrees: { type: 'number', description: 'Clamp route Z so no segment is steeper than this grade in degrees (default: 60 for road/path templates, 0 = disabled). Warns on remaining steep segments.' },
         maxSegmentLength: { type: 'number', description: 'Split over-length spline segments into distance-sampled sub-segments (0 = one mesh per segment).' },
         projectToSurface: { type: 'boolean', description: 'Project scattered meshes onto the landscape surface.' },
         snapToLandscape: { type: 'boolean', description: 'Snap generated buildings onto the landscape surface (default: true).' },

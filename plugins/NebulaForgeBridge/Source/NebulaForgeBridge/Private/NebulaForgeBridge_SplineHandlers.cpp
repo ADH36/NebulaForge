@@ -2414,6 +2414,151 @@ static bool ConformSplinePointsToLandscape(
     return true;
 }
 
+// Evaluates the grade between adjacent spline points in world space. Reports
+// the steepest segment slope in degrees and how many segments exceed
+// ThresholdDegrees (near-vertical detection).
+static void EvaluateSplineGrades(
+    USplineComponent* SplineComp,
+    double ThresholdDegrees,
+    double& OutMaxSlopeDegrees,
+    int32& OutSteepSegmentCount)
+{
+    OutMaxSlopeDegrees = 0.0;
+    OutSteepSegmentCount = 0;
+    if (!SplineComp)
+    {
+        return;
+    }
+    const int32 PointCount = SplineComp->GetNumberOfSplinePoints();
+    if (PointCount < 2)
+    {
+        return;
+    }
+    const bool bClosedLoop = SplineComp->IsClosedLoop();
+    const int32 PairCount = bClosedLoop ? PointCount : PointCount - 1;
+    for (int32 PairIndex = 0; PairIndex < PairCount; ++PairIndex)
+    {
+        const FVector P0 = SplineComp->GetLocationAtSplinePoint(PairIndex, ESplineCoordinateSpace::World);
+        const FVector P1 = SplineComp->GetLocationAtSplinePoint((PairIndex + 1) % PointCount, ESplineCoordinateSpace::World);
+        // Below 1cm of horizontal travel a segment is effectively vertical;
+        // clamping the divisor keeps atan finite instead of dividing by zero.
+        const double Horizontal = FMath::Max(
+            FVector2D::Distance(FVector2D(P0.X, P0.Y), FVector2D(P1.X, P1.Y)), 1.0);
+        const double SlopeDegrees = FMath::RadiansToDegrees(
+            FMath::Atan(FMath::Abs(P1.Z - P0.Z) / Horizontal));
+        OutMaxSlopeDegrees = FMath::Max(OutMaxSlopeDegrees, SlopeDegrees);
+        if (SlopeDegrees > ThresholdDegrees)
+        {
+            ++OutSteepSegmentCount;
+        }
+    }
+}
+
+// Clamps vertical variance between adjacent spline points so routes keep a
+// traversable grade even when caller-supplied Z values (or a missing
+// landscape under the route) would otherwise produce near-vertical segments.
+// X/Y layout is never modified; only Z values are pulled toward the grade
+// limit through forward/backward sweeps. Returns how many points moved and
+// the steepest slope observed before clamping.
+static void ClampSplineRouteSlope(
+    USplineComponent* SplineComp,
+    double MaxSlopeDegrees,
+    int32& OutClampedPoints,
+    double& OutMaxSlopeBeforeDegrees)
+{
+    OutClampedPoints = 0;
+    OutMaxSlopeBeforeDegrees = 0.0;
+    if (!SplineComp || MaxSlopeDegrees <= 0.0 || MaxSlopeDegrees >= 90.0)
+    {
+        return;
+    }
+    const int32 PointCount = SplineComp->GetNumberOfSplinePoints();
+    if (PointCount < 2)
+    {
+        return;
+    }
+
+    SplineComp->UpdateSpline();
+    const bool bClosedLoop = SplineComp->IsClosedLoop();
+    const int32 PairCount = bClosedLoop ? PointCount : PointCount - 1;
+    const double MaxGrade = FMath::Tan(FMath::Clamp(
+        FMath::DegreesToRadians(MaxSlopeDegrees), 0.0, UE_DOUBLE_HALF_PI - KINDA_SMALL_NUMBER));
+
+    TArray<FVector> WorldPoints;
+    WorldPoints.SetNum(PointCount);
+    for (int32 Index = 0; Index < PointCount; ++Index)
+    {
+        WorldPoints[Index] = SplineComp->GetLocationAtSplinePoint(Index, ESplineCoordinateSpace::World);
+    }
+
+    auto PairGrades = [&WorldPoints, PointCount](int32 PairIndex, double& OutHorizontal, double& OutDz)
+    {
+        const FVector& P0 = WorldPoints[PairIndex];
+        const FVector& P1 = WorldPoints[(PairIndex + 1) % PointCount];
+        OutHorizontal = FMath::Max(
+            FVector2D::Distance(FVector2D(P0.X, P0.Y), FVector2D(P1.X, P1.Y)), 1.0);
+        OutDz = P1.Z - P0.Z;
+    };
+
+    for (int32 PairIndex = 0; PairIndex < PairCount; ++PairIndex)
+    {
+        double Horizontal = 0.0;
+        double Dz = 0.0;
+        PairGrades(PairIndex, Horizontal, Dz);
+        OutMaxSlopeBeforeDegrees = FMath::Max(OutMaxSlopeBeforeDegrees,
+            FMath::RadiansToDegrees(FMath::Atan(FMath::Abs(Dz) / Horizontal)));
+    }
+
+    // Alternating forward/backward sweeps converge on a grade-limited route:
+    // the forward pass pulls each next point toward its predecessor and the
+    // backward pass relaxes the start side, so anchors do not dominate.
+    for (int32 Sweep = 0; Sweep < 4; ++Sweep)
+    {
+        bool bChanged = false;
+        for (int32 PairIndex = 0; PairIndex < PairCount; ++PairIndex)
+        {
+            double Horizontal = 0.0;
+            double Dz = 0.0;
+            PairGrades(PairIndex, Horizontal, Dz);
+            const double MaxDz = Horizontal * MaxGrade;
+            if (FMath::Abs(Dz) <= MaxDz)
+            {
+                continue;
+            }
+            WorldPoints[(PairIndex + 1) % PointCount].Z -= FMath::Sign(Dz) * (FMath::Abs(Dz) - MaxDz);
+            bChanged = true;
+        }
+        for (int32 PairIndex = PairCount - 1; PairIndex >= 0; --PairIndex)
+        {
+            double Horizontal = 0.0;
+            double Dz = 0.0;
+            PairGrades(PairIndex, Horizontal, Dz);
+            const double MaxDz = Horizontal * MaxGrade;
+            if (FMath::Abs(Dz) <= MaxDz)
+            {
+                continue;
+            }
+            WorldPoints[PairIndex].Z += FMath::Sign(Dz) * (FMath::Abs(Dz) - MaxDz);
+            bChanged = true;
+        }
+        if (!bChanged)
+        {
+            break;
+        }
+    }
+
+    for (int32 Index = 0; Index < PointCount; ++Index)
+    {
+        const FVector Original = SplineComp->GetLocationAtSplinePoint(Index, ESplineCoordinateSpace::World);
+        if (FMath::Abs(WorldPoints[Index].Z - Original.Z) > KINDA_SMALL_NUMBER)
+        {
+            SplineComp->SetLocationAtSplinePoint(Index, WorldPoints[Index], ESplineCoordinateSpace::World, false);
+            ++OutClampedPoints;
+        }
+    }
+    SplineComp->UpdateSpline();
+}
+
 static bool GenerateSplineMeshSegments(
     AActor* Actor,
     USplineComponent* SplineComp,
@@ -2717,6 +2862,15 @@ static bool HandleClearGeneratedSplineSegments(
     return true;
 }
 
+// Grade limit applied by default to ground-conforming templates (Road, Path).
+static constexpr double DefaultRouteMaxSlopeDegrees = 60.0;
+// Segments steeper than this after all processing trigger a warning for
+// ground-conforming routes.
+static constexpr double SteepSegmentWarnDegrees = 45.0;
+// Local-space route points beyond this magnitude are almost certainly world
+// coordinates passed with the wrong coordinateSpace.
+static constexpr double LocalSpaceWorldScaleSuspect = 100000.0;
+
 static bool HandleCreateTemplateSpline(
     UNebulaForgeBridgeSubsystem* Self,
     const FString& RequestId,
@@ -2848,6 +3002,58 @@ static bool HandleCreateTemplateSpline(
         ConformMaxDeltaZ = ConformStats.MaxDeltaZ;
     }
 
+    // Grade limiting keeps routes traversable. Roads and paths default to a
+    // 60-degree cap so a caller that supplies wildly varying Z values (or a
+    // level without landscape under the route) cannot produce near-vertical
+    // segments. Other templates (walls, fences, cables) legitimately run
+    // vertical, so they clamp only when maxSlopeDegrees is passed explicitly.
+    const double MaxSlopeDegrees = GetJsonNumberFieldSpline(Payload, TEXT("maxSlopeDegrees"),
+        bDefaultConform ? DefaultRouteMaxSlopeDegrees : 0.0);
+    int32 SlopeClampedPoints = 0;
+    double SlopeBeforeClampDegrees = 0.0;
+    if (MaxSlopeDegrees > 0.0)
+    {
+        ClampSplineRouteSlope(SplineComp, MaxSlopeDegrees, SlopeClampedPoints, SlopeBeforeClampDegrees);
+    }
+
+    TArray<FString> Warnings;
+    if (bConformToLandscape && ConformMissedPoints > 0 && ConformMissedPoints >= SplineComp->GetNumberOfSplinePoints())
+    {
+        Warnings.Add(TEXT("no landscape found below any route point; Z values were left as provided — add a landscape or pass explicit ground Z values"));
+    }
+    if (SlopeClampedPoints > 0)
+    {
+        Warnings.Add(FString::Printf(
+            TEXT("%d route point(s) exceeded %.0f degrees (steepest %.0f) and were Z-clamped to the grade limit"),
+            SlopeClampedPoints, MaxSlopeDegrees, SlopeBeforeClampDegrees));
+    }
+    // Local-space values beyond 1km are almost certainly world coordinates
+    // that were routed through the wrong coordinateSpace.
+    if (bHasRoute && CoordinateSpace == ESplineCoordinateSpace::Local)
+    {
+        double ObservedMax = 0.0;
+        for (const FMcpSplinePointInput& Point : RoutePoints)
+        {
+            ObservedMax = FMath::Max(ObservedMax,
+                FMath::Max(FMath::Abs(Point.Location.X), FMath::Max(FMath::Abs(Point.Location.Y), FMath::Abs(Point.Location.Z))));
+        }
+        if (ObservedMax > LocalSpaceWorldScaleSuspect)
+        {
+            Warnings.Add(FString::Printf(
+                TEXT("route uses Local space but point magnitudes reach %.0f units; these look like World coordinates — pass coordinateSpace: World"),
+                ObservedMax));
+        }
+    }
+    double FinalMaxSlopeDegrees = 0.0;
+    int32 SteepSegmentCount = 0;
+    EvaluateSplineGrades(SplineComp, SteepSegmentWarnDegrees, FinalMaxSlopeDegrees, SteepSegmentCount);
+    if (bDefaultConform && SteepSegmentCount > 0)
+    {
+        Warnings.Add(FString::Printf(
+            TEXT("%d segment(s) steeper than %.0f degrees remain (max %.0f) — the route may be impassable; check Z inputs or raise maxSlopeDegrees"),
+            SteepSegmentCount, SteepSegmentWarnDegrees, FinalMaxSlopeDegrees));
+    }
+
     int32 GeneratedSegmentCount = 0;
     const FString MeshPath = GetJsonStringFieldSpline(Payload, TEXT("meshPath"));
     if (!MeshPath.IsEmpty())
@@ -2896,12 +3102,28 @@ static bool HandleCreateTemplateSpline(
         Result->SetNumberField(TEXT("insertedPoints"), ConformInsertedPoints);
         Result->SetNumberField(TEXT("maxDeltaZ"), ConformMaxDeltaZ);
     }
+    Result->SetNumberField(TEXT("maxSlopeDegrees"), MaxSlopeDegrees);
+    Result->SetNumberField(TEXT("slopeClampedPoints"), SlopeClampedPoints);
+    Result->SetNumberField(TEXT("maxSegmentSlopeDegrees"), FinalMaxSlopeDegrees);
+    if (Warnings.Num() > 0)
+    {
+        TArray<TSharedPtr<FJsonValue>> WarningValues;
+        WarningValues.Reserve(Warnings.Num());
+        for (const FString& Warning : Warnings)
+        {
+            WarningValues.Add(MakeShared<FJsonValueString>(Warning));
+        }
+        Result->SetArrayField(TEXT("warnings"), WarningValues);
+    }
 
     // Add verification data
     McpHandlerUtils::AddVerification(Result, NewActor);
 
-    Self->SendAutomationResponse(Socket, RequestId, true,
-        FString::Printf(TEXT("%s spline '%s' created"), *TemplateName, *ActorName), Result);
+    const FString Message = Warnings.Num() > 0
+        ? FString::Printf(TEXT("%s spline '%s' created with %d warning(s): %s"),
+            *TemplateName, *ActorName, Warnings.Num(), *Warnings[0])
+        : FString::Printf(TEXT("%s spline '%s' created"), *TemplateName, *ActorName);
+    Self->SendAutomationResponse(Socket, RequestId, true, Message, Result);
     return true;
 }
 
@@ -3009,6 +3231,20 @@ static bool HandleConformSplineToLandscape(
         Self->SendAutomationResponse(Socket, RequestId, false, Error, nullptr, TEXT("CONFORM_FAILED"));
         return true;
     }
+
+    // Optional grade limit (opt-in here; road/path creation applies a default
+    // automatically) that clamps Z so existing splines stop running vertical.
+    const double MaxSlopeDegrees = GetJsonNumberFieldSpline(Payload, TEXT("maxSlopeDegrees"), 0.0);
+    int32 SlopeClampedPoints = 0;
+    double SlopeBeforeClampDegrees = 0.0;
+    if (MaxSlopeDegrees > 0.0)
+    {
+        ClampSplineRouteSlope(SplineComp, MaxSlopeDegrees, SlopeClampedPoints, SlopeBeforeClampDegrees);
+    }
+    double FinalMaxSlopeDegrees = 0.0;
+    int32 SteepSegmentCount = 0;
+    EvaluateSplineGrades(SplineComp, SteepSegmentWarnDegrees, FinalMaxSlopeDegrees, SteepSegmentCount);
+
     World->MarkPackageDirty();
 
     TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
@@ -3020,6 +3256,9 @@ static bool HandleConformSplineToLandscape(
     Result->SetNumberField(TEXT("maxDeltaZ"), Stats.MaxDeltaZ);
     Result->SetNumberField(TEXT("surfaceOffset"), SurfaceOffset);
     Result->SetNumberField(TEXT("maxPointSpacing"), MaxPointSpacing);
+    Result->SetNumberField(TEXT("maxSlopeDegrees"), MaxSlopeDegrees);
+    Result->SetNumberField(TEXT("slopeClampedPoints"), SlopeClampedPoints);
+    Result->SetNumberField(TEXT("maxSegmentSlopeDegrees"), FinalMaxSlopeDegrees);
     Result->SetNumberField(TEXT("splineLength"), SplineComp->GetSplineLength());
     McpHandlerUtils::AddVerification(Result, Actor);
 

@@ -209,6 +209,8 @@ public:
 				TEXT("Vertical offset applied above the landscape surface when conforming."))
 			.Number(TEXT("maxPointSpacing"),
 				TEXT("Densify the route with curve samples at this spacing before conforming (0 = keep points)."))
+			.Number(TEXT("maxSlopeDegrees"),
+				TEXT("Clamp route Z so no segment is steeper than this grade in degrees (default: 60 for road/path templates, 0 = disabled). Warns on remaining steep segments."))
 			.Number(TEXT("postSpacing"),
 				TEXT("Spacing between fence posts."))
 			.Number(TEXT("railHeight"), TEXT("Height of fence rails."))

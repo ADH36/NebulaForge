@@ -523,6 +523,24 @@ const handlers: Record<string, ActorActionHandler> = {
             ...(params.interval === undefined ? {} : { interval: params.interval })
         }) as Record<string, unknown>;
     },
+    get_actor_lifespan: async (args, tools) => {
+        const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'get_actor_lifespan',
+            actorName: extractString(params, 'actorName')
+        }) as Record<string, unknown>;
+    },
+    set_actor_lifespan: async (args, tools) => {
+        const params = normalizeArgs(args, [
+            { key: 'actorName', aliases: ['name'], required: true },
+            { key: 'lifespan', aliases: ['lifeSpan', 'life_span'], required: true }
+        ]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'set_actor_lifespan',
+            actorName: extractString(params, 'actorName'),
+            lifespan: params.lifespan
+        }) as Record<string, unknown>;
+    },
     get_gameplay_tags: async (args, tools) => {
         const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
         const actorName = extractString(params, 'actorName');

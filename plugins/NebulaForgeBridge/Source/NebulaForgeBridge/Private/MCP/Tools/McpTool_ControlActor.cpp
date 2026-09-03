@@ -141,6 +141,8 @@ public:
 				TEXT("set_actor_label"),
 				TEXT("get_actor_tick"),
 				TEXT("set_actor_tick"),
+				TEXT("get_actor_lifespan"),
+				TEXT("set_actor_lifespan"),
 				TEXT("get_gameplay_tags"),
 				TEXT("add_gameplay_tag"),
 				TEXT("remove_gameplay_tag"),

@@ -6016,6 +6016,35 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_tick") ? TEXT("Actor tick settings retrieved") : TEXT("Actor tick settings updated"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_actor_lifespan") || LowerSub == TEXT("set_actor_lifespan")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    TargetName.TrimStartAndEndInline();
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("set_actor_lifespan")) {
+      double Lifespan = 0.0;
+      if (!Payload->TryGetNumberField(TEXT("lifespan"), Lifespan) || Lifespan < 0.0) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("lifespan must be a non-negative number"), nullptr);
+        return true;
+      }
+      Found->Modify();
+      Found->SetLifeSpan(static_cast<float>(Lifespan));
+      Found->MarkPackageDirty();
+    }
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetNumberField(TEXT("lifespan"), Found->GetLifeSpan());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_lifespan") ? TEXT("Actor lifespan retrieved") : TEXT("Actor lifespan updated"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

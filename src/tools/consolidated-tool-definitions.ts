@@ -154,6 +154,11 @@ export const PHASE_28_ENVIRONMENT_ACTIONS = [
   'configure_water_material', 'configure_water_collision', 'create_buoyancy_component'
 ] as const;
 
+export const WORLD_RECIPE_ACTIONS = [
+  'generate_world', 'apply_biome', 'create_biome_preset', 'inspect_biome_preset',
+  'list_biome_presets'
+] as const;
+
 export const PERFORMANCE_ACTIONS = [
   'start_profiling', 'stop_profiling', 'run_benchmark', 'show_stats', 'generate_memory_report',
   'set_scalability', 'set_resolution_scale', 'set_vsync', 'set_frame_rate_limit', 'enable_gpu_timing',
@@ -1397,7 +1402,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
             'generate_procedural_building', 'generate_city_block',
             'inspect_procedural_building', 'regenerate_procedural_building',
             'save_procedural_building_blueprint',
-            ...PHASE_28_ENVIRONMENT_ACTIONS, ...LIGHTING_ACTIONS, ...SPLINE_ACTIONS],
+            ...PHASE_28_ENVIRONMENT_ACTIONS, ...WORLD_RECIPE_ACTIONS, ...LIGHTING_ACTIONS, ...SPLINE_ACTIONS],
           description: 'Action'
         },
         name: commonSchemas.name,
@@ -1482,6 +1487,20 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         blendType: commonSchemas.stringProp,
         maskType: { type: 'string', enum: ['constant', 'height', 'slope', 'altitude', 'noise'], description: 'Landscape paint-rule mask source.' },
         targetHeight: commonSchemas.numberProp,
+        // World recipe orchestration (worldBLD-style generate_world / apply_biome)
+        biomePresetPath: commonSchemas.assetPath,
+        reuseExistingLandscape: commonSchemas.booleanProp,
+        generateMaterial: commonSchemas.booleanProp,
+        skipLandscape: commonSchemas.booleanProp,
+        skipTerrain: commonSchemas.booleanProp,
+        skipPaint: commonSchemas.booleanProp,
+        skipFoliage: commonSchemas.booleanProp,
+        componentsX: commonSchemas.numberProp,
+        componentsY: commonSchemas.numberProp,
+        quadsPerComponent: commonSchemas.numberProp,
+        fadeDistance: commonSchemas.numberProp,
+        fadeSlope: commonSchemas.numberProp,
+        description: commonSchemas.stringProp,
         iterations: commonSchemas.numberProp,
         frequency: commonSchemas.numberProp,
         resolutionX: commonSchemas.numberProp,
@@ -1793,7 +1812,18 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         savedPackageExists: commonSchemas.booleanProp,
         persistenceVerified: commonSchemas.booleanProp,
         reloadRequested: commonSchemas.booleanProp,
-        reloadVerified: commonSchemas.booleanProp
+        reloadVerified: commonSchemas.booleanProp,
+        // World recipe orchestration (generate_world / apply_biome)
+        steps: commonSchemas.arrayOfObjects,
+        stepCount: commonSchemas.numberProp,
+        succeededSteps: commonSchemas.numberProp,
+        failedSteps: commonSchemas.numberProp,
+        skippedSteps: commonSchemas.numberProp,
+        landscapeName: commonSchemas.stringProp,
+        seed: commonSchemas.numberProp,
+        biomePresetPath: commonSchemas.assetPath,
+        materialAssetPath: commonSchemas.assetPath,
+        reusedExistingLandscape: commonSchemas.booleanProp
       }
     }
   },

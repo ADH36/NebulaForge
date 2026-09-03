@@ -287,7 +287,22 @@ inline const TArray<FString>& BuildEnvironmentCore()
 		TEXT("create_water_body_ocean"), TEXT("create_water_body_lake"),
 		TEXT("create_water_body_river"), TEXT("create_water_body_custom"),
 		TEXT("configure_water_waves"), TEXT("configure_water_material"),
-		TEXT("configure_water_collision"), TEXT("create_buoyancy_component")
+		TEXT("configure_water_collision"), TEXT("create_buoyancy_component"),
+		// World-builder recipe orchestration (worldBLD-style) and biome
+		// preset data assets.
+		TEXT("generate_world"), TEXT("apply_biome"),
+		TEXT("create_biome_preset"), TEXT("inspect_biome_preset"),
+		TEXT("list_biome_presets")
+	};
+	return Actions;
+}
+
+inline const TArray<FString>& WorldRecipes()
+{
+	static const TArray<FString> Actions = {
+		TEXT("generate_world"), TEXT("apply_biome"),
+		TEXT("create_biome_preset"), TEXT("inspect_biome_preset"),
+		TEXT("list_biome_presets")
 	};
 	return Actions;
 }
@@ -837,4 +852,5 @@ inline bool IsVolumeAction(const FString& Action) { return ContainsAction(Volume
 inline bool IsBehaviorTreeAction(const FString& Action) { return ContainsAction(BehaviorTree(), Action); }
 inline bool IsNavigationAction(const FString& Action) { return ContainsAction(Navigation(), Action); }
 inline bool IsPCGAction(const FString& Action) { return ContainsAction(PCG(), Action); }
+inline bool IsWorldRecipeAction(const FString& Action) { return ContainsAction(WorldRecipes(), Action); }
 }

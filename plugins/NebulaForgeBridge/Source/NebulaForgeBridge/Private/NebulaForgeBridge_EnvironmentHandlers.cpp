@@ -2421,6 +2421,19 @@ bool UNebulaForgeBridgeSubsystem::HandleBuildEnvironmentAction(
             RequestingSocket);
     }
 
+    // World-builder recipe orchestration (worldBLD-style generate_world and
+    // biome preset assets). Claims its explicit actions before landscape and
+    // foliage authoring so the consolidated contract stays unchanged.
+    if (LowerSub == TEXT("generate_world") ||
+        LowerSub == TEXT("apply_biome") ||
+        LowerSub == TEXT("create_biome_preset") ||
+        LowerSub == TEXT("inspect_biome_preset") ||
+        LowerSub == TEXT("list_biome_presets"))
+    {
+        return HandleWorldRecipeAction(RequestId, LowerSub, Payload,
+                                       RequestingSocket);
+    }
+
     if (HandleLandscapeEditLayers(RequestId, LowerSub, Payload, RequestingSocket))
     {
         return true;

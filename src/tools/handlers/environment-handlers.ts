@@ -102,7 +102,11 @@ const ENVIRONMENT_PATH_FIELDS_BY_ACTION: Record<string, readonly string[]> = {
   create_water_body_river: ['materialPath'],
   create_water_body_custom: ['materialPath'],
   configure_water_material: ['materialPath'],
-  create_buoyancy_component: ['actorPath']
+  create_buoyancy_component: ['actorPath'],
+  generate_world: ['biomePresetPath', 'landscapePath', 'materialPath'],
+  apply_biome: ['biomePresetPath', 'landscapePath', 'materialPath'],
+  create_biome_preset: ['path', 'materialPath'],
+  inspect_biome_preset: ['biomePresetPath']
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -133,7 +137,8 @@ function normalizeEnvironmentPathArgs(action: string, args: Record<string, unkno
   if (action === 'generate_lods') {
     normalized.assetPaths = normalizePathArray(normalized.assetPaths);
     normalized.assets = normalizePathArray(normalized.assets);
-  } else if (action === 'create_procedural_foliage' || action === 'scatter_landscape_foliage' || action === 'regenerate_generated_foliage') {
+  } else if (action === 'create_procedural_foliage' || action === 'scatter_landscape_foliage' ||
+             action === 'regenerate_generated_foliage' || action === 'generate_world' || action === 'apply_biome') {
     normalized.foliageTypes = normalizeFoliageTypes(normalized.foliageTypes);
     normalized.types = normalizeFoliageTypes(normalized.types);
   }
@@ -437,6 +442,11 @@ export async function handleEnvironmentTools(action: string, args: HandlerArgs, 
     case 'regenerate_generated_foliage':
     case 'clear_generated_foliage':
     case 'inspect_world_building_capabilities':
+    case 'generate_world':
+    case 'apply_biome':
+    case 'create_biome_preset':
+    case 'inspect_biome_preset':
+    case 'list_biome_presets':
       return cleanObject(await executeAutomationRequest(tools, 'build_environment', {
         ...argsRecord,
         action: envAction

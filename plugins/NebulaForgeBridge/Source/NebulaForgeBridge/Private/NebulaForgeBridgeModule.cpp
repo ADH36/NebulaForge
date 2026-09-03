@@ -8,6 +8,7 @@
 #include "NebulaForgeAIService.h"
 #include "ToolMenus.h"
 #include "UI/SMcpStatusBarWidget.h"
+#include "UI/WorldBuilder/McpWorldBuilderTabManager.h"
 
 // Save current LOCTEXT_NAMESPACE if defined, then set our own
 #pragma push_macro("LOCTEXT_NAMESPACE")
@@ -42,6 +43,9 @@ public:
         FNebulaForgeAIService::Get().Initialize();
         FNebulaForgeAITabManager::RegisterTabSpawner();
 
+        // World-builder recipe panel (generate_world orchestration UI).
+        FMcpWorldBuilderTabManager::RegisterTabSpawner();
+
         UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(
             this, &FNebulaForgeBridgeModule::RegisterStatusBarWidget));
 #endif
@@ -59,6 +63,7 @@ public:
         UE_LOG(LogNebulaForgeBridge, Log, TEXT("NebulaForge Bridge module shut down."));
 
 #if WITH_EDITOR
+        FMcpWorldBuilderTabManager::UnregisterTabSpawner();
         FNebulaForgeAITabManager::UnregisterTabSpawner();
         FNebulaForgeAIService::Get().Shutdown();
 

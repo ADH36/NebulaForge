@@ -192,6 +192,46 @@ public:
   void RegisterHandler(const FString &Action, FAutomationHandler Handler);
 
   // =========================================================================
+  // World Recipe Chain (public for editor UI and cross-TU helpers)
+  // =========================================================================
+
+  /** One orchestrated step inside a generate_world recipe chain. */
+  struct FMcpWorldRecipeStep
+  {
+    /** Registered automation action to execute (empty for custom steps). */
+    FString Action;
+    /** Human-readable step label used in progress and summary output. */
+    FString Label;
+    /** Payload forwarded to the step action. */
+    TSharedPtr<FJsonObject> Payload;
+    /** When true, a failed step aborts all remaining steps. */
+    bool bAbortOnFailure = false;
+    /** Optional in-process executor used instead of a registered action. */
+    TFunction<bool(const FGuid &StepId, TSharedPtr<FJsonObject> &OutResult,
+                   FString &OutMessage, FString &OutErrorCode)>
+        CustomStep;
+    /** Correlation id exposed in step summaries. */
+    FGuid StepId = FGuid::NewGuid();
+  };
+
+  /**
+   * Runs the generate_world orchestration from an editor-originated payload
+   * (Generate World panel). Behaves like the automation action but delivers
+   * the final combined result through Completion instead of a WebSocket
+   * response. Returns false when the chain could not be started.
+   */
+  bool RunWorldRecipe(
+      const TSharedPtr<FJsonObject> &Payload,
+      TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
+          Completion);
+
+  /** True while a world recipe chain is executing. */
+  bool IsWorldRecipeChainActive() const;
+
+  /** Collects all UMcpBiomePreset asset paths under /Game (capped, sorted). */
+  bool ListBiomePresetAssetPaths(TArray<FString> &OutPaths) const;
+
+  // =========================================================================
   // Per-Request Error Capture (Public for handler access)
   // =========================================================================
 
@@ -396,6 +436,35 @@ private:
   TMap<FString, bool> ManagedGameplayTaskAutoActivate;
 
   TMap<FString, FAutomationHandler> AutomationHandlers;
+
+  // -------------------------------------------------------------------------
+  // World recipe chain state. Steps of a generate_world pipeline run on the
+  // game thread one at a time; SendAutomationResponse captures sub-step
+  // responses addressed to RecipeRequestId so the chain can record per-step
+  // outcomes and emit a single combined response. All members are only
+  // touched from the game thread.
+  // -------------------------------------------------------------------------
+  TArray<FMcpWorldRecipeStep> RecipeSteps;
+  TArray<TSharedPtr<FJsonObject>> RecipeStepResults;
+  int32 RecipeStepIndex = INDEX_NONE;
+  int32 RecipeFailedSteps = 0;
+  int32 RecipeSkippedSteps = 0;
+  FString RecipeRequestId;
+  TSharedPtr<FMcpBridgeWebSocket> RecipeSocket;
+  TSharedPtr<FJsonObject> RecipeCapturedResponse;
+  /** Summary metadata (seed, landscape name, preset path) merged into the
+   * final combined response by FinalizeWorldRecipeChain. */
+  TSharedPtr<FJsonObject> RecipeSummaryMeta;
+  TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
+      RecipeCompletion;
+  bool bRecipeCapturing = false;
+  /** Advances the chain after a captured step response (game thread). */
+  void AdvanceWorldRecipeChain();
+  /** Executes RecipeSteps[RecipeStepIndex] (game thread only). */
+  void RunNextWorldRecipeStep();
+  /** Builds the combined step summary and completes the chain. */
+  void FinalizeWorldRecipeChain();
+
   TMap<FString, TArray<TWeakObjectPtr<ANiagaraActor>>> NiagaraEffectPools;
   TMap<FString, FString> NiagaraEffectPoolSystemPaths;
   TMap<FString, FString> NiagaraEffectPoolOwnershipPolicies;
@@ -740,6 +809,27 @@ private:
       const FString &RequestId, const FString &Action,
       const TSharedPtr<FJsonObject> &Payload,
       TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  // World-builder recipe orchestration (worldBLD-style generate_world) and
+  // biome preset data assets. Implemented in
+  // NebulaForgeBridge_WorldRecipeHandlers.cpp.
+  bool HandleWorldRecipeAction(const FString &RequestId, const FString &Action,
+                               const TSharedPtr<FJsonObject> &Payload,
+                               TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  bool HandleCreateBiomePreset(const FString &RequestId,
+                               const TSharedPtr<FJsonObject> &Payload,
+                               TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  bool HandleInspectBiomePreset(const FString &RequestId,
+                                const TSharedPtr<FJsonObject> &Payload,
+                                TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  bool HandleListBiomePresets(const FString &RequestId,
+                              TSharedPtr<FMcpBridgeWebSocket> RequestingSocket);
+  /** Shared generate_world entry used by the automation action and editor UI.
+   * Must be called on the game thread. */
+  void BeginGenerateWorld(
+      const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+      TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+      const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
+          &Completion);
   bool HandleCreateNiagaraSystemNative(
       const FString &RequestId, const FString &Action,
       const TSharedPtr<FJsonObject> &Payload,

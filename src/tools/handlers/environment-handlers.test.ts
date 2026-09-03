@@ -49,6 +49,11 @@ const UE_581_LANDSCAPE_FOLIAGE_ACTIONS = [
   'regenerate_generated_foliage', 'clear_generated_foliage'
 ] as const;
 
+const WORLD_RECIPE_ACTIONS = [
+  'generate_world', 'apply_biome', 'create_biome_preset',
+  'inspect_biome_preset', 'list_biome_presets'
+] as const;
+
 const PHASE_29_1_RAY_TRACING_ACTIONS = [
   'configure_ray_traced_shadows', 'configure_ray_traced_gi',
   'configure_ray_traced_reflections', 'configure_ray_traced_ao',
@@ -643,6 +648,100 @@ describe('UE 5.8.1 landscape and foliage authoring contract', () => {
       {}, 'build_environment', expect.objectContaining({
         action: 'scatter_landscape_foliage', seed: 8128,
         foliageTypes: [{ meshPath: '/Game/Meshes/SM_Tree', count: 12, minScale: 0.8, maxScale: 1.2 }]
+      }), 'Automation bridge not available for landscape and foliage authoring operations'
+    );
+  });
+});
+
+describe('world recipe orchestration contract', () => {
+  beforeEach(() => executeAutomationRequestMock.mockClear());
+
+  it('exposes the world recipe action family and preset properties', () => {
+    const actions = getBuildEnvironmentActionEnum();
+    const properties = getBuildEnvironmentProperties();
+    for (const action of WORLD_RECIPE_ACTIONS) expect(actions).toContain(action);
+    for (const property of [
+      'biomePresetPath', 'reuseExistingLandscape', 'generateMaterial',
+      'skipLandscape', 'skipTerrain', 'skipPaint', 'skipFoliage',
+      'componentsX', 'componentsY', 'quadsPerComponent',
+      'fadeDistance', 'fadeSlope'
+    ]) {
+      expect(properties).toHaveProperty(property);
+    }
+  });
+
+  it('forwards generate_world with normalized preset and material paths', async () => {
+    await handleEnvironmentTools('generate_world', {
+      action: 'generate_world',
+      name: 'Landscape_Alpine',
+      seed: 4711,
+      terrainFeature: 'mountains',
+      componentsX: 6,
+      componentsY: 6,
+      quadsPerComponent: 63,
+      biomePresetPath: 'Game/MCPWorldBuilder/Presets/BIOME_Alpine',
+      materialPath: 'Content/MCPTest/Materials/M_Landscape',
+      reuseExistingLandscape: true
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'build_environment', expect.objectContaining({
+        action: 'generate_world',
+        seed: 4711,
+        terrainFeature: 'mountains',
+        biomePresetPath: '/Game/MCPWorldBuilder/Presets/BIOME_Alpine',
+        materialPath: '/Game/MCPTest/Materials/M_Landscape',
+        reuseExistingLandscape: true
+      }), 'Automation bridge not available for landscape and foliage authoring operations'
+    );
+  });
+
+  it('normalizes foliage mesh paths inside generate_world recipes', async () => {
+    await handleEnvironmentTools('apply_biome', {
+      action: 'apply_biome',
+      biomePresetPath: '/Game/MCPWorldBuilder/Presets/BIOME_Tundra',
+      seed: 99,
+      foliageTypes: [{ meshPath: 'Game/Meshes/SM_Pine', count: 24, minScale: 0.7, maxScale: 1.4 }]
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'build_environment', expect.objectContaining({
+        action: 'apply_biome',
+        biomePresetPath: '/Game/MCPWorldBuilder/Presets/BIOME_Tundra',
+        foliageTypes: [{ meshPath: '/Game/Meshes/SM_Pine', count: 24, minScale: 0.7, maxScale: 1.4 }]
+      }), 'Automation bridge not available for landscape and foliage authoring operations'
+    );
+  });
+
+  it('normalizes create_biome_preset output folder before dispatch', async () => {
+    await handleEnvironmentTools('create_biome_preset', {
+      action: 'create_biome_preset',
+      name: 'BIOME_Desert',
+      path: 'Content/MCPWorldBuilder/Presets',
+      seed: 7,
+      layers: [{ layerName: 'Sand', maskType: 'constant', strength: 1 }]
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'build_environment', expect.objectContaining({
+        action: 'create_biome_preset',
+        name: 'BIOME_Desert',
+        path: '/Game/MCPWorldBuilder/Presets',
+        seed: 7
+      }), 'Automation bridge not available for landscape and foliage authoring operations'
+    );
+  });
+
+  it('forwards inspect_biome_preset with a normalized preset path', async () => {
+    await handleEnvironmentTools('inspect_biome_preset', {
+      action: 'inspect_biome_preset',
+      biomePresetPath: 'Game/MCPWorldBuilder/Presets/BIOME_Alpine'
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'build_environment', expect.objectContaining({
+        action: 'inspect_biome_preset',
+        biomePresetPath: '/Game/MCPWorldBuilder/Presets/BIOME_Alpine'
       }), 'Automation bridge not available for landscape and foliage authoring operations'
     );
   });

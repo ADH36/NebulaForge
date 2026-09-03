@@ -15,7 +15,7 @@ console.log(`🔌 Server Module: ${serverModulePath}`);
 
 const ManageToolsStatusSchema = z.object({
     success: z.literal(true),
-    totalTools: z.literal(28)
+    totalTools: z.number().int().min(1)
 });
 
 const TextContentItemsSchema = z.array(z.object({

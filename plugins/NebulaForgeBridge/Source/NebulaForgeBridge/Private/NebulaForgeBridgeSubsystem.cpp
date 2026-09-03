@@ -802,6 +802,30 @@ void UNebulaForgeBridgeSubsystem::SendAutomationResponse(
     EffectiveMessage = SanitizeEngineErrorForResponse(EffectiveMessage);
   }
 
+  // World recipe chain capture: sub-steps of an orchestrated generate_world
+  // pipeline respond with the chain's request id. While capturing, record the
+  // per-step outcome and advance the chain instead of routing this response
+  // to a transport; the chain emits one combined response when it finishes.
+  if (bRecipeCapturing && RecipeStepIndex != INDEX_NONE &&
+      RequestId == RecipeRequestId)
+  {
+    TSharedPtr<FJsonObject> Captured = MakeShared<FJsonObject>();
+    Captured->SetBoolField(TEXT("success"), bEffectiveSuccess);
+    Captured->SetStringField(TEXT("message"), EffectiveMessage);
+    if (!EffectiveErrorCode.IsEmpty())
+    {
+      Captured->SetStringField(TEXT("errorCode"), EffectiveErrorCode);
+    }
+    if (EffectiveResult.IsValid())
+    {
+      Captured->SetObjectField(TEXT("result"), EffectiveResult);
+    }
+    RecipeCapturedResponse = Captured;
+    bRecipeCapturing = false;
+    AdvanceWorldRecipeChain();
+    return;
+  }
+
   // When handlers omit Origin (default WebSocket), use the stored
   // CurrentRequestOrigin from the active ProcessAutomationRequest call.
   ERequestOrigin EffectiveOrigin = (Origin == ERequestOrigin::WebSocket)

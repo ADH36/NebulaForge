@@ -108,6 +108,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'manage_asset', arguments: { action: 'load_avatar_from_glb', sourcePath: 'missing.glb', destinationPath: '/Game/ContractAvatarLoaded' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_fbx_interchange', sourcePath: 'missing.fbx', destinationPath: '/Game/ContractMesh' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_gltf_interchange', sourcePath: 'missing.gltf', destinationPath: '/Game/ContractMesh' }, expected: 'success|error' },
+  { toolName: 'manage_asset', arguments: { action: 'import_with_interchange', sourcePath: 'missing.gltf', destinationPath: '/Game/ContractMesh' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_usd_interchange', sourcePath: 'missing.usd', destinationPath: '/Game/ContractStage' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_alembic_file', sourcePath: 'missing.abc', destinationPath: '/Game/ContractCache' }, expected: 'success|error' },
   { toolName: 'manage_asset', arguments: { action: 'import_groom', sourcePath: 'missing.abc', destinationPath: '/Game/ContractGroom' }, expected: 'success|error' },

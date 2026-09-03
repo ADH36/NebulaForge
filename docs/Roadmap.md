@@ -1824,7 +1824,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 ### 37.2 Interchange Framework
 - [ ] `create_interchange_pipeline`, `add_pipeline_step`, `configure_pipeline_settings`
 - [ ] `register_custom_translator`, `configure_translator_settings`
-- [ ] `import_with_interchange`, `configure_import_asset_type`, `set_reimport_strategy`
+- [x] `import_with_interchange` (extension-validated generic Interchange entry point for `.fbx`, `.gltf`, `.glb`, `.obj`, `.usd`, and `.abc`; uses the deferred editor-safe importer and installed translator)
+- [ ] `configure_import_asset_type`, `set_reimport_strategy`
 - [x] `import_fbx_interchange`, `import_obj_interchange` (extension-validated façades over the existing deferred Unreal AssetTools/Interchange-safe importer; FBX support remains subject to Epic's project feature flag and installed translator)
 - [x] `import_gltf_interchange` (explicit Interchange alias of the extension-validated glTF importer)
 - [x] `import_usd_interchange` (extension-validated façade over the existing deferred importer; requires Epic's USD Importer/Interchange translator plugin)

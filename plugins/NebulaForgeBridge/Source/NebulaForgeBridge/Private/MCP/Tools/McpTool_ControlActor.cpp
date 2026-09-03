@@ -136,6 +136,7 @@ public:
 				TEXT("remove_component_tag"),
 				TEXT("get_actor_folder_path"),
 				TEXT("set_actor_folder_path"),
+				TEXT("set_actor_folder_path_recursive"),
 				TEXT("get_gameplay_tags"),
 				TEXT("add_gameplay_tag"),
 				TEXT("remove_gameplay_tag"),

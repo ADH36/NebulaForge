@@ -5913,7 +5913,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("add_component_tag") ? TEXT("Component tag added") : TEXT("Component tag removed"), Data);
     return true;
   }
-  if (LowerSub == TEXT("get_actor_folder_path") || LowerSub == TEXT("set_actor_folder_path")) {
+  if (LowerSub == TEXT("get_actor_folder_path") || LowerSub == TEXT("set_actor_folder_path") || LowerSub == TEXT("set_actor_folder_path_recursive")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);
     TargetName.TrimStartAndEndInline();
@@ -5926,7 +5926,7 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
       return true;
     }
-    if (LowerSub == TEXT("set_actor_folder_path")) {
+    if (LowerSub == TEXT("set_actor_folder_path") || LowerSub == TEXT("set_actor_folder_path_recursive")) {
       FString FolderPath;
       if (!Payload->TryGetStringField(TEXT("folderPath"), FolderPath)) {
         SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("folderPath required"), nullptr);
@@ -5934,13 +5934,14 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
       }
       FolderPath.TrimStartAndEndInline();
       Found->Modify();
-      Found->SetFolderPath(FName(*FolderPath));
+      if (LowerSub == TEXT("set_actor_folder_path_recursive")) Found->SetFolderPath_Recursively(FName(*FolderPath));
+      else Found->SetFolderPath(FName(*FolderPath));
       Found->MarkPackageDirty();
     }
     TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
     Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
     Data->SetStringField(TEXT("folderPath"), Found->GetFolderPath().ToString());
-    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("set_actor_folder_path") ? TEXT("Actor folder path updated") : TEXT("Actor folder path retrieved"), Data);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_folder_path") ? TEXT("Actor folder path retrieved") : TEXT("Actor folder path updated"), Data);
     return true;
   }
   if (LowerSub == TEXT("get_gameplay_tags"))

@@ -4382,6 +4382,31 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     PropertyPayload->SetObjectField(TEXT("properties"), *Properties);
     return HandleControlActorSetComponentProperties(RequestId, PropertyPayload, RequestingSocket);
   }
+  if (LowerSub == TEXT("set_hair_stiffness") || LowerSub == TEXT("set_hair_damping")) {
+    FString TargetName;
+    FString ComponentName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    double Value = 0.0;
+    if (TargetName.IsEmpty() || ComponentName.IsEmpty() ||
+        !Payload->TryGetNumberField(TEXT("value"), Value) ||
+        !FMath::IsFinite(Value) || Value < 0.0) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName, componentName, and a finite non-negative value are required"), nullptr);
+      return true;
+    }
+    FString PropertyName = LowerSub == TEXT("set_hair_stiffness") ? TEXT("HairStiffness") : TEXT("HairDamping");
+    Payload->TryGetStringField(TEXT("propertyName"), PropertyName);
+    PropertyName.TrimStartAndEndInline();
+    if (PropertyName.IsEmpty())
+      PropertyName = LowerSub == TEXT("set_hair_stiffness") ? TEXT("HairStiffness") : TEXT("HairDamping");
+    TSharedPtr<FJsonObject> Properties = MakeShared<FJsonObject>();
+    Properties->SetNumberField(PropertyName, Value);
+    TSharedPtr<FJsonObject> PropertyPayload = MakeShared<FJsonObject>();
+    PropertyPayload->SetStringField(TEXT("actorName"), TargetName);
+    PropertyPayload->SetStringField(TEXT("componentName"), ComponentName);
+    PropertyPayload->SetObjectField(TEXT("properties"), Properties);
+    return HandleControlActorSetComponentProperties(RequestId, PropertyPayload, RequestingSocket);
+  }
   if (LowerSub == TEXT("configure_body_type") || LowerSub == TEXT("set_body_type")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

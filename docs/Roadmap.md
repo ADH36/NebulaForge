@@ -1780,7 +1780,8 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_body_type` (alias of the project-aware reflected `BodyType` façade; the concrete enum/property remains supplied by the installed MetaHuman or character project)
 - [x] `set_body_proportions`, `set_height` (project-aware reflected-property façades; default to `BodyProportions` and `Height`, with overrideable property names and JSON values)
 - [ ] DNA/Rig: `export_metahuman_dna`, `create_custom_rig_logic`, `configure_control_rig_for_metahuman`
-- [ ] LOD: `configure_metahuman_lod_bias`, `enable_disable_features_for_performance`
+- [x] LOD: `configure_metahuman_lod_bias` (project-aware component LOD façade shared with avatar/groom controls; accepts reflected `properties` or validated `forcedLodModel`/`minLod` values)
+- [ ] `enable_disable_features_for_performance`
 
 ### 36.2 Ready Player Me
 - [ ] `load_avatar_from_url`

@@ -76,6 +76,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'setup_avatar_skeleton_mapping', actorName: 'ContractAvatar', mapping: { hips: 'pelvis', spine: 'spine_01' } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'apply_avatar_to_character', avatarActor: 'ContractAvatar', characterActor: 'ContractCharacter' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_avatar_lod', actorName: 'ContractAvatar', componentName: 'AvatarMesh', forcedLodModel: 1, minLod: 0 }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'configure_metahuman_lod_bias', actorName: 'ContractMetaHuman', componentName: 'Face', forcedLodModel: 1, minLod: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_hair_material', actorName: 'ContractAvatar', componentName: 'Hair', materialPath: '/Game/ContractHairMaterial', materialSlot: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_groom_lod', actorName: 'ContractAvatar', componentName: 'Groom', minLod: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_hair_simulation', actorName: 'ContractAvatar', componentName: 'Groom', properties: { EnableSimulation: true } }, expected: 'success|error' },

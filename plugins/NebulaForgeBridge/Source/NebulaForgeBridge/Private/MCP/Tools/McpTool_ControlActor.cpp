@@ -35,6 +35,7 @@ public:
 				TEXT("setup_avatar_skeleton_mapping"),
 				TEXT("apply_avatar_to_character"),
 				TEXT("configure_avatar_lod"),
+				TEXT("configure_metahuman_lod_bias"),
 				TEXT("configure_groom_lod"),
 				TEXT("configure_hair_simulation"),
 				TEXT("set_hair_stiffness"),

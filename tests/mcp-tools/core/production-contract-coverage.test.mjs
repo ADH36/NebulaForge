@@ -81,6 +81,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'configure_hair_simulation', actorName: 'ContractAvatar', componentName: 'Groom', properties: { EnableSimulation: true } }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_hair_stiffness', actorName: 'ContractAvatar', componentName: 'Groom', value: 0.5 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_hair_damping', actorName: 'ContractAvatar', componentName: 'Groom', value: 0.25 }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'configure_hair_collision', actorName: 'ContractAvatar', componentName: 'Groom', properties: { EnableCollision: true } }, expected: 'success|error' },
   { toolName: 'manage_material_authoring', arguments: { action: 'set_hair_roughness', assetPath: '/Game/ContractHairMaterialInstance', value: 0.35 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_lod_settings', actorName: 'ContractMetaHuman', componentName: 'Face', forcedLodModel: 1, minLod: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'configure_body_type', actorName: 'ContractMetaHuman', bodyType: 'Athletic' }, expected: 'success|error' },

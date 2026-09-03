@@ -39,6 +39,7 @@ public:
 				TEXT("configure_hair_simulation"),
 				TEXT("set_hair_stiffness"),
 				TEXT("set_hair_damping"),
+				TEXT("configure_hair_collision"),
 				TEXT("configure_hair_material"),
 				TEXT("set_lod_settings"),
 				TEXT("configure_body_type"),

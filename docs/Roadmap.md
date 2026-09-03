@@ -1658,6 +1658,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Additional incremental component tag actions: `add_component_tag`, `remove_component_tag` (idempotent edits to the official `ComponentTags` array)
 - [x] Additional actor organization actions: `get_actor_folder_path`, `set_actor_folder_path` (official editor-only `AActor::GetFolderPath`/`SetFolderPath` APIs with package-dirty persistence)
 - [x] Additional recursive actor organization: `set_actor_folder_path_recursive` (official `AActor::SetFolderPath_Recursively` for attached actor hierarchies)
+- [x] Additional actor label actions: `get_actor_label`, `set_actor_label` (official `AActor::GetActorLabel`/`SetActorLabel` APIs with package-dirty persistence)
 - [x] `set_target_priority` (replaces the actor's validated integer `TargetPriority.*` tag for project-side target sorting)
 - [x] `configure_target_switching` (persists validated cycle/nearest/manual switching metadata as standard actor tags)
 - [x] `configure_soft_lock` (persists validated 0–1 soft-lock strength metadata as standard actor tags)

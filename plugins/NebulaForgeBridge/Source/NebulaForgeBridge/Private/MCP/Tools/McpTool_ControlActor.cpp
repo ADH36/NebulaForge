@@ -137,6 +137,8 @@ public:
 				TEXT("get_actor_folder_path"),
 				TEXT("set_actor_folder_path"),
 				TEXT("set_actor_folder_path_recursive"),
+				TEXT("get_actor_label"),
+				TEXT("set_actor_label"),
 				TEXT("get_gameplay_tags"),
 				TEXT("add_gameplay_tag"),
 				TEXT("remove_gameplay_tag"),

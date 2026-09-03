@@ -5944,6 +5944,40 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_folder_path") ? TEXT("Actor folder path retrieved") : TEXT("Actor folder path updated"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_actor_label") || LowerSub == TEXT("set_actor_label")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    TargetName.TrimStartAndEndInline();
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("set_actor_label")) {
+      FString Label;
+      if (!Payload->TryGetStringField(TEXT("label"), Label)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("label required"), nullptr);
+        return true;
+      }
+      Label.TrimStartAndEndInline();
+      if (Label.IsEmpty()) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("label must not be empty"), nullptr);
+        return true;
+      }
+      Found->Modify();
+      Found->SetActorLabel(Label);
+      Found->MarkPackageDirty();
+    }
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetStringField(TEXT("label"), Found->GetActorLabel());
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_label") ? TEXT("Actor label retrieved") : TEXT("Actor label updated"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

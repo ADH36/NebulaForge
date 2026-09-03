@@ -102,7 +102,8 @@ export async function handleMaterialAuthoringTools(
       }
 
       // Set the blend mode on a material (Opaque, Translucent, Masked, etc.)
-      case 'set_blend_mode': {
+      case 'set_blend_mode':
+      case 'set_material_blend_mode': {
         const params = normalizeArgs(args, [
           { key: 'assetPath', aliases: ['materialPath', 'instancePath'], required: true },
           { key: 'blendMode', required: true },

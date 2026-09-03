@@ -17,7 +17,7 @@ const screenshotModeSchema = {
 
 /** Canonical list of material authoring actions — single source of truth for schema and handler. */
 export const MATERIAL_AUTHORING_ACTIONS = [
-  'create_material', 'set_blend_mode', 'set_shading_model', 'set_material_domain',
+  'create_material', 'set_blend_mode', 'set_material_blend_mode', 'set_shading_model', 'set_material_domain',
   'add_texture_sample', 'add_texture_coordinate', 'add_scalar_parameter', 'add_vector_parameter',
   'add_static_switch_parameter', 'add_math_node', 'add_world_position', 'add_vertex_normal',
   'add_pixel_depth', 'add_fresnel', 'add_reflection_vector', 'add_panner', 'add_rotator',

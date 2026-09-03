@@ -25,6 +25,7 @@ public:
 			.StringEnum(TEXT("action"), {
 				TEXT("create_material"),
 				TEXT("set_blend_mode"),
+				TEXT("set_material_blend_mode"),
 				TEXT("set_shading_model"),
 				TEXT("set_material_domain"),
 				TEXT("add_texture_sample"),

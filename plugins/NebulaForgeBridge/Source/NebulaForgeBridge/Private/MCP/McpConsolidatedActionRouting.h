@@ -97,7 +97,7 @@ inline const TArray<FString>& ManageAssetCore()
 inline const TArray<FString>& MaterialAuthoring()
 {
 	static const TArray<FString> Actions = {
-		TEXT("create_material"), TEXT("set_blend_mode"),
+		TEXT("create_material"), TEXT("set_blend_mode"), TEXT("set_material_blend_mode"),
 		TEXT("set_shading_model"), TEXT("set_material_domain"),
 		TEXT("add_texture_sample"), TEXT("add_texture_coordinate"),
 		TEXT("add_scalar_parameter"), TEXT("add_vector_parameter"),

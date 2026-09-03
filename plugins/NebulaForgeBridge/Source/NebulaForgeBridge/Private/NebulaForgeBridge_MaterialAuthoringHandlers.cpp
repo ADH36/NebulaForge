@@ -437,7 +437,7 @@ bool UNebulaForgeBridgeSubsystem::HandleManageMaterialAuthoringAction(
   // --------------------------------------------------------------------------
   // set_blend_mode
   // --------------------------------------------------------------------------
-  if (SubAction == TEXT("set_blend_mode")) {
+  if (SubAction == TEXT("set_blend_mode") || SubAction == TEXT("set_material_blend_mode")) {
     FString AssetPath, BlendMode;
     if (!Payload->TryGetStringField(TEXT("assetPath"), AssetPath) ||
         AssetPath.IsEmpty()) {

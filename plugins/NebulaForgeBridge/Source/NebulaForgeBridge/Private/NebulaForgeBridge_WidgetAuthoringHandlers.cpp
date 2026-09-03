@@ -83,6 +83,7 @@
 #endif
 
 // Engine
+#include "Engine/GameViewportClient.h"
 #include "Engine/Texture2D.h"
 #include "UObject/UnrealType.h"
 #include "UObject/UObjectIterator.h"

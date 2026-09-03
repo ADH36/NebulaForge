@@ -60,7 +60,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Components/WidgetComponent.h"
-#include "Engine/TimerManager.h"
+#include "TimerManager.h"
 #include "Blueprint/UserWidget.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Character.h"
@@ -4679,14 +4679,14 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
       CameraPayload->SetField(Pair.Key, Pair.Value);
     CameraPayload->SetStringField(TEXT("action"), TEXT("configure_camera_settings"));
-    return HandleControlActorAction(RequestId, CameraPayload, RequestingSocket);
+    return HandleControlActorAction(RequestId, TEXT("control_actor"), CameraPayload, RequestingSocket);
   }
   if (LowerSub == TEXT("configure_photo_mode_poses")) {
     TSharedPtr<FJsonObject> PosePayload = MakeShared<FJsonObject>();
     for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Payload->Values)
       PosePayload->SetField(Pair.Key, Pair.Value);
     PosePayload->SetStringField(TEXT("action"), TEXT("set_actor_transform"));
-    return HandleControlActorAction(RequestId, PosePayload, RequestingSocket);
+    return HandleControlActorAction(RequestId, TEXT("control_actor"), PosePayload, RequestingSocket);
   }
   if (LowerSub == TEXT("configure_marker_widget") ||
       LowerSub == TEXT("configure_marker_3d_2d") ||

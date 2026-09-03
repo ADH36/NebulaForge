@@ -1806,7 +1806,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_hair_stiffness`, `set_hair_damping` (project-aware component-property façades; default `HairStiffness`/`HairDamping` reflected properties, with optional `propertyName` override)
 - [x] `configure_hair_collision` (project-aware component-property façade; requires a target Groom component and non-empty reflected collision properties)
 - [x] `configure_hair_material` (validated material assignment façade over the target hair component and material slot; accepts `materialPath`/`assetPath` and `materialSlot`)
-- [ ] `set_hair_color`
+- [x] `set_hair_color` (project-aware reflected-property façade shared with MetaHuman controls; defaults to `HairColor` and accepts an overrideable property name plus JSON color/value)
 - [x] `set_hair_roughness` (material-instance scalar façade over Unreal's `set_scalar_parameter_value`; defaults to parameter `Roughness` and accepts an overrideable parameter name)
 
 ---

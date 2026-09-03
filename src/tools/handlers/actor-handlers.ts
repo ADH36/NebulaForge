@@ -541,6 +541,13 @@ const handlers: Record<string, ActorActionHandler> = {
             lifespan: params.lifespan
         }) as Record<string, unknown>;
     },
+    get_actor_owner: async (args, tools) => {
+        const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'get_actor_owner',
+            actorName: extractString(params, 'actorName')
+        }) as Record<string, unknown>;
+    },
     get_gameplay_tags: async (args, tools) => {
         const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
         const actorName = extractString(params, 'actorName');

@@ -6045,6 +6045,31 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_lifespan") ? TEXT("Actor lifespan retrieved") : TEXT("Actor lifespan updated"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_actor_owner")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    TargetName.TrimStartAndEndInline();
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    AActor *Owner = Found->GetOwner();
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetBoolField(TEXT("hasOwner"), Owner != nullptr);
+    if (Owner) {
+      Data->SetStringField(TEXT("ownerName"), Owner->GetActorLabel());
+      Data->SetStringField(TEXT("ownerObjectName"), Owner->GetName());
+      Data->SetStringField(TEXT("ownerPath"), Owner->GetPathName());
+    }
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Actor owner retrieved"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

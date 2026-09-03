@@ -187,7 +187,7 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
     return HandleInsightsAction(RequestId, TEXT("manage_insights"), TracePayload, RequestingSocket);
   }
   if (Lower == TEXT("add_trace_bookmark")) {
-    return HandleControlEditorCreateBookmark(RequestId, Payload, RequestingSocket);
+    return HandleInsightsAction(RequestId, TEXT("manage_insights"), Payload, RequestingSocket);
   }
 
   // ===========================================================================

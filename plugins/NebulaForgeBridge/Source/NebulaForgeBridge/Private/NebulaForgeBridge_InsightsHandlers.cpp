@@ -40,6 +40,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/Guid.h"
 #include "Misc/Paths.h"
+#include "Engine/Engine.h"
 
 // =============================================================================
 // Handler Implementation
@@ -149,6 +150,35 @@ bool UNebulaForgeBridgeSubsystem::HandleInsightsAction(
 #endif
         SendAutomationResponse(RequestingSocket, RequestId, true,
             bTraceActive ? TEXT("Trace session is active.") : TEXT("Trace session is inactive."), Result);
+        return true;
+    }
+
+    if (SubAction == TEXT("add_trace_bookmark"))
+    {
+        FString Label = GetJsonStringField(Payload, TEXT("label"));
+        Label.TrimStartAndEndInline();
+        if (Label.IsEmpty()) Label = TEXT("NebulaForge bookmark");
+        if (Label.Len() > 128 || McpContainsUnsafeCommandSeparator(Label))
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Trace bookmark label is empty, too long, or contains command separators."),
+                TEXT("INVALID_BOOKMARK_LABEL"));
+            return true;
+        }
+        if (!GEngine)
+        {
+            SendAutomationError(RequestingSocket, RequestId,
+                TEXT("Engine is unavailable for trace bookmarks."), TEXT("NO_ENGINE"));
+            return true;
+        }
+        FString Command = FString::Printf(TEXT("Trace.Bookmark %s"), *Label);
+        GEngine->Exec(nullptr, *Command);
+        TSharedPtr<FJsonObject> Result = McpHandlerUtils::CreateResultObject();
+        Result->SetStringField(TEXT("action"), TEXT("manage_insights"));
+        Result->SetStringField(TEXT("subAction"), TEXT("add_trace_bookmark"));
+        Result->SetStringField(TEXT("label"), Label);
+        SendAutomationResponse(RequestingSocket, RequestId, true,
+            TEXT("Trace bookmark added."), Result);
         return true;
     }
 

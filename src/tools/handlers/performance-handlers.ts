@@ -51,10 +51,10 @@ export async function handlePerformanceTools(action: string, args: HandlerArgs, 
       return cleanObject({ ...res, action, traceAction });
     }
     case 'add_trace_bookmark': {
-      const res = await executeAutomationRequest(tools, 'system_control', {
-        action: 'create_bookmark',
-        index: typeof argsRecord.index === 'number' ? argsRecord.index : 0,
-        label: typeof argsRecord.label === 'string' ? argsRecord.label : undefined
+      const res = await executeAutomationRequest(tools, 'manage_insights', {
+        action: 'add_trace_bookmark',
+        subAction: 'add_trace_bookmark',
+        label: typeof argsRecord.label === 'string' ? argsRecord.label : 'NebulaForge bookmark'
       }, 'Bridge unavailable') as Record<string, unknown>;
       return cleanObject({ ...res, action });
     }

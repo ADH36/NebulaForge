@@ -161,8 +161,16 @@ const nativeTools = extractNativeToolDefinitions();
 const nativeCanonicalTools = nativeTools.filter((tool) => nativeRegistry.includes(tool.name));
 const nativeToolsByName = new Map(nativeCanonicalTools.map((tool) => [tool.name, tool]));
 
+// These tools intentionally belong to the Node/stdio surface: they use the
+// host filesystem or outbound HTTP and have no Unreal-native implementation.
+// VibeUE functionality remains available through call_vibeue_service when
+// the VibeUE plugin is installed in the editor.
+const stdioOnlyTools = new Set([
+  'deep_research', 'generate_agent_config', 'get_skills', 'list_skills', 'terrain_data'
+]);
+
 const toolNameGaps = {
-  missingFromNativeRegistry: difference(typeScriptTools.map((tool) => tool.name), nativeRegistry),
+  missingFromNativeRegistry: difference(typeScriptTools.map((tool) => tool.name).filter((name) => !stdioOnlyTools.has(name)), nativeRegistry),
   extraInNativeRegistry: difference(nativeRegistry, typeScriptTools.map((tool) => tool.name))
 };
 
@@ -180,6 +188,7 @@ console.log('Native MCP Action Parity Audit');
 console.log(`TypeScript tools: ${typeScriptTools.length}`);
 console.log(`Native canonical tools: ${nativeRegistry.length}`);
 console.log(`Native canonical definitions: ${nativeCanonicalTools.length}`);
+console.log(`Node/stdio-only tools: ${[...stdioOnlyTools].sort().join(', ')}`);
 console.log(`Tools with action mismatches: ${actionGaps.length}`);
 
 if (toolNameGaps.missingFromNativeRegistry.length > 0 || toolNameGaps.extraInNativeRegistry.length > 0 || actionGaps.length > 0) {

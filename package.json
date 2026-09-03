@@ -12,6 +12,9 @@
   },
   "files": [
     "dist/**",
+    "docs/**",
+    "scripts/sync-vibeue-plugin.js",
+    "scripts/verify-vibeue-integration.js",
     "server.json",
     "README.md",
     "LICENSE",
@@ -31,6 +34,8 @@
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "prepare": "node -e \"const fs=require('fs');(fs.existsSync('dist')&&fs.existsSync('dist/cli.js')&&fs.existsSync('dist/index.js'))||require('child_process').execSync('npm run build',{stdio:'inherit'})\"",
     "automation:sync": "node scripts/sync-mcp-plugin.js",
+    "vibeue:sync": "node scripts/sync-vibeue-plugin.js",
+    "vibeue:verify": "node scripts/verify-vibeue-integration.js",
     "clean:tmp": "node scripts/clean-tmp.js",
     "test": "node tests/integration.mjs",
     "test:unit": "vitest run",

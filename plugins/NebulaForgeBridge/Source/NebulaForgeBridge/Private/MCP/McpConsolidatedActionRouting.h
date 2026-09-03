@@ -582,7 +582,13 @@ inline const TArray<FString>& Performance()
 		TEXT("apply_baseline_settings"), TEXT("enable_disable_features_for_performance"), TEXT("optimize_draw_calls"),
 		TEXT("merge_actors"), TEXT("configure_occlusion_culling"),
 		TEXT("optimize_shaders"), TEXT("configure_nanite"),
-		TEXT("configure_world_partition")
+		TEXT("configure_world_partition"),
+		TEXT("start_trace"), TEXT("stop_trace"), TEXT("get_trace_status"), TEXT("add_trace_bookmark"),
+		TEXT("frame_timing"), TEXT("force_hitch"), TEXT("performance_report"),
+		TEXT("region_start"), TEXT("region_end"), TEXT("analyse_trace"),
+		TEXT("start_standalone"), TEXT("stop_standalone"), TEXT("get_standalone_status"),
+		TEXT("start_pie"), TEXT("stop_pie"), TEXT("set_background_throttling"),
+		TEXT("get_background_throttling")
 		, TEXT("sign_release"), TEXT("run_packaged"), TEXT("deploy_package"), TEXT("run_network_soak"), TEXT("analyze_trace")
 	};
 	return Actions;

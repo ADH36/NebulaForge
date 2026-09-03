@@ -562,6 +562,13 @@ const handlers: Record<string, ActorActionHandler> = {
             actorName: extractString(params, 'actorName')
         }) as Record<string, unknown>;
     },
+    get_attach_parent_actor: async (args, tools) => {
+        const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'get_attach_parent_actor',
+            actorName: extractString(params, 'actorName')
+        }) as Record<string, unknown>;
+    },
     get_actor_editor_visibility: async (args, tools) => {
         const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
         return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {

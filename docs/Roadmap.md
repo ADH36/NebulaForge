@@ -1664,6 +1664,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] Additional actor ownership readback: `get_actor_owner` (official `AActor::GetOwner` with owner label, object name, and path metadata)
 - [x] Additional actor default-label readback: `get_actor_default_label` (official `AActor::GetDefaultActorLabel` without numeric instance suffix)
 - [x] Additional actor velocity readback: `get_actor_velocity` (official `AActor::GetVelocity`, returning cm/s vector and scalar speed)
+- [x] Additional attachment hierarchy readback: `get_attach_parent_actor` (official `AActor::GetAttachParentActor` with parent label, object name, and path metadata)
 - [x] Additional editor visibility controls: `get_actor_editor_visibility`, `set_actor_editor_visibility` (official temporary editor visibility APIs, kept separate from runtime visibility and package-dirty state)
 - [x] `set_target_priority` (replaces the actor's validated integer `TargetPriority.*` tag for project-side target sorting)
 - [x] `configure_target_switching` (persists validated cycle/nearest/manual switching metadata as standard actor tags)

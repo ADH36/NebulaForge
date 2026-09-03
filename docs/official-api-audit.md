@@ -32,6 +32,8 @@ Native Unreal compilation is still environment-dependent; TypeScript build/type-
 
 The roadmap goal was resumed and the external state was rechecked. No `.uproject`, Unreal Engine installation, or optional integration plugin project was found in the workspace; the only local plugin is `NebulaForgeBridge`. The remaining dependency-gated work therefore requires a UE5 project plus the relevant enabled modules/services before implementation and native verification can continue.
 
+Second continuation revalidation found the same state: no project or engine installation became available, and the unchecked roadmap set remains limited to optional integrations and external services.
+
 ## Current roadmap baseline
 
 At the latest audit, `docs/Roadmap.md` contains 1,118 checked entries and 331 unchecked entries (audited 2026-09-03). The unchecked set is concentrated in integrations whose public API is supplied by optional plugins or external services: MetaHuman DNA/Rig Logic, Mutable, Fab/Megascans, USD authoring, Substance, Houdini, SpeedTree, Datasmith, Wwise, FMOD, Live Link providers, nDisplay, Composure/OCIO, Remote Control, DMX/OSC/MIDI, XR platforms, EOS/Steam, and third-party character/voice services. These remain open until the project supplies the corresponding plugin modules and version-specific public classes/settings.

@@ -5874,6 +5874,45 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Component tags retrieved"), Data);
     return true;
   }
+  if (LowerSub == TEXT("add_component_tag") || LowerSub == TEXT("remove_component_tag")) {
+    FString TargetName;
+    FString ComponentName;
+    FString TagText;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    Payload->TryGetStringField(TEXT("componentName"), ComponentName);
+    Payload->TryGetStringField(TEXT("tag"), TagText);
+    TargetName.TrimStartAndEndInline();
+    ComponentName.TrimStartAndEndInline();
+    TagText.TrimStartAndEndInline();
+    if (TargetName.IsEmpty() || ComponentName.IsEmpty() || TagText.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName, componentName, and tag required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    UActorComponent *Component = Found ? FindComponentByName(Found, ComponentName) : nullptr;
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (!Component) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("COMPONENT_NOT_FOUND"), TEXT("Component not found"), nullptr);
+      return true;
+    }
+    const FName Tag(*TagText);
+    const bool bWasPresent = Component->ComponentTags.Contains(Tag);
+    Component->Modify();
+    if (LowerSub == TEXT("add_component_tag")) Component->ComponentTags.AddUnique(Tag);
+    else Component->ComponentTags.Remove(Tag);
+    Component->MarkPackageDirty();
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetStringField(TEXT("componentName"), Component->GetName());
+    Data->SetStringField(TEXT("tag"), Tag.ToString());
+    Data->SetBoolField(TEXT("wasPresent"), bWasPresent);
+    Data->SetBoolField(TEXT("present"), Component->ComponentTags.Contains(Tag));
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("add_component_tag") ? TEXT("Component tag added") : TEXT("Component tag removed"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

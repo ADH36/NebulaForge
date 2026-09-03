@@ -132,6 +132,8 @@ public:
 				TEXT("get_components_by_tag"),
 				TEXT("get_component_tags"),
 				TEXT("set_component_tags"),
+				TEXT("add_component_tag"),
+				TEXT("remove_component_tag"),
 				TEXT("get_gameplay_tags"),
 				TEXT("add_gameplay_tag"),
 				TEXT("remove_gameplay_tag"),

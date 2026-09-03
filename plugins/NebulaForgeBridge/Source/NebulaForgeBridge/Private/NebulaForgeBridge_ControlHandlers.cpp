@@ -6089,6 +6089,32 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Actor default label retrieved"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_actor_velocity")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    TargetName.TrimStartAndEndInline();
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    const FVector Velocity = Found->GetVelocity();
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    TSharedPtr<FJsonObject> Vector = MakeShared<FJsonObject>();
+    Vector->SetNumberField(TEXT("x"), Velocity.X);
+    Vector->SetNumberField(TEXT("y"), Velocity.Y);
+    Vector->SetNumberField(TEXT("z"), Velocity.Z);
+    Data->SetObjectField(TEXT("velocity"), Vector);
+    Data->SetNumberField(TEXT("speed"), Velocity.Size());
+    Data->SetStringField(TEXT("units"), TEXT("cm/s"));
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Actor velocity retrieved"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_actor_editor_visibility") || LowerSub == TEXT("set_actor_editor_visibility")) {
     FString TargetName;
     Payload->TryGetStringField(TEXT("actorName"), TargetName);

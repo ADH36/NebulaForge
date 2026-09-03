@@ -113,6 +113,7 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'get_actor_lifespan', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_actor_owner', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_actor_default_label', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'get_actor_velocity', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_actor_editor_visibility', actorName: 'ContractMetaHuman', visible: true }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_actor_editor_visibility', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'system_control', arguments: { action: 'enable_disable_features_for_performance', feature: 'motion_blur', enabled: false }, expected: 'success|error' },

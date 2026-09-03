@@ -130,6 +130,7 @@ public:
 				TEXT("get_actor_tags"),
 				TEXT("set_actor_tags"),
 				TEXT("get_components_by_tag"),
+				TEXT("set_component_tags"),
 				TEXT("get_gameplay_tags"),
 				TEXT("add_gameplay_tag"),
 				TEXT("remove_gameplay_tag"),

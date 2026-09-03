@@ -259,7 +259,7 @@ export const coreToolDefinitions: ToolDefinition[] = [
             'set_component_properties', 'set_component_property', 'get_component_property',
             'get_components', 'get_actor_components',
             'get_actor_bounds',
-            'add_tag', 'remove_tag', 'get_actor_tags', 'set_actor_tags', 'get_components_by_tag', 'get_gameplay_tags', 'add_gameplay_tag', 'remove_gameplay_tag',
+            'add_tag', 'remove_tag', 'get_actor_tags', 'set_actor_tags', 'get_components_by_tag', 'set_component_tags', 'get_gameplay_tags', 'add_gameplay_tag', 'remove_gameplay_tag',
             'find_by_tag', 'find_actors_by_tag',
             'find_by_name', 'find_actors_by_name',
             'find_by_class', 'find_actors_by_class',

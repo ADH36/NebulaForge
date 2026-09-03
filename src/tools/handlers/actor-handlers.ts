@@ -406,6 +406,19 @@ const handlers: Record<string, ActorActionHandler> = {
             tag: extractString(params, 'tag')
         }) as Record<string, unknown>;
     },
+    set_component_tags: async (args, tools) => {
+        const params = normalizeArgs(args, [
+            { key: 'actorName', aliases: ['name'], required: true },
+            { key: 'componentName', required: true },
+            { key: 'tags', required: true }
+        ]);
+        return await executeAutomationRequest(tools, TOOL_ACTIONS.CONTROL_ACTOR, {
+            action: 'set_component_tags',
+            actorName: extractString(params, 'actorName'),
+            componentName: extractString(params, 'componentName'),
+            tags: params.tags
+        }) as Record<string, unknown>;
+    },
     get_gameplay_tags: async (args, tools) => {
         const params = normalizeArgs(args, [{ key: 'actorName', aliases: ['name'], required: true }]);
         const actorName = extractString(params, 'actorName');

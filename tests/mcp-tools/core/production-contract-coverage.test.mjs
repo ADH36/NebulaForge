@@ -112,6 +112,8 @@ await runToolTests('production-contract-coverage', [
   { toolName: 'control_actor', arguments: { action: 'set_actor_lifespan', actorName: 'ContractMetaHuman', lifespan: 0 }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_actor_lifespan', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'get_actor_owner', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'set_actor_editor_visibility', actorName: 'ContractMetaHuman', visible: true }, expected: 'success|error' },
+  { toolName: 'control_actor', arguments: { action: 'get_actor_editor_visibility', actorName: 'ContractMetaHuman' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_hair_style', actorName: 'ContractMetaHuman', value: 'Short' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_eyebrow_style', actorName: 'ContractMetaHuman', value: 'Natural' }, expected: 'success|error' },
   { toolName: 'control_actor', arguments: { action: 'set_makeup', actorName: 'ContractMetaHuman', value: 'Subtle' }, expected: 'success|error' },

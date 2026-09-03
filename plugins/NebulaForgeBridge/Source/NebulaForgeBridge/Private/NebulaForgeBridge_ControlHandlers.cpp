@@ -6070,6 +6070,34 @@ bool UNebulaForgeBridgeSubsystem::HandleControlActorAction(
     SendStandardSuccessResponse(this, RequestingSocket, RequestId, TEXT("Actor owner retrieved"), Data);
     return true;
   }
+  if (LowerSub == TEXT("get_actor_editor_visibility") || LowerSub == TEXT("set_actor_editor_visibility")) {
+    FString TargetName;
+    Payload->TryGetStringField(TEXT("actorName"), TargetName);
+    TargetName.TrimStartAndEndInline();
+    if (TargetName.IsEmpty()) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("actorName required"), nullptr);
+      return true;
+    }
+    AActor *Found = FindActorByName(TargetName);
+    if (!Found) {
+      SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("ACTOR_NOT_FOUND"), TEXT("Actor not found"), nullptr);
+      return true;
+    }
+    if (LowerSub == TEXT("set_actor_editor_visibility")) {
+      bool bVisible = true;
+      if (!Payload->TryGetBoolField(TEXT("visible"), bVisible)) {
+        SendStandardErrorResponse(this, RequestingSocket, RequestId, TEXT("INVALID_ARGUMENT"), TEXT("visible required"), nullptr);
+        return true;
+      }
+      Found->SetIsTemporarilyHiddenInEditor(!bVisible);
+    }
+    TSharedPtr<FJsonObject> Data = McpHandlerUtils::CreateResultObject();
+    Data->SetStringField(TEXT("actorName"), Found->GetActorLabel());
+    Data->SetBoolField(TEXT("visible"), !Found->IsTemporarilyHiddenInEditor(false));
+    Data->SetBoolField(TEXT("temporaryOnly"), true);
+    SendStandardSuccessResponse(this, RequestingSocket, RequestId, LowerSub == TEXT("get_actor_editor_visibility") ? TEXT("Actor editor visibility retrieved") : TEXT("Actor editor visibility updated"), Data);
+    return true;
+  }
   if (LowerSub == TEXT("get_gameplay_tags"))
     return HandleControlActorGet(RequestId, Payload, RequestingSocket);
   if (LowerSub == TEXT("add_gameplay_tag") || LowerSub == TEXT("remove_gameplay_tag")) {

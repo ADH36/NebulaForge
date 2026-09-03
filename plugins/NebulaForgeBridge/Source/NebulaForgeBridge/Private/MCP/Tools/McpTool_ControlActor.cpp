@@ -144,6 +144,8 @@ public:
 				TEXT("get_actor_lifespan"),
 				TEXT("set_actor_lifespan"),
 				TEXT("get_actor_owner"),
+				TEXT("get_actor_editor_visibility"),
+				TEXT("set_actor_editor_visibility"),
 				TEXT("get_gameplay_tags"),
 				TEXT("add_gameplay_tag"),
 				TEXT("remove_gameplay_tag"),

@@ -37,6 +37,7 @@ public:
 				TEXT("configure_texture_streaming"),
 				TEXT("configure_lod"),
 				TEXT("apply_baseline_settings"),
+				TEXT("enable_disable_features_for_performance"),
 				TEXT("optimize_draw_calls"),
 				TEXT("merge_actors"),
 				TEXT("configure_occlusion_culling"),
@@ -56,6 +57,7 @@ public:
 			.String(TEXT("outputPath"), TEXT("Output file or directory path."))
 			.Bool(TEXT("detailed"), TEXT(""))
 			.String(TEXT("category"), TEXT(""))
+			.String(TEXT("feature"), TEXT("Allowlisted performance feature: nanite, lumen, virtual_shadow_maps, motion_blur, depth_of_field, bloom, ambient_occlusion, or ray_tracing."))
 			.Number(TEXT("level"), TEXT(""))
 			.Number(TEXT("scale"), TEXT(""))
 			.Bool(TEXT("enabled"), TEXT("Whether the item/feature is enabled."))

@@ -157,7 +157,7 @@ export const PHASE_28_ENVIRONMENT_ACTIONS = [
 export const PERFORMANCE_ACTIONS = [
   'start_profiling', 'stop_profiling', 'run_benchmark', 'show_stats', 'generate_memory_report',
   'set_scalability', 'set_resolution_scale', 'set_vsync', 'set_frame_rate_limit', 'enable_gpu_timing',
-  'configure_texture_streaming', 'configure_lod', 'apply_baseline_settings', 'optimize_draw_calls',
+  'configure_texture_streaming', 'configure_lod', 'apply_baseline_settings', 'enable_disable_features_for_performance', 'optimize_draw_calls',
   'merge_actors', 'configure_occlusion_culling', 'optimize_shaders', 'configure_nanite',
   'configure_world_partition', 'sign_release', 'run_packaged', 'deploy_package', 'take_photo_mode_screenshot'
 ] as const;

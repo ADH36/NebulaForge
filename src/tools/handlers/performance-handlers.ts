@@ -129,6 +129,16 @@ export async function handlePerformanceTools(action: string, args: HandlerArgs, 
       }) as Record<string, unknown>;
       return cleanObject(res);
     }
+    case 'enable_disable_features_for_performance': {
+      const feature = typeof argsRecord.feature === 'string' ? argsRecord.feature : undefined;
+      if (!feature) return ResponseFactory.error('feature is required');
+      const res = await executeAutomationRequest(tools, 'manage_performance', {
+        subAction: 'enable_disable_features_for_performance',
+        feature,
+        enabled: argsTyped.enabled !== false
+      }) as Record<string, unknown>;
+      return cleanObject(res);
+    }
     case 'optimize_draw_calls':
     case 'merge_actors': {
       // If action is merge_actors, force mergeActors param to true

@@ -144,6 +144,7 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
       !Lower.StartsWith(TEXT("run_benchmark")) &&
       !Lower.StartsWith(TEXT("enable_gpu_timing")) &&
       !Lower.StartsWith(TEXT("apply_baseline_settings")) &&
+      !Lower.StartsWith(TEXT("enable_disable_features_for_performance")) &&
       !Lower.StartsWith(TEXT("optimize_draw_calls")) &&
       !Lower.StartsWith(TEXT("configure_occlusion_culling")) &&
       !Lower.StartsWith(TEXT("optimize_shaders")) &&
@@ -915,6 +916,45 @@ bool UNebulaForgeBridgeSubsystem::HandlePerformanceAction(
     SendAutomationResponse(
         RequestingSocket, RequestId, true,
         FString::Printf(TEXT("Baseline settings applied: %s"), *Profile), Resp);
+    return true;
+  }
+  // enable_disable_features_for_performance - Apply an allowlisted set of UE scalability CVars.
+  else if (Lower == TEXT("enable_disable_features_for_performance")) {
+    FString Feature;
+    Payload->TryGetStringField(TEXT("feature"), Feature);
+    Feature.TrimStartAndEndInline();
+    Feature = Feature.ToLower();
+    bool bEnabled = true;
+    if (!Payload->TryGetBoolField(TEXT("enabled"), bEnabled) || Feature.IsEmpty()) {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("feature and enabled are required"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    const TCHAR *CVarName = nullptr;
+    int32 EnabledValue = bEnabled ? 1 : 0;
+    if (Feature == TEXT("nanite")) CVarName = TEXT("r.Nanite");
+    else if (Feature == TEXT("lumen")) CVarName = TEXT("r.DynamicGlobalIlluminationMethod");
+    else if (Feature == TEXT("virtual_shadow_maps")) CVarName = TEXT("r.Shadow.Virtual.Enable");
+    else if (Feature == TEXT("motion_blur")) CVarName = TEXT("r.MotionBlurQuality");
+    else if (Feature == TEXT("depth_of_field")) CVarName = TEXT("r.DepthOfFieldQuality");
+    else if (Feature == TEXT("bloom")) CVarName = TEXT("r.BloomQuality");
+    else if (Feature == TEXT("ambient_occlusion")) CVarName = TEXT("r.AmbientOcclusionLevels");
+    else if (Feature == TEXT("ray_tracing")) CVarName = TEXT("r.RayTracing");
+    else {
+      SendAutomationError(RequestingSocket, RequestId, TEXT("Unsupported performance feature"), TEXT("INVALID_ARGUMENT"));
+      return true;
+    }
+    if (Feature == TEXT("motion_blur") || Feature == TEXT("depth_of_field") || Feature == TEXT("bloom") || Feature == TEXT("ambient_occlusion")) EnabledValue = bEnabled ? 1 : 0;
+    IConsoleVariable *CVar = IConsoleManager::Get().FindConsoleVariable(CVarName);
+    if (!CVar) {
+      SendAutomationError(RequestingSocket, RequestId, FString::Printf(TEXT("Performance CVar is unavailable: %s"), CVarName), TEXT("NOT_SUPPORTED"));
+      return true;
+    }
+    CVar->Set(EnabledValue);
+    TSharedPtr<FJsonObject> Resp = McpHandlerUtils::CreateResultObject();
+    Resp->SetStringField(TEXT("feature"), Feature);
+    Resp->SetStringField(TEXT("cvar"), CVarName);
+    Resp->SetBoolField(TEXT("enabled"), bEnabled);
+    SendAutomationResponse(RequestingSocket, RequestId, true, TEXT("Performance feature updated"), Resp);
     return true;
   }
   // ===========================================================================

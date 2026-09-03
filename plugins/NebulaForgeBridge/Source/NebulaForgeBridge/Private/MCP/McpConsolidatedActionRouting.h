@@ -577,7 +577,7 @@ inline const TArray<FString>& Performance()
 		TEXT("set_resolution_scale"), TEXT("set_vsync"),
 		TEXT("set_frame_rate_limit"), TEXT("enable_gpu_timing"),
 		TEXT("configure_texture_streaming"), TEXT("configure_lod"),
-		TEXT("apply_baseline_settings"), TEXT("optimize_draw_calls"),
+		TEXT("apply_baseline_settings"), TEXT("enable_disable_features_for_performance"), TEXT("optimize_draw_calls"),
 		TEXT("merge_actors"), TEXT("configure_occlusion_culling"),
 		TEXT("optimize_shaders"), TEXT("configure_nanite"),
 		TEXT("configure_world_partition")

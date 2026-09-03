@@ -1794,7 +1794,7 @@ The following phases represent the comprehensive expansion to enable **full proj
 - [x] `set_body_proportions`, `set_height` (project-aware reflected-property façades; default to `BodyProportions` and `Height`, with overrideable property names and JSON values)
 - [ ] DNA/Rig: `export_metahuman_dna`, `create_custom_rig_logic`, `configure_control_rig_for_metahuman`
 - [x] LOD: `configure_metahuman_lod_bias` (project-aware component LOD façade shared with avatar/groom controls; accepts reflected `properties` or validated `forcedLodModel`/`minLod` values)
-- [ ] `enable_disable_features_for_performance`
+- [x] `enable_disable_features_for_performance` (allowlisted UE scalability CVar controls for Nanite, Lumen, virtual shadow maps, motion blur, depth of field, bloom, ambient occlusion, and ray tracing)
 
 ### 36.2 Ready Player Me
 

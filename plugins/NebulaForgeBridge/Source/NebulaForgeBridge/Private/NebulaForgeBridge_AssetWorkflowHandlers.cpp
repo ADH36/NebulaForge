@@ -2964,7 +2964,7 @@ bool UNebulaForgeBridgeSubsystem::HandleAssetAction(
     return HandleBulkRenameAssets(RequestId, Action, Payload, RequestingSocket);
   if (Lower == TEXT("bulk_delete"))
     return HandleBulkDeleteAssets(RequestId, Action, Payload, RequestingSocket);
-  if (Lower == TEXT("generate_lods"))
+  if (Lower == TEXT("generate_lods") || Lower == TEXT("set_lod_generation"))
     return HandleGenerateLODs(RequestId, Lower, Payload, RequestingSocket);
   if (Lower == TEXT("nanite_rebuild_mesh"))
     return HandleNaniteRebuildMesh(RequestId, Action, Payload, RequestingSocket);

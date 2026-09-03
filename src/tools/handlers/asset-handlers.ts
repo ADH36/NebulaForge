@@ -32,7 +32,7 @@ const VALID_ASSET_ACTIONS = new Set([
   'import_data_table_csv', 'export_data_table_csv',
   'import_curve_table_csv', 'export_curve_table_csv',
   'create_media_player', 'create_media_source', 'create_media_texture', 'create_media_playlist', 'create_sprite', 'create_flipbook', 'create_tile_set', 'inspect_tile_set', 'configure_tile_set', 'get_tile_set_tile_uv', 'configure_tile_set_tile_metadata', 'inspect_tile_set_tile_metadata', 'get_tile_set_tile_xy', 'get_tile_set_uv_from_xy', 'create_tile_map', 'inspect_tile_map', 'configure_tile_map_visuals', 'configure_tile_map_layer', 'inspect_tile_map_layer', 'set_tile_map_cell', 'get_tile_map_cell', 'fill_tile_map_region', 'get_tile_map_tile_geometry', 'get_tile_map_tile_coordinates', 'resize_tile_map', 'set_sprite_pivot', 'inspect_sprite', 'configure_sprite_source', 'configure_tile_map_collision', 'add_flipbook_keyframe', 'set_flipbook_framerate',
-  'generate_lods', 'add_material_parameter', 'list_instances',
+  'generate_lods', 'set_lod_generation', 'add_material_parameter', 'list_instances',
   'reset_instance_parameters', 'get_material_stats', 'nanite_rebuild_mesh',
   // Material graph operations
   'add_material_node', 'remove_material_node', 'rebuild_material',
@@ -492,7 +492,8 @@ export async function handleAssetTools(action: string, args: HandlerArgs, tools:
         return ResponseFactory.success(res, 'Assets deleted successfully');
       }
 
-      case 'generate_lods': {
+      case 'generate_lods':
+      case 'set_lod_generation': {
         const params = normalizeArgs(args, [
           { key: 'assetPath', required: true },
           { key: 'lodCount', required: true }

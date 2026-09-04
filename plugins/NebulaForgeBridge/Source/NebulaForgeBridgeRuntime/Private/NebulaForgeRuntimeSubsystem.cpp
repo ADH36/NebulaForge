@@ -393,7 +393,7 @@ void UNebulaForgeRuntimeSubsystem::HandleMessage(FNebulaForgeRuntimeClient& Clie
         TSharedRef<FJsonObject> Ack = MakeShared<FJsonObject>();
         Ack->SetStringField(TEXT("type"), TEXT("bridge_ack"));
         Ack->SetStringField(TEXT("serverName"), TEXT("NebulaForgeRuntime"));
-        Ack->SetStringField(TEXT("serverVersion"), TEXT("1.0.50"));
+        Ack->SetStringField(TEXT("serverVersion"), TEXT("1.1.26"));
         Ack->SetStringField(TEXT("executionMode"), TEXT("runtime"));
         Ack->SetBoolField(TEXT("editorAutomation"), false);
         Ack->SetBoolField(TEXT("pieRuntimeWorld"), true);

@@ -79,7 +79,9 @@ if exist "%PLUGIN_VERSION_OUTPUT%" del /q "%PLUGIN_VERSION_OUTPUT%"
 
 set "ZIP_NAME=NebulaForgeBridge-v%PLUGIN_VER%-UE%UE_VER%-Win64.zip"
 set "ZIP_PATH=%OUTPUT_DIR%\%ZIP_NAME%"
-set "STAGING_DIR=%TEMP%\NebulaForgeBridge-package-%RANDOM%%RANDOM%"
+REM Keep the staging root short: UBT action paths exceed MAX_PATH when %TEMP% is
+REM a typical user-profile directory and this plugin's long source names are built.
+set "STAGING_DIR=%SystemDrive%\NF-%RANDOM%%RANDOM%"
 set "PACKAGE_DIR=%STAGING_DIR%\NebulaForgeBridge"
 
 if exist "%STAGING_DIR%" rmdir /s /q "%STAGING_DIR%"

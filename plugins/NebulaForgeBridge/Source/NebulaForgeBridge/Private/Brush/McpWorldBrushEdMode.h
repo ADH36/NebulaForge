@@ -45,6 +45,8 @@ public:
     virtual bool EndTracking(FEditorViewportClient *InViewportClient, FViewport *InViewport) override;
     virtual bool CapturedMouseMove(FEditorViewportClient *InViewportClient, FViewport *InViewport,
                                    int32 InMouseX, int32 InMouseY) override;
+    virtual bool InputKey(FEditorViewportClient *ViewportClient, FViewport *Viewport,
+                          FKey Key, EInputEvent Event) override;
     virtual void Render(const FSceneView *View, FViewport *Viewport,
                         FPrimitiveDrawInterface *PDI) override;
     virtual bool UsesToolkits() const override { return true; }
@@ -62,6 +64,12 @@ private:
     /** Applies one dab when the stroke cursor moved far enough. */
     bool ApplyDabAtCursor(FEditorViewportClient *ViewportClient, const FVector &Origin,
                           const FVector &Direction);
+    /** True while the camera or a transform widget owns the mouse. */
+    bool IsCameraOrWidgetDrag(FEditorViewportClient *ViewportClient, FViewport *Viewport) const;
+    /** Begins a stroke transaction when none is active. */
+    void BeginStroke();
+    /** Ends the active stroke, persists edits, returns false when idle. */
+    bool EndStrokeAndSave();
 
     /** Traces the cursor ray against the world. */
     bool TraceCursor(UWorld *World, const FVector &Origin, const FVector &Direction,

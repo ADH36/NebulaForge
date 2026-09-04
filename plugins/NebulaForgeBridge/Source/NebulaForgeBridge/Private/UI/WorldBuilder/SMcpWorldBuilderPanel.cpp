@@ -440,11 +440,18 @@ FText SMcpWorldBuilderPanel::GetStatusText() const
 
 FSlateColor SMcpWorldBuilderPanel::GetStatusColor() const
 {
-    if (bRunning)
+    switch (StatusSeverity)
     {
-        return FSlateColor(FColor::Red);
+    case 1:
+        return FSlateColor(FColor::Yellow);
+    case 2:
+        return FSlateColor(FColor::Green);
+    case 3:
+        return FSlateColor(FColor(255, 80, 80));
+    default:
+        break;
     }
-    return FSlateColor(FColor::Green);
+    return FSlateColor(FColor::White);
 }
 
 FText SMcpWorldBuilderPanel::GetSelectedPresetText() const
@@ -473,13 +480,19 @@ FReply SMcpWorldBuilderPanel::OnGenerate()
     if (!Subsystem)
     {
         StatusText = TEXT("Bridge subsystem unavailable.");
+        StatusSeverity = 3;
         return FReply::Handled();
     }
-    if (!LandscapeName.IsEmpty())
+    // World recipes need a saved /Game map to persist the landscape into.
+    // Fail fast here with an actionable message instead of a bare step count.
+    UWorld *EditorWorld = GEditor->GetEditorWorldContext().World();
+    if (!EditorWorld || !EditorWorld->GetOutermost()->GetName().StartsWith(TEXT("/Game/")))
     {
-        // Trim whitespace from user input.
-        LandscapeName.TrimStartAndEndInline();
+        StatusText = TEXT("Save the current level under /Game first (File > Save Current As...), then generate.");
+        StatusSeverity = 3;
+        return FReply::Handled();
     }
+    LandscapeName.TrimStartAndEndInline();
     if (LandscapeName.IsEmpty())
     {
         LandscapeName = TEXT("MCP_WorldLandscape");
@@ -505,6 +518,7 @@ FReply SMcpWorldBuilderPanel::OnGenerate()
     }
 
     bRunning = true;
+    StatusSeverity = 1;
     StatusText = FString::Printf(TEXT("Generating world '%s' (seed %d)..."), *LandscapeName, Seed);
 
     TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakSubsystem(Subsystem);
@@ -518,14 +532,24 @@ FReply SMcpWorldBuilderPanel::OnGenerate()
                 FString Status = TEXT("World recipe failed.");
                 if (Result.IsValid())
                 {
-                    const FString ResultStatus = Result->GetStringField(TEXT("status"));
-                    const int32 Failed = static_cast<int32>(Result->GetNumberField(TEXT("failedSteps")));
-                    const int32 Total = static_cast<int32>(Result->GetNumberField(TEXT("stepCount")));
-                    Status = FString::Printf(TEXT("World recipe %s: %d/%d steps failed."),
-                                             *ResultStatus, Failed, Total);
+                    // Surface the real backend error when the chain never ran.
+                    FString BackendError;
+                    if (Result->TryGetStringField(TEXT("error"), BackendError) && !BackendError.IsEmpty())
+                    {
+                        Status = BackendError;
+                    }
+                    else
+                    {
+                        const FString ResultStatus = Result->GetStringField(TEXT("status"));
+                        const int32 Failed = static_cast<int32>(Result->GetNumberField(TEXT("failedSteps")));
+                        const int32 Total = static_cast<int32>(Result->GetNumberField(TEXT("stepCount")));
+                        Status = FString::Printf(TEXT("World recipe %s: %d/%d steps failed."),
+                                                 *ResultStatus, Failed, Total);
+                    }
                 }
                 Panel->bRunning = false;
                 Panel->StatusText = Status;
+                Panel->StatusSeverity = bSuccess ? 2 : 3;
 
                 FNotificationInfo Info(FText::FromString(Status));
                 Info.ExpireDuration = 5.0f;
@@ -536,6 +560,7 @@ FReply SMcpWorldBuilderPanel::OnGenerate()
     if (!bStarted)
     {
         bRunning = false;
+        StatusSeverity = 3;
         StatusText = TEXT("Failed to start world recipe (editor build required).");
     }
     return FReply::Handled();

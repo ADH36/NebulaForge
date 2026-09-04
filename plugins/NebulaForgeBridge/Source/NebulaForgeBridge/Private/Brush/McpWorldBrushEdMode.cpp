@@ -15,6 +15,7 @@
 #include "SceneManagement.h"
 #include "SceneView.h"
 #include "Styling/AppStyle.h"
+#include "UnrealWidget.h"
 
 #define LOCTEXT_NAMESPACE "McpWorldBrushEdMode"
 
@@ -173,16 +174,45 @@ bool FMcpWorldBrushEdMode::StartTracking(FEditorViewportClient *InViewportClient
         return false;
     if (!InViewport->KeyState(EKeys::LeftMouseButton))
         return false;
+    if (IsCameraOrWidgetDrag(InViewportClient, InViewport))
+        return false;
 
-    FMcpWorldBrushStrokeState &Stroke = McpWorldBrushGetStrokeState();
-    Stroke = FMcpWorldBrushStrokeState();
-    Stroke.bActive = true;
-    StrokeSalt = NextStrokeSalt++;
-    GEditor->BeginTransaction(LOCTEXT("WorldBrushStroke", "World Brush Stroke"));
+    BeginStroke();
     return true;
 }
 
 bool FMcpWorldBrushEdMode::EndTracking(FEditorViewportClient * /*InViewportClient*/, FViewport * /*InViewport*/)
+{
+    return EndStrokeAndSave();
+}
+
+bool FMcpWorldBrushEdMode::IsCameraOrWidgetDrag(FEditorViewportClient *ViewportClient,
+                                                FViewport *Viewport) const
+{
+    if (!ViewportClient || !Viewport)
+        return true;
+    // Middle/right mouse or Alt held: the camera owns the gesture.
+    if (Viewport->KeyState(EKeys::MiddleMouseButton) || Viewport->KeyState(EKeys::RightMouseButton) ||
+        Viewport->KeyState(EKeys::LeftAlt) || Viewport->KeyState(EKeys::RightAlt))
+        return true;
+    // A transform widget drag owns the gesture.
+    if (ViewportClient->GetCurrentWidgetAxis() != EAxisList::None)
+        return true;
+    return false;
+}
+
+void FMcpWorldBrushEdMode::BeginStroke()
+{
+    FMcpWorldBrushStrokeState &Stroke = McpWorldBrushGetStrokeState();
+    if (Stroke.bActive)
+        return;
+    Stroke = FMcpWorldBrushStrokeState();
+    Stroke.bActive = true;
+    StrokeSalt = NextStrokeSalt++;
+    GEditor->BeginTransaction(LOCTEXT("WorldBrushStroke", "World Brush Stroke"));
+}
+
+bool FMcpWorldBrushEdMode::EndStrokeAndSave()
 {
     FMcpWorldBrushStrokeState &Stroke = McpWorldBrushGetStrokeState();
     if (!Stroke.bActive)
@@ -233,6 +263,30 @@ bool FMcpWorldBrushEdMode::EndTracking(FEditorViewportClient * /*InViewportClien
         }
     }
     return true;
+}
+
+bool FMcpWorldBrushEdMode::InputKey(FEditorViewportClient *ViewportClient, FViewport *Viewport,
+                                    FKey Key, EInputEvent Event)
+{
+    if (!ViewportClient || !Viewport)
+        return false;
+
+    if (Key == EKeys::LeftMouseButton && Event == IE_Pressed)
+    {
+        if (IsCameraOrWidgetDrag(ViewportClient, Viewport))
+            return false;
+        // Consume the press so camera orbit and marquee selection never start.
+        // The first dab lands on the first MouseMove/CapturedMouseMove event.
+        BeginStroke();
+        return true;
+    }
+
+    if (Key == EKeys::LeftMouseButton && Event == IE_Released)
+    {
+        if (EndStrokeAndSave())
+            return true;
+    }
+    return false;
 }
 
 bool FMcpWorldBrushEdMode::MouseMove(FEditorViewportClient *ViewportClient, FViewport *Viewport,

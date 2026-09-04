@@ -57,4 +57,5 @@ private:
 
     FString StatusText = TEXT("Ready. Select a biome preset or generate with defaults.");
     bool bRunning = false;
+    int32 StatusSeverity = 0; // 0 idle, 1 running, 2 success, 3 error
 };

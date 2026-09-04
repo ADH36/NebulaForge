@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class FMcpWorldBuilderTabManager
 {
 public:

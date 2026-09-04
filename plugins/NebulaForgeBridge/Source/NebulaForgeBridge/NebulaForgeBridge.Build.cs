@@ -183,7 +183,7 @@ public class NebulaForgeBridge : ModuleRules
                 "RenderCore", "RHI", "ImageWrapper", "AutomationController", "GameplayDebugger", "TraceLog", "TraceAnalysis", "AIGraph",
                 "MeshUtilities", "MeshMergeUtilities", "MaterialUtilities", "PhysicsCore", "ClothingSystemRuntimeCommon",
                 "GeometryCore", "GeometryFramework", "DynamicMesh", "MeshDescription", "StaticMeshDescription",
-                "NavigationSystem"
+                "NavigationSystem", "EditorFramework"  // World Brush editor mode registration (FEditorModeInfo)
                 // Optional plugins are handled by AddOptionalDynamicModule() below with delay-load
             });
 

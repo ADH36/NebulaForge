@@ -5,7 +5,8 @@
 #include "Brush/McpWorldBrushWidget.h"
 
 #include "Brush/McpWorldBrushEdMode.h"
-#include "UnrealEdGlobals.h"
+#include "Editor.h"
+#include "EditorModeManager.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "Widgets/Input/SComboBox.h"

@@ -75,6 +75,7 @@
 
 #include "Landscape.h"
 #include "LandscapeEdit.h"
+#include "LandscapeEditLayer.h"
 #include "LandscapeInfo.h"
 #include "LandscapeLayerInfoObject.h"
 
@@ -124,7 +125,7 @@ bool McpRecipeReadVector(const TSharedPtr<FJsonObject> &Payload, const TCHAR *Fi
     if (!Payload.IsValid())
         return false;
     const TSharedPtr<FJsonObject> *Object = nullptr;
-    if (Payload->TryGetObjectField(Field, Object) && Object && (*Object)->IsValid())
+    if (Payload->TryGetObjectField(Field, Object) && Object && (*Object).IsValid())
     {
         double X = 0.0, Y = 0.0, Z = 0.0;
         (*Object)->TryGetNumberField(TEXT("x"), X);
@@ -946,6 +947,10 @@ void UNebulaForgeBridgeSubsystem::FinalizeWorldRecipeChain()
     SendAutomationResponse(Socket, RequestId, bOverallSuccess, Message, Result, FString());
 }
 
+#endif // WITH_EDITOR (chain runner)
+
+#if WITH_EDITOR // preset authoring, recipe builders, dispatch
+
 bool UNebulaForgeBridgeSubsystem::ListBiomePresetAssetPaths(TArray<FString> &OutPaths) const
 {
 #if WITH_EDITOR
@@ -1036,7 +1041,7 @@ void UNebulaForgeBridgeSubsystem::BeginGenerateWorld(
 
     FMcpWorldRecipeConfig Config;
     FString PresetPath = McpRecipeFirstString(Payload, {TEXT("biomePresetPath"), TEXT("presetPath")});
-    const UMcpBiomePreset *Preset = nullptr;
+    UMcpBiomePreset *Preset = nullptr;
     if (!PresetPath.IsEmpty())
     {
         const FString SafePresetPath = SanitizeProjectRelativePath(PresetPath);
@@ -1244,7 +1249,6 @@ void UNebulaForgeBridgeSubsystem::BeginGenerateWorld(
         Steps.Add(MoveTemp(Step));
     }
 
-    int32 FoliageIndex = 0;
     for (const FMcpWorldRecipeConfig::FLayerRule &Rule : Config.Layers)
     {
         if (Config.bSkipPaint)
@@ -1518,7 +1522,7 @@ bool UNebulaForgeBridgeSubsystem::HandleInspectBiomePreset(
                             TEXT("SECURITY_VIOLATION"));
         return true;
     }
-    const UMcpBiomePreset *Preset = LoadObject<UMcpBiomePreset>(nullptr, *SafePath);
+    UMcpBiomePreset *Preset = LoadObject<UMcpBiomePreset>(nullptr, *SafePath);
     if (!Preset)
     {
         SendAutomationError(RequestingSocket, RequestId,
@@ -2456,3 +2460,5 @@ bool UNebulaForgeBridgeSubsystem::HandleWorldRecipeAction(
     return true;
 #endif
 }
+
+#endif // WITH_EDITOR (preset authoring, recipe builders, dispatch)

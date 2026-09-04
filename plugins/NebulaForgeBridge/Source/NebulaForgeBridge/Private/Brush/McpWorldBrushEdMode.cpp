@@ -5,6 +5,7 @@
 #include "Brush/McpWorldBrushEdMode.h"
 
 #include "Brush/McpWorldBrushWidget.h"
+#include "EditorModeManager.h"
 #include "EditorModeRegistry.h"
 #include "EditorViewportClient.h"
 #include "Engine/World.h"
@@ -12,20 +13,19 @@
 #include "InputCoreTypes.h"
 #include "Landscape.h"
 #include "SceneManagement.h"
+#include "SceneView.h"
 #include "Styling/AppStyle.h"
 
 #define LOCTEXT_NAMESPACE "McpWorldBrushEdMode"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMcpWorldBrushMode, Log, All);
 
-const FEditorModeID FMcpWorldBrushEdMode::EM_McpWorldBrush = TEXT(MCP_WORLD_BRUSH_MODE_ID);
+const FEditorModeID FMcpWorldBrushEdMode::EM_McpWorldBrush = MCP_WORLD_BRUSH_MODE_ID;
 int32 FMcpWorldBrushEdMode::NextStrokeSalt = 1;
 
 FMcpWorldBrushEdMode::FMcpWorldBrushEdMode()
 {
-    ID = EM_McpWorldBrush;
-    bDrawPivot = false;
-    bDrawBracket = false;
+    // Mode identity is assigned by FEditorModeRegistry on registration.
 }
 
 FMcpWorldBrushEdMode::~FMcpWorldBrushEdMode()
@@ -241,20 +241,64 @@ bool FMcpWorldBrushEdMode::MouseMove(FEditorViewportClient *ViewportClient, FVie
     if (!ViewportClient || !Viewport)
         return false;
 
-    FVector Origin;
-    FVector Direction;
-    if (!ViewportClient->DeprojectFVector2D(FVector2D(static_cast<float>(x), static_cast<float>(y)),
-                                            Origin, Direction))
-        return false;
-
     FMcpWorldBrushStrokeState &Stroke = McpWorldBrushGetStrokeState();
     if (Stroke.bActive && Viewport->KeyState(EKeys::LeftMouseButton))
     {
         // Active stroke drag: paint and consume the input so the camera stays put.
-        return ApplyDabAtCursor(ViewportClient, Origin, Direction);
+        return PaintAtCursor(ViewportClient, x, y);
     }
 
     // Hover: keep the cursor ring fresh without consuming input.
+    UpdateBrushCursor(ViewportClient, x, y);
+    return false;
+}
+
+bool FMcpWorldBrushEdMode::CapturedMouseMove(FEditorViewportClient *InViewportClient, FViewport *InViewport,
+                                             int32 InMouseX, int32 InMouseY)
+{
+    if (!InViewportClient || !InViewport)
+        return false;
+    // Captured drags (mouse capture during tracking) paint like regular moves.
+    return PaintAtCursor(InViewportClient, InMouseX, InMouseY);
+}
+
+bool FMcpWorldBrushEdMode::PaintAtCursor(FEditorViewportClient *ViewportClient, int32 x, int32 y)
+{
+    // World-space ray from screen coordinates (foliage paint mode pattern).
+    FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
+        ViewportClient->Viewport,
+        ViewportClient->GetScene(),
+        ViewportClient->EngineShowFlags)
+        .SetRealtimeUpdate(ViewportClient->IsRealtime()));
+
+    FSceneView *View = ViewportClient->CalcSceneView(&ViewFamily);
+    FViewportCursorLocation MouseViewportRay(View, ViewportClient, x, y);
+    FVector Origin = MouseViewportRay.GetOrigin();
+    const FVector Direction = MouseViewportRay.GetDirection();
+    if (ViewportClient->IsOrtho())
+    {
+        Origin += -WORLD_MAX * Direction;
+    }
+    return ApplyDabAtCursor(ViewportClient, Origin, Direction);
+}
+
+void FMcpWorldBrushEdMode::UpdateBrushCursor(FEditorViewportClient *ViewportClient, int32 x, int32 y)
+{
+    FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
+        ViewportClient->Viewport,
+        ViewportClient->GetScene(),
+        ViewportClient->EngineShowFlags)
+        .SetRealtimeUpdate(ViewportClient->IsRealtime()));
+
+    FSceneView *View = ViewportClient->CalcSceneView(&ViewFamily);
+    FViewportCursorLocation MouseViewportRay(View, ViewportClient, x, y);
+    FVector Origin = MouseViewportRay.GetOrigin();
+    const FVector Direction = MouseViewportRay.GetDirection();
+    if (ViewportClient->IsOrtho())
+    {
+        Origin += -WORLD_MAX * Direction;
+    }
+
     UWorld *World = ViewportClient->GetWorld();
     if (World)
     {
@@ -263,13 +307,10 @@ bool FMcpWorldBrushEdMode::MouseMove(FEditorViewportClient *ViewportClient, FVie
         {
             BrushCursor = Hit.ImpactPoint;
             bHasBrushCursor = true;
-        }
-        else
-        {
-            bHasBrushCursor = false;
+            return;
         }
     }
-    return false;
+    bHasBrushCursor = false;
 }
 
 void FMcpWorldBrushEdMode::Render(const FSceneView * /*View*/, FViewport * /*Viewport*/,

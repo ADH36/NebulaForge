@@ -17,7 +17,7 @@
 
 #include "CoreMinimal.h"
 #include "Brush/McpWorldBrushOps.h"
-#include "EditorModes.h"
+#include "EdMode.h"
 #include "Toolkits/BaseToolkit.h"
 
 class FEditorViewportClient;
@@ -43,6 +43,8 @@ public:
                            int32 x, int32 y) override;
     virtual bool StartTracking(FEditorViewportClient *InViewportClient, FViewport *InViewport) override;
     virtual bool EndTracking(FEditorViewportClient *InViewportClient, FViewport *InViewport) override;
+    virtual bool CapturedMouseMove(FEditorViewportClient *InViewportClient, FViewport *InViewport,
+                                   int32 InMouseX, int32 InMouseY) override;
     virtual void Render(const FSceneView *View, FViewport *Viewport,
                         FPrimitiveDrawInterface *PDI) override;
     virtual bool UsesToolkits() const override { return true; }
@@ -53,6 +55,10 @@ public:
     static void UnregisterMode();
 
 private:
+    /** Paints one spaced dab from screen coordinates (shared by move paths). */
+    bool PaintAtCursor(FEditorViewportClient *ViewportClient, int32 x, int32 y);
+    /** Refreshes the hover cursor ring without consuming input. */
+    void UpdateBrushCursor(FEditorViewportClient *ViewportClient, int32 x, int32 y);
     /** Applies one dab when the stroke cursor moved far enough. */
     bool ApplyDabAtCursor(FEditorViewportClient *ViewportClient, const FVector &Origin,
                           const FVector &Direction);

@@ -442,9 +442,9 @@ FSlateColor SMcpWorldBuilderPanel::GetStatusColor() const
 {
     if (bRunning)
     {
-        return FSlateColor(FColor::Red());
+        return FSlateColor(FColor::Red);
     }
-    return FSlateColor(FColor::Green());
+    return FSlateColor(FColor::Green);
 }
 
 FText SMcpWorldBuilderPanel::GetSelectedPresetText() const

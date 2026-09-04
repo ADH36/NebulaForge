@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
-  "Version": 1126,
-  "VersionName": "1.1.26",
+  "Version": 1169,
+  "VersionName": "1.1.69",
   "FriendlyName": "NebulaForge Bridge",
   "Description": "Editor automation bridge enabling AI assistants (Claude, Cursor, etc.) to control Unreal Engine via Model Context Protocol (MCP). Provides 200+ automation actions for assets, actors, levels, animation, AI, Niagara, materials, foliage, landscapes, and more. Supports UE 5.0-5.8 Preview with TLS/SSL security.",
   "Category": "Editor|Automation|AI",

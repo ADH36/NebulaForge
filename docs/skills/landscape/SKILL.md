@@ -18,6 +18,17 @@ radius/strength/falloff controls. Programmatic single dabs stay available throug
 `sculpt_landscape` (toolMode Raise/Lower/Flatten/Smooth), `paint_landscape_layer`,
 and `scatter_landscape_foliage`.
 
+## Iteration loop (generate → measure → adjust)
+
+1. Generate with `generate_world` (inline params) or `apply_biome` (preset + overrides).
+2. Read the combined summary: `status` PASS/PARTIAL/FAIL plus per-step evidence. PARTIAL names the failed step — fix that step's inputs, not the whole recipe.
+3. Measure with `inspect_landscape` and `inspect_generated_foliage`; adjust rules and re-run with the same `seed` (deterministic) and `reuseExistingLandscape: true` to rebuild on the same actor.
+4. Typical adjustments: rock missing → widen its slope band; snow everywhere → raise `minHeight`; bald spots → raise `count` or lower `maxSlope`; layers invisible → check the auto material was created and layer infos exist.
+
+## Biome presets
+
+Author reusable presets with `create_biome_preset` (same grammar as `generate_world`), inspect them with `inspect_biome_preset`, list them with `list_biome_presets`, and rebuild them with `apply_biome`. Presets are `UMcpBiomePreset` assets and editable in the content browser. Pair with the `forest`, `roads`, `buildings`, and `water` skills for full worlds.
+
 For roads and rivers, use `build_road` (or `build_river`): terrain-conformed
 spline, cut/fill corridor, roadbed segments from your mesh, furniture scatter
 with lateral offsets for guardrails/lamps/markings, junction discs, and river

@@ -302,7 +302,8 @@ inline const TArray<FString>& WorldRecipes()
 	static const TArray<FString> Actions = {
 		TEXT("generate_world"), TEXT("apply_biome"),
 		TEXT("create_biome_preset"), TEXT("inspect_biome_preset"),
-		TEXT("list_biome_presets"), TEXT("build_road"), TEXT("build_river")
+		TEXT("list_biome_presets"), TEXT("build_road"), TEXT("build_river"),
+		TEXT("build_buildings"), TEXT("plant_forest"), TEXT("build_lake")
 	};
 	return Actions;
 }

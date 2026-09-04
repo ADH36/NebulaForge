@@ -51,7 +51,8 @@ const UE_581_LANDSCAPE_FOLIAGE_ACTIONS = [
 
 const WORLD_RECIPE_ACTIONS = [
   'generate_world', 'apply_biome', 'create_biome_preset',
-  'inspect_biome_preset', 'list_biome_presets', 'build_road', 'build_river'
+  'inspect_biome_preset', 'list_biome_presets', 'build_road', 'build_river',
+  'build_buildings', 'plant_forest', 'build_lake'
 ] as const;
 
 const PHASE_29_1_RAY_TRACING_ACTIONS = [
@@ -780,6 +781,17 @@ describe('world recipe orchestration contract', () => {
     }
   });
 
+  it('exposes the settlement, forest, and lake recipe properties', () => {
+    const properties = getBuildEnvironmentProperties();
+    for (const property of [
+      'projectName', 'buildings', 'forestName', 'species',
+      'totalCount', 'clusterCount', 'clusterRadius',
+      'lakeName', 'waterLevel'
+    ]) {
+      expect(properties).toHaveProperty(property);
+    }
+  });
+
   it('forwards build_road with normalized roadbed and furniture paths', async () => {
     await handleEnvironmentTools('build_road', {
       action: 'build_road',
@@ -805,6 +817,73 @@ describe('world recipe orchestration contract', () => {
         roadName: 'MCP_TestRoad',
         roadbedMeshPath: '/Game/MCPTest/Meshes/SM_Roadbed',
         furniture: [{ meshPath: '/Game/MCPTest/Meshes/SM_Guardrail', spacing: 2000, offset: 600, bothSides: true }]
+      }), 'Automation bridge not available for landscape and foliage authoring operations'
+    );
+  });
+
+  it('forwards build_buildings with normalized material paths', async () => {
+    await handleEnvironmentTools('build_buildings', {
+      action: 'build_buildings',
+      projectName: 'MCP_TestVillage',
+      seed: 11,
+      buildings: [
+        { buildingName: 'House_A', buildingType: 'house', width: 900, depth: 800, floors: 2, location: { x: 0, y: 0, z: 0 }, wallMaterial: 'Content/MCPTest/Materials/M_Wall' },
+        { buildingName: 'Shop_B', buildingType: 'shop', width: 1200, depth: 1000, floors: 1, location: { x: 2000, y: 0, z: 0 } }
+      ]
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'build_environment', expect.objectContaining({
+        action: 'build_buildings',
+        projectName: 'MCP_TestVillage',
+        buildings: [
+          expect.objectContaining({ buildingName: 'House_A', wallMaterial: '/Game/MCPTest/Materials/M_Wall' }),
+          expect.objectContaining({ buildingName: 'Shop_B' })
+        ]
+      }), 'Automation bridge not available for landscape and foliage authoring operations'
+    );
+  });
+
+  it('forwards plant_forest with normalized species mesh paths', async () => {
+    await handleEnvironmentTools('plant_forest', {
+      action: 'plant_forest',
+      forestName: 'MCP_TestForest',
+      seed: 21,
+      totalCount: 120,
+      clusterCount: 4,
+      species: [
+        { meshPath: 'Content/MCPTest/Meshes/SM_Pine', weight: 3 },
+        { meshPath: 'Content/MCPTest/Meshes/SM_Birch', weight: 1 }
+      ]
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'build_environment', expect.objectContaining({
+        action: 'plant_forest',
+        forestName: 'MCP_TestForest',
+        species: [
+          { meshPath: '/Game/MCPTest/Meshes/SM_Pine', weight: 3 },
+          { meshPath: '/Game/MCPTest/Meshes/SM_Birch', weight: 1 }
+        ]
+      }), 'Automation bridge not available for landscape and foliage authoring operations'
+    );
+  });
+
+  it('forwards build_lake with normalized material path', async () => {
+    await handleEnvironmentTools('build_lake', {
+      action: 'build_lake',
+      lakeName: 'MCP_TestLake',
+      location: { x: 1000, y: 2000, z: 100 },
+      radius: 1500,
+      depth: 500,
+      materialPath: 'Content/MCPTest/Materials/M_Water'
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'build_environment', expect.objectContaining({
+        action: 'build_lake',
+        lakeName: 'MCP_TestLake',
+        materialPath: '/Game/MCPTest/Materials/M_Water'
       }), 'Automation bridge not available for landscape and foliage authoring operations'
     );
   });

@@ -302,6 +302,9 @@ The focused domain parents `manage_materials`, `manage_lighting`, `manage_input`
 | `inspect_biome_preset` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleInspectBiomePreset` | Round-trips a preset to JSON via property reflection. |
 | `list_biome_presets` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleListBiomePresets` | Asset registry scan for `UMcpBiomePreset` assets. |
 | `build_road` / `build_river` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleWorldRecipeAction` → `BeginBuildRoad` | roadBLD-style pipeline: terrain-conformed spline, cut/fill corridor, roadbed segments, lateral-offset furniture, junction discs, WaterBodyRiver spline following. |
+| `build_buildings` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleWorldRecipeAction` → `BeginBuildBuildings` | Batches generate_procedural_building steps from a lot list, one chain step per building. |
+| `plant_forest` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleWorldRecipeAction` → `BeginPlantForest` | Clustered multi-species HISM planting with slope/height filters and seeded cluster centers. |
+| `build_lake` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleWorldRecipeAction` → `BeginBuildLake` | Carves a basin toward a water level, then spawns WaterBodyLake at the surface. |
 
 ## System Control (`system_control`)
 

@@ -156,7 +156,8 @@ export const PHASE_28_ENVIRONMENT_ACTIONS = [
 
 export const WORLD_RECIPE_ACTIONS = [
   'generate_world', 'apply_biome', 'create_biome_preset', 'inspect_biome_preset',
-  'list_biome_presets', 'build_road', 'build_river'
+  'list_biome_presets', 'build_road', 'build_river',
+  'build_buildings', 'plant_forest', 'build_lake'
 ] as const;
 
 export const PERFORMANCE_ACTIONS = [
@@ -1374,7 +1375,7 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
   {
     name: 'build_environment',
     category: 'world',
-    description: 'Build environments: landscapes, foliage, procedural terrain/biomes, optimized modular buildings/city blocks, lighting setups, spline roads/rivers/fences, and world decoration.',
+    description: 'Build environments: landscapes, foliage, procedural terrain/biomes, optimized modular buildings/city blocks, lighting setups, spline roads/rivers/fences, and world decoration. Orchestrated recipes: generate_world/apply_biome (biome presets), build_road/build_river (roads with cut/fill, roadbed, furniture, junctions, water), build_buildings (batch lots), plant_forest (clustered multi-species trees), build_lake (carved basin + water). Before multi-step landscaping, load the matching workflow skill packs with get_skills (landscape, roads, forest, buildings, water).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1517,6 +1518,16 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         skipFurniture: commonSchemas.booleanProp,
         skipJunctions: commonSchemas.booleanProp,
         skipWater: commonSchemas.booleanProp,
+        // Settlements, vegetation, and water recipes
+        projectName: commonSchemas.stringProp,
+        buildings: commonSchemas.arrayOfObjects,
+        forestName: commonSchemas.stringProp,
+        species: commonSchemas.arrayOfObjects,
+        totalCount: commonSchemas.numberProp,
+        clusterCount: commonSchemas.numberProp,
+        clusterRadius: commonSchemas.numberProp,
+        lakeName: commonSchemas.stringProp,
+        waterLevel: commonSchemas.numberProp,
         description: commonSchemas.stringProp,
         iterations: commonSchemas.numberProp,
         frequency: commonSchemas.numberProp,

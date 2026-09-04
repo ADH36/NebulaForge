@@ -108,7 +108,9 @@ const ENVIRONMENT_PATH_FIELDS_BY_ACTION: Record<string, readonly string[]> = {
   create_biome_preset: ['path', 'materialPath'],
   inspect_biome_preset: ['biomePresetPath'],
   build_road: ['roadbedMeshPath', 'roadbedMaterialPath', 'waterMaterialPath', 'landscapePath'],
-  build_river: ['roadbedMeshPath', 'roadbedMaterialPath', 'waterMaterialPath', 'landscapePath']
+  build_river: ['roadbedMeshPath', 'roadbedMaterialPath', 'waterMaterialPath', 'landscapePath'],
+  plant_forest: ['landscapePath'],
+  build_lake: ['landscapePath', 'materialPath', 'waterMaterialPath']
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -148,6 +150,28 @@ function normalizeRoadFurnitureEntries(value: unknown): unknown {
   });
 }
 
+function normalizeBuildingEntries(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map(entry => {
+    if (!isRecord(entry)) return entry;
+    const normalized = { ...entry };
+    for (const field of ['wallMaterial', 'roofMaterial', 'windowMaterial', 'trimMaterial', 'interiorMaterial', 'storefrontMaterial']) {
+      if (typeof normalized[field] === 'string') {
+        normalized[field] = normalizePathValue(normalized[field]);
+      }
+    }
+    return normalized;
+  });
+}
+
+function normalizeForestSpecies(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map(entry => {
+    if (!isRecord(entry) || typeof entry.meshPath !== 'string') return entry;
+    return { ...entry, meshPath: normalizePathValue(entry.meshPath) };
+  });
+}
+
 function normalizeEnvironmentPathArgs(action: string, args: Record<string, unknown>): Record<string, unknown> {
   const pathFields = ENVIRONMENT_PATH_FIELDS_BY_ACTION[action] ?? [];
   const normalized = pathFields.length > 0 ? normalizePathFields(args, pathFields) : { ...args };
@@ -161,6 +185,10 @@ function normalizeEnvironmentPathArgs(action: string, args: Record<string, unkno
   } else if (action === 'build_road' || action === 'build_river') {
     normalized.furniture = normalizeRoadFurnitureEntries(normalized.furniture);
     normalized.junctions = normalizeRoadFurnitureEntries(normalized.junctions);
+  } else if (action === 'build_buildings') {
+    normalized.buildings = normalizeBuildingEntries(normalized.buildings);
+  } else if (action === 'plant_forest') {
+    normalized.species = normalizeForestSpecies(normalized.species);
   }
   return normalized;
 }
@@ -469,6 +497,9 @@ export async function handleEnvironmentTools(action: string, args: HandlerArgs, 
     case 'list_biome_presets':
     case 'build_road':
     case 'build_river':
+    case 'build_buildings':
+    case 'plant_forest':
+    case 'build_lake':
       return cleanObject(await executeAutomationRequest(tools, 'build_environment', {
         ...argsRecord,
         action: envAction

@@ -65,9 +65,23 @@ runToolTests('world-recipes', [
       { path: 'structuredContent.result.roadKind', equals: 'river', label: 'river kind recorded' }
     ] },
 
+  { scenario: 'Settlement: build_buildings raises two lots with per-step evidence', toolName: 'build_environment', arguments: { action: 'build_buildings', projectName: `MCP_TestVillage_${stamp}`, seed: 11, buildings: [{ buildingName: `MCP_TestHouse_${stamp}`, buildingType: 'house', width: 900, depth: 800, floors: 2, location: { x: 12000, y: 0, z: 200 } }, { buildingName: `MCP_TestShop_${stamp}`, buildingType: 'shop', width: 1200, depth: 1000, floors: 1, location: { x: 14000, y: 0, z: 200 } }] }, expected: 'success', assertions: [
+      { path: 'structuredContent.result.status', equals: 'PASS', label: 'all lots built' },
+      { path: 'structuredContent.result.stepCount', equals: 2, label: 'one step per lot' },
+      { path: 'structuredContent.result.failedSteps', equals: 0, label: 'no failed lots' }
+    ] },
+  { scenario: 'Vegetation: plant_forest grows clustered multi-species trees', toolName: 'build_environment', arguments: { action: 'plant_forest', forestName: `MCP_TestForest_${stamp}`, landscapeName: landscape, seed: 21, totalCount: 40, clusterCount: 3, clusterRadius: 2000, maxSlope: 45, species: [{ meshPath: '/Engine/BasicShapes/Sphere', weight: 3 }, { meshPath: '/Engine/BasicShapes/Cone', weight: 1 }] }, expected: 'success', assertions: [
+      { path: 'structuredContent.result.status', equals: 'PASS', label: 'forest planted' },
+      { path: 'structuredContent.result.steps.0.result.instancesPlaced', greaterThan: 0, label: 'instances placed' }
+    ] },
+  { scenario: 'Water: build_lake carves a basin and spawns lake water', toolName: 'build_environment', arguments: { action: 'build_lake', lakeName: `MCP_TestLake_${stamp}`, landscapeName: landscape, location: { x: 20000, y: 6000, z: 200 }, radius: 1500, depth: 500 }, expected: 'success|error', assertions: [
+      { path: 'structuredContent.result.lakeName', equals: `MCP_TestLake_${stamp}`, label: 'lake recorded' }
+    ] },
+
   { scenario: 'Cleanup: delete generated landscapes', toolName: 'build_environment', arguments: { action: 'delete_landscape', landscapeName: landscape }, expected: 'success|not found' },
   { scenario: 'Cleanup: delete bare inline landscape', toolName: 'build_environment', arguments: { action: 'delete_landscape', landscapeName: `MCP_WorldRecipeBare_${stamp}` }, expected: 'success|not found' },
   { scenario: 'Cleanup: delete road and river spline actors', toolName: 'build_environment', arguments: { action: 'delete', names: [road, river, `${road}_Water`, `${river}_Water`] }, expected: 'success' },
+  { scenario: 'Cleanup: delete settlement lots and lake water', toolName: 'build_environment', arguments: { action: 'delete', names: [`MCP_TestHouse_${stamp}`, `MCP_TestShop_${stamp}`, `MCP_TestLake_${stamp}`] }, expected: 'success' },
   { scenario: 'Cleanup: clear tool-generated foliage', toolName: 'build_environment', arguments: { action: 'clear_generated_foliage' }, expected: 'success' },
   { scenario: 'Cleanup: delete all temporary world recipe content', toolName: 'manage_asset', arguments: { action: 'delete', path: folder, force: true }, expected: 'success|not found' }
 ]);

@@ -836,6 +836,24 @@ private:
       TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
       const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
           &Completion);
+  /** Shared build_buildings entry. Must be called on the game thread. */
+  void BeginBuildBuildings(
+      const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+      TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+      const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
+          &Completion);
+  /** Shared plant_forest entry. Must be called on the game thread. */
+  void BeginPlantForest(
+      const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+      TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+      const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
+          &Completion);
+  /** Shared build_lake entry. Must be called on the game thread. */
+  void BeginBuildLake(
+      const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+      TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+      const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
+          &Completion);
   bool HandleCreateNiagaraSystemNative(
       const FString &RequestId, const FString &Action,
       const TSharedPtr<FJsonObject> &Payload,

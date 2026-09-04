@@ -2383,6 +2383,833 @@ void UNebulaForgeBridgeSubsystem::BeginBuildRoad(
 }
 
 // =============================================================================
+// Section E: Buildings / Forest / Lake Recipes
+// =============================================================================
+// - build_buildings: batches generate_procedural_building steps from a lot
+//   list, one chain step per building with per-step evidence.
+// - plant_forest: clustered multi-species HISM forest planting with slope and
+//   height filters (uniform scatter cannot grow believable forests).
+// - build_lake: carves a basin toward a water level, then spawns a
+//   WaterBodyLake actor at the surface height.
+
+namespace
+{
+#if WITH_EDITOR
+struct FMcpBuildingEntry
+{
+    FString BuildingName;
+    FString BuildingType = TEXT("house");
+    double Width = 800.0;
+    double Depth = 800.0;
+    int32 Floors = 2;
+    double FloorHeight = 320.0;
+    FVector Location = FVector::ZeroVector;
+    bool bHasLocation = false;
+    FString WallMaterial;
+    FString RoofMaterial;
+    FString WindowMaterial;
+    int32 Seed = 0;
+    bool bHasSeed = false;
+};
+
+struct FMcpBuildingsConfig
+{
+    FString ProjectName = TEXT("MCP_Buildings");
+    TArray<FMcpBuildingEntry> Buildings;
+    FString RoadSplineActor;
+    double RoadClearance = 250.0;
+    int32 Seed = 1337;
+};
+
+void McpBuildingsApplyPayload(const TSharedPtr<FJsonObject> &Payload, FMcpBuildingsConfig &Config)
+{
+    if (!Payload.IsValid())
+        return;
+    const FString ProjectName = McpRecipeFirstString(Payload, {TEXT("projectName"), TEXT("name")});
+    if (!ProjectName.IsEmpty())
+        Config.ProjectName = ProjectName;
+    const FString RoadSpline = McpRecipeFirstString(Payload, {TEXT("roadSplineActor")});
+    if (!RoadSpline.IsEmpty())
+        Config.RoadSplineActor = RoadSpline;
+    double Number = 0.0;
+    if (Payload->TryGetNumberField(TEXT("roadClearance"), Number))
+        Config.RoadClearance = Number;
+    if (Payload->TryGetNumberField(TEXT("seed"), Number))
+        Config.Seed = static_cast<int32>(Number);
+
+    const TArray<TSharedPtr<FJsonValue>> *Buildings = nullptr;
+    if (Payload->TryGetArrayField(TEXT("buildings"), Buildings) && Buildings)
+    {
+        for (const TSharedPtr<FJsonValue> &Value : *Buildings)
+        {
+            const TSharedPtr<FJsonObject> *EntryObject = nullptr;
+            if (!Value.IsValid() || !Value->TryGetObject(EntryObject) || !EntryObject)
+                continue;
+            FMcpBuildingEntry Entry;
+            Entry.BuildingName = McpRecipeFirstString(*EntryObject, {TEXT("buildingName"), TEXT("name")});
+            const FString Type = McpRecipeFirstString(*EntryObject, {TEXT("buildingType"), TEXT("type")});
+            if (!Type.IsEmpty())
+                Entry.BuildingType = Type;
+            McpRecipeReadNumber(*EntryObject, TEXT("width"), Entry.Width);
+            McpRecipeReadNumber(*EntryObject, TEXT("depth"), Entry.Depth);
+            McpRecipeReadNumber(*EntryObject, TEXT("floors"), Entry.Floors);
+            McpRecipeReadNumber(*EntryObject, TEXT("floorHeight"), Entry.FloorHeight);
+            if (McpRecipeReadVector(*EntryObject, TEXT("location"), Entry.Location))
+                Entry.bHasLocation = true;
+            Entry.WallMaterial = McpRecipeFirstString(*EntryObject, {TEXT("wallMaterial")});
+            Entry.RoofMaterial = McpRecipeFirstString(*EntryObject, {TEXT("roofMaterial")});
+            Entry.WindowMaterial = McpRecipeFirstString(*EntryObject, {TEXT("windowMaterial")});
+            int32 SeedValue = 0;
+            if ((*EntryObject)->TryGetNumberField(TEXT("seed"), Number))
+            {
+                SeedValue = static_cast<int32>(Number);
+                Entry.Seed = SeedValue;
+                Entry.bHasSeed = true;
+            }
+            Config.Buildings.Add(Entry);
+        }
+    }
+}
+
+struct FMcpForestSpecies
+{
+    FString MeshPath;
+    double Weight = 1.0;
+    int32 Count = 0;
+    bool bHasCount = false;
+    double MinScale = 0.8;
+    double MaxScale = 1.2;
+};
+
+struct FMcpForestConfig
+{
+    FString ForestName = TEXT("MCP_Forest");
+    FString LandscapeName;
+    int32 Seed = 1337;
+    TArray<FMcpForestSpecies> Species;
+    int32 TotalCount = 200;
+    int32 ClusterCount = 8;
+    double ClusterRadius = 2500.0;
+    double MinSlope = 0.0;
+    double MaxSlope = 35.0;
+    double MinHeight = -1000000.0;
+    double MaxHeight = 1000000.0;
+};
+
+void McpForestApplyPayload(const TSharedPtr<FJsonObject> &Payload, FMcpForestConfig &Config)
+{
+    if (!Payload.IsValid())
+        return;
+    const FString ForestName = McpRecipeFirstString(Payload, {TEXT("forestName"), TEXT("name")});
+    if (!ForestName.IsEmpty())
+        Config.ForestName = ForestName;
+    const FString LandscapeName = McpRecipeFirstString(Payload, {TEXT("landscapeName")});
+    if (!LandscapeName.IsEmpty())
+        Config.LandscapeName = LandscapeName;
+    double Number = 0.0;
+    if (Payload->TryGetNumberField(TEXT("seed"), Number))
+        Config.Seed = static_cast<int32>(Number);
+    if (Payload->TryGetNumberField(TEXT("totalCount"), Number))
+        Config.TotalCount = static_cast<int32>(Number);
+    else if (Payload->TryGetNumberField(TEXT("count"), Number))
+        Config.TotalCount = static_cast<int32>(Number);
+    if (Payload->TryGetNumberField(TEXT("clusterCount"), Number))
+        Config.ClusterCount = static_cast<int32>(Number);
+    if (Payload->TryGetNumberField(TEXT("clusterRadius"), Number))
+        Config.ClusterRadius = Number;
+    if (Payload->TryGetNumberField(TEXT("minSlope"), Number))
+        Config.MinSlope = Number;
+    if (Payload->TryGetNumberField(TEXT("maxSlope"), Number))
+        Config.MaxSlope = Number;
+    if (Payload->TryGetNumberField(TEXT("minHeight"), Number))
+        Config.MinHeight = Number;
+    if (Payload->TryGetNumberField(TEXT("maxHeight"), Number))
+        Config.MaxHeight = Number;
+
+    const TArray<TSharedPtr<FJsonValue>> *Species = nullptr;
+    if (Payload->TryGetArrayField(TEXT("species"), Species) && Species)
+    {
+        for (const TSharedPtr<FJsonValue> &Value : *Species)
+        {
+            const TSharedPtr<FJsonObject> *EntryObject = nullptr;
+            if (!Value.IsValid() || !Value->TryGetObject(EntryObject) || !EntryObject)
+                continue;
+            FMcpForestSpecies Entry;
+            Entry.MeshPath = McpRecipeFirstString(*EntryObject, {TEXT("meshPath"), TEXT("mesh")});
+            if (Entry.MeshPath.IsEmpty())
+                continue;
+            McpRecipeReadNumber(*EntryObject, TEXT("weight"), Entry.Weight);
+            McpRecipeReadNumber(*EntryObject, TEXT("ratio"), Entry.Weight);
+            if ((*EntryObject)->TryGetNumberField(TEXT("count"), Number))
+            {
+                Entry.Count = static_cast<int32>(Number);
+                Entry.bHasCount = true;
+            }
+            McpRecipeReadNumber(*EntryObject, TEXT("minScale"), Entry.MinScale);
+            McpRecipeReadNumber(*EntryObject, TEXT("maxScale"), Entry.MaxScale);
+            Config.Species.Add(Entry);
+        }
+    }
+}
+
+bool McpForestPlant(UWorld *World, const FMcpForestConfig &Config,
+                    TSharedPtr<FJsonObject> &OutResult, FString &OutMessage, FString &OutErrorCode)
+{
+    if (!World)
+    {
+        OutErrorCode = TEXT("INVALID_WORLD");
+        OutMessage = TEXT("No world for forest planting.");
+        return false;
+    }
+    if (Config.Species.Num() == 0)
+    {
+        OutErrorCode = TEXT("INVALID_ARGUMENT");
+        OutMessage = TEXT("plant_forest requires at least one species with a meshPath.");
+        return false;
+    }
+
+    // Resolve the planting bounds from the landscape (named or first found).
+    ALandscape *Landscape = nullptr;
+    if (!Config.LandscapeName.IsEmpty())
+    {
+        for (TActorIterator<ALandscape> It(World); It; ++It)
+        {
+            ALandscape *Candidate = *It;
+            if (Candidate && Candidate->GetActorLabel().Equals(Config.LandscapeName, ESearchCase::IgnoreCase))
+            {
+                Landscape = Candidate;
+                break;
+            }
+        }
+        if (!Landscape)
+        {
+            OutErrorCode = TEXT("LANDSCAPE_NOT_FOUND");
+            OutMessage = FString::Printf(TEXT("Landscape '%s' not found for forest planting."), *Config.LandscapeName);
+            return false;
+        }
+    }
+    else
+    {
+        for (TActorIterator<ALandscape> It(World); It; ++It)
+        {
+            Landscape = *It;
+            break;
+        }
+        if (!Landscape)
+        {
+            OutErrorCode = TEXT("LANDSCAPE_NOT_FOUND");
+            OutMessage = TEXT("No landscape in the map for forest planting.");
+            return false;
+        }
+    }
+    const FBox Bounds = Landscape->GetComponentsBoundingBox(true);
+    if (!Bounds.IsValid || Bounds.GetVolume() <= 0.0)
+    {
+        OutErrorCode = TEXT("INVALID_LANDSCAPE");
+        OutMessage = TEXT("Landscape bounds are invalid for forest planting.");
+        return false;
+    }
+
+    // Validate meshes and resolve per-species counts from weights.
+    struct FSpeciesRun
+    {
+        UStaticMesh *Mesh = nullptr;
+        FMcpForestSpecies Spec;
+        int32 TargetCount = 0;
+    };
+    TArray<FSpeciesRun> Runs;
+    double TotalWeight = 0.0;
+    for (const FMcpForestSpecies &Spec : Config.Species)
+    {
+        UStaticMesh *Mesh = LoadObject<UStaticMesh>(nullptr, *Spec.MeshPath);
+        if (!Mesh)
+        {
+            OutErrorCode = TEXT("ASSET_NOT_FOUND");
+            OutMessage = FString::Printf(TEXT("Forest species mesh not found: %s"), *Spec.MeshPath);
+            return false;
+        }
+        FSpeciesRun Run;
+        Run.Mesh = Mesh;
+        Run.Spec = Spec;
+        Runs.Add(Run);
+        TotalWeight += FMath::Max(0.0, Spec.Weight);
+    }
+    int32 Assigned = 0;
+    for (int32 Index = 0; Index < Runs.Num(); ++Index)
+    {
+        if (Runs[Index].Spec.bHasCount)
+        {
+            Runs[Index].TargetCount = FMath::Max(0, Runs[Index].Spec.Count);
+        }
+        else if (TotalWeight > 0.0)
+        {
+            Runs[Index].TargetCount = FMath::RoundToInt(
+                static_cast<double>(Config.TotalCount) * FMath::Max(0.0, Runs[Index].Spec.Weight) / TotalWeight);
+        }
+        Assigned += Runs[Index].TargetCount;
+    }
+
+    // Collection actor shared by all species (tagged for generated clearing).
+    const FString ActorLabel = SanitizeAssetName(Config.ForestName);
+    AActor *Actor = nullptr;
+    for (TActorIterator<AActor> It(World); It; ++It)
+    {
+        AActor *Candidate = *It;
+        if (Candidate && Candidate->ActorHasTag(TEXT("MCP.GeneratedLandscapeFoliage")) &&
+            Candidate->GetActorLabel().Equals(ActorLabel, ESearchCase::IgnoreCase))
+        {
+            Actor = Candidate;
+            break;
+        }
+    }
+    if (!Actor)
+    {
+        const FScopedTransaction Transaction(FText::FromString(TEXT("Create Forest Collection")));
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.ObjectFlags |= RF_Transactional;
+        Actor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+        if (!Actor)
+        {
+            OutErrorCode = TEXT("SPAWN_FAILED");
+            OutMessage = TEXT("Failed to spawn forest collection actor.");
+            return false;
+        }
+        Actor->SetIsSpatiallyLoaded(false);
+        Actor->SetActorLabel(ActorLabel);
+        Actor->Tags.Add(TEXT("MCP.GeneratedLandscapeFoliage"));
+        Actor->Tags.Add(FName(*(FString(TEXT("MCP.GeneratedLandscapeFoliage.Name=")) + ActorLabel)));
+        USceneComponent *Root = NewObject<USceneComponent>(Actor, TEXT("ForestRoot"), RF_Transactional);
+        Actor->AddInstanceComponent(Root);
+        Actor->SetRootComponent(Root);
+        Root->RegisterComponent();
+    }
+    // One HISM per species mesh.
+    TArray<UHierarchicalInstancedStaticMeshComponent *> Hisms;
+    Hisms.SetNum(Runs.Num());
+    for (int32 Index = 0; Index < Runs.Num(); ++Index)
+    {
+        UHierarchicalInstancedStaticMeshComponent *Hism = nullptr;
+        for (UActorComponent *Component : Actor->GetComponents())
+        {
+            if (UHierarchicalInstancedStaticMeshComponent *Candidate =
+                    Cast<UHierarchicalInstancedStaticMeshComponent>(Component))
+            {
+                if (Candidate->GetStaticMesh() == Runs[Index].Mesh)
+                {
+                    Hism = Candidate;
+                    break;
+                }
+            }
+        }
+        if (!Hism)
+        {
+            Hism = NewObject<UHierarchicalInstancedStaticMeshComponent>(Actor, NAME_None, RF_Transactional);
+            Actor->AddInstanceComponent(Hism);
+            Hism->SetStaticMesh(Runs[Index].Mesh);
+            Hism->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            Hism->SetupAttachment(Actor->GetRootComponent());
+            Hism->RegisterComponent();
+        }
+        Hisms[Index] = Hism;
+    }
+
+    const FScopedTransaction Transaction(FText::FromString(TEXT("Plant Forest")));
+    Actor->Modify();
+    FRandomStream Random(Config.Seed);
+    const int32 ClusterCount = FMath::Max(1, Config.ClusterCount);
+    const double ClusterRadius = FMath::Max(100.0, Config.ClusterRadius);
+
+    // Seeded cluster centers uniform inside the landscape bounds.
+    TArray<FVector> ClusterCenters;
+    for (int32 Index = 0; Index < ClusterCount; ++Index)
+    {
+        ClusterCenters.Add(FVector(Random.FRandRange(Bounds.Min.X, Bounds.Max.X),
+                                   Random.FRandRange(Bounds.Min.Y, Bounds.Max.Y),
+                                   Bounds.Max.Z));
+    }
+
+    TArray<int32> PlacedPerSpecies;
+    PlacedPerSpecies.Init(0, Runs.Num());
+    for (int32 SpeciesIndex = 0; SpeciesIndex < Runs.Num(); ++SpeciesIndex)
+    {
+        const int32 SpeciesTarget = Runs[SpeciesIndex].TargetCount;
+        const int32 PerCluster = FMath::Max(1, FMath::RoundToInt(static_cast<double>(SpeciesTarget) /
+                                                                static_cast<double>(ClusterCount)));
+        for (const FVector &Center : ClusterCenters)
+        {
+            int32 ClusterPlaced = 0;
+            const int32 Attempts = PerCluster * 24;
+            for (int32 Attempt = 0;
+                 Attempt < Attempts && PlacedPerSpecies[SpeciesIndex] < SpeciesTarget &&
+                 ClusterPlaced < PerCluster * 2;
+                 ++Attempt)
+            {
+                const double Angle = Random.FRandRange(0.0, 2.0 * PI);
+                // sqrt distribution concentrates trees toward the cluster heart.
+                const double Distance = ClusterRadius * FMath::Sqrt(Random.FRand());
+                const FVector SamplePoint(Center.X + FMath::Cos(Angle) * Distance,
+                                          Center.Y + FMath::Sin(Angle) * Distance,
+                                          Bounds.Max.Z + 10000.0);
+                FHitResult Hit;
+                if (!World->LineTraceSingleByChannel(Hit, SamplePoint,
+                                                     SamplePoint - FVector(0.0, 0.0, 100000.0),
+                                                     ECC_WorldStatic) ||
+                    !Cast<ALandscapeProxy>(Hit.GetActor()))
+                    continue;
+                const double SlopeDeg = FMath::RadiansToDegrees(
+                    FMath::Acos(FMath::Clamp(Hit.ImpactNormal.Z, -1.0f, 1.0f)));
+                if (SlopeDeg < Config.MinSlope || SlopeDeg > Config.MaxSlope)
+                    continue;
+                const double WorldZ = Hit.ImpactPoint.Z;
+                if (WorldZ < Config.MinHeight || WorldZ > Config.MaxHeight)
+                    continue;
+                const float Scale = Random.FRandRange(static_cast<float>(Runs[SpeciesIndex].Spec.MinScale),
+                                                      static_cast<float>(Runs[SpeciesIndex].Spec.MaxScale));
+                Hisms[SpeciesIndex]->AddInstance(
+                    FTransform(FRotator(0.0f, Random.FRandRange(0.0f, 360.0f), 0.0f),
+                               Hit.ImpactPoint + Hit.ImpactNormal * 2.0f, FVector(Scale)));
+                ++PlacedPerSpecies[SpeciesIndex];
+                ++ClusterPlaced;
+            }
+        }
+    }
+
+    int32 TotalPlaced = 0;
+    for (int32 Placed : PlacedPerSpecies)
+        TotalPlaced += Placed;
+    if (TotalPlaced > 0)
+    {
+        Actor->MarkPackageDirty();
+        McpSafeAssetSave(Actor);
+    }
+
+    OutResult = McpHandlerUtils::CreateResultObject();
+    OutResult->SetBoolField(TEXT("success"), true);
+    OutResult->SetStringField(TEXT("actorLabel"), ActorLabel);
+    OutResult->SetStringField(TEXT("landscapeName"), Landscape->GetActorLabel());
+    OutResult->SetNumberField(TEXT("instancesPlaced"), TotalPlaced);
+    OutResult->SetNumberField(TEXT("clusterCount"), ClusterCenters.Num());
+    TArray<TSharedPtr<FJsonValue>> SpeciesResults;
+    for (int32 Index = 0; Index < Runs.Num(); ++Index)
+    {
+        TSharedPtr<FJsonObject> SpeciesResult = McpHandlerUtils::CreateResultObject();
+        SpeciesResult->SetStringField(TEXT("mesh"), Runs[Index].Spec.MeshPath);
+        SpeciesResult->SetNumberField(TEXT("targetCount"), Runs[Index].TargetCount);
+        SpeciesResult->SetNumberField(TEXT("placedCount"), PlacedPerSpecies[Index]);
+        SpeciesResults.Add(MakeShared<FJsonValueObject>(SpeciesResult));
+    }
+    OutResult->SetArrayField(TEXT("species"), SpeciesResults);
+    OutMessage = FString::Printf(TEXT("Forest '%s' planted: %d instances in %d clusters."),
+                                 *ActorLabel, TotalPlaced, ClusterCenters.Num());
+    return TotalPlaced > 0;
+}
+
+struct FMcpLakeConfig
+{
+    FString LakeName = TEXT("MCP_Lake");
+    FString LandscapeName;
+    FVector Center = FVector::ZeroVector;
+    bool bHasCenter = false;
+    double Radius = 2000.0;
+    double Depth = 600.0;
+    double WaterLevel = 0.0;
+    bool bHasWaterLevel = false;
+    FString MaterialPath;
+};
+
+void McpLakeApplyPayload(const TSharedPtr<FJsonObject> &Payload, FMcpLakeConfig &Config)
+{
+    if (!Payload.IsValid())
+        return;
+    const FString LakeName = McpRecipeFirstString(Payload, {TEXT("lakeName"), TEXT("name")});
+    if (!LakeName.IsEmpty())
+        Config.LakeName = LakeName;
+    const FString LandscapeName = McpRecipeFirstString(Payload, {TEXT("landscapeName")});
+    if (!LandscapeName.IsEmpty())
+        Config.LandscapeName = LandscapeName;
+    if (McpRecipeReadVector(Payload, TEXT("location"), Config.Center) ||
+        McpRecipeReadVector(Payload, TEXT("center"), Config.Center))
+        Config.bHasCenter = true;
+    double Number = 0.0;
+    if (Payload->TryGetNumberField(TEXT("radius"), Number))
+        Config.Radius = Number;
+    if (Payload->TryGetNumberField(TEXT("depth"), Number))
+        Config.Depth = Number;
+    if (Payload->TryGetNumberField(TEXT("waterLevel"), Number))
+    {
+        Config.WaterLevel = Number;
+        Config.bHasWaterLevel = true;
+    }
+    const FString MaterialPath = McpRecipeFirstString(Payload, {TEXT("materialPath"), TEXT("waterMaterialPath")});
+    if (!MaterialPath.IsEmpty())
+        Config.MaterialPath = MaterialPath;
+}
+
+bool McpLakeCarve(UWorld *World, const FMcpLakeConfig &Config, double &OutWaterLevel,
+                  TSharedPtr<FJsonObject> &OutResult, FString &OutMessage, FString &OutErrorCode)
+{
+    if (!World)
+    {
+        OutErrorCode = TEXT("INVALID_WORLD");
+        OutMessage = TEXT("No world for lake carving.");
+        return false;
+    }
+    if (!Config.bHasCenter)
+    {
+        OutErrorCode = TEXT("INVALID_ARGUMENT");
+        OutMessage = TEXT("build_lake requires a center location.");
+        return false;
+    }
+    ALandscape *Landscape = McpRoadResolveLandscape(World, Config.LandscapeName, Config.Center);
+    if (!Landscape)
+    {
+        OutErrorCode = TEXT("LANDSCAPE_NOT_FOUND");
+        OutMessage = TEXT("No landscape under the lake center.");
+        return false;
+    }
+
+    double WaterLevel = Config.WaterLevel;
+    if (!Config.bHasWaterLevel)
+    {
+        FHitResult CenterHit;
+        const FVector Start = Config.Center + FVector(0.0, 0.0, 50000.0);
+        if (World->LineTraceSingleByChannel(CenterHit, Start, Start - FVector(0.0, 0.0, 100000.0),
+                                            ECC_WorldStatic))
+            WaterLevel = CenterHit.ImpactPoint.Z - FMath::Max(50.0, Config.Depth * 0.5);
+        else
+            WaterLevel = Config.Center.Z - FMath::Max(50.0, Config.Depth * 0.5);
+    }
+    const double BedZ = WaterLevel - FMath::Max(50.0, Config.Depth);
+    const double Radius = FMath::Max(100.0, Config.Radius);
+    const int32 Modified = McpWorldBrushApplyHeightDab(Landscape, Config.Center,
+                                                       EMcpWorldBrushTool::Flatten, Radius, 1.0, 0.45, BedZ);
+    if (Modified < 0)
+    {
+        OutErrorCode = TEXT("LAKE_CARVE_FAILED");
+        OutMessage = TEXT("Lake basin carving failed.");
+        return false;
+    }
+    FString SaveError;
+    if (!McpWorldBrushEndStroke(Landscape, SaveError))
+    {
+        OutErrorCode = TEXT("SAVE_FAILED");
+        OutMessage = SaveError;
+        return false;
+    }
+
+    OutWaterLevel = WaterLevel;
+    OutResult = McpHandlerUtils::CreateResultObject();
+    OutResult->SetBoolField(TEXT("success"), true);
+    OutResult->SetStringField(TEXT("landscapeName"), Landscape->GetActorLabel());
+    OutResult->SetNumberField(TEXT("waterLevel"), WaterLevel);
+    OutResult->SetNumberField(TEXT("bedZ"), BedZ);
+    OutResult->SetNumberField(TEXT("modifiedVertices"), Modified);
+    OutMessage = FString::Printf(TEXT("Lake basin carved to %.0f uu (water level %.0f uu)."), BedZ, WaterLevel);
+    return true;
+}
+#endif
+} // namespace
+
+void UNebulaForgeBridgeSubsystem::BeginBuildBuildings(
+    const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+    const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)> &Completion)
+{
+    auto Fail = [&](const FString &Message, const FString &Code)
+    {
+        if (Completion)
+        {
+            TSharedPtr<FJsonObject> Error = McpHandlerUtils::CreateResultObject();
+            Error->SetBoolField(TEXT("success"), false);
+            Error->SetStringField(TEXT("error"), Message);
+            Completion(false, Error);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId, Message, Code);
+        }
+    };
+
+    if (IsWorldRecipeChainActive())
+    {
+        Fail(TEXT("A world recipe chain is already running."), TEXT("RECIPE_BUSY"));
+        return;
+    }
+
+    FMcpBuildingsConfig Config;
+    McpBuildingsApplyPayload(Payload, Config);
+    if (Config.Buildings.Num() == 0)
+    {
+        Fail(TEXT("build_buildings requires at least one entry in buildings[]."), TEXT("INVALID_ARGUMENT"));
+        return;
+    }
+    for (const FMcpBuildingEntry &Entry : Config.Buildings)
+    {
+        if (!Entry.bHasLocation)
+        {
+            Fail(TEXT("Every build_buildings entry requires a location."), TEXT("INVALID_ARGUMENT"));
+            return;
+        }
+    }
+
+    if (!GEditor || !GEditor->GetEditorWorldContext().World() ||
+        !GEditor->GetEditorWorldContext().World()->GetOutermost()->GetName().StartsWith(TEXT("/Game/")))
+    {
+        Fail(TEXT("build_buildings requires a saved /Game map."), TEXT("MAP_NOT_SAVED"));
+        return;
+    }
+
+    TArray<FMcpWorldRecipeStep> Steps;
+    int32 BuildingIndex = 0;
+    for (const FMcpBuildingEntry &Entry : Config.Buildings)
+    {
+        TSharedPtr<FJsonObject> BuildingPayload =
+            McpRecipeMakeStepPayload(TEXT("generate_procedural_building"));
+        const FString BuildingName = Entry.BuildingName.IsEmpty()
+            ? FString::Printf(TEXT("%s_Block_%d"), *Config.ProjectName, BuildingIndex)
+            : Entry.BuildingName;
+        BuildingPayload->SetStringField(TEXT("buildingName"), BuildingName);
+        BuildingPayload->SetStringField(TEXT("buildingType"), Entry.BuildingType);
+        BuildingPayload->SetNumberField(TEXT("width"), Entry.Width);
+        BuildingPayload->SetNumberField(TEXT("depth"), Entry.Depth);
+        BuildingPayload->SetNumberField(TEXT("floors"), Entry.Floors);
+        BuildingPayload->SetNumberField(TEXT("floorHeight"), Entry.FloorHeight);
+        TSharedPtr<FJsonObject> LocationObject = McpHandlerUtils::CreateResultObject();
+        LocationObject->SetNumberField(TEXT("x"), Entry.Location.X);
+        LocationObject->SetNumberField(TEXT("y"), Entry.Location.Y);
+        LocationObject->SetNumberField(TEXT("z"), Entry.Location.Z);
+        BuildingPayload->SetObjectField(TEXT("location"), LocationObject);
+        if (!Entry.WallMaterial.IsEmpty())
+            BuildingPayload->SetStringField(TEXT("wallMaterial"), Entry.WallMaterial);
+        if (!Entry.RoofMaterial.IsEmpty())
+            BuildingPayload->SetStringField(TEXT("roofMaterial"), Entry.RoofMaterial);
+        if (!Entry.WindowMaterial.IsEmpty())
+            BuildingPayload->SetStringField(TEXT("windowMaterial"), Entry.WindowMaterial);
+        BuildingPayload->SetNumberField(TEXT("seed"), Entry.bHasSeed ? Entry.Seed : Config.Seed + BuildingIndex * 101);
+        if (!Config.RoadSplineActor.IsEmpty())
+            BuildingPayload->SetStringField(TEXT("roadSplineActor"), Config.RoadSplineActor);
+        BuildingPayload->SetNumberField(TEXT("roadClearance"), Config.RoadClearance);
+        FMcpWorldRecipeStep Step;
+        Step.Action = TEXT("build_environment");
+        Step.Label = FString::Printf(TEXT("generate building %s"), *BuildingName);
+        Step.Payload = BuildingPayload;
+        Steps.Add(MoveTemp(Step));
+        ++BuildingIndex;
+    }
+
+    RecipeSummaryMeta = McpHandlerUtils::CreateResultObject();
+    RecipeSummaryMeta->SetStringField(TEXT("projectName"), Config.ProjectName);
+    RecipeSummaryMeta->SetNumberField(TEXT("seed"), Config.Seed);
+    RecipeSummaryMeta->SetNumberField(TEXT("buildingCount"), Config.Buildings.Num());
+
+    RecipeSteps = MoveTemp(Steps);
+    RecipeStepResults.Reset();
+    RecipeStepIndex = 0;
+    RecipeFailedSteps = 0;
+    RecipeSkippedSteps = 0;
+    RecipeRequestId = RequestId;
+    RecipeSocket = RequestingSocket;
+    RecipeCompletion = Completion;
+    RecipeCapturedResponse.Reset();
+    bRecipeCapturing = false;
+
+    UE_LOG(LogMcpWorldRecipes, Log, TEXT("Starting buildings chain: request=%s buildings=%d"),
+           *RequestId, Config.Buildings.Num());
+
+    const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+    AsyncTask(ENamedThreads::GameThread, [WeakThis]()
+              {
+        if (UNebulaForgeBridgeSubsystem *Subsystem = WeakThis.Get())
+            Subsystem->RunNextWorldRecipeStep(); });
+}
+
+void UNebulaForgeBridgeSubsystem::BeginPlantForest(
+    const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+    const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)> &Completion)
+{
+    auto Fail = [&](const FString &Message, const FString &Code)
+    {
+        if (Completion)
+        {
+            TSharedPtr<FJsonObject> Error = McpHandlerUtils::CreateResultObject();
+            Error->SetBoolField(TEXT("success"), false);
+            Error->SetStringField(TEXT("error"), Message);
+            Completion(false, Error);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId, Message, Code);
+        }
+    };
+
+    if (IsWorldRecipeChainActive())
+    {
+        Fail(TEXT("A world recipe chain is already running."), TEXT("RECIPE_BUSY"));
+        return;
+    }
+
+    FMcpForestConfig Config;
+    McpForestApplyPayload(Payload, Config);
+    if (Config.Species.Num() == 0)
+    {
+        Fail(TEXT("plant_forest requires at least one entry in species[] with a meshPath."),
+             TEXT("INVALID_ARGUMENT"));
+        return;
+    }
+
+    if (!GEditor || !GEditor->GetEditorWorldContext().World() ||
+        !GEditor->GetEditorWorldContext().World()->GetOutermost()->GetName().StartsWith(TEXT("/Game/")))
+    {
+        Fail(TEXT("plant_forest requires a saved /Game map."), TEXT("MAP_NOT_SAVED"));
+        return;
+    }
+
+    TArray<FMcpWorldRecipeStep> Steps;
+    {
+        const FMcpForestConfig CapturedConfig = Config;
+        FMcpWorldRecipeStep Step;
+        Step.Label = FString::Printf(TEXT("plant forest %s (%d species)"), *Config.ForestName, Config.Species.Num());
+        Step.CustomStep = [CapturedConfig](
+                              const FGuid &, TSharedPtr<FJsonObject> &OutResult,
+                              FString &OutMessage, FString &OutErrorCode) -> bool
+        {
+            UWorld *World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+            return McpForestPlant(World, CapturedConfig, OutResult, OutMessage, OutErrorCode);
+        };
+        Steps.Add(MoveTemp(Step));
+    }
+
+    RecipeSummaryMeta = McpHandlerUtils::CreateResultObject();
+    RecipeSummaryMeta->SetStringField(TEXT("forestName"), Config.ForestName);
+    RecipeSummaryMeta->SetNumberField(TEXT("seed"), Config.Seed);
+    RecipeSummaryMeta->SetNumberField(TEXT("speciesCount"), Config.Species.Num());
+    RecipeSummaryMeta->SetNumberField(TEXT("totalCount"), Config.TotalCount);
+    RecipeSummaryMeta->SetNumberField(TEXT("clusterCount"), Config.ClusterCount);
+
+    RecipeSteps = MoveTemp(Steps);
+    RecipeStepResults.Reset();
+    RecipeStepIndex = 0;
+    RecipeFailedSteps = 0;
+    RecipeSkippedSteps = 0;
+    RecipeRequestId = RequestId;
+    RecipeSocket = RequestingSocket;
+    RecipeCompletion = Completion;
+    RecipeCapturedResponse.Reset();
+    bRecipeCapturing = false;
+
+    UE_LOG(LogMcpWorldRecipes, Log, TEXT("Starting forest chain: request=%s forest=%s"),
+           *RequestId, *Config.ForestName);
+
+    const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+    AsyncTask(ENamedThreads::GameThread, [WeakThis]()
+              {
+        if (UNebulaForgeBridgeSubsystem *Subsystem = WeakThis.Get())
+            Subsystem->RunNextWorldRecipeStep(); });
+}
+
+void UNebulaForgeBridgeSubsystem::BeginBuildLake(
+    const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+    const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)> &Completion)
+{
+    auto Fail = [&](const FString &Message, const FString &Code)
+    {
+        if (Completion)
+        {
+            TSharedPtr<FJsonObject> Error = McpHandlerUtils::CreateResultObject();
+            Error->SetBoolField(TEXT("success"), false);
+            Error->SetStringField(TEXT("error"), Message);
+            Completion(false, Error);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId, Message, Code);
+        }
+    };
+
+    if (IsWorldRecipeChainActive())
+    {
+        Fail(TEXT("A world recipe chain is already running."), TEXT("RECIPE_BUSY"));
+        return;
+    }
+
+    FMcpLakeConfig Config;
+    McpLakeApplyPayload(Payload, Config);
+    if (!Config.bHasCenter)
+    {
+        Fail(TEXT("build_lake requires a center location."), TEXT("INVALID_ARGUMENT"));
+        return;
+    }
+
+    if (!GEditor || !GEditor->GetEditorWorldContext().World() ||
+        !GEditor->GetEditorWorldContext().World()->GetOutermost()->GetName().StartsWith(TEXT("/Game/")))
+    {
+        Fail(TEXT("build_lake requires a saved /Game map."), TEXT("MAP_NOT_SAVED"));
+        return;
+    }
+
+    TArray<FMcpWorldRecipeStep> Steps;
+    double CarveWaterLevel = 0.0;
+    {
+        // Carve synchronously on the game thread now: the water step needs the
+        // resolved surface height in its payload.
+        const FMcpLakeConfig CapturedConfig = Config;
+        TSharedPtr<FJsonObject> CarveResult;
+        FString CarveMessage;
+        FString CarveError;
+        UWorld *World = GEditor->GetEditorWorldContext().World();
+        if (!McpLakeCarve(World, CapturedConfig, CarveWaterLevel, CarveResult, CarveMessage, CarveError))
+        {
+            Fail(CarveMessage.IsEmpty() ? TEXT("Lake basin carving failed.") : CarveMessage,
+                 CarveError.IsEmpty() ? TEXT("LAKE_CARVE_FAILED") : CarveError);
+            return;
+        }
+    }
+    {
+        TSharedPtr<FJsonObject> WaterPayload = McpRecipeMakeStepPayload(TEXT("create_water_body_lake"));
+        WaterPayload->SetStringField(TEXT("actorName"), Config.LakeName);
+        TSharedPtr<FJsonObject> LocationObject = McpHandlerUtils::CreateResultObject();
+        LocationObject->SetNumberField(TEXT("x"), Config.Center.X);
+        LocationObject->SetNumberField(TEXT("y"), Config.Center.Y);
+        LocationObject->SetNumberField(TEXT("z"), CarveWaterLevel);
+        WaterPayload->SetObjectField(TEXT("location"), LocationObject);
+        if (!Config.MaterialPath.IsEmpty())
+            WaterPayload->SetStringField(TEXT("materialPath"), Config.MaterialPath);
+        FMcpWorldRecipeStep Step;
+        Step.Action = TEXT("build_environment");
+        Step.Label = FString::Printf(TEXT("create lake water %s"), *Config.LakeName);
+        Step.Payload = WaterPayload;
+        Steps.Add(MoveTemp(Step));
+    }
+
+    RecipeSummaryMeta = McpHandlerUtils::CreateResultObject();
+    RecipeSummaryMeta->SetStringField(TEXT("lakeName"), Config.LakeName);
+    RecipeSummaryMeta->SetNumberField(TEXT("waterLevel"), CarveWaterLevel);
+    RecipeSummaryMeta->SetNumberField(TEXT("radius"), Config.Radius);
+
+    RecipeSteps = MoveTemp(Steps);
+    RecipeStepResults.Reset();
+    RecipeStepIndex = 0;
+    RecipeFailedSteps = 0;
+    RecipeSkippedSteps = 0;
+    RecipeRequestId = RequestId;
+    RecipeSocket = RequestingSocket;
+    RecipeCompletion = Completion;
+    RecipeCapturedResponse.Reset();
+    bRecipeCapturing = false;
+
+    UE_LOG(LogMcpWorldRecipes, Log, TEXT("Starting lake chain: request=%s lake=%s water=%.0f"),
+           *RequestId, *Config.LakeName, CarveWaterLevel);
+
+    const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+    AsyncTask(ENamedThreads::GameThread, [WeakThis]()
+              {
+        if (UNebulaForgeBridgeSubsystem *Subsystem = WeakThis.Get())
+            Subsystem->RunNextWorldRecipeStep(); });
+}
+
+// =============================================================================
 // Section C: Action Dispatch
 // =============================================================================
 
@@ -2395,7 +3222,8 @@ bool UNebulaForgeBridgeSubsystem::HandleWorldRecipeAction(
     if (Lower != TEXT("generate_world") && Lower != TEXT("apply_biome") &&
         Lower != TEXT("create_biome_preset") && Lower != TEXT("inspect_biome_preset") &&
         Lower != TEXT("list_biome_presets") && Lower != TEXT("build_road") &&
-        Lower != TEXT("build_river"))
+        Lower != TEXT("build_river") && Lower != TEXT("build_buildings") &&
+        Lower != TEXT("plant_forest") && Lower != TEXT("build_lake"))
     {
         return false;
     }
@@ -2421,6 +3249,29 @@ bool UNebulaForgeBridgeSubsystem::HandleWorldRecipeAction(
                   {
             if (UNebulaForgeBridgeSubsystem *Subsystem = WeakThis.Get())
                 Subsystem->BeginBuildRoad(RequestId, Lower, Payload, RequestingSocket, NoCompletion); });
+        return true;
+    }
+    if (Lower == TEXT("build_buildings") || Lower == TEXT("plant_forest") || Lower == TEXT("build_lake"))
+    {
+        if (!Payload.IsValid())
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("Recipe payload missing"),
+                                TEXT("INVALID_PAYLOAD"));
+            return true;
+        }
+        const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+        const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)> NoCompletion;
+        AsyncTask(ENamedThreads::GameThread, [WeakThis, RequestId, Lower, Payload, RequestingSocket, NoCompletion]()
+                  {
+            if (UNebulaForgeBridgeSubsystem *Subsystem = WeakThis.Get())
+            {
+                if (Lower == TEXT("build_buildings"))
+                    Subsystem->BeginBuildBuildings(RequestId, Payload, RequestingSocket, NoCompletion);
+                else if (Lower == TEXT("plant_forest"))
+                    Subsystem->BeginPlantForest(RequestId, Payload, RequestingSocket, NoCompletion);
+                else
+                    Subsystem->BeginBuildLake(RequestId, Payload, RequestingSocket, NoCompletion);
+            } });
         return true;
     }
 

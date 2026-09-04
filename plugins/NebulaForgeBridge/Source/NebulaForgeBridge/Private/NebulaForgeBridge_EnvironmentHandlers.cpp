@@ -2430,7 +2430,10 @@ bool UNebulaForgeBridgeSubsystem::HandleBuildEnvironmentAction(
         LowerSub == TEXT("inspect_biome_preset") ||
         LowerSub == TEXT("list_biome_presets") ||
         LowerSub == TEXT("build_road") ||
-        LowerSub == TEXT("build_river"))
+        LowerSub == TEXT("build_river") ||
+        LowerSub == TEXT("build_buildings") ||
+        LowerSub == TEXT("plant_forest") ||
+        LowerSub == TEXT("build_lake"))
     {
         return HandleWorldRecipeAction(RequestId, LowerSub, Payload,
                                        RequestingSocket);

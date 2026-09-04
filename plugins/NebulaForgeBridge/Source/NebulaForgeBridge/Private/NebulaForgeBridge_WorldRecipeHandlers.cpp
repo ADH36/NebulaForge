@@ -1784,12 +1784,10 @@ ALandscape *McpRoadResolveLandscape(UWorld *World, const FString &LandscapeName,
         }
         return nullptr;
     }
-    // Resolve from a downward trace at the sample point.
-    FHitResult Hit;
+    // Resolve from a downward multi-trace at the sample point so decks,
+    // water, or volumes above the terrain do not block the cut/fill.
     const FVector Start = NearPoint + FVector(0.0, 0.0, 50000.0);
-    if (World->LineTraceSingleByChannel(Hit, Start, Start - FVector(0.0, 0.0, 100000.0), ECC_WorldStatic))
-        return McpWorldBrushResolveLandscape(World, Hit);
-    return nullptr;
+    return McpWorldBrushFindLandscapeAlongRay(World, Start, FVector(0.0, 0.0, -1.0));
 }
 
 /** Cut/fill pass: flatten terrain toward the spline profile with shoulders. */

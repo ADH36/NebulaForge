@@ -28,13 +28,13 @@
 #include "Async/Async.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/SplineComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Landscape.h"
 #include "LandscapeEdit.h"
 #include "LandscapeInfo.h"
 #include "LandscapeLayerInfoObject.h"
-#include "LandscapeProxy.h"
 #include "LandscapeProxy.h"
 
 #if __has_include("Subsystems/EditorActorSubsystem.h")
@@ -87,6 +87,25 @@ ALandscape *McpWorldBrushResolveLandscape(UWorld *World, const FHitResult &Hit)
             if (Candidate && Candidate->GetLandscapeGuid() == ProxyGuid)
                 return Candidate;
         }
+    }
+    return nullptr;
+}
+
+ALandscape *McpWorldBrushFindLandscapeAlongRay(UWorld *World, const FVector &Origin,
+                                               const FVector &Direction)
+{
+    if (!World)
+        return nullptr;
+    TArray<FHitResult> Hits;
+    FCollisionQueryParams Params;
+    Params.bTraceComplex = true;
+    if (!World->LineTraceMultiByChannel(Hits, Origin, Origin + Direction * 1000000.0f,
+                                        ECC_Visibility, Params))
+        return nullptr;
+    for (const FHitResult &Hit : Hits)
+    {
+        if (ALandscape *Landscape = McpWorldBrushResolveLandscape(World, Hit))
+            return Landscape;
     }
     return nullptr;
 }
@@ -262,17 +281,40 @@ ULandscapeLayerInfoObject *McpBrushEnsureLayerInfo(ALandscape *Landscape, ULands
 } // namespace
 
 int32 McpWorldBrushApplyPaintDab(ALandscape *Landscape, const FVector &WorldLocation,
-                                 const FString &LayerName, const FString &LayerInfoPath,
+                                 const TArray<FMcpBrushPaintLayer> &Layers,
+                                 const FString &LayerInfoPath,
                                  double Radius, double Strength, double Falloff)
 {
-    if (!Landscape || LayerName.IsEmpty())
+    if (!Landscape || Layers.Num() == 0)
         return -1;
     ULandscapeInfo *LandscapeInfo = Landscape->GetLandscapeInfo();
     if (!LandscapeInfo)
         return -1;
 
-    ULandscapeLayerInfoObject *LayerInfo = McpBrushEnsureLayerInfo(Landscape, LandscapeInfo, LayerName, LayerInfoPath);
-    if (!LayerInfo)
+    // Resolve up to 4 non-empty layers first so a single bad entry cannot
+    // abort the whole multi-material dab.
+    struct FResolvedLayer
+    {
+        FString Name;
+        ULandscapeLayerInfoObject *Info = nullptr;
+        double Strength = 1.0;
+    };
+    TArray<FResolvedLayer> Resolved;
+    for (const FMcpBrushPaintLayer &Entry : Layers)
+    {
+        if (Resolved.Num() >= 4 || Entry.LayerName.IsEmpty())
+            continue;
+        ULandscapeLayerInfoObject *Info =
+            McpBrushEnsureLayerInfo(Landscape, LandscapeInfo, Entry.LayerName, LayerInfoPath);
+        if (!Info)
+            continue;
+        FResolvedLayer Out;
+        Out.Name = Entry.LayerName;
+        Out.Info = Info;
+        Out.Strength = FMath::Clamp(Entry.Strength, 0.0, 1.0);
+        Resolved.Add(Out);
+    }
+    if (Resolved.Num() == 0)
         return -1;
 
     const FVector LocalPos = Landscape->GetActorTransform().InverseTransformPosition(WorldLocation);
@@ -307,53 +349,67 @@ int32 McpWorldBrushApplyPaintDab(ALandscape *Landscape, const FVector &WorldLoca
 
     const FScopedTransaction Transaction(FText::FromString(TEXT("World Brush Paint")));
     Landscape->Modify();
-    if (!Landscape->HasTargetLayer(FName(*LayerName)))
+    for (const FResolvedLayer &Layer : Resolved)
     {
-        Landscape->AddTargetLayer(FName(*LayerName), FLandscapeTargetLayerSettings(LayerInfo));
+        if (!Landscape->HasTargetLayer(FName(*Layer.Name)))
+        {
+            Landscape->AddTargetLayer(FName(*Layer.Name), FLandscapeTargetLayerSettings(Layer.Info));
+        }
     }
     LandscapeInfo->UpdateLayerInfoMap(Landscape);
-    const int32 LayerInfoIndex = LandscapeInfo->GetLayerInfoIndex(FName(*LayerName));
-    if (LayerInfoIndex == INDEX_NONE)
-        return -1;
-    LandscapeInfo->Layers[LayerInfoIndex].LayerInfoObj = LayerInfo;
+    for (const FResolvedLayer &Layer : Resolved)
+    {
+        const int32 LayerInfoIndex = LandscapeInfo->GetLayerInfoIndex(FName(*Layer.Name));
+        if (LayerInfoIndex != INDEX_NONE)
+            LandscapeInfo->Layers[LayerInfoIndex].LayerInfoObj = Layer.Info;
+    }
 
     // This object holds writable weightmap texture locks and must be
     // destroyed before safe package saving at stroke end.
     FLandscapeEditDataInterface LandscapeEdit(LandscapeInfo, Landscape->GetEditingLayer(), false);
 
-    TArray<uint8> Alpha;
-    Alpha.SetNumZeroed(SizeX * SizeY);
-    LandscapeEdit.GetWeightData(LayerInfo, MinX, MinY, MaxX, MaxY, Alpha.GetData(), SizeX);
-
     int32 Written = 0;
     const double ClampedStrength = FMath::Clamp(Strength, 0.0, 1.0);
-    for (int32 Y = MinY; Y <= MaxY; ++Y)
+    TArray<uint8> Alpha;
+    for (const FResolvedLayer &Layer : Resolved)
     {
-        for (int32 X = MinX; X <= MaxX; ++X)
+        Alpha.SetNumZeroed(SizeX * SizeY);
+        LandscapeEdit.GetWeightData(Layer.Info, MinX, MinY, MaxX, MaxY, Alpha.GetData(), SizeX);
+
+        const double EffectiveStrength = ClampedStrength * Layer.Strength;
+        int32 LayerWritten = 0;
+        for (int32 Y = MinY; Y <= MaxY; ++Y)
         {
-            const float Dist = FMath::Sqrt(FMath::Square(static_cast<float>(X - CenterX)) +
-                                           FMath::Square(static_cast<float>(Y - CenterY)));
-            if (Dist > RadiusVerts)
-                continue;
-            float BrushAlpha = 1.0f;
-            if (FalloffVerts > 0 && Dist > (RadiusVerts - FalloffVerts))
-                BrushAlpha = 1.0f - ((Dist - (RadiusVerts - FalloffVerts)) / static_cast<float>(FalloffVerts));
-            BrushAlpha = FMath::Clamp(BrushAlpha, 0.0f, 1.0f);
-            const uint8 BrushValue = static_cast<uint8>(BrushAlpha * ClampedStrength * 255.0f + 0.5f);
-            const int32 Index = (Y - MinY) * SizeX + (X - MinX);
-            // Max-blend keeps strokes additive instead of overwriting.
-            if (BrushValue > Alpha[Index])
+            for (int32 X = MinX; X <= MaxX; ++X)
             {
-                Alpha[Index] = BrushValue;
-                ++Written;
+                const float Dist = FMath::Sqrt(FMath::Square(static_cast<float>(X - CenterX)) +
+                                               FMath::Square(static_cast<float>(Y - CenterY)));
+                if (Dist > RadiusVerts)
+                    continue;
+                float BrushAlpha = 1.0f;
+                if (FalloffVerts > 0 && Dist > (RadiusVerts - FalloffVerts))
+                    BrushAlpha = 1.0f - ((Dist - (RadiusVerts - FalloffVerts)) / static_cast<float>(FalloffVerts));
+                BrushAlpha = FMath::Clamp(BrushAlpha, 0.0f, 1.0f);
+                const uint8 BrushValue = static_cast<uint8>(BrushAlpha * EffectiveStrength * 255.0f + 0.5f);
+                const int32 Index = (Y - MinY) * SizeX + (X - MinX);
+                // Max-blend keeps strokes additive instead of overwriting.
+                if (BrushValue > Alpha[Index])
+                {
+                    Alpha[Index] = BrushValue;
+                    ++LayerWritten;
+                }
             }
         }
+
+        if (LayerWritten == 0)
+            continue;
+        LandscapeEdit.SetAlphaData(Layer.Info, MinX, MinY, MaxX, MaxY, Alpha.GetData(), SizeX);
+        Written += LayerWritten;
     }
 
     if (Written == 0)
         return 0;
 
-    LandscapeEdit.SetAlphaData(LayerInfo, MinX, MinY, MaxX, MaxY, Alpha.GetData(), SizeX);
     LandscapeEdit.Flush();
     Landscape->MarkPackageDirty();
     return Written;
@@ -474,22 +530,152 @@ bool McpWorldBrushEndStroke(ALandscape *Landscape, FString &OutError)
     return McpBrushSaveLandscapePersistence(Landscape->GetWorld(), Landscape, OutError);
 }
 
+FMcpWorldBrushRoadDraft &McpWorldBrushGetRoadDraft()
+{
+    static FMcpWorldBrushRoadDraft Draft;
+    return Draft;
+}
+
+int32 McpBrushFinishRiverStroke(UWorld *World, ALandscape *Landscape,
+                                const TArray<FMcpBrushRiverSample> &Samples,
+                                const FMcpWorldBrushSettings &Settings,
+                                FString &OutError)
+{
+    if (!World || !Landscape)
+    {
+        OutError = TEXT("No world or landscape for river completion.");
+        return -1;
+    }
+    if (Samples.Num() < 2)
+    {
+        OutError = TEXT("River stroke needs a longer drag (at least two course samples).");
+        return -1;
+    }
+
+    // Resample the recorded course so water spline points stay evenly spaced.
+    const double Spacing = FMath::Max(200.0, Settings.RiverWidth * 0.5);
+    TArray<FMcpBrushRiverSample> Course;
+    Course.Add(Samples[0]);
+    for (int32 Index = 1; Index < Samples.Num(); ++Index)
+    {
+        if ((Samples[Index].Location - Course.Last().Location).Size() >= Spacing)
+            Course.Add(Samples[Index]);
+    }
+    if ((Course.Last().Location - Samples.Last().Location).Size() > 1.0)
+        Course.Add(Samples.Last());
+    if (Course.Num() < 2)
+    {
+        OutError = TEXT("River stroke is too short for a water course.");
+        return -1;
+    }
+
+    // Carve the channel toward per-sample bed heights.
+    const FScopedTransaction Transaction(FText::FromString(TEXT("World Brush River")));
+    int32 DabCount = 0;
+    const double HalfWidth = FMath::Max(100.0, Settings.RiverWidth);
+    for (const FMcpBrushRiverSample &Sample : Course)
+    {
+        const double BedZ = Sample.WaterZ - FMath::Max(50.0, Settings.RiverDepth);
+        const int32 Modified = McpWorldBrushApplyHeightDab(Landscape, Sample.Location,
+                                                           EMcpWorldBrushTool::Flatten,
+                                                           HalfWidth, 1.0, 0.4, BedZ);
+        if (Modified < 0)
+        {
+            OutError = TEXT("River channel carving failed.");
+            return -1;
+        }
+        ++DabCount;
+    }
+
+    if (Settings.bCreateRiverWater)
+    {
+        UClass *WaterClass = LoadClass<AActor>(nullptr, TEXT("/Script/Water.WaterBodyRiver"));
+        if (!WaterClass)
+        {
+            UE_LOG(LogMcpWorldBrush, Warning,
+                   TEXT("World brush river carved %d dabs but the Water plugin WaterBodyRiver class is unavailable; skipping water."),
+                   DabCount);
+        }
+        else
+        {
+            FString WaterName = Settings.RiverWaterActor;
+            if (WaterName.IsEmpty())
+                WaterName = FString::Printf(TEXT("MCP_BrushRiver_%d"), FMath::RandRange(1000, 9999));
+            AActor *WaterActor = nullptr;
+            for (TActorIterator<AActor> It(World); It; ++It)
+            {
+                AActor *Candidate = *It;
+                if (Candidate && Candidate->IsA(WaterClass) &&
+                    Candidate->GetActorLabel().Equals(WaterName, ESearchCase::IgnoreCase))
+                {
+                    WaterActor = Candidate;
+                    break;
+                }
+            }
+            if (!WaterActor)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.ObjectFlags |= RF_Transactional;
+                WaterActor = World->SpawnActor<AActor>(WaterClass, Course[0].Location,
+                                                       FRotator::ZeroRotator, SpawnParams);
+                if (WaterActor)
+                    WaterActor->SetActorLabel(WaterName);
+            }
+            if (WaterActor)
+            {
+                if (USplineComponent *WaterSpline = WaterActor->FindComponentByClass<USplineComponent>())
+                {
+                    TArray<FVector> LocalPoints;
+                    const FTransform WaterTransform = WaterActor->GetActorTransform();
+                    for (const FMcpBrushRiverSample &Sample : Course)
+                    {
+                        LocalPoints.Add(WaterTransform.InverseTransformPosition(
+                            FVector(Sample.Location.X, Sample.Location.Y, Sample.WaterZ)));
+                    }
+                    WaterSpline->SetSplinePoints(LocalPoints, ESplineCoordinateSpace::Local, true);
+                }
+                WaterActor->MarkPackageDirty();
+            }
+        }
+    }
+
+    if (!McpWorldBrushEndStroke(Landscape, OutError))
+        return -1;
+    return DabCount;
+}
+
 #else // !WITH_EDITOR
 
 ALandscape *McpWorldBrushResolveLandscape(UWorld * /*World*/, const FHitResult & /*Hit*/) { return nullptr; }
+ALandscape *McpWorldBrushFindLandscapeAlongRay(UWorld * /*World*/, const FVector & /*Origin*/,
+                                               const FVector & /*Direction*/) { return nullptr; }
 int32 McpWorldBrushApplyHeightDab(ALandscape * /*Landscape*/, const FVector & /*WorldLocation*/,
                                   EMcpWorldBrushTool /*Tool*/, double /*Radius*/, double /*Strength*/,
                                   double /*Falloff*/, double /*FlattenTargetZ*/) { return -1; }
 int32 McpWorldBrushApplyPaintDab(ALandscape * /*Landscape*/, const FVector & /*WorldLocation*/,
-                                 const FString & /*LayerName*/, const FString & /*LayerInfoPath*/,
+                                 const TArray<FMcpBrushPaintLayer> & /*Layers*/,
+                                 const FString & /*LayerInfoPath*/,
                                  double /*Radius*/, double /*Strength*/, double /*Falloff*/) { return -1; }
 int32 McpWorldBrushApplyFoliageDab(UWorld * /*World*/, ALandscape * /*Landscape*/,
-                                   const FVector & /*WorldLocation*/, const FMcpWorldBrushSettings & /*Settings*/,
-                                   int32 /*StrokeSalt*/) { return -1; }
+                                    const FVector & /*WorldLocation*/, const FMcpWorldBrushSettings & /*Settings*/,
+                                    int32 /*StrokeSalt*/) { return -1; }
 bool McpWorldBrushEndStroke(ALandscape * /*Landscape*/, FString &OutError)
 {
     OutError = TEXT("World brush requires editor build.");
     return false;
+}
+FMcpWorldBrushRoadDraft &McpWorldBrushGetRoadDraft()
+{
+    static FMcpWorldBrushRoadDraft Draft;
+    return Draft;
+}
+int32 McpBrushFinishRiverStroke(UWorld * /*World*/, ALandscape * /*Landscape*/,
+                                const TArray<FMcpBrushRiverSample> & /*Samples*/,
+                                const FMcpWorldBrushSettings & /*Settings*/,
+                                FString &OutError)
+{
+    OutError = TEXT("World brush requires editor build.");
+    return -1;
 }
 
 #endif // WITH_EDITOR

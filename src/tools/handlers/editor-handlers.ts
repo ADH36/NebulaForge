@@ -577,7 +577,7 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       const targetAction = mode === 'game_viewport' ? 'system_control' : 'control_editor';
       if (mode === 'game_viewport') {
         const preparation = await executeAutomationRequest(tools, 'manage_level_structure', {
-          action: 'prepare_pie_capture'
+          subAction: 'prepare_pie_capture'
         }, undefined, { timeoutMs: getBoundedTimeoutMs(args.timeoutMs) }) as Record<string, unknown>;
         if (!isSuccessful(preparation)) return cleanObject({ success: false, status: 'FAIL', error: 'PIE_CAPTURE_PREPARATION_FAILED', preparation });
       }
@@ -882,7 +882,7 @@ export async function handleEditorTools(action: string, args: EditorArgs, tools:
       // through it preserves the consolidated action contract while still selecting
       // the PIE game viewport in the payload.
       const preparation = await executeAutomationRequest(tools, 'manage_level_structure', {
-        action: 'prepare_pie_capture'
+        subAction: 'prepare_pie_capture'
       }, undefined, { timeoutMs: getBoundedTimeoutMs(args.timeoutMs) }) as Record<string, unknown>;
       if (!isSuccessful(preparation)) return cleanObject({ success: false, status: 'FAIL', error: 'PIE_CAPTURE_PREPARATION_FAILED', preparation });
       return cleanObject(await executeAutomationRequest(tools, 'system_control', {

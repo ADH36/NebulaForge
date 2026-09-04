@@ -120,6 +120,9 @@ describe('handleEditorTools', () => {
 
     await handleEditorTools('screenshot', { action: 'screenshot', filename: 'GameViewport', mode: 'game_viewport' }, tools);
 
+    expect(sendAutomationRequest).toHaveBeenCalledWith('manage_level_structure', {
+      subAction: 'prepare_pie_capture'
+    }, { timeoutMs: 60000 });
     expect(sendAutomationRequest).toHaveBeenCalledWith('system_control', {
       action: 'screenshot',
       filename: 'GameViewport',
@@ -172,6 +175,9 @@ describe('handleEditorTools', () => {
       action: 'capture_pie_screenshot', filename: 'PIE.png', warmupFrames: 4, screenshotDelayMs: 120
     }, tools);
 
+    expect(sendAutomationRequest).toHaveBeenCalledWith('manage_level_structure', {
+      subAction: 'prepare_pie_capture'
+    }, { timeoutMs: 60000 });
     expect(sendAutomationRequest).toHaveBeenCalledWith('system_control', expect.objectContaining({
       action: 'screenshot', mode: 'game_viewport', filename: 'PIE.png', warmupFrames: 4, screenshotDelayMs: 120
     }), { timeoutMs: 60000 });

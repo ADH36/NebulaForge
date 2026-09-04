@@ -54,6 +54,9 @@ void FMcpWorldBrushEdMode::Enter()
     FMcpWorldBrushStrokeState &Stroke = McpWorldBrushGetStrokeState();
     Stroke = FMcpWorldBrushStrokeState();
 
+    UE_LOG(LogMcpWorldBrushMode, Log, TEXT("World brush mode entered (tool=%d radius=%.0f)."),
+           static_cast<int32>(McpWorldBrushGetSettings().Tool), McpWorldBrushGetSettings().Radius);
+
     if (!Toolkit.IsValid())
     {
         Toolkit = MakeShareable(new FMcpWorldBrushEdModeToolkit);
@@ -114,9 +117,31 @@ bool FMcpWorldBrushEdMode::ApplyDabAtCursor(FEditorViewportClient *ViewportClien
     }
     else
     {
-        Landscape = McpWorldBrushResolveLandscape(World, Hit);
+        // Resolve through the ray so meshes, water, or volumes above the
+        // terrain do not block painting the landscape underneath.
+        Landscape = McpWorldBrushFindLandscapeAlongRay(World, Origin, Direction);
         if (!Landscape)
+        {
+            // Throttled warning naming the topmost blocker for diagnosis.
+            static double LastNoLandscapeWarn = 0.0;
+            const double Now = FPlatformTime::Seconds();
+            if (Now - LastNoLandscapeWarn > 3.0)
+            {
+                LastNoLandscapeWarn = Now;
+                const AActor *Blocker = Hit.GetActor();
+                const bool bHlodBlocker =
+                    Blocker && Blocker->GetClass()->GetName().Contains(TEXT("HLOD"));
+                UE_LOG(LogMcpWorldBrushMode, Warning,
+                       TEXT("World brush found no landscape along the ray (top hit: %s [%s] at %s). %s"),
+                       Blocker ? *Blocker->GetActorLabel() : TEXT("<none>"),
+                       Blocker ? *Blocker->GetClass()->GetName() : TEXT("<none>"),
+                       *Hit.ImpactPoint.ToString(),
+                       bHlodBlocker
+                           ? TEXT("An HLOD stands in for an unloaded World Partition cell here; move closer or load the cell, then brush the loaded landscape.")
+                           : TEXT("Add a landscape actor or set the brush Landscape field."));
+            }
             return false;
+        }
     }
 
     FMcpWorldBrushStrokeState &Stroke = McpWorldBrushGetStrokeState();
@@ -150,19 +175,82 @@ bool FMcpWorldBrushEdMode::ApplyDabAtCursor(FEditorViewportClient *ViewportClien
         }
         const int32 Modified = McpWorldBrushApplyHeightDab(Landscape, Hit.ImpactPoint, Settings.Tool,
                                                            Radius, Strength, Falloff, FlattenTargetZ);
+        if (Modified >= 0 && !bLoggedFirstDab)
+        {
+            bLoggedFirstDab = true;
+            UE_LOG(LogMcpWorldBrushMode, Log, TEXT("World brush painting: first dab applied (%d verts)."),
+                   Modified);
+        }
         return Modified >= 0;
     }
     case EMcpWorldBrushTool::PaintLayer:
     {
-        const int32 Written = McpWorldBrushApplyPaintDab(Landscape, Hit.ImpactPoint, Settings.LayerName,
+        // Multi-material stack: legacy single layer plus optional extras.
+        TArray<FMcpBrushPaintLayer> Stack;
+        if (!Settings.LayerName.IsEmpty())
+        {
+            FMcpBrushPaintLayer Primary;
+            Primary.LayerName = Settings.LayerName;
+            Primary.Strength = 1.0;
+            Stack.Add(Primary);
+        }
+        for (const FMcpBrushPaintLayer &Extra : Settings.PaintLayers)
+        {
+            if (!Extra.LayerName.IsEmpty() && Stack.Num() < 4)
+                Stack.Add(Extra);
+        }
+        const int32 Written = McpWorldBrushApplyPaintDab(Landscape, Hit.ImpactPoint, Stack,
                                                          Settings.LayerInfoPath, Radius, Strength, Falloff);
+        if (Written >= 0 && !bLoggedFirstDab)
+        {
+            bLoggedFirstDab = true;
+            UE_LOG(LogMcpWorldBrushMode, Log,
+                   TEXT("World brush painting: first dab applied (%d weights across %d layers)."),
+                   Written, Stack.Num());
+        }
         return Written >= 0;
     }
     case EMcpWorldBrushTool::ScatterFoliage:
     {
         const int32 Placed = McpWorldBrushApplyFoliageDab(World, Landscape, Hit.ImpactPoint,
                                                           Settings, StrokeSalt);
+        if (Placed >= 0 && !bLoggedFirstDab)
+        {
+            bLoggedFirstDab = true;
+            UE_LOG(LogMcpWorldBrushMode, Log, TEXT("World brush painting: first dab applied (%d instances)."),
+                   Placed);
+        }
         return Placed >= 0;
+    }
+    case EMcpWorldBrushTool::River:
+    {
+        // Record the course; the channel is carved live and water is built
+        // when the stroke ends.
+        FMcpBrushRiverSample Sample;
+        Sample.Location = Hit.ImpactPoint;
+        Sample.WaterZ = Hit.ImpactPoint.Z;
+        if (Stroke.RiverSamples.Num() == 0 ||
+            (Sample.Location - Stroke.RiverSamples.Last().Location).Size() >=
+                FMath::Max(50.0, Settings.RiverWidth * 0.5))
+        {
+            Stroke.RiverSamples.Add(Sample);
+        }
+        const double BedZ = Sample.WaterZ - FMath::Max(50.0, Settings.RiverDepth);
+        const int32 Modified = McpWorldBrushApplyHeightDab(
+            Landscape, Sample.Location, EMcpWorldBrushTool::Flatten,
+            FMath::Max(100.0, Settings.RiverWidth), Strength, Falloff, BedZ);
+        if (Modified >= 0 && !bLoggedFirstDab)
+        {
+            bLoggedFirstDab = true;
+            UE_LOG(LogMcpWorldBrushMode, Log, TEXT("World brush river: carving channel."));
+        }
+        return Modified >= 0;
+    }
+    case EMcpWorldBrushTool::RoadSpline:
+    {
+        // RoadSpline drops points on click (see InputKey); drags only move
+        // the hover cursor.
+        return true;
     }
     }
     return false;
@@ -187,7 +275,7 @@ bool FMcpWorldBrushEdMode::EndTracking(FEditorViewportClient * /*InViewportClien
 }
 
 bool FMcpWorldBrushEdMode::IsCameraOrWidgetDrag(FEditorViewportClient *ViewportClient,
-                                                FViewport *Viewport) const
+                                                 FViewport *Viewport) const
 {
     if (!ViewportClient || !Viewport)
         return true;
@@ -201,6 +289,40 @@ bool FMcpWorldBrushEdMode::IsCameraOrWidgetDrag(FEditorViewportClient *ViewportC
     return false;
 }
 
+void FMcpWorldBrushEdMode::AppendRoadPointAtMouse(FEditorViewportClient *ViewportClient, FViewport *Viewport)
+{
+    if (!ViewportClient || !Viewport)
+        return;
+    FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
+        ViewportClient->Viewport,
+        ViewportClient->GetScene(),
+        ViewportClient->EngineShowFlags)
+        .SetRealtimeUpdate(ViewportClient->IsRealtime()));
+    FSceneView *View = ViewportClient->CalcSceneView(&ViewFamily);
+    FViewportCursorLocation MouseViewportRay(View, ViewportClient, Viewport->GetMouseX(), Viewport->GetMouseY());
+    FVector Origin = MouseViewportRay.GetOrigin();
+    const FVector Direction = MouseViewportRay.GetDirection();
+    if (ViewportClient->IsOrtho())
+    {
+        Origin += -WORLD_MAX * Direction;
+    }
+    UWorld *World = ViewportClient->GetWorld();
+    if (!World)
+        return;
+    FHitResult Hit;
+    if (!TraceCursor(World, Origin, Direction, Hit))
+        return;
+    FMcpWorldBrushRoadDraft &Draft = McpWorldBrushGetRoadDraft();
+    if (Draft.Points.Num() > 0 &&
+        (Hit.ImpactPoint - Draft.Points.Last()).Size() < 50.0)
+        return;
+    Draft.Points.Add(Hit.ImpactPoint);
+    BrushCursor = Hit.ImpactPoint;
+    bHasBrushCursor = true;
+    UE_LOG(LogMcpWorldBrushMode, Log, TEXT("World brush road point %d dropped at %s."),
+           Draft.Points.Num(), *Hit.ImpactPoint.ToString());
+}
+
 void FMcpWorldBrushEdMode::BeginStroke()
 {
     FMcpWorldBrushStrokeState &Stroke = McpWorldBrushGetStrokeState();
@@ -209,6 +331,7 @@ void FMcpWorldBrushEdMode::BeginStroke()
     Stroke = FMcpWorldBrushStrokeState();
     Stroke.bActive = true;
     StrokeSalt = NextStrokeSalt++;
+    bLoggedFirstDab = false;
     GEditor->BeginTransaction(LOCTEXT("WorldBrushStroke", "World Brush Stroke"));
 }
 
@@ -221,9 +344,55 @@ bool FMcpWorldBrushEdMode::EndStrokeAndSave()
     Stroke.bActive = false;
     GEditor->EndTransaction();
 
-    // Persist the stroke on the active landscape, if we can still resolve it.
+    // River strokes finish by building the water course from the recording.
     UWorld *World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
     const FMcpWorldBrushSettings &Settings = McpWorldBrushGetSettings();
+    if (World && Settings.Tool == EMcpWorldBrushTool::River && Stroke.RiverSamples.Num() >= 2)
+    {
+        ALandscape *RiverLandscape = nullptr;
+        if (bHasBrushCursor)
+        {
+            for (TActorIterator<ALandscape> It(World); It; ++It)
+            {
+                ALandscape *Candidate = *It;
+                if (Candidate && Candidate->GetComponentsBoundingBox(true).IsInsideOrOn(BrushCursor))
+                {
+                    RiverLandscape = Candidate;
+                    break;
+                }
+            }
+        }
+        if (!RiverLandscape && !Settings.TargetLandscapeName.IsEmpty())
+        {
+            for (TActorIterator<ALandscape> It(World); It; ++It)
+            {
+                ALandscape *Candidate = *It;
+                if (Candidate && Candidate->GetActorLabel().Equals(Settings.TargetLandscapeName,
+                                                                  ESearchCase::IgnoreCase))
+                {
+                    RiverLandscape = Candidate;
+                    break;
+                }
+            }
+        }
+        if (RiverLandscape)
+        {
+            FString RiverError;
+            const int32 RiverDabs = McpBrushFinishRiverStroke(World, RiverLandscape, Stroke.RiverSamples,
+                                                              Settings, RiverError);
+            if (RiverDabs < 0)
+            {
+                UE_LOG(LogMcpWorldBrushMode, Warning, TEXT("World brush river failed: %s"), *RiverError);
+            }
+            else
+            {
+                UE_LOG(LogMcpWorldBrushMode, Log, TEXT("World brush river finished (%d dabs)."), RiverDabs);
+            }
+            return true;
+        }
+    }
+
+    // Persist the stroke on the active landscape, if we can still resolve it.
     if (World && bHasBrushCursor)
     {
         ALandscape *Landscape = nullptr;
@@ -275,9 +444,16 @@ bool FMcpWorldBrushEdMode::InputKey(FEditorViewportClient *ViewportClient, FView
     {
         if (IsCameraOrWidgetDrag(ViewportClient, Viewport))
             return false;
+        // RoadSpline drops route points on click instead of stroking.
+        if (McpWorldBrushGetSettings().Tool == EMcpWorldBrushTool::RoadSpline)
+        {
+            AppendRoadPointAtMouse(ViewportClient, Viewport);
+            return true;
+        }
         // Consume the press so camera orbit and marquee selection never start.
         // The first dab lands on the first MouseMove/CapturedMouseMove event.
         BeginStroke();
+        UE_LOG(LogMcpWorldBrushMode, Verbose, TEXT("World brush press consumed, stroke begun."));
         return true;
     }
 
@@ -370,7 +546,30 @@ void FMcpWorldBrushEdMode::UpdateBrushCursor(FEditorViewportClient *ViewportClie
 void FMcpWorldBrushEdMode::Render(const FSceneView * /*View*/, FViewport * /*Viewport*/,
                                   FPrimitiveDrawInterface *PDI)
 {
-    if (!bHasBrushCursor || !PDI)
+    if (!PDI)
+        return;
+
+    const FLinearColor MarkerColor(1.0f, 0.8f, 0.2f, 1.0f);
+    const FMcpWorldBrushRoadDraft &Draft = McpWorldBrushGetRoadDraft();
+    // Road draft route: numbered polyline with point markers.
+    for (int32 Index = 0; Index < Draft.Points.Num(); ++Index)
+    {
+        const FVector &Point = Draft.Points[Index];
+        constexpr double Arm = 150.0;
+        PDI->DrawLine(Point + FVector(-Arm, 0.0, 2.0), Point + FVector(Arm, 0.0, 2.0),
+                      MarkerColor, SDPG_Foreground, 3.0f);
+        PDI->DrawLine(Point + FVector(0.0, -Arm, 2.0), Point + FVector(0.0, Arm, 2.0),
+                      MarkerColor, SDPG_Foreground, 3.0f);
+        if (Index > 0)
+        {
+            PDI->DrawLine(Draft.Points[Index - 1] + FVector(0.0, 0.0, 2.0),
+                          Point + FVector(0.0, 0.0, 2.0), MarkerColor, SDPG_Foreground, 2.0f);
+        }
+    }
+
+    // Radius ring is meaningless for click-to-drop road points.
+    if (!bHasBrushCursor ||
+        McpWorldBrushGetSettings().Tool == EMcpWorldBrushTool::RoadSpline)
         return;
 
     const double Radius = FMath::Clamp(McpWorldBrushGetSettings().Radius, 10.0, 20000.0);

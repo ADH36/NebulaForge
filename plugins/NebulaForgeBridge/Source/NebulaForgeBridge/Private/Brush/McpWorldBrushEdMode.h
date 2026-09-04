@@ -64,6 +64,8 @@ private:
     /** Applies one dab when the stroke cursor moved far enough. */
     bool ApplyDabAtCursor(FEditorViewportClient *ViewportClient, const FVector &Origin,
                           const FVector &Direction);
+    /** Drops a road spline draft point at the current mouse position. */
+    void AppendRoadPointAtMouse(FEditorViewportClient *ViewportClient, FViewport *Viewport);
     /** True while the camera or a transform widget owns the mouse. */
     bool IsCameraOrWidgetDrag(FEditorViewportClient *ViewportClient, FViewport *Viewport) const;
     /** Begins a stroke transaction when none is active. */
@@ -78,6 +80,7 @@ private:
     FVector BrushCursor = FVector::ZeroVector;
     bool bHasBrushCursor = false;
     int32 StrokeSalt = 0;
+    bool bLoggedFirstDab = false;
     static int32 NextStrokeSalt;
 };
 

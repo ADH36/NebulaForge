@@ -1,6 +1,7 @@
 # NebulaForge Production Game-Building Capability Audit
 
-Audit date: 2026-08-30  
+Audit date: 2026-08-30
+Re-audit date: 2026-09-04 (world-building worldBLD/roadBLD parity pass)
 Scope: MCP tools, TypeScript handlers, Unreal native handlers, documentation, and integration tests.  
 Method: Static repository audit; runtime behavior still requires a live Unreal Editor/project verification pass.
 
@@ -59,6 +60,8 @@ Network soak update: host `system_control.run_network_soak` launches a bounded p
 The provider-specific session stack still requires a configured Online Subsystem and live multiplayer project; this action provides controlled fault injection, not a claim that a universal backend-independent soak harness exists.
 
 Plugin update: `system_control.manage_project_plugin` now supports a read-only `validate` operation that checks declared project plugins against local `.uplugin` descriptors and reports unresolved local dependencies before build/cook.
+
+World-building update: `build_environment` now exposes an orchestrated `generate_world`/`apply_biome` pipeline (landscape, seeded terrain with erosion, auto-created material with per-layer blend graph, rule-based height/slope/altitude/noise layer painting, deterministic HISM foliage) with a single per-step PASS/PARTIAL/FAIL summary; reusable `UMcpBiomePreset` data assets via `create/inspect/list_biome_presets`; an interactive World Brush editor mode (Raise/Lower/Flatten/Smooth strokes, additive layer paint, accumulating foliage scatter) in the Modes panel and Generate World tab; `sculpt_landscape` Smooth mode; and a `build_road`/`build_river` recipe (terrain-conformed spline, cut/fill corridor, roadbed segments, lateral-offset furniture scatter, junction discs with optional meshes, WaterBodyRiver spline following). Live Unreal/project verification is still required for all editor paths.
 
 Legend: ✅ available or substantially covered · ❌ missing, incomplete, or production-blocking · ⚠️ conditional
 
@@ -225,16 +228,17 @@ Evidence: [AssetWorkflowHandlers.cpp](../plugins/NebulaForgeBridge/Source/Nebula
 
 | Capability | Status | Gap |
 |---|:---:|---|
-| Landscape creation/editing | ⚠️ | Core creation/editing plus advertised heightmap, erosion, regional sculpt, rule-paint, inspection, deletion, and foliage actions route to native handlers; topology resize remains an explicit heightmap-reimport boundary. |
+| Landscape creation/editing | ⚠️ | Core creation/editing plus advertised heightmap, erosion, regional sculpt (Raise/Lower/Flatten/Smooth), rule-paint, inspection, deletion, and foliage actions route to native handlers; topology resize remains an explicit heightmap-reimport boundary. |
 | Procedural heightmap/erosion workflow | ✅ | Native deterministic heightmap generation supports terrain features, seeded frequency/scale, optional source height data, and bounded thermal erosion iterations; writes use the existing persistence-aware landscape heightmap path. |
 | Foliage authoring/scattering | ✅ | Native foliage types, instances, deterministic HISM scattering, inspection, regeneration, and generated-only clearing are implemented; valid assets and editor/world prerequisites are reported by `inspect_world_building_capabilities`. |
 | PCG graph authoring | ⚠️ | Native graph/node authoring exists; the PCG plugin/editor module is required and generation remains asynchronous. Waited generation can now use the shared managed native async registry with cancellation, timeout, completion events, and `get_async_action` polling; the `async` contract is exposed on both TS and native PCG schemas. Capability availability is reported before authoring. |
 | World Partition conversion | ⚠️ | New World Partition levels and configuration are supported; existing non-World-Partition maps return an explicit `editor_conversion_required` capability instead of claiming conversion succeeded. |
 | Scoped HLOD rebuilds | ⚠️ | Whole-map and HLOD-layer commandlet rebuilds are supported; UE 5.8 does not expose cell/Data Layer scopes through the commandlet, and the limitation is reported explicitly. |
 | Water systems | ⚠️ | Require the Water plugin and available classes. |
-| Road/river spline authoring | ✅ | Spline and mesh scattering primitives exist. |
-| Full traffic/road infrastructure | ⚠️ | Road/river spline and mesh primitives are native; lane logic, traffic simulation, terrain cutting, and project-specific decals require project gameplay/assets and are surfaced as unavailable by the capability report. |
-| Production biome pipeline | ⚠️ | The constituent landscape, procedural heightmap/erosion, material, foliage, water, navigation, spline, and streaming actions are available; a universal project-independent recipe is intentionally not synthesized without project assets and validation policy. |
+| Road/river spline authoring | ✅ | Spline creation (road/river/path, terrain-conformed, slope-clamped), roadbed mesh segments, and lateral-offset furniture scatter primitives exist. |
+| Full traffic/road infrastructure | ⚠️ | `build_road`/`build_river` orchestrate spline creation, cut/fill terrain corridors, roadbed segments, guardrail/lamp/marking furniture with lateral offsets, junction flatten discs with optional meshes, and WaterBodyRiver spline following; lane logic, traffic simulation, and project-specific decals remain project gameplay/assets and are surfaced as unavailable by the capability report. |
+| Production biome pipeline | ✅ | `generate_world`/`apply_biome` compose landscape, seeded terrain/erosion, auto material with layer-blend graph, rule-based layer painting, and deterministic foliage into one resumable-evidenced recipe; `UMcpBiomePreset` assets make it reusable and deterministic. Project assets (meshes/materials) and live-editor verification remain required. |
+| Interactive world brushes | ✅ | World Brush editor mode plus Generate World tab section provide Raise/Lower/Flatten/Smooth strokes, additive layer painting, and accumulating HISM foliage scatter with radius/strength/falloff controls, undo transactions, and stroke-end persistence. |
 
 Evidence: [UE 5.8 compatibility matrix](./ue5.8-compatibility-matrix.md), [EnvironmentHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_EnvironmentHandlers.cpp#L2418), [LevelStructureHandlers.cpp](../plugins/NebulaForgeBridge/Source/NebulaForgeBridge/Private/NebulaForgeBridge_LevelStructureHandlers.cpp#L1253)
 

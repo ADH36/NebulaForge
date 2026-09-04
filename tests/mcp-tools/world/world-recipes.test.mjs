@@ -11,6 +11,8 @@ const stamp = Date.now();
 const folder = `/Game/MCPTest/WorldRecipes_${stamp}`;
 const preset = `BIOME_Test_${stamp}`;
 const landscape = `MCP_WorldRecipeLandscape_${stamp}`;
+const road = `MCP_WorldRecipeRoad_${stamp}`;
+const river = `MCP_WorldRecipeRiver_${stamp}`;
 
 runToolTests('world-recipes', [
   { scenario: 'Setup: create temporary world recipe folder', toolName: 'manage_asset', arguments: { action: 'create_folder', path: folder }, expected: 'success|already exists' },
@@ -51,8 +53,21 @@ runToolTests('world-recipes', [
       { path: 'structuredContent.result.layerRuleCount', equals: 0, label: 'layer rules skipped' }
     ] },
 
+  { scenario: 'Road: build_road runs spline, cut/fill, roadbed, furniture, and junction steps', toolName: 'build_environment', arguments: { action: 'build_road', roadKind: 'road', roadName: road, landscapeName: landscape, routePoints: [{ location: { x: 0, y: 0, z: 200 } }, { location: { x: 4000, y: 0, z: 200 } }, { location: { x: 8000, y: 1500, z: 200 } }], roadWidth: 800, shoulderWidth: 400, cutFill: true, seed: 4242, roadbedMeshPath: '/Engine/BasicShapes/Cube', furniture: [{ meshPath: '/Engine/BasicShapes/Sphere', spacing: 2000, offset: 700, bothSides: true }], junctions: [{ location: { x: 4000, y: 0, z: 200 }, radius: 1200 }] }, expected: 'success', assertions: [
+      { path: 'structuredContent.result.status', equals: 'PASS', label: 'all road steps passed' },
+      { path: 'structuredContent.result.roadName', equals: road, label: 'road spline created' },
+      { path: 'structuredContent.result.routePointCount', equals: 3, label: 'route points forwarded' },
+      { path: 'structuredContent.result.furnitureEntryCount', equals: 1, label: 'furniture entry recorded' },
+      { path: 'structuredContent.result.junctionCount', equals: 1, label: 'junction recorded' }
+    ] },
+  { scenario: 'Road: build_river creates a conformed river spline with water skipped', toolName: 'build_environment', arguments: { action: 'build_river', roadName: river, landscapeName: landscape, routePoints: [{ location: { x: 0, y: 4000, z: 200 } }, { location: { x: 4000, y: 5500, z: 200 } }, { location: { x: 8000, y: 5500, z: 200 } }], roadWidth: 1200, shoulderWidth: 600, cutFill: true, seed: 4243, skipRoadbed: true, skipWater: true }, expected: 'success', assertions: [
+      { path: 'structuredContent.result.status', equals: 'PASS', label: 'river steps passed' },
+      { path: 'structuredContent.result.roadKind', equals: 'river', label: 'river kind recorded' }
+    ] },
+
   { scenario: 'Cleanup: delete generated landscapes', toolName: 'build_environment', arguments: { action: 'delete_landscape', landscapeName: landscape }, expected: 'success|not found' },
   { scenario: 'Cleanup: delete bare inline landscape', toolName: 'build_environment', arguments: { action: 'delete_landscape', landscapeName: `MCP_WorldRecipeBare_${stamp}` }, expected: 'success|not found' },
+  { scenario: 'Cleanup: delete road and river spline actors', toolName: 'build_environment', arguments: { action: 'delete', names: [road, river, `${road}_Water`, `${river}_Water`] }, expected: 'success' },
   { scenario: 'Cleanup: clear tool-generated foliage', toolName: 'build_environment', arguments: { action: 'clear_generated_foliage' }, expected: 'success' },
   { scenario: 'Cleanup: delete all temporary world recipe content', toolName: 'manage_asset', arguments: { action: 'delete', path: folder, force: true }, expected: 'success|not found' }
 ]);

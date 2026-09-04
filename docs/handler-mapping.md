@@ -301,6 +301,7 @@ The focused domain parents `manage_materials`, `manage_lighting`, `manage_input`
 | `create_biome_preset` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleCreateBiomePreset` | Creates a `UMcpBiomePreset` data asset (`McpBiomePreset.h`) from the generate_world payload grammar. |
 | `inspect_biome_preset` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleInspectBiomePreset` | Round-trips a preset to JSON via property reflection. |
 | `list_biome_presets` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleListBiomePresets` | Asset registry scan for `UMcpBiomePreset` assets. |
+| `build_road` / `build_river` | `NebulaForgeBridge_WorldRecipeHandlers.cpp` | `HandleWorldRecipeAction` → `BeginBuildRoad` | roadBLD-style pipeline: terrain-conformed spline, cut/fill corridor, roadbed segments, lateral-offset furniture, junction discs, WaterBodyRiver spline following. |
 
 ## System Control (`system_control`)
 

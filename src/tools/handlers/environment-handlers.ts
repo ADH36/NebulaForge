@@ -106,7 +106,9 @@ const ENVIRONMENT_PATH_FIELDS_BY_ACTION: Record<string, readonly string[]> = {
   generate_world: ['biomePresetPath', 'landscapePath', 'materialPath'],
   apply_biome: ['biomePresetPath', 'landscapePath', 'materialPath'],
   create_biome_preset: ['path', 'materialPath'],
-  inspect_biome_preset: ['biomePresetPath']
+  inspect_biome_preset: ['biomePresetPath'],
+  build_road: ['roadbedMeshPath', 'roadbedMaterialPath', 'waterMaterialPath', 'landscapePath'],
+  build_river: ['roadbedMeshPath', 'roadbedMaterialPath', 'waterMaterialPath', 'landscapePath']
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -131,6 +133,21 @@ function normalizeFoliageTypes(value: unknown): unknown {
   });
 }
 
+function normalizeRoadFurnitureEntries(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map(entry => {
+    if (!isRecord(entry)) return entry;
+    const normalized = { ...entry };
+    if (typeof normalized.meshPath === 'string') {
+      normalized.meshPath = normalizePathValue(normalized.meshPath);
+    }
+    if (typeof normalized.junctionMeshPath === 'string') {
+      normalized.junctionMeshPath = normalizePathValue(normalized.junctionMeshPath);
+    }
+    return normalized;
+  });
+}
+
 function normalizeEnvironmentPathArgs(action: string, args: Record<string, unknown>): Record<string, unknown> {
   const pathFields = ENVIRONMENT_PATH_FIELDS_BY_ACTION[action] ?? [];
   const normalized = pathFields.length > 0 ? normalizePathFields(args, pathFields) : { ...args };
@@ -141,6 +158,9 @@ function normalizeEnvironmentPathArgs(action: string, args: Record<string, unkno
              action === 'regenerate_generated_foliage' || action === 'generate_world' || action === 'apply_biome') {
     normalized.foliageTypes = normalizeFoliageTypes(normalized.foliageTypes);
     normalized.types = normalizeFoliageTypes(normalized.types);
+  } else if (action === 'build_road' || action === 'build_river') {
+    normalized.furniture = normalizeRoadFurnitureEntries(normalized.furniture);
+    normalized.junctions = normalizeRoadFurnitureEntries(normalized.junctions);
   }
   return normalized;
 }
@@ -447,6 +467,8 @@ export async function handleEnvironmentTools(action: string, args: HandlerArgs, 
     case 'create_biome_preset':
     case 'inspect_biome_preset':
     case 'list_biome_presets':
+    case 'build_road':
+    case 'build_river':
       return cleanObject(await executeAutomationRequest(tools, 'build_environment', {
         ...argsRecord,
         action: envAction

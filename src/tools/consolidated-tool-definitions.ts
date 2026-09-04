@@ -156,7 +156,7 @@ export const PHASE_28_ENVIRONMENT_ACTIONS = [
 
 export const WORLD_RECIPE_ACTIONS = [
   'generate_world', 'apply_biome', 'create_biome_preset', 'inspect_biome_preset',
-  'list_biome_presets'
+  'list_biome_presets', 'build_road', 'build_river'
 ] as const;
 
 export const PERFORMANCE_ACTIONS = [
@@ -1501,6 +1501,22 @@ export const consolidatedToolDefinitions: ToolDefinition[] = [
         quadsPerComponent: commonSchemas.numberProp,
         fadeDistance: commonSchemas.numberProp,
         fadeSlope: commonSchemas.numberProp,
+        // Road recipe orchestration (roadBLD-style build_road / build_river)
+        roadKind: { type: 'string', enum: ['road', 'river', 'path'], description: 'Road recipe spline archetype.' },
+        roadName: commonSchemas.stringProp,
+        roadWidth: commonSchemas.numberProp,
+        shoulderWidth: commonSchemas.numberProp,
+        cutFill: commonSchemas.booleanProp,
+        roadbedMeshPath: commonSchemas.assetPath,
+        roadbedMaterialPath: commonSchemas.materialPath,
+        furniture: commonSchemas.arrayOfObjects,
+        junctions: commonSchemas.arrayOfObjects,
+        waterBody: commonSchemas.booleanProp,
+        waterMaterialPath: commonSchemas.materialPath,
+        skipRoadbed: commonSchemas.booleanProp,
+        skipFurniture: commonSchemas.booleanProp,
+        skipJunctions: commonSchemas.booleanProp,
+        skipWater: commonSchemas.booleanProp,
         description: commonSchemas.stringProp,
         iterations: commonSchemas.numberProp,
         frequency: commonSchemas.numberProp,

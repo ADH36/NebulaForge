@@ -51,7 +51,7 @@ const UE_581_LANDSCAPE_FOLIAGE_ACTIONS = [
 
 const WORLD_RECIPE_ACTIONS = [
   'generate_world', 'apply_biome', 'create_biome_preset',
-  'inspect_biome_preset', 'list_biome_presets'
+  'inspect_biome_preset', 'list_biome_presets', 'build_road', 'build_river'
 ] as const;
 
 const PHASE_29_1_RAY_TRACING_ACTIONS = [
@@ -765,6 +765,47 @@ describe('world recipe orchestration contract', () => {
         brushRadius: 800,
         strength: 0.4
       })
+    );
+  });
+
+  it('exposes the road recipe properties', () => {
+    const properties = getBuildEnvironmentProperties();
+    for (const property of [
+      'roadKind', 'roadName', 'roadWidth', 'shoulderWidth', 'cutFill',
+      'roadbedMeshPath', 'roadbedMaterialPath', 'furniture', 'junctions',
+      'waterBody', 'waterMaterialPath',
+      'skipRoadbed', 'skipFurniture', 'skipJunctions', 'skipWater'
+    ]) {
+      expect(properties).toHaveProperty(property);
+    }
+  });
+
+  it('forwards build_road with normalized roadbed and furniture paths', async () => {
+    await handleEnvironmentTools('build_road', {
+      action: 'build_road',
+      roadKind: 'road',
+      roadName: 'MCP_TestRoad',
+      routePoints: [
+        { location: { x: 0, y: 0, z: 100 } },
+        { location: { x: 4000, y: 0, z: 120 } },
+        { location: { x: 8000, y: 1500, z: 90 } }
+      ],
+      roadWidth: 800,
+      shoulderWidth: 400,
+      cutFill: true,
+      roadbedMeshPath: 'Content/MCPTest/Meshes/SM_Roadbed',
+      furniture: [{ meshPath: 'Content/MCPTest/Meshes/SM_Guardrail', spacing: 2000, offset: 600, bothSides: true }],
+      junctions: [{ location: { x: 4000, y: 0, z: 120 }, radius: 1500 }]
+    }, {} as never);
+
+    expect(executeAutomationRequestMock).toHaveBeenCalledWith(
+      {}, 'build_environment', expect.objectContaining({
+        action: 'build_road',
+        roadKind: 'road',
+        roadName: 'MCP_TestRoad',
+        roadbedMeshPath: '/Game/MCPTest/Meshes/SM_Roadbed',
+        furniture: [{ meshPath: '/Game/MCPTest/Meshes/SM_Guardrail', spacing: 2000, offset: 600, bothSides: true }]
+      }), 'Automation bridge not available for landscape and foliage authoring operations'
     );
   });
 });

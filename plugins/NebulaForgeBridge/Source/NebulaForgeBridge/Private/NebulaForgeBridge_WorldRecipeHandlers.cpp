@@ -47,6 +47,7 @@
 
 #include "Dom/JsonObject.h"
 #include "McpBiomePreset.h"
+#include "Brush/McpWorldBrushOps.h"
 #include "NebulaForgeBridgeGlobals.h"
 #include "NebulaForgeBridgeHelpers.h"
 #include "NebulaForgeBridgeSubsystem.h"
@@ -57,8 +58,12 @@
 #if WITH_EDITOR
 
 #include "Async/Async.h"
+#include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "Components/SceneComponent.h"
+#include "Components/SplineComponent.h"
 #include "Editor.h"
 #include "EditorAssetLibrary.h"
+#include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Misc/PackageName.h"
@@ -1159,6 +1164,30 @@ void UNebulaForgeBridgeSubsystem::BeginGenerateWorld(
         Steps.Add(MoveTemp(LayerInfoStep));
     }
 
+    if (Config.bCreateMaterial && !Config.bSkipPaint && Config.Layers.Num() > 0 &&
+        !MaterialAssetPath.IsEmpty())
+    {
+        // Wire the auto-created material with a LandscapeLayerBlend node per
+        // rule layer connected to BaseColor (closes the auto-material gap).
+        TSharedPtr<FJsonObject> BlendPayload = McpRecipeMakeStepPayload(TEXT("configure_landscape_layer_blend"));
+        BlendPayload->SetStringField(TEXT("assetPath"), MaterialAssetPath);
+        BlendPayload->SetBoolField(TEXT("save"), true);
+        TArray<TSharedPtr<FJsonValue>> BlendLayers;
+        for (const FMcpWorldRecipeConfig::FLayerRule &Rule : Config.Layers)
+        {
+            TSharedPtr<FJsonObject> BlendEntry = McpHandlerUtils::CreateResultObject();
+            BlendEntry->SetStringField(TEXT("layerName"), Rule.LayerName);
+            BlendEntry->SetStringField(TEXT("blendType"), TEXT("LB_WeightBlend"));
+            BlendLayers.Add(MakeShared<FJsonValueObject>(BlendEntry));
+        }
+        BlendPayload->SetArrayField(TEXT("layers"), BlendLayers);
+        FMcpWorldRecipeStep BlendStep;
+        BlendStep.Action = TEXT("build_environment");
+        BlendStep.Label = TEXT("wire landscape layer blend graph");
+        BlendStep.Payload = BlendPayload;
+        Steps.Add(MoveTemp(BlendStep));
+    }
+
     if (!Config.bSkipLandscape && !ExistingLandscape)
     {
         TSharedPtr<FJsonObject> LandscapePayload = McpRecipeMakeStepPayload(TEXT("create_landscape"));
@@ -1540,6 +1569,816 @@ bool UNebulaForgeBridgeSubsystem::HandleListBiomePresets(
 }
 
 // =============================================================================
+// Section D: Road Recipe (roadBLD-style build_road)
+// =============================================================================
+// Orchestrates spline-based road/river/path construction:
+//   1. create_road_spline / create_river_spline / create_path_spline
+//      (terrain-conformed, world-space route points)
+//   2. custom cut/fill pass: flatten terrain toward the spline profile
+//   3. generate_spline_mesh_segments (roadbed from a user mesh)
+//   4. custom furniture scatter with lateral offsets (guardrails, lamps,
+//      center-line markings), both sides supported
+//   5. custom junction discs (terrain flatten + optional center mesh)
+//   6. custom river water: WaterBodyRiver following the spline
+//
+// Only UWorld/USplineComponent/FLandscapeEditDataInterface engine APIs are
+// used; project-specific lane logic and traffic simulation stay out of scope.
+
+namespace
+{
+#if WITH_EDITOR
+struct FMcpRoadFurnitureEntry
+{
+    FString MeshPath;
+    double Spacing = 2000.0;
+    double Offset = 0.0;
+    bool bBothSides = false;
+    bool bAlignToSpline = true;
+    bool bProjectToSurface = true;
+    double SurfaceOffset = 0.0;
+    double MinScale = 1.0;
+    double MaxScale = 1.0;
+};
+
+struct FMcpRoadJunction
+{
+    FVector Location = FVector::ZeroVector;
+    bool bHasLocation = false;
+    double Radius = 1500.0;
+    FString JunctionMeshPath;
+};
+
+struct FMcpRoadRecipeConfig
+{
+    FString RoadName = TEXT("MCP_Road");
+    FString RoadKind = TEXT("road"); // road | river | path
+    TArray<TSharedPtr<FJsonValue>> RoutePoints;
+    double RoadWidth = 800.0;
+    double ShoulderWidth = 400.0;
+    bool bCutFill = true;
+    double SurfaceOffset = 0.0;
+    double MaxSlopeDegrees = 0.0;
+    FString LandscapeName;
+    FString RoadbedMeshPath;
+    FString RoadbedMaterialPath;
+    FString ForwardAxis = TEXT("X");
+    bool bCollisionEnabled = true;
+    TArray<FMcpRoadFurnitureEntry> Furniture;
+    TArray<FMcpRoadJunction> Junctions;
+    bool bWater = false;
+    FString WaterMaterialPath;
+    int32 Seed = 1337;
+    bool bSkipTerrain = false;
+    bool bSkipRoadbed = false;
+    bool bSkipFurniture = false;
+    bool bSkipJunctions = false;
+    bool bSkipWater = false;
+};
+
+void McpRoadApplyPayload(const TSharedPtr<FJsonObject> &Payload, FMcpRoadRecipeConfig &Config)
+{
+    if (!Payload.IsValid())
+        return;
+    const FString Name = McpRecipeFirstString(Payload, {TEXT("roadName"), TEXT("name")});
+    if (!Name.IsEmpty())
+        Config.RoadName = Name;
+    const FString Kind = McpRecipeFirstString(Payload, {TEXT("roadKind"), TEXT("kind")});
+    if (!Kind.IsEmpty())
+        Config.RoadKind = Kind.ToLower();
+    const TArray<TSharedPtr<FJsonValue>> *Points = nullptr;
+    if (Payload->TryGetArrayField(TEXT("routePoints"), Points) && Points)
+        Config.RoutePoints = *Points;
+    else if (Payload->TryGetArrayField(TEXT("points"), Points) && Points)
+        Config.RoutePoints = *Points;
+    else if (Payload->TryGetArrayField(TEXT("initialPoints"), Points) && Points)
+        Config.RoutePoints = *Points;
+
+    double Number = 0.0;
+    if (Payload->TryGetNumberField(TEXT("roadWidth"), Number))
+        Config.RoadWidth = Number;
+    else if (Payload->TryGetNumberField(TEXT("width"), Number))
+        Config.RoadWidth = Number;
+    if (Payload->TryGetNumberField(TEXT("shoulderWidth"), Number))
+        Config.ShoulderWidth = Number;
+    if (Payload->TryGetNumberField(TEXT("surfaceOffset"), Number))
+        Config.SurfaceOffset = Number;
+    if (Payload->TryGetNumberField(TEXT("maxSlopeDegrees"), Number))
+        Config.MaxSlopeDegrees = Number;
+    if (Payload->TryGetNumberField(TEXT("seed"), Number))
+        Config.Seed = static_cast<int32>(Number);
+    const FString LandscapeName = McpRecipeFirstString(Payload, {TEXT("landscapeName")});
+    if (!LandscapeName.IsEmpty())
+        Config.LandscapeName = LandscapeName;
+    const FString RoadbedMesh = McpRecipeFirstString(Payload, {TEXT("roadbedMeshPath"), TEXT("meshPath")});
+    if (!RoadbedMesh.IsEmpty())
+        Config.RoadbedMeshPath = RoadbedMesh;
+    const FString RoadbedMaterial = McpRecipeFirstString(Payload, {TEXT("roadbedMaterialPath"), TEXT("materialPath")});
+    if (!RoadbedMaterial.IsEmpty())
+        Config.RoadbedMaterialPath = RoadbedMaterial;
+    const FString Axis = McpRecipeFirstString(Payload, {TEXT("forwardAxis")});
+    if (!Axis.IsEmpty())
+        Config.ForwardAxis = Axis;
+    bool bBool = false;
+    if (Payload->TryGetBoolField(TEXT("cutFill"), bBool))
+        Config.bCutFill = bBool;
+    if (Payload->TryGetBoolField(TEXT("collisionEnabled"), bBool))
+        Config.bCollisionEnabled = bBool;
+    if (Payload->TryGetBoolField(TEXT("water"), bBool))
+        Config.bWater = bBool;
+    const FString WaterMaterial = McpRecipeFirstString(Payload, {TEXT("waterMaterialPath")});
+    if (!WaterMaterial.IsEmpty())
+        Config.WaterMaterialPath = WaterMaterial;
+    if (Payload->TryGetBoolField(TEXT("skipTerrain"), bBool))
+        Config.bSkipTerrain = bBool;
+    if (Payload->TryGetBoolField(TEXT("skipRoadbed"), bBool))
+        Config.bSkipRoadbed = bBool;
+    if (Payload->TryGetBoolField(TEXT("skipFurniture"), bBool))
+        Config.bSkipFurniture = bBool;
+    if (Payload->TryGetBoolField(TEXT("skipJunctions"), bBool))
+        Config.bSkipJunctions = bBool;
+    if (Payload->TryGetBoolField(TEXT("skipWater"), bBool))
+        Config.bSkipWater = bBool;
+
+    const TArray<TSharedPtr<FJsonValue>> *Furniture = nullptr;
+    if (Payload->TryGetArrayField(TEXT("furniture"), Furniture) && Furniture)
+    {
+        for (const TSharedPtr<FJsonValue> &Value : *Furniture)
+        {
+            const TSharedPtr<FJsonObject> *EntryObject = nullptr;
+            if (!Value.IsValid() || !Value->TryGetObject(EntryObject) || !EntryObject)
+                continue;
+            FMcpRoadFurnitureEntry Entry;
+            Entry.MeshPath = McpRecipeFirstString(*EntryObject, {TEXT("meshPath"), TEXT("mesh")});
+            if (Entry.MeshPath.IsEmpty())
+                continue;
+            McpRecipeReadNumber(*EntryObject, TEXT("spacing"), Entry.Spacing);
+            McpRecipeReadNumber(*EntryObject, TEXT("offset"), Entry.Offset);
+            McpRecipeReadNumber(*EntryObject, TEXT("surfaceOffset"), Entry.SurfaceOffset);
+            McpRecipeReadNumber(*EntryObject, TEXT("minScale"), Entry.MinScale);
+            McpRecipeReadNumber(*EntryObject, TEXT("maxScale"), Entry.MaxScale);
+            bool bEntryBool = false;
+            if ((*EntryObject)->TryGetBoolField(TEXT("bothSides"), bEntryBool))
+                Entry.bBothSides = bEntryBool;
+            if ((*EntryObject)->TryGetBoolField(TEXT("alignToSpline"), bEntryBool))
+                Entry.bAlignToSpline = bEntryBool;
+            if ((*EntryObject)->TryGetBoolField(TEXT("projectToSurface"), bEntryBool))
+                Entry.bProjectToSurface = bEntryBool;
+            Config.Furniture.Add(Entry);
+        }
+    }
+
+    const TArray<TSharedPtr<FJsonValue>> *Junctions = nullptr;
+    if (Payload->TryGetArrayField(TEXT("junctions"), Junctions) && Junctions)
+    {
+        for (const TSharedPtr<FJsonValue> &Value : *Junctions)
+        {
+            const TSharedPtr<FJsonObject> *JunctionObject = nullptr;
+            if (!Value.IsValid() || !Value->TryGetObject(JunctionObject) || !JunctionObject)
+                continue;
+            FMcpRoadJunction Junction;
+            if (McpRecipeReadVector(*JunctionObject, TEXT("location"), Junction.Location))
+                Junction.bHasLocation = true;
+            McpRecipeReadNumber(*JunctionObject, TEXT("radius"), Junction.Radius);
+            Junction.JunctionMeshPath =
+                McpRecipeFirstString(*JunctionObject, {TEXT("junctionMeshPath"), TEXT("meshPath")});
+            if (Junction.bHasLocation)
+                Config.Junctions.Add(Junction);
+        }
+    }
+}
+
+USplineComponent *McpRoadFindSpline(UWorld *World, const FString &RoadName)
+{
+    if (!World || RoadName.IsEmpty())
+        return nullptr;
+    for (TActorIterator<AActor> It(World); It; ++It)
+    {
+        AActor *Actor = *It;
+        if (!Actor ||
+            (!Actor->GetActorLabel().Equals(RoadName, ESearchCase::IgnoreCase) &&
+             !Actor->GetName().Equals(RoadName, ESearchCase::IgnoreCase)))
+            continue;
+        TArray<USplineComponent *> Splines;
+        Actor->GetComponents<USplineComponent>(Splines);
+        if (Splines.Num() > 0 && Splines[0])
+            return Splines[0];
+    }
+    return nullptr;
+}
+
+ALandscape *McpRoadResolveLandscape(UWorld *World, const FString &LandscapeName, const FVector &NearPoint)
+{
+    if (!World)
+        return nullptr;
+    if (!LandscapeName.IsEmpty())
+    {
+        for (TActorIterator<ALandscape> It(World); It; ++It)
+        {
+            ALandscape *Candidate = *It;
+            if (Candidate && Candidate->GetActorLabel().Equals(LandscapeName, ESearchCase::IgnoreCase))
+                return Candidate;
+        }
+        return nullptr;
+    }
+    // Resolve from a downward trace at the sample point.
+    FHitResult Hit;
+    const FVector Start = NearPoint + FVector(0.0, 0.0, 50000.0);
+    if (World->LineTraceSingleByChannel(Hit, Start, Start - FVector(0.0, 0.0, 100000.0), ECC_WorldStatic))
+        return McpWorldBrushResolveLandscape(World, Hit);
+    return nullptr;
+}
+
+/** Cut/fill pass: flatten terrain toward the spline profile with shoulders. */
+bool McpRoadApplyCutFill(USplineComponent *Spline, const FMcpRoadRecipeConfig &Config,
+                         TSharedPtr<FJsonObject> &OutResult, FString &OutMessage, FString &OutErrorCode)
+{
+    if (!Spline || !Spline->GetWorld())
+    {
+        OutErrorCode = TEXT("SPLINE_NOT_FOUND");
+        OutMessage = TEXT("Road spline not found for cut/fill.");
+        return false;
+    }
+    UWorld *World = Spline->GetWorld();
+    const double HalfWidth = FMath::Max(50.0, Config.RoadWidth * 0.5 + Config.ShoulderWidth);
+    const float SplineLength = Spline->GetSplineLength();
+    const double Step = FMath::Max(50.0, HalfWidth * 0.5);
+
+    ALandscape *Landscape = nullptr;
+    int32 DabCount = 0;
+    int32 ModifiedVerts = 0;
+    for (double Distance = 0.0; Distance <= SplineLength; Distance += Step)
+    {
+        const FVector Sample = Spline->GetLocationAtDistanceAlongSpline(
+            static_cast<float>(Distance), ESplineCoordinateSpace::World);
+        if (!Landscape)
+        {
+            Landscape = McpRoadResolveLandscape(World, Config.LandscapeName, Sample);
+            if (!Landscape)
+            {
+                OutErrorCode = TEXT("LANDSCAPE_NOT_FOUND");
+                OutMessage = TEXT("No landscape under the road spline for cut/fill.");
+                return false;
+            }
+        }
+        const int32 Modified = McpWorldBrushApplyHeightDab(
+            Landscape, Sample, EMcpWorldBrushTool::Flatten, HalfWidth, 1.0, 0.35,
+            Sample.Z + Config.SurfaceOffset);
+        if (Modified < 0)
+        {
+            OutErrorCode = TEXT("CUTFILL_FAILED");
+            OutMessage = TEXT("Cut/fill dab failed on the road profile.");
+            return false;
+        }
+        ModifiedVerts += Modified;
+        ++DabCount;
+    }
+
+    if (Landscape)
+    {
+        FString SaveError;
+        if (!McpWorldBrushEndStroke(Landscape, SaveError))
+        {
+            OutErrorCode = TEXT("SAVE_FAILED");
+            OutMessage = SaveError;
+            return false;
+        }
+    }
+
+    OutResult = McpHandlerUtils::CreateResultObject();
+    OutResult->SetBoolField(TEXT("success"), true);
+    OutResult->SetNumberField(TEXT("dabCount"), DabCount);
+    OutResult->SetNumberField(TEXT("modifiedVertices"), ModifiedVerts);
+    OutResult->SetNumberField(TEXT("corridorHalfWidth"), HalfWidth);
+    OutResult->SetStringField(TEXT("landscapeName"), Landscape ? Landscape->GetActorLabel() : FString());
+    OutMessage = FString::Printf(TEXT("Cut/fill applied along %.0f uu of road (%d dabs)."),
+                                 SplineLength, DabCount);
+    return true;
+}
+
+/** Furniture scatter with lateral offsets along the spline. */
+bool McpRoadScatterFurniture(USplineComponent *Spline, const FMcpRoadRecipeConfig &Config,
+                             const FMcpRoadFurnitureEntry &Entry, int32 EntryIndex,
+                             TSharedPtr<FJsonObject> &OutResult, FString &OutMessage, FString &OutErrorCode)
+{
+    if (!Spline || !Spline->GetWorld())
+    {
+        OutErrorCode = TEXT("SPLINE_NOT_FOUND");
+        OutMessage = TEXT("Road spline not found for furniture scatter.");
+        return false;
+    }
+    UWorld *World = Spline->GetWorld();
+    UStaticMesh *StaticMesh = LoadObject<UStaticMesh>(nullptr, *Entry.MeshPath);
+    if (!StaticMesh)
+    {
+        OutErrorCode = TEXT("ASSET_NOT_FOUND");
+        OutMessage = FString::Printf(TEXT("Furniture mesh not found: %s"), *Entry.MeshPath);
+        return false;
+    }
+
+    const FString MeshBase = SanitizeAssetName(FPaths::GetBaseFilename(Entry.MeshPath));
+    const FString ActorLabel = FString::Printf(TEXT("%s_Furniture_%d_%s"), *Config.RoadName, EntryIndex, *MeshBase);
+    AActor *Actor = nullptr;
+    for (TActorIterator<AActor> It(World); It; ++It)
+    {
+        AActor *Candidate = *It;
+        if (Candidate && Candidate->ActorHasTag(TEXT("MCP.GeneratedLandscapeFoliage")) &&
+            Candidate->GetActorLabel().Equals(ActorLabel, ESearchCase::IgnoreCase))
+        {
+            Actor = Candidate;
+            break;
+        }
+    }
+    UHierarchicalInstancedStaticMeshComponent *Hism = nullptr;
+    if (!Actor)
+    {
+        const FScopedTransaction Transaction(FText::FromString(TEXT("Create Road Furniture Collection")));
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.ObjectFlags |= RF_Transactional;
+        Actor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+        if (!Actor)
+        {
+            OutErrorCode = TEXT("SPAWN_FAILED");
+            OutMessage = TEXT("Failed to spawn furniture collection actor.");
+            return false;
+        }
+        Actor->SetIsSpatiallyLoaded(false);
+        Actor->SetActorLabel(ActorLabel);
+        Actor->Tags.Add(TEXT("MCP.GeneratedLandscapeFoliage"));
+        Actor->Tags.Add(FName(*(FString(TEXT("MCP.GeneratedLandscapeFoliage.Name=")) + ActorLabel)));
+        USceneComponent *Root = NewObject<USceneComponent>(Actor, TEXT("RoadFurnitureRoot"), RF_Transactional);
+        Actor->AddInstanceComponent(Root);
+        Actor->SetRootComponent(Root);
+        Root->RegisterComponent();
+    }
+    else
+    {
+        for (UActorComponent *Component : Actor->GetComponents())
+        {
+            if (UHierarchicalInstancedStaticMeshComponent *Candidate =
+                    Cast<UHierarchicalInstancedStaticMeshComponent>(Component))
+            {
+                if (Candidate->GetStaticMesh() == StaticMesh)
+                {
+                    Hism = Candidate;
+                    break;
+                }
+            }
+        }
+    }
+    if (!Hism)
+    {
+        Hism = NewObject<UHierarchicalInstancedStaticMeshComponent>(Actor, NAME_None, RF_Transactional);
+        Actor->AddInstanceComponent(Hism);
+        Hism->SetStaticMesh(StaticMesh);
+        Hism->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Hism->SetupAttachment(Actor->GetRootComponent());
+        Hism->RegisterComponent();
+    }
+
+    const FScopedTransaction Transaction(FText::FromString(TEXT("Scatter Road Furniture")));
+    Actor->Modify();
+    FRandomStream Random(Config.Seed + EntryIndex * 104729);
+
+    const float SplineLength = Spline->GetSplineLength();
+    const double Spacing = FMath::Max(50.0, Entry.Spacing);
+    TArray<double> Offsets;
+    Offsets.Add(Entry.Offset);
+    if (Entry.bBothSides && !FMath::IsNearlyZero(Entry.Offset))
+        Offsets.Add(-Entry.Offset);
+
+    int32 Placed = 0;
+    for (double Distance = 0.0; Distance <= SplineLength; Distance += Spacing)
+    {
+        const FVector Base = Spline->GetLocationAtDistanceAlongSpline(
+            static_cast<float>(Distance), ESplineCoordinateSpace::World);
+        const FVector Tangent = Spline->GetTangentAtDistanceAlongSpline(
+            static_cast<float>(Distance), ESplineCoordinateSpace::World).GetSafeNormal();
+        const FVector Right = FVector::CrossProduct(FVector::UpVector, Tangent).GetSafeNormal();
+        const double Yaw = Entry.bAlignToSpline
+            ? FMath::RadiansToDegrees(FMath::Atan2(Tangent.Y, Tangent.X))
+            : Random.FRandRange(0.0, 360.0);
+        for (double Lateral : Offsets)
+        {
+            FVector Position = Base + Right * Lateral;
+            if (Entry.bProjectToSurface)
+            {
+                FHitResult Hit;
+                const FVector Start = Position + FVector(0.0, 0.0, 20000.0);
+                if (!World->LineTraceSingleByChannel(Hit, Start, Start - FVector(0.0, 0.0, 40000.0),
+                                                     ECC_WorldStatic))
+                    continue;
+                Position = Hit.ImpactPoint + Hit.ImpactNormal * static_cast<float>(Entry.SurfaceOffset);
+            }
+            const float Scale = Random.FRandRange(static_cast<float>(Entry.MinScale),
+                                                  static_cast<float>(Entry.MaxScale));
+            Hism->AddInstance(FTransform(FRotator(0.0f, static_cast<float>(Yaw), 0.0f), Position, FVector(Scale)));
+            ++Placed;
+        }
+    }
+
+    if (Placed > 0)
+    {
+        Actor->MarkPackageDirty();
+        McpSafeAssetSave(Actor);
+    }
+
+    OutResult = McpHandlerUtils::CreateResultObject();
+    OutResult->SetBoolField(TEXT("success"), true);
+    OutResult->SetStringField(TEXT("actorLabel"), ActorLabel);
+    OutResult->SetNumberField(TEXT("instancesPlaced"), Placed);
+    OutResult->SetStringField(TEXT("mesh"), Entry.MeshPath);
+    OutMessage = FString::Printf(TEXT("Furniture '%s' scattered: %d instances."), *MeshBase, Placed);
+    return true;
+}
+
+/** Junction discs: flatten terrain and optionally spawn a center mesh. */
+bool McpRoadBuildJunctions(UWorld *World, const FMcpRoadRecipeConfig &Config,
+                           TSharedPtr<FJsonObject> &OutResult, FString &OutMessage, FString &OutErrorCode)
+{
+    if (!World)
+    {
+        OutErrorCode = TEXT("INVALID_WORLD");
+        OutMessage = TEXT("No world for junction construction.");
+        return false;
+    }
+    int32 BuiltJunctions = 0;
+    int32 SpawnedMeshes = 0;
+    for (const FMcpRoadJunction &Junction : Config.Junctions)
+    {
+        ALandscape *Landscape = McpRoadResolveLandscape(World, Config.LandscapeName, Junction.Location);
+        if (!Landscape)
+        {
+            OutErrorCode = TEXT("LANDSCAPE_NOT_FOUND");
+            OutMessage = TEXT("No landscape under a road junction.");
+            return false;
+        }
+        // Average the terrain height around the junction center first.
+        FHitResult CenterHit;
+        const FVector Start = Junction.Location + FVector(0.0, 0.0, 50000.0);
+        double TargetZ = Junction.Location.Z;
+        if (World->LineTraceSingleByChannel(CenterHit, Start, Start - FVector(0.0, 0.0, 100000.0),
+                                            ECC_WorldStatic))
+            TargetZ = CenterHit.ImpactPoint.Z;
+        const double Radius = FMath::Max(100.0, Junction.Radius);
+        const int32 Modified = McpWorldBrushApplyHeightDab(Landscape, Junction.Location,
+                                                           EMcpWorldBrushTool::Flatten, Radius, 1.0,
+                                                           0.25, TargetZ);
+        if (Modified < 0)
+        {
+            OutErrorCode = TEXT("JUNCTION_FAILED");
+            OutMessage = TEXT("Junction terrain flatten failed.");
+            return false;
+        }
+        if (!Junction.JunctionMeshPath.IsEmpty())
+        {
+            UStaticMesh *Mesh = LoadObject<UStaticMesh>(nullptr, *Junction.JunctionMeshPath);
+            if (!Mesh)
+            {
+                OutErrorCode = TEXT("ASSET_NOT_FOUND");
+                OutMessage = FString::Printf(TEXT("Junction mesh not found: %s"), *Junction.JunctionMeshPath);
+                return false;
+            }
+            const FScopedTransaction Transaction(FText::FromString(TEXT("Spawn Road Junction Mesh")));
+            FActorSpawnParameters SpawnParams;
+            SpawnParams.ObjectFlags |= RF_Transactional;
+            AStaticMeshActor *JunctionActor = World->SpawnActor<AStaticMeshActor>(
+                AStaticMeshActor::StaticClass(),
+                FVector(Junction.Location.X, Junction.Location.Y, TargetZ), FRotator::ZeroRotator, SpawnParams);
+            if (!JunctionActor)
+            {
+                OutErrorCode = TEXT("SPAWN_FAILED");
+                OutMessage = TEXT("Failed to spawn junction mesh actor.");
+                return false;
+            }
+            JunctionActor->SetActorLabel(
+                FString::Printf(TEXT("%s_Junction_%d"), *Config.RoadName, BuiltJunctions));
+            JunctionActor->GetStaticMeshComponent()->SetStaticMesh(Mesh);
+            JunctionActor->MarkPackageDirty();
+            ++SpawnedMeshes;
+        }
+        FString SaveError;
+        if (!McpWorldBrushEndStroke(Landscape, SaveError))
+        {
+            OutErrorCode = TEXT("SAVE_FAILED");
+            OutMessage = SaveError;
+            return false;
+        }
+        ++BuiltJunctions;
+    }
+
+    OutResult = McpHandlerUtils::CreateResultObject();
+    OutResult->SetBoolField(TEXT("success"), true);
+    OutResult->SetNumberField(TEXT("junctionCount"), BuiltJunctions);
+    OutResult->SetNumberField(TEXT("spawnedMeshes"), SpawnedMeshes);
+    OutMessage = FString::Printf(TEXT("Road junctions built: %d flattened, %d meshes spawned."),
+                                 BuiltJunctions, SpawnedMeshes);
+    return true;
+}
+
+/** River water: WaterBodyRiver actor following the spline profile. */
+bool McpRoadBuildWater(USplineComponent *Spline, const FMcpRoadRecipeConfig &Config,
+                       TSharedPtr<FJsonObject> &OutResult, FString &OutMessage, FString &OutErrorCode)
+{
+    if (!Spline || !Spline->GetWorld())
+    {
+        OutErrorCode = TEXT("SPLINE_NOT_FOUND");
+        OutMessage = TEXT("Road spline not found for water construction.");
+        return false;
+    }
+    UWorld *World = Spline->GetWorld();
+    UClass *WaterClass = LoadClass<AActor>(nullptr, TEXT("/Script/Water.WaterBodyRiver"));
+    if (!WaterClass)
+    {
+        OutErrorCode = TEXT("WATER_UNAVAILABLE");
+        OutMessage = TEXT("Water plugin WaterBodyRiver class is unavailable in this project.");
+        return false;
+    }
+
+    const int32 PointCount = Spline->GetNumberOfSplinePoints();
+    if (PointCount < 2)
+    {
+        OutErrorCode = TEXT("INVALID_SPLINE");
+        OutMessage = TEXT("River spline needs at least two points for water.");
+        return false;
+    }
+
+    const FString WaterName = FString::Printf(TEXT("%s_Water"), *Config.RoadName);
+    AActor *WaterActor = nullptr;
+    for (TActorIterator<AActor> It(World); It; ++It)
+    {
+        AActor *Candidate = *It;
+        if (Candidate && Candidate->IsA(WaterClass) &&
+            Candidate->GetActorLabel().Equals(WaterName, ESearchCase::IgnoreCase))
+        {
+            WaterActor = Candidate;
+            break;
+        }
+    }
+    if (!WaterActor)
+    {
+        const FScopedTransaction Transaction(FText::FromString(TEXT("Create River Water Body")));
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.ObjectFlags |= RF_Transactional;
+        const FVector StartLocation = Spline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
+        WaterActor = World->SpawnActor<AActor>(WaterClass, StartLocation, FRotator::ZeroRotator, SpawnParams);
+        if (!WaterActor)
+        {
+            OutErrorCode = TEXT("SPAWN_FAILED");
+            OutMessage = TEXT("Failed to spawn WaterBodyRiver actor.");
+            return false;
+        }
+        WaterActor->SetActorLabel(WaterName);
+    }
+
+    USplineComponent *WaterSpline = WaterActor->FindComponentByClass<USplineComponent>();
+    int32 CopiedPoints = 0;
+    if (WaterSpline)
+    {
+        TArray<FVector> LocalPoints;
+        LocalPoints.Reserve(PointCount);
+        const FTransform WaterTransform = WaterActor->GetActorTransform();
+        for (int32 Index = 0; Index < PointCount; ++Index)
+        {
+            const FVector WorldPoint = Spline->GetLocationAtSplinePoint(Index, ESplineCoordinateSpace::World);
+            LocalPoints.Add(WaterTransform.InverseTransformPosition(WorldPoint));
+        }
+        WaterSpline->SetSplinePoints(LocalPoints, ESplineCoordinateSpace::Local, true);
+        CopiedPoints = LocalPoints.Num();
+    }
+
+    WaterActor->MarkPackageDirty();
+    if (!McpSafeLevelSave(World->PersistentLevel, World->GetOutermost()->GetName()))
+    {
+        OutErrorCode = TEXT("SAVE_FAILED");
+        OutMessage = TEXT("River water actor could not be saved.");
+        return false;
+    }
+
+    OutResult = McpHandlerUtils::CreateResultObject();
+    OutResult->SetBoolField(TEXT("success"), true);
+    OutResult->SetStringField(TEXT("waterActor"), WaterName);
+    OutResult->SetStringField(TEXT("waterActorPath"), WaterActor->GetPathName());
+    OutResult->SetNumberField(TEXT("copiedSplinePoints"), CopiedPoints);
+    OutMessage = FString::Printf(TEXT("River water follows the spline (%d points)."), CopiedPoints);
+    return true;
+}
+#endif
+} // namespace
+
+void UNebulaForgeBridgeSubsystem::BeginBuildRoad(
+    const FString &RequestId, const FString &Action, const TSharedPtr<FJsonObject> &Payload,
+    TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+    const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)> &Completion)
+{
+    auto Fail = [&](const FString &Message, const FString &Code)
+    {
+        if (Completion)
+        {
+            TSharedPtr<FJsonObject> Error = McpHandlerUtils::CreateResultObject();
+            Error->SetBoolField(TEXT("success"), false);
+            Error->SetStringField(TEXT("error"), Message);
+            Completion(false, Error);
+        }
+        else
+        {
+            SendAutomationError(RequestingSocket, RequestId, Message, Code);
+        }
+    };
+
+    if (IsWorldRecipeChainActive())
+    {
+        Fail(TEXT("A world recipe chain is already running."), TEXT("RECIPE_BUSY"));
+        return;
+    }
+
+    FMcpRoadRecipeConfig Config;
+    McpRoadApplyPayload(Payload, Config);
+    if (Action.ToLower() == TEXT("build_river"))
+        Config.RoadKind = TEXT("river");
+    if (Config.RoadKind != TEXT("road") && Config.RoadKind != TEXT("river") &&
+        Config.RoadKind != TEXT("path"))
+    {
+        Fail(FString::Printf(TEXT("Invalid roadKind '%s'. Use road, river, or path."), *Config.RoadKind),
+             TEXT("INVALID_ARGUMENT"));
+        return;
+    }
+    if (Config.RoadKind == TEXT("river") && !Payload->HasField(TEXT("water")))
+        Config.bWater = true;
+    if (Config.RoutePoints.Num() < 2)
+    {
+        Fail(TEXT("build_road requires at least two routePoints."), TEXT("INVALID_ARGUMENT"));
+        return;
+    }
+
+    if (!GEditor || !GEditor->GetEditorWorldContext().World() ||
+        !GEditor->GetEditorWorldContext().World()->GetOutermost()->GetName().StartsWith(TEXT("/Game/")))
+    {
+        Fail(TEXT("build_road requires a saved /Game map. Create or load the destination map first."),
+             TEXT("MAP_NOT_SAVED"));
+        return;
+    }
+
+    const TCHAR *SplineAction = Config.RoadKind == TEXT("river") ? TEXT("create_river_spline")
+                              : Config.RoadKind == TEXT("path")  ? TEXT("create_path_spline")
+                                                                 : TEXT("create_road_spline");
+    const FString CapturedRoadName = Config.RoadName;
+
+    TArray<FMcpWorldRecipeStep> Steps;
+
+    {
+        TSharedPtr<FJsonObject> SplinePayload = McpRecipeMakeStepPayload(SplineAction);
+        SplinePayload->SetStringField(TEXT("actorName"), Config.RoadName);
+        SplinePayload->SetStringField(TEXT("coordinateSpace"), TEXT("World"));
+        TArray<TSharedPtr<FJsonValue>> PointsCopy = Config.RoutePoints;
+        SplinePayload->SetArrayField(TEXT("points"), PointsCopy);
+        SplinePayload->SetNumberField(TEXT("width"), Config.RoadWidth);
+        SplinePayload->SetBoolField(TEXT("conformToLandscape"), true);
+        SplinePayload->SetNumberField(TEXT("surfaceOffset"), Config.SurfaceOffset);
+        SplinePayload->SetNumberField(TEXT("maxSlopeDegrees"), Config.MaxSlopeDegrees);
+        FMcpWorldRecipeStep Step;
+        Step.Action = TEXT("build_environment");
+        Step.Label = FString::Printf(TEXT("create %s spline %s"), *Config.RoadKind, *Config.RoadName);
+        Step.Payload = SplinePayload;
+        // Cut/fill, roadbed, furniture, junctions, and water all need the spline.
+        Step.bAbortOnFailure = true;
+        Steps.Add(MoveTemp(Step));
+    }
+
+    if (Config.bCutFill && !Config.bSkipTerrain)
+    {
+        const FMcpRoadRecipeConfig CapturedConfig = Config;
+        FMcpWorldRecipeStep Step;
+        Step.Label = TEXT("cut/fill terrain to road profile");
+        Step.CustomStep = [CapturedConfig, CapturedRoadName](
+                              const FGuid &, TSharedPtr<FJsonObject> &OutResult,
+                              FString &OutMessage, FString &OutErrorCode) -> bool
+        {
+            UWorld *World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+            if (!World)
+            {
+                OutErrorCode = TEXT("INVALID_WORLD");
+                OutMessage = TEXT("No editor world for cut/fill.");
+                return false;
+            }
+            USplineComponent *Spline = McpRoadFindSpline(World, CapturedRoadName);
+            return McpRoadApplyCutFill(Spline, CapturedConfig, OutResult, OutMessage, OutErrorCode);
+        };
+        Steps.Add(MoveTemp(Step));
+    }
+
+    if (!Config.bSkipRoadbed && !Config.RoadbedMeshPath.IsEmpty())
+    {
+        TSharedPtr<FJsonObject> RoadbedPayload = McpRecipeMakeStepPayload(TEXT("generate_spline_mesh_segments"));
+        RoadbedPayload->SetStringField(TEXT("actorName"), Config.RoadName);
+        RoadbedPayload->SetStringField(TEXT("meshPath"), Config.RoadbedMeshPath);
+        if (!Config.RoadbedMaterialPath.IsEmpty())
+            RoadbedPayload->SetStringField(TEXT("materialPath"), Config.RoadbedMaterialPath);
+        RoadbedPayload->SetStringField(TEXT("forwardAxis"), Config.ForwardAxis);
+        RoadbedPayload->SetBoolField(TEXT("collisionEnabled"), Config.bCollisionEnabled);
+        FMcpWorldRecipeStep Step;
+        Step.Action = TEXT("build_environment");
+        Step.Label = TEXT("generate roadbed mesh segments");
+        Step.Payload = RoadbedPayload;
+        Steps.Add(MoveTemp(Step));
+    }
+
+    int32 FurnitureIndex = 0;
+    for (const FMcpRoadFurnitureEntry &Entry : Config.Furniture)
+    {
+        if (Config.bSkipFurniture)
+            break;
+        const FMcpRoadFurnitureEntry CapturedEntry = Entry;
+        const FMcpRoadRecipeConfig CapturedConfig = Config;
+        const int32 CapturedIndex = FurnitureIndex;
+        FMcpWorldRecipeStep Step;
+        Step.Label = FString::Printf(TEXT("scatter furniture %s"), *FPaths::GetBaseFilename(Entry.MeshPath));
+        Step.CustomStep = [CapturedConfig, CapturedEntry, CapturedIndex, CapturedRoadName](
+                              const FGuid &, TSharedPtr<FJsonObject> &OutResult,
+                              FString &OutMessage, FString &OutErrorCode) -> bool
+        {
+            UWorld *World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+            if (!World)
+            {
+                OutErrorCode = TEXT("INVALID_WORLD");
+                OutMessage = TEXT("No editor world for furniture scatter.");
+                return false;
+            }
+            USplineComponent *Spline = McpRoadFindSpline(World, CapturedRoadName);
+            return McpRoadScatterFurniture(Spline, CapturedConfig, CapturedEntry, CapturedIndex,
+                                           OutResult, OutMessage, OutErrorCode);
+        };
+        Steps.Add(MoveTemp(Step));
+        ++FurnitureIndex;
+    }
+
+    if (!Config.bSkipJunctions && Config.Junctions.Num() > 0)
+    {
+        const FMcpRoadRecipeConfig CapturedConfig = Config;
+        FMcpWorldRecipeStep Step;
+        Step.Label = FString::Printf(TEXT("build %d road junctions"), Config.Junctions.Num());
+        Step.CustomStep = [CapturedConfig](
+                              const FGuid &, TSharedPtr<FJsonObject> &OutResult,
+                              FString &OutMessage, FString &OutErrorCode) -> bool
+        {
+            UWorld *World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+            return McpRoadBuildJunctions(World, CapturedConfig, OutResult, OutMessage, OutErrorCode);
+        };
+        Steps.Add(MoveTemp(Step));
+    }
+
+    if ((Config.RoadKind == TEXT("river") || Config.bWater) && !Config.bSkipWater)
+    {
+        const FMcpRoadRecipeConfig CapturedConfig = Config;
+        FMcpWorldRecipeStep Step;
+        Step.Label = TEXT("create river water body");
+        Step.CustomStep = [CapturedConfig, CapturedRoadName](
+                              const FGuid &, TSharedPtr<FJsonObject> &OutResult,
+                              FString &OutMessage, FString &OutErrorCode) -> bool
+        {
+            UWorld *World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+            if (!World)
+            {
+                OutErrorCode = TEXT("INVALID_WORLD");
+                OutMessage = TEXT("No editor world for water construction.");
+                return false;
+            }
+            USplineComponent *Spline = McpRoadFindSpline(World, CapturedRoadName);
+            return McpRoadBuildWater(Spline, CapturedConfig, OutResult, OutMessage, OutErrorCode);
+        };
+        Steps.Add(MoveTemp(Step));
+    }
+
+    RecipeSummaryMeta = McpHandlerUtils::CreateResultObject();
+    RecipeSummaryMeta->SetStringField(TEXT("roadName"), Config.RoadName);
+    RecipeSummaryMeta->SetStringField(TEXT("roadKind"), Config.RoadKind);
+    RecipeSummaryMeta->SetNumberField(TEXT("seed"), Config.Seed);
+    RecipeSummaryMeta->SetNumberField(TEXT("routePointCount"), Config.RoutePoints.Num());
+    RecipeSummaryMeta->SetNumberField(TEXT("junctionCount"), Config.Junctions.Num());
+    RecipeSummaryMeta->SetNumberField(TEXT("furnitureEntryCount"), Config.Furniture.Num());
+
+    RecipeSteps = MoveTemp(Steps);
+    RecipeStepResults.Reset();
+    RecipeStepIndex = 0;
+    RecipeFailedSteps = 0;
+    RecipeSkippedSteps = 0;
+    RecipeRequestId = RequestId;
+    RecipeSocket = RequestingSocket;
+    RecipeCompletion = Completion;
+    RecipeCapturedResponse.Reset();
+    bRecipeCapturing = false;
+
+    UE_LOG(LogMcpWorldRecipes, Log,
+           TEXT("Starting road recipe chain: request=%s steps=%d road=%s kind=%s"),
+           *RequestId, RecipeSteps.Num(), *Config.RoadName, *Config.RoadKind);
+
+    const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+    AsyncTask(ENamedThreads::GameThread, [WeakThis]()
+              {
+        if (UNebulaForgeBridgeSubsystem *Subsystem = WeakThis.Get())
+            Subsystem->RunNextWorldRecipeStep(); });
+}
+
+// =============================================================================
 // Section C: Action Dispatch
 // =============================================================================
 
@@ -1551,7 +2390,8 @@ bool UNebulaForgeBridgeSubsystem::HandleWorldRecipeAction(
     const FString Lower = Action.ToLower();
     if (Lower != TEXT("generate_world") && Lower != TEXT("apply_biome") &&
         Lower != TEXT("create_biome_preset") && Lower != TEXT("inspect_biome_preset") &&
-        Lower != TEXT("list_biome_presets"))
+        Lower != TEXT("list_biome_presets") && Lower != TEXT("build_road") &&
+        Lower != TEXT("build_river"))
     {
         return false;
     }
@@ -1563,6 +2403,22 @@ bool UNebulaForgeBridgeSubsystem::HandleWorldRecipeAction(
         return HandleInspectBiomePreset(RequestId, Payload, RequestingSocket);
     if (Lower == TEXT("list_biome_presets"))
         return HandleListBiomePresets(RequestId, RequestingSocket);
+    if (Lower == TEXT("build_road") || Lower == TEXT("build_river"))
+    {
+        if (!Payload.IsValid())
+        {
+            SendAutomationError(RequestingSocket, RequestId, TEXT("build_road payload missing"),
+                                TEXT("INVALID_PAYLOAD"));
+            return true;
+        }
+        const TWeakObjectPtr<UNebulaForgeBridgeSubsystem> WeakThis(this);
+        const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)> NoCompletion;
+        AsyncTask(ENamedThreads::GameThread, [WeakThis, RequestId, Lower, Payload, RequestingSocket, NoCompletion]()
+                  {
+            if (UNebulaForgeBridgeSubsystem *Subsystem = WeakThis.Get())
+                Subsystem->BeginBuildRoad(RequestId, Lower, Payload, RequestingSocket, NoCompletion); });
+        return true;
+    }
 
     // generate_world / apply_biome: validate the payload synchronously, then
     // build the step chain on the game thread. The single combined response is

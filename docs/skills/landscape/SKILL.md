@@ -18,3 +18,8 @@ radius/strength/falloff controls. Programmatic single dabs stay available throug
 `sculpt_landscape` (toolMode Raise/Lower/Flatten/Smooth), `paint_landscape_layer`,
 and `scatter_landscape_foliage`.
 
+For roads and rivers, use `build_road` (or `build_river`): terrain-conformed
+spline, cut/fill corridor, roadbed segments from your mesh, furniture scatter
+with lateral offsets for guardrails/lamps/markings, junction discs, and river
+water following the spline. Same seed regenerates deterministically.
+

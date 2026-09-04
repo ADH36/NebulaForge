@@ -830,6 +830,12 @@ private:
       TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
       const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
           &Completion);
+  /** Shared build_road / build_river entry. Must be called on the game thread. */
+  void BeginBuildRoad(
+      const FString &RequestId, const FString &Action, const TSharedPtr<FJsonObject> &Payload,
+      TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+      const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
+          &Completion);
   bool HandleCreateNiagaraSystemNative(
       const FString &RequestId, const FString &Action,
       const TSharedPtr<FJsonObject> &Payload,

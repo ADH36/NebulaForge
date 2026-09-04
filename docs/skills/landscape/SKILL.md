@@ -13,7 +13,10 @@ PASS/PARTIAL/FAIL evidence. Same seed and preset regenerate deterministically; p
 
 For interactive work, use the World Brush editor mode (Modes panel, or the Brush
 section of the Generate World tab): Raise, Lower, Flatten, and Smooth height
-strokes, additive layer painting, and accumulating HISM foliage scatter, all with
+strokes, multi-material layer painting (primary + 3 extra layers per dab),
+accumulating HISM foliage scatter, a River brush (drag a course: carves the
+channel live, builds WaterBodyRiver water on release), and a Road Spline brush
+(click route points, then Build Road for a cut/fill road) — all with
 radius/strength/falloff controls. Programmatic single dabs stay available through
 `sculpt_landscape` (toolMode Raise/Lower/Flatten/Smooth), `paint_landscape_layer`,
 and `scatter_landscape_foliage`.

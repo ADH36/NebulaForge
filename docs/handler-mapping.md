@@ -291,7 +291,7 @@ The focused domain parents `manage_materials`, `manage_lighting`, `manage_input`
 | :--- | :--- | :--- | :--- |
 | `create_landscape` | `NebulaForgeBridge_LandscapeHandlers.cpp` | `HandleCreateLandscape` | |
 | `sculpt` | `NebulaForgeBridge_LandscapeHandlers.cpp` | `HandleSculptLandscape` | Tool modes: Raise, Lower, Flatten, Smooth. Smooth blends toward the regional average. |
-| world brush mode | `Brush/McpWorldBrushEdMode.cpp`, `Brush/McpWorldBrushOps.cpp` | `FMcpWorldBrushEdMode` | Interactive viewport brush (Modes panel, Generate World tab): Raise/Lower/Flatten/Smooth strokes, additive layer paint, accumulating HISM foliage scatter. Transacted strokes with persistence on release. |
+| world brush mode | `Brush/McpWorldBrushEdMode.cpp`, `Brush/McpWorldBrushOps.cpp` | `FMcpWorldBrushEdMode` | Interactive viewport brush (Modes panel, Generate World tab): Raise/Lower/Flatten/Smooth strokes, multi-material layer paint stack, accumulating HISM foliage scatter, River brush (live channel carve + WaterBodyRiver on release), Road Spline brush (click route points + Build Road via build_road recipe). Transacted strokes with persistence on release. |
 | `paint_foliage` | `NebulaForgeBridge_FoliageHandlers.cpp` | `HandlePaintFoliage` | |
 | `add_foliage_instances` | `NebulaForgeBridge_FoliageHandlers.cpp` | `HandleAddFoliageInstances` | |
 | `get_foliage_instances` | `NebulaForgeBridge_FoliageHandlers.cpp` | `HandleGetFoliageInstances` | |

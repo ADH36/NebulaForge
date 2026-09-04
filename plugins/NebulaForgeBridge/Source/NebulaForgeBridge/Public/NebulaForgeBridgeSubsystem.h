@@ -228,6 +228,13 @@ public:
   /** True while a world recipe chain is executing. */
   bool IsWorldRecipeChainActive() const;
 
+  /** Shared build_road / build_river entry. Must be called on the game thread. */
+  void BeginBuildRoad(
+      const FString &RequestId, const FString &Action, const TSharedPtr<FJsonObject> &Payload,
+      TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
+      const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
+          &Completion);
+
   /** Collects all UMcpBiomePreset asset paths under /Game (capped, sorted). */
   bool ListBiomePresetAssetPaths(TArray<FString> &OutPaths) const;
 
@@ -827,12 +834,6 @@ private:
    * Must be called on the game thread. */
   void BeginGenerateWorld(
       const FString &RequestId, const TSharedPtr<FJsonObject> &Payload,
-      TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
-      const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
-          &Completion);
-  /** Shared build_road / build_river entry. Must be called on the game thread. */
-  void BeginBuildRoad(
-      const FString &RequestId, const FString &Action, const TSharedPtr<FJsonObject> &Payload,
       TSharedPtr<FMcpBridgeWebSocket> RequestingSocket,
       const TFunction<void(bool bSuccess, const TSharedPtr<FJsonObject> &Result)>
           &Completion);
